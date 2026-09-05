@@ -38,6 +38,8 @@ curl -fsS -X DELETE http://localhost:7263/api/user-compositions/my-composition
 
 `GET /api/user-compositions/<slug>` returns the exact standalone wire format accepted by `PUT`: annotation bodies and chat messages are strings, not the engine's transformed runtime structures. This symmetry is the agent edit loop: GET, edit JSON, PUT, reopen in the GUI. Invalid JSON, schema fields, Packs, Pipeline variants, Effect parameters, assets, or cross-references are rejected before persistence with a path-qualified response message.
 
+A slug the store holds nothing for is `null`, not an error. A stored composition this engine will not accept — because a schema field or an authoring rule tightened after it was saved — is **409** with every finding named; the store read fine, so this reports the author's work going stale rather than a failure of this origin, and it stays a log line instead of a Sentry issue ([`sentry-dev-flow.md`](sentry-dev-flow.md): 4xx = log, 5xx = issue). Only a file that is not a store document at all is a 500.
+
 ### Media assets and composition membership
 
 Media asset bytes live separately from Preset JSON in the installation-wide local content-addressed asset store. Ingest an MP4, MOV, or WebM before adding a composition-scoped Media library entry that references the returned `url`:

@@ -367,7 +367,7 @@ describe('user composition handlers', () => {
 		);
 	});
 
-	it('rejects corrupt preset data from a slug GET', async () => {
+	it('refuses a schema-invalid stored composition from a slug GET without filing it as a server fault', async () => {
 		fsMocks.readFile.mockResolvedValue(
 			JSON.stringify({
 				meta: { forkedFrom: null, savedAt: '2026-07-14T12:00:00.000Z' },
@@ -380,7 +380,19 @@ describe('user composition handlers', () => {
 				slugHandlers.GET({
 					params: { slug: 'corrupt' }
 				} as Parameters<(typeof slugHandlers)['GET']>[0]),
-			expectHttpError(500, 'Corrupt preset data')
+			expectHttpError(409, 'is not one this engine accepts')
+		);
+	});
+
+	it('answers 500 only when the stored file is not a store document at all', async () => {
+		fsMocks.readFile.mockResolvedValue(JSON.stringify({ preset: { name: 'No meta' } }));
+
+		await assert.rejects(
+			async () =>
+				slugHandlers.GET({
+					params: { slug: 'not-a-store-document' }
+				} as Parameters<(typeof slugHandlers)['GET']>[0]),
+			expectHttpError(500, 'Corrupt user composition file')
 		);
 	});
 
@@ -473,6 +485,9 @@ describe('user composition handlers', () => {
 			expectHttpError(400, 'domains must include zero')
 		);
 
+		// GFX-COMPUTER-18 / -19: a stored chart whose domain stopped being allowed
+		// after it was saved is the author's work going stale, not this origin
+		// failing. A 5xx here filed one Sentry issue every time they opened it.
 		fsMocks.readFile.mockResolvedValue(
 			JSON.stringify({
 				meta: { forkedFrom: null, savedAt: '2026-08-07T12:00:00.000Z' },
@@ -484,7 +499,7 @@ describe('user composition handlers', () => {
 				slugHandlers.GET({
 					params: { slug: 'invalid-chart' }
 				} as Parameters<(typeof slugHandlers)['GET']>[0]),
-			expectHttpError(500, 'Corrupt preset data')
+			expectHttpError(409, 'domains must include zero')
 		);
 	});
 

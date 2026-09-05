@@ -94,11 +94,28 @@ async function readUserCompositionWirePreset(
 		error(500, 'Corrupt user composition file');
 	}
 
+	// A stored document this engine will not accept is the author's work being out
+	// of step with the current rules, not this origin failing: the file read, it
+	// is a store document, and it is well-formed JSON. Answering 5xx called every
+	// such read a server fault and filed one Sentry issue per open — that is what
+	// GFX-COMPUTER-18 and GFX-COMPUTER-19 are, both a stored line chart whose
+	// domain stopped being allowed after it was saved. 409 keeps the refusal and
+	// names every finding, and stays a log line rather than an issue
+	// (`docs/sentry-dev-flow.md`: 4xx = log, 5xx = issue). A file that is NOT a
+	// store document, above, is a broken store and remains a 500.
 	const result = PresetIngressSchema.safeParse(storedUserComposition.preset);
-	if (!result.success) error(500, `Corrupt preset data: ${result.error.message}`);
+	if (!result.success) {
+		error(
+			409,
+			`Stored composition "${slug}" is not one this engine accepts: ${result.error.message}`
+		);
+	}
 	const semanticIssues = validatePresetSemantics(result.data, { packScope: 'stored' });
 	if (semanticIssues.length > 0) {
-		error(500, `Corrupt preset data:\n${formatPresetSemanticIssues(semanticIssues)}`);
+		error(
+			409,
+			`Stored composition "${slug}" is not one this engine accepts:\n${formatPresetSemanticIssues(semanticIssues)}`
+		);
 	}
 	// The API is an interchange boundary: GET returns the same standalone wire.
 	// Stored compositions remain readable when immutable media goes missing so
