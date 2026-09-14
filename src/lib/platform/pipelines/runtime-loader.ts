@@ -244,6 +244,10 @@ const effectRendererLoaders: Record<string, RuntimeRendererLoader<EffectRenderer
 		import('$lib/pipelines/effects/dithering').then(
 			(module) => module.ditheringEffectRenderer as unknown as EffectRenderer
 		),
+	[PIPELINE_DEFINITION_REGISTRY.effects.pixelation.type]: () =>
+		import('$lib/pipelines/effects/pixelation').then(
+			(module) => module.pixelationEffectRenderer as unknown as EffectRenderer
+		),
 	[PIPELINE_DEFINITION_REGISTRY.effects.halftoneDots.type]: () =>
 		import('$lib/pipelines/effects/halftone-dots').then(
 			(module) => module.halftoneDotsEffectRenderer as unknown as EffectRenderer

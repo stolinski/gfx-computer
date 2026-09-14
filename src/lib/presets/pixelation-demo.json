@@ -1,0 +1,59 @@
+{
+	"schema": "gfx@1",
+	"kind": "fixture",
+	"name": "Pixelation — effect fixture",
+	"description": "Proving fixture for the pixelation Effect. Samples one exact source texel at the center of each stable 48×48 native-pixel cell, then holds that unchanged premultiplied color across the cell. The photographic gradients and high-contrast type make the square grid unmistakable while proving that the Effect adds no dither, posterization, palette remapping, blur, or background fill. Fixture — exercises the Pipeline, not held to the deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 4,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#0a0807",
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#2a2018",
+			"inkColor": "#fdf6ec"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "pullquote-on-photo",
+			"content": {
+				"title": "One sample. One square. Every color stays untouched.",
+				"author": "PIXELATION — 48 × 48 NATIVE PIXELS",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.08,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.06,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			}
+		},
+		"overlays": [],
+		"effects": [
+			{
+				"type": "pixelation",
+				"id": "pixels",
+				"params": {
+					"pixelSize": 48
+				}
+			}
+		]
+	}
+}

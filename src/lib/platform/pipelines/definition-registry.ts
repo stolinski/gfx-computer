@@ -22,6 +22,7 @@ import { halftoneDotsEffectDefinition } from '$lib/pipelines/effects/halftone-do
 import { heatmapEffectDefinition } from '$lib/pipelines/effects/heatmap/definition';
 import { ntscSignalEffectDefinition } from '$lib/pipelines/effects/ntsc-signal/definition';
 import { paperGrainEffectDefinition } from '$lib/pipelines/effects/paper-grain/definition';
+import { pixelationEffectDefinition } from '$lib/pipelines/effects/pixelation/definition';
 import { refractiveLensEffectDefinition } from '$lib/pipelines/effects/refractive-lens/definition';
 import { tiledDeformationEffectDefinition } from '$lib/pipelines/effects/tiled-deformation/definition';
 import { waterEffectDefinition } from '$lib/pipelines/effects/water/definition';
@@ -138,6 +139,7 @@ export const PIPELINE_DEFINITION_REGISTRY = {
 		crtTube: crtTubeEffectDefinition,
 		ntscSignal: ntscSignalEffectDefinition,
 		dithering: ditheringEffectDefinition,
+		pixelation: pixelationEffectDefinition,
 		halftoneDots: halftoneDotsEffectDefinition,
 		halftoneCmyk: halftoneCmykEffectDefinition,
 		water: waterEffectDefinition,

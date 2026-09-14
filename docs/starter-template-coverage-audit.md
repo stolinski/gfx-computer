@@ -6,12 +6,12 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **99 Presets** — **43 listed** and **56 fixtures**.
-- Structurally distinct Starter candidates: **43**.
+- Corpus: **103 Presets** — **45 listed** and **58 fixtures**.
+- Structurally distinct Starter candidates: **45**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
-- The **43 listed Starters are admitted cumulatively**, without another redundant corpus-wide capture: the retained corpus was ratified through the completed quality arc and honest-listing pass; `source-bug-nasa-archive` and `outro-watch-next` passed an exact 80/80 affected browser matrix and human-approved bundle under Dex `8zy3t3du`; the two title cards passed their affected all-Pack/orientation checks and exact human review under Dex `75u4vxtf`.
-- Current static validation covers all **172 Preset × Pack axes in both orientations**. It reports **22 non-blocking G12 warnings** on 11 direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `outro-watch-next`, `plastic-msw-destinations`, `title-card-brand-mark`, `title-card-chapter-heading`, and `wake-conversation-flow`. Each warning appears once per orientation.
+- The **45 listed Starters are admitted cumulatively**, without another redundant corpus-wide capture: the retained corpus was ratified through the completed quality arc and honest-listing pass; `source-bug-nasa-archive` and `outro-watch-next` passed an exact 80/80 affected browser matrix and human-approved bundle under Dex `8zy3t3du`; the two title cards passed their affected all-Pack/orientation checks and exact human review under Dex `75u4vxtf`; `website-filmed` and `headline-hands-on` were admitted through the completed 3D Canvas Upgrade.
+- Current static validation covers all **225 Preset × Pack axes in both orientations**. It reports **26 non-blocking G12 warnings** on 13 direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `headline-hands-on`, `outro-watch-next`, `plastic-msw-destinations`, `title-card-brand-mark`, `title-card-chapter-heading`, `wake-conversation-flow`, and `website-filmed`. Each warning appears once per orientation.
 - Dex `viga7o0n` was retired because it asked for another full pass over evidence already established by the baseline, affected matrices, and exact human decisions; no new creator capability or unresolved acceptance gap remained.
 
 A **Count** disposition means the Preset expresses a materially different register, composition language, creator job, or content domain. It does not mean a similarly named Pipeline variant automatically earns another listing. **Fold** means one Starter must represent the job. **Demote** means the composition is useful proof corpus but not a creator-facing starting point.
@@ -35,6 +35,7 @@ A **Count** disposition means the Preset expresses a materially different regist
 | `docu-map-journey`                 | Docu               | Explain a geographic journey                  | Count       | Distinct map composition and content domain.                                  |
 | `docu-stat-build`                  | Docu               | Build one documentary stat                    | Count       | Documentary stat-callout language.                                            |
 | `docu-timeline-build`              | Docu               | Explain a dated sequence                      | Count       | Timeline creator job and geometry.                                            |
+| `headline-hands-on`                | Type hero          | Open with dimensional type                    | Count       | Stage-body type is a distinct spatial title language.                         |
 | `imessage-friday-deploy`           | iMessage           | Recreate a short text conversation            | Count       | Canonical choreographed conversation Starter.                                 |
 | `instagram-follow`                 | Social beats       | Ask viewers to follow on Instagram            | Count       | Platform-specific creator CTA.                                                |
 | `lower-third`                      | Lower thirds       | Identify a speaker                            | Count       | Canonical identifier overlay.                                                 |
@@ -61,6 +62,7 @@ A **Count** disposition means the Preset expresses a materially different regist
 | `web-document-twitter`             | Web document       | Quote a public X/Twitter post                 | Count       | Canonical Twitter content domain.                                             |
 | `web-document-wikipedia`           | Web document       | Quote a Wikipedia article                     | Count       | Distinct faithful web content domain.                                         |
 | `web-document-youtube`             | Web document       | Quote a YouTube page                          | Count       | Distinct faithful web content domain.                                         |
+| `website-filmed`                   | Website screenshot | Film a captured site through a 3D camera      | Count       | Filmed-canvas staging is distinct from a browser showcase.                    |
 | `website-showcase`                 | Website screenshot | Present a creator-supplied website capture    | Count       | Stored-capture job differs from structured site mocks.                        |
 | `youtube-subscribe`                | Social beats       | Ask viewers to subscribe on YouTube           | Count       | Platform-specific creator CTA.                                                |
 
@@ -77,6 +79,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `chromatic-aberration-demo`                     | Effect proof         | Chromatic aberration               | Keep fixture | Isolated Effect proof.                                                |
 | `cloth-bend-demo`                               | Simulation proof     | Cloth bend                         | Keep fixture | Isolated simulation proof.                                            |
 | `counter-demo`                                  | Overlay proof        | Counter Pipeline                   | Keep fixture | Superseded as a Starter by `counter-milestone`.                       |
+| `crt-filmed`                                    | Stage proof          | Physical CRT stage body            | Keep fixture | Retained 3D Canvas Upgrade demo.                                      |
 | `crt-tube-demo`                                 | Effect proof         | CRT tube                           | Keep fixture | Isolated Effect proof.                                                |
 | `cursor-trail-demo`                             | Overlay proof        | Cursor trail                       | Keep fixture | Isolated Overlay proof.                                               |
 | `cursor-trail-title-sweep`                      | Overlay proof        | Cursor-trail targeting             | Keep fixture | Feature proof wrapped around a type hero, not a separate creator job. |
@@ -104,10 +107,12 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `ntsc-signal-demo`                              | Effect proof         | NTSC signal                        | Keep fixture | Isolated Effect proof.                                                |
 | `optical-glass-photo-fixture`                   | Effect proof         | Optical glass over photo           | Keep fixture | Isolated Effect proof.                                                |
 | `optical-lens-showcase`                         | Effect proof         | Refractive-lens composition        | Keep fixture | Effect study, not a durable creator job.                              |
+| `pixelation-demo`                               | Effect proof         | Clean pixelation                    | Keep fixture | Isolated Effect proof.                                                |
 | `quote-vertical`                                | Reflow proof         | Vertical paper quote               | Keep fixture | Historical orientation proof, not a sibling Starter.                  |
 | `shader-fill-demo`                              | Overlay proof        | Shader fill                        | Keep fixture | Isolated Overlay proof.                                               |
 | `shader-fill-syntax-gradient`                   | Pack proof           | Syntax shader-fill dress           | Keep fixture | Appearance proof, not a separate piece.                               |
 | `sound-escape-hatches`                          | Sound proof          | Cue overrides and mute             | Keep fixture | Sound contract proof.                                                 |
+| `stage-oblique-fixture`                         | Depth proof          | Oblique camera and posed planes    | Keep fixture | Filmed-canvas regression input.                                       |
 | `text-anim-showcase-generic`                    | Text-animation proof | Generic stagger                    | Keep fixture | Renderer-family proof.                                                |
 | `text-anim-showcase-kinetic-center-build`       | Text-animation proof | Kinetic center build               | Keep fixture | Renderer-family proof.                                                |
 | `text-anim-showcase-kinetic-top-build`          | Text-animation proof | Kinetic top build                  | Keep fixture | Renderer-family proof.                                                |
@@ -132,7 +137,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 
 The homepage exposes implementation-shaped families alongside creator-shaped families. `Charts`, `Captions`, `Flowcharts`, `Lower thirds`, and `Social beats` are useful. `Plain`, `Paper`, and `Type hero` still mix unrelated jobs because grouping falls back to Surface type. The audit does not change that mechanism; the listing-reconciliation task must use the current visible families and plain labels rather than hidden metadata.
 
-The 43 structurally honest candidates cover:
+The 45 structurally honest candidates cover:
 
 - title, chapter, and closing work: text-led and brand-led title cards, chapter card, title sequence, type hero, newspaper title, and a full-frame outro;
 - identification and progress: lower third, persistent archival source bug, counter, checklists, and achievements;
@@ -153,7 +158,8 @@ Transitions are editing decisions handled in DaVinci Resolve, not missing Starte
 1. **Listing hygiene reconciled — Dex `6o9l7x3p`.** Five duplicates are folded into their canonical Starters, four feature proofs are fixtures, and four counted Starter slugs no longer say “demo.” The picker now exposes the honest 39-entry baseline.
 2. **Close identifier and ending gaps — Dex `8zy3t3du`.** `source-bug-nasa-archive` and `outro-watch-next` now supply the two structurally distinct creator jobs and raise the honest baseline to 41. Final admission still requires the integrated deterministic matrix and exact-evidence human gate.
 3. **Replace the rejected opening candidate — Dex `75u4vxtf`.** `show-open-in-focus` was removed; one text-led title card based on `chapter-card-1-burnout` and one brand-led title card based on `chapter-card-syntax-logo` were admitted without their authored CRT filters. Transitions remain in the DaVinci Resolve edit.
-4. **Close cumulative admission — Dex `qfxr9r0n`.** The final honest count is **43**. Existing baseline ratification plus exact affected evidence for the four added Starters closes the library without rerunning unchanged Presets solely to restate their acceptance.
+4. **Close cumulative admission — Dex `qfxr9r0n`.** The honest count reached **43**. Existing baseline ratification plus exact affected evidence for the four added Starters closed that library state without rerunning unchanged Presets solely to restate their acceptance.
+5. **Add the 3D Canvas jobs.** The completed 3D Canvas Upgrade admitted `website-filmed` and `headline-hands-on` as distinct creator jobs, raising the honest count to **45**; `crt-filmed` and `stage-oblique-fixture` remain supporting fixtures.
 
 ## Mechanical check
 

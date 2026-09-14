@@ -377,6 +377,13 @@
 		"height": 360,
 		"contentFraction": 0.9309
 	},
+	"pixelation-demo": {
+		"contentKey": "8e7d61401469b481",
+		"timestampSeconds": 2.4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9286
+	},
 	"plastic-msw-destinations": {
 		"contentKey": "8702446b7c7efb54",
 		"timestampSeconds": 5,

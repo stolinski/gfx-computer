@@ -22,12 +22,15 @@ If a preset fails any R-rule, **do not adjust preset values to hide the defect.*
 
 **Authored signal-degradation scope.** R1, R4, and Q4 have one narrow alternate bar when the Preset explicitly declares a registered signal-model Effect such as `ntsc-signal` or `crt-tube`. These Effects intentionally model finite signal bandwidth, encode/decode separation, scan raster, and phosphor-mask structure; their predicted blur, chroma fringing, raster steps, and subpixel hues are not defects merely because they differ from a pristine source. This is not a general artistic-intent exemption for blur, chromatic aberration, low-resolution assets, compression, or arbitrary post-processing. The Critic must name the Effect and relevant parameters, then verify that the visible degradation matches that declared model numerically. Artifacts outside the model, outside the Effect's region, or beyond its authored strength still fail the pristine rule.
 
+**Authored pixel-grid scope.** R1, R2, R4, R5, and R7 have a separate narrow alternate bar when the Preset explicitly declares the registered `pixelation` Effect. Its intentional output is a stable square grid at the authored integer `pixelSize`: one exact source texel held across each cell, with hard axis-aligned cell boundaries. The observed cell pitch must match the parameter in native output pixels; cells must stay frame-stable and carry the sampled premultiplied color without blur, palette remapping, luminance quantization, or alpha growth. Unaligned blocks, filtering between cells, color steps within a cell, codec blocks at another period, and artifacts outside this exact model still fail. This is not an exemption for low-resolution assets or arbitrary post-processing.
+
 ### R1. Text renders sharp at the export's native resolution
 
 - **Rule** — Every glyph in the output has clean stroke edges with no visible blur, fuzz, double-edging, or chromatic fringing. Verified at **200% zoom** in the rendered screenshot at native target dimensions (3840×2160 horizontal / 2160×3840 vertical).
 - **Why** — Soft text is the #1 signal of cheap output. Almost always it comes from sampling a lower-resolution intermediate texture (or a DOM rasterization at the wrong DPR) with bilinear filtering at a different scale than the source. The fix is in the rasterization or sampling, not the preset.
 - **How to verify (evidence required)** — Open the rendered frame at 100% (1 screen pixel = 1 export pixel). Zoom the viewer to 200%. Pick the smallest body-text run in the frame. Trace one vertical stroke of one letter (e.g. the stem of an "l" or "k"). Report: *"At 200% zoom on `<smallest text region>`, the stroke edges are [crisp single-pixel transitions / fuzzy multi-pixel gradients / doubled / color-fringed]."* If the answer is anything other than "crisp single-pixel transitions," **FAIL**.
 - **Authored signal degradation** — When the Preset declares a signal-model Effect, replace the pristine-edge verdict only inside that Effect's output with: *"At 200% on `<text region>`, `<Effect>` with `<bandwidth / delay / focus / raster parameters>` produces `<measured blur or fringe width>`; the degradation [matches / exceeds / contradicts] the declared signal model."* Matching, bounded degradation passes. Additional scale blur, ringing, doubled edges, or fringing not predicted by those parameters **FAILS**.
+- **Authored pixel grid** — For `pixelation`, report the measured square-cell pitch and compare it with `pixelSize`. Block-shaped glyph edges pass only when every transition follows that stable grid and each cell is flat apart from the shared sub-LSB present dither. Soft boundaries, a second block period, or color processing beyond center-texel sampling **FAILS**.
 
 ### R2. Resampled or transformed content stays sharp at its final scale
 
@@ -35,6 +38,7 @@ If a preset fails any R-rule, **do not adjust preset values to hide the defect.*
 - **Why** — The dominant failure mode is sampling a lower-resolution source with bilinear filtering at a larger scale, which produces visible blur. Acceptable fixes (in the pipeline, not the preset) include re-rasterizing the source at a resolution sufficient for the maximum on-screen scale, sampling with at least bicubic, or issuing a fresh DOM paint at the target scale.
 - **How to verify (evidence required)** — For any region where on-screen scale differs from source scale, zoom the viewer to 200%. Compare that region against same-screen-size content from elsewhere in the frame. Report: *"At 200% zoom, content in `<region>` is [equally sharp / softer / blocky / pixel-doubled] compared to same-screen-size content outside it."* Any answer other than "equally sharp" **FAILS**, and the failure lives in the shader / sampling code, not the preset. N/A if no part of the frame is resampled.
 - **Substrate asset resolution** — a photographic backdrop / image substrate asset (`atmosphere-*`, pullquote-on-photo substrates) must be authored at **≥ the target long-edge (3840 px) at the asset's maximum on-screen magnification**: a 2048×1152 plate pushed past 4K under a camera move is an R2 failure the instant it carries any in-focus detail. The sole exemption is a **permanently-defocused** asset — held out of focus for the entire piece (e.g. atmosphere haze) — where the softness is authored, not a sampling artifact and invisible by construction. When a substrate is ever meant to be read sharp, regenerate it at ≥ 4K.
+- **Authored pixel grid** — `pixelation` intentionally replaces local detail with native-pixel cells. It passes this alternate bar only when cell interiors are flat, boundaries are hard rather than bilinear-soft, and the measured cell pitch equals `pixelSize`; the source still must meet the native-resolution rule before the Effect samples it.
 
 ### R3. Shadows have gaussian-quality falloff — no banding, no stairstep, no hard rim
 
@@ -48,12 +52,14 @@ If a preset fails any R-rule, **do not adjust preset values to hide the defect.*
 - **Why** — Aliased edges are 1990s computer graphics. They appear when geometry is rasterized at output resolution without coverage sampling (or with insufficient MSAA / superresolution / SDF threshold smoothing).
 - **How to verify (evidence required)** — Zoom to 400% on the longest diagonal or curved edge in the frame. Report: *"At 400% zoom on `<which edge>`, the edge transition shows [smooth fractional coverage over 1–2px / hard single-pixel stairstep / inconsistent step pattern]."* Anything other than smooth coverage **FAILS**. Fix lives in the geometry shader (MSAA enable, or SDF + smoothstep over a 1–2px band).
 - **Authored signal degradation** — A declared scan raster or phosphor mask may quantize an edge according to its authored `lines` or `maskPitchPx`; judge whether the observed step period matches those parameters and stays deterministic across the frame. Geometry coverage before the signal model, bezel/curvature boundaries, and any edge outside the Effect remain subject to the pristine smooth-coverage bar. Irregular steps or pixelation unrelated to the declared raster **FAIL**.
+- **Authored pixel grid** — A `pixelation` Effect may staircase oblique edges only on its exact `pixelSize` square lattice. The staircase must be stable, axis-aligned, and free of sub-cell jaggies or filtered halos; any other step period **FAILS**.
 
 ### R5. No banding or posterization in tonal regions
 
 - **Rule** — Any flat or smoothly-varying tonal region shows visually-continuous color. No visible discrete steps in tone. Verified at **200% zoom** by panning slowly across a smooth region.
 - **Why** — Banding shows up when an effect renders to an 8-bit intermediate, when texture density is too low to dither away quantization steps, or when a blur uses too few samples to produce smooth falloff. It's a hard visual signal that the pipeline is dropping bit depth somewhere.
 - **How to verify (evidence required)** — Zoom to 200%. Find the largest visually-uniform tonal region in the frame and pan across it. Report: *"At 200% zoom on `<which region>`, the tonal transition is [continuous / shows N visible bands / is dithered acceptably]."* "Continuous" or "dithered acceptably" passes. "Shows visible bands" **FAILS**. Fix: render to a higher-bit-depth intermediate (rgba16float), or add dither, or increase blur samples.
+- **Authored pixel grid** — `pixelation` may turn a smooth gradient into one sampled tone per spatial cell. That passes only when tone changes occur exactly at the authored cell boundaries and the Effect introduces no luminance quantization independent of those cells.
 
 ### R6. Output renders at the native target resolution — no upscaling
 
@@ -67,6 +73,7 @@ If a preset fails any R-rule, **do not adjust preset values to hide the defect.*
 - **Rule** — The exported video (or frame) has no visible 8×8 block patterns, no color bleed around high-contrast edges, no smear on motion, no chroma subsampling artifacts on saturated regions. Verified at **400% zoom** near high-contrast edges and saturated regions.
 - **Why** — GFX output is composited over other footage in an NLE. Lossy artifacts compound through the editor's render pipeline. A WebM/VP9 export with `alpha: 'keep'` and a high enough bitrate / quality setting is the floor; if the export shows visible compression, the encoder settings or codec choice is wrong.
 - **How to verify (evidence required)** — Zoom to 400% near any high-contrast edge in the exported frame. Then zoom to 400% on a saturated-color region. Report: *"At 400% zoom near `<edge>`, the edge shows [clean transition / 8×8 block boundaries / mosquito noise]. At 400% on `<saturated region>`, the color shows [clean fill / chroma bleed beyond the geometry / chroma blocks]."* Any blocking / bleed / mosquito noise **FAILS**. Fix: raise encoder quality, switch codec, or render the test as a sequence of PNG/EXR frames to isolate whether the defect is pre- or post-encode.
+- **Authored pixel grid** — For `pixelation`, distinguish the authored `pixelSize` lattice from codec macroblocks by comparing a lossless frame with the encoded frame. New 8×8 or codec-shaped subdivisions, ringing, mosquito noise, or chroma bleed inside or beyond authored cells **FAILS**.
 
 ### R8. R-rule failures are pipeline bugs — do not hide them in the preset
 
@@ -94,7 +101,7 @@ R7 (compression):      At 400% near <high-contrast edge>, observed: <artifacts>.
 
 Each line must name the specific region inspected. *"R3 PASS"* on its own is **not a valid report** — without an observation it is indistinguishable from rubber-stamping, which is exactly the failure mode the protocol exists to prevent.
 
-For R1 or R4 under the authored signal-degradation scope, append `PASS (AUTHORED SIGNAL DEGRADATION: <Effect>)` and include the relevant Effect parameters plus the measured blur, fringe, raster, or mask period. A bare claim that the piece is "supposed to look degraded" is invalid and fails the protocol.
+For R1 or R4 under the authored signal-degradation scope, append `PASS (AUTHORED SIGNAL DEGRADATION: <Effect>)` and include the relevant Effect parameters plus the measured blur, fringe, raster, or mask period. For R1, R2, R4, R5, or R7 under the authored pixel-grid scope, append `PASS (AUTHORED PIXEL GRID: pixelation)` and include `pixelSize`, the measured native-pixel cell pitch, grid stability, and the rule-specific observation. A bare claim that the piece is "supposed to look degraded" is invalid and fails the protocol.
 
 If any line is FAIL, the agent stops. Per R8, they identify the responsible code path and propose an implementation fix before continuing. They do **not** edit the preset to make the rendered output appear to pass.
 
@@ -258,13 +265,13 @@ The pass/fail bar before a preset is considered done. Apply alongside the animat
 
 **Render Quality is gating — every R-rule below must pass before any Q-rule is even considered.** Each R-line must include a named observation per the Verification Protocol; a bare "PASS" is not a valid report.
 
-1. **R1** — Glyph edges at 200% zoom are crisp single-pixel transitions on every text run, unless a declared signal-model Effect produces parameter-matched, measured degradation.
-2. **R2** — Any resampled / scaled / transformed region is *equally sharp* at 200% as same-screen-size content rendered natively. N/A if nothing in the frame is resampled.
+1. **R1** — Glyph edges at 200% zoom are crisp single-pixel transitions on every text run, unless a declared signal-model Effect or `pixelation` produces parameter-matched, measured degradation.
+2. **R2** — Any resampled / scaled / transformed region is *equally sharp* at 200% as same-screen-size content rendered natively, except exact cell sampling under the authored `pixelation` alternate bar. N/A if nothing in the frame is resampled.
 3. **R3** — Every shadow's falloff at 400% zoom is continuous gaussian — no banding, stairstep, or hard rim.
-4. **R4** — Every diagonal/curved edge at 400% zoom shows smooth fractional coverage, except parameter-matched raster/mask quantization from a declared signal-model Effect.
-5. **R5** — Every flat / gradient / paper region at 200% zoom transitions continuously — no visible banding.
+4. **R4** — Every diagonal/curved edge at 400% zoom shows smooth fractional coverage, except parameter-matched raster/mask quantization from a declared signal-model Effect or the exact authored `pixelation` lattice.
+5. **R5** — Every flat / gradient / paper region at 200% zoom transitions continuously — no visible banding beyond exact spatial cells from a declared `pixelation` Effect.
 6. **R6** — Export dimensions exactly match the target; exported text is as sharp as native browser text at the same physical size.
-7. **R7** — At 400% near high-contrast edges and saturated marks: no 8×8 blocks, no chroma bleed, no mosquito noise.
+7. **R7** — At 400% near high-contrast edges and saturated marks: no codec blocks, chroma bleed, or mosquito noise beyond any exact authored `pixelation` lattice.
 8. **R8** — If any R-rule above fails, the failure is fixed *in the pipeline / shader code* (with the file and function named) before continuing. Preset values are not adjusted to hide the defect.
 
 Only after every R-line is PASS:
@@ -296,9 +303,9 @@ If a preset passes both the R-tier and the Q-tier above, plus the animation chec
 
 These supersede everything else. Any of these means **STOP and fix the implementation** — no preset edits, no "we'll address it later."
 
-- Any text in the frame is not crisp at 200% zoom without parameter-matched evidence from a declared signal-model Effect (R1) → magnify/lift-out or the underlying rasterization is broken.
-- A resampled / scaled / transformed region is softer than equivalent natively-rendered content (R2) → the responsible shader is bilinear-sampling a too-small source.
+- Any text in the frame is not crisp at 200% zoom without parameter-matched evidence from a declared signal-model Effect or the exact authored `pixelation` lattice (R1) → magnify/lift-out or the underlying rasterization is broken.
+- A resampled / scaled / transformed region is softer than equivalent natively-rendered content without the exact authored `pixelation` cell-sampling evidence (R2) → the responsible shader is bilinear-sampling a too-small source.
 - Any shadow shows banding, stairstep, or a hard outer rim (R3) → the shadow blur is box-blur, low-sample, or rendered at the wrong bit depth.
-- Visible jaggies / stairstep on any diagonal edge that do not match a declared signal raster/mask period (R4) → MSAA off or SDF threshold not smoothstepped.
+- Visible jaggies / stairstep on any diagonal edge that do not match a declared signal raster/mask period or the exact authored `pixelation` lattice (R4) → MSAA off or SDF threshold not smoothstepped.
 - Export dimensions don't match target (R6) → the export pipeline is snapshotting the preview canvas instead of rendering at target res.
 - Verification report uses bare "PASS" without a named observation → the verification was not actually performed; redo it.

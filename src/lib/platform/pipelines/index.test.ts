@@ -72,6 +72,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'crt-tube',
 	'ntsc-signal',
 	'dithering',
+	'pixelation',
 	'halftone-dots',
 	'halftone-cmyk',
 	'water',
