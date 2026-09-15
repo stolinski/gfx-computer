@@ -73,6 +73,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0060](0060-the-stage-in-the-workspace.md)                         | Canon (built and approved 2026-09-03; landed on `main`)                                      | Stage rows, stage inspectors, the body as a canvas entity, and the camera by hand                       |
 | [0061](0061-committed-composition-posters.md)                      | Canon (built 2026-09-03)                                                                     | Library posters are committed stills, chosen by content and gated for freshness; amends 0034 §8, 0052   |
 | [0062](0062-dimensional-type-compiled-typefaces-and-the-first-overlay-body.md) | Canon (built and approved 2026-09-03; landed on `main`)                                      | Dimensional type: compiled typefaces, resolved outlines, and the first Overlay-owned body; amends 0059 §2 |
+| [0063](0063-keyframed-effect-parameters.md)                        | Designed (decided 2026-09-14; building under Dex epic `fvfbrf8t`)                            | Effect params join the keyframe channel vocabulary: schema-derived channels, one manifest evaluator; amends 0035 §3, 0012, 0044 |
 
 ## Supersession And Refinement
 
@@ -82,6 +83,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 - `0004` -> superseded recipe cookbook -> shipped Starter-template fork model in `0032`.
 - `0021` -> flat multiplane mechanism in `0027` -> continuous dimensional mechanism in `0028` -> Pipeline-defined TypeGPU geometry expansion designed in `0051` -> ordered behind the filmed-canvas camera pose and posed planes of `0057` -> first body (the compiled screen model) landed by `0059`, which takes the one-asset-class revisit `0047` reserved -> the Stage made visible in the Workspace by `0060` (rows, inspectors, the body as an entity, the camera by hand) -> the first Overlay-owned body, dimensional type from compiled typefaces, by `0062` -> the 3D Canvas Upgrade closed 2026-09-03 (epic `sh9b6qxd`), with `0051` read as built.
 - `0022` -> shipped snapshot-and-wipe implementation in `0026`; live dual-tree remains deferred.
+- `0035` -> Effect params join the channel vocabulary in `0063` (schema-derived channels, one manifest evaluator, the frost ramps of `0044` as sugar); the camera and focus of `0057` stay one-move until they are its next consumer.
 - `0033`'s original Sound-kit section -> superseded by its 2026-07-02 amendment; engine defaults + per-motion overrides are current.
 - `0034`'s three-zone/no-left-panel UI -> retained by `0045`; the existing right rail switches between Inspector and Media modes.
 - `0043`'s deterministic decoder/compositor/audio/export/privacy foundation -> retained by `0045`; its singular `state.sourceVideo`, authoring, and opacity model -> superseded by composition `state.media` + coverage-aware Video clips.
