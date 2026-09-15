@@ -17,7 +17,11 @@
 import '@fontsource/rubik/400.css';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
+import '@fontsource-variable/rubik/index.css';
 
 import type { PackFont } from '$lib/platform/packs/types';
 
-export const sentryFonts: readonly PackFont[] = [{ family: 'Rubik', weights: [400, 500, 700] }];
+export const sentryFonts: readonly PackFont[] = [
+	{ family: 'Rubik', weights: [400, 500, 700] },
+	{ family: 'Rubik Variable', weights: [300, 650, 700] }
+];

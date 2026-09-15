@@ -73,6 +73,15 @@ export const syntaxPack: PackManifest = {
 		// CanvasSource and never consume the voice vars.
 		'font-treatment': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
 		'font-label-treatment': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		'variable-weight-treatment': {
+			kind: 'style',
+			value: {
+				fontFamily: "'Space Grotesk Variable', 'Space Grotesk', 'Inter', sans-serif",
+				minimum: 300,
+				rest: 650,
+				maximum: 700
+			}
+		},
 		// Core structural edge vocabulary (five values: clean/soft/irregular/
 		// torn/none, resolved by resolveEdgeTreatment → the shared edge-treatment
 		// ShaderPass). Brand ruling 2026-07-09: chrome never tears — clean is the

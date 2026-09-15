@@ -370,7 +370,7 @@ Fields:
 
 - `id` — stable identity for Inspector selection and its Timeline track.
 - `target` — discriminated union: `{ kind: 'surface', slot }` for the active surface, `{ kind: 'overlay', overlayId, slot }` for an overlay slot.
-- `effect` — an id from `TEXT_EFFECT_CATALOG` (`soft-blur-in`, `per-character-rise`, `typewriter`, `bottom-up-letters`, `top-down-letters`, `stagger-from-center`, `stagger-from-edges`, `mask-reveal-up`, `line-by-line-slide`, `per-word-crossfade`, `spring-scale-in`, `depth-parallax-words`, `blur-out-up`, `shared-axis-y`, `kinetic-center-build`, `short-slide-right`, `short-slide-down`, `micro-scale-fade`, `fade-through`, `scale-down-fade`, `focus-blur-resolve`, `shimmer-sweep`, `shared-axis-x`, `shared-axis-z`).
+- `effect` — an id from the live `TEXT_EFFECT_CATALOG`; GUI and WebMCP choices derive from that registry. GFX-authored entries include `kerning-pop`, `bracket-pop`, and `weight-resolve` alongside the vendored set.
 - `enter` — required `Transition`. The compiler scales the effect's per-unit `duration_ms` / `stagger_ms` / `from` → `to` keyframes to fit this window.
 - `exit` — optional `Transition`. Without it the text stays visible until preset end.
 - `cascade` — optional [ADR-0035](adr/0035-generalized-keyframes-and-cascade.md) timing weld; when present it anchors this animation's enter start (see Animation). `enter.start` remains the fallback.
@@ -378,8 +378,9 @@ Fields:
 
 Parse-time validation:
 
-- `per-character` effects accept `title` / `kicker` / `lower-third.title` only.
-- Layout-aware renderers (`kinetic-center-build`, `kinetic-top-build`, `short-slide-right`, `short-slide-down`) accept title-scale slots only — they reflow the line as words push in.
+- `per-character` and catalog-declared `title_scale_only` effects accept `title` / `kicker` / overlay `title` or `kicker` only.
+- Layout-aware renderer families accept title-scale slots only because they reflow the line as words push in.
+- `weight-resolve` requires the active Pack's real `variable-weight-treatment` and a target Pipeline whose Identity accepts Pack typography. Its internal `font_weight_normalized` keyframes map `0` → Pack minimum, `0.5` → Pack rest, and `1` → Pack maximum; Preset JSON never carries raw `wght` coordinates.
 - A target slot may appear at most once in `textAnimations[]`.
 - `effect` must resolve in the catalog.
 

@@ -1,0 +1,60 @@
+{
+	"id": "weight-resolve",
+	"visibility": "visible",
+	"portable_spec": {
+		"id": "weight-resolve",
+		"display_name": "Weight Resolve",
+		"description": "A restrained per-word title reveal through a real variable-font wght axis. Words rise a short distance, tighten, and move from the Pack minimum to its art-directed rest without synthetic bold or glyph stretching.",
+		"inspiration": "Editorial title systems where typographic mass arrives as the primary event and geometry only supports it.",
+		"target": "per-word",
+		"signature_easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+		"title_scale_only": true,
+		"requires_variable_weight": true,
+		"enter": {
+			"duration_ms": 360,
+			"stagger_ms": 42,
+			"easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+			"from": {
+				"opacity": 0,
+				"y_px": 14,
+				"letter_spacing_em": 0.08,
+				"font_weight_normalized": 0
+			},
+			"to": {
+				"opacity": 1,
+				"y_px": 0,
+				"letter_spacing_em": 0,
+				"font_weight_normalized": 0.5
+			}
+		},
+		"exit": {
+			"duration_ms": 240,
+			"stagger_ms": 26,
+			"easing": "cubic-bezier(0.64, 0, 0.78, 0)",
+			"from": {
+				"opacity": 1,
+				"y_px": 0,
+				"letter_spacing_em": 0,
+				"font_weight_normalized": 0.5
+			},
+			"to": {
+				"opacity": 0,
+				"y_px": -10,
+				"letter_spacing_em": 0.04,
+				"font_weight_normalized": 0.2
+			}
+		},
+		"usage_notes": "Title and kicker slots only. Use it when the Pack supplies a real variable-weight treatment; it is not a body-text animation and never synthesizes a missing axis."
+	},
+	"showcase": {
+		"renderer": {
+			"id": "generic-stagger"
+		},
+		"runtime": {
+			"speed_multiplier": 1,
+			"hold_ms": 0,
+			"gap_ms": 0,
+			"y_travel_multiplier": 1
+		}
+	}
+}

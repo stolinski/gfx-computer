@@ -34,6 +34,8 @@ describe('fontsReady', () => {
 		await fontsReady();
 		assert.equal(loadedSpecs.length, BUILTIN_SPEC_COUNT);
 		assert.ok(loadedSpecs.includes('normal 400 1em "JetBrains Mono"'));
+		assert.ok(loadedSpecs.includes('normal 650 1em "Space Grotesk Variable"'));
+		assert.ok(loadedSpecs.includes('normal 900 1em "Playfair Display Variable"'));
 	});
 
 	it('gates on a User Pack loaded into the runtime without repeating the built-in sweep', async () => {

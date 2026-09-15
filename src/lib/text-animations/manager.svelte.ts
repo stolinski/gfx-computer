@@ -6,6 +6,10 @@ import type { TextAnimation, Transport } from '$lib/platform/engine-schema';
 import { TEXT_EFFECT_CATALOG, type TextEffectSpec, type TextEffectSplitMode } from './catalog';
 import { compileTextAnimation } from './compile';
 import { splitTextAnimationElement, type TextAnimationSplitResult } from './split-text';
+import {
+	resolveTextAnimationVariableWeightTreatment,
+	stabilizeTextAnimationVariableWeightLayout
+} from './unit-style';
 import type { TextAnimationResolvedUnit } from './unit-types';
 
 const DATA_SLOT_ATTRIBUTE = 'data-text-anim-slot';
@@ -119,8 +123,23 @@ export class TextAnimationManager {
 			const units: TextAnimationResolvedUnit[] = split.units.map((el, index) => ({
 				index,
 				element: el,
-				text: el.textContent ?? ''
+				text: el.textContent ?? '',
+				variableWeightTreatment: resolveTextAnimationVariableWeightTreatment(el)
 			}));
+			for (const unit of units) {
+				stabilizeTextAnimationVariableWeightLayout(
+					unit.element,
+					unit.variableWeightTreatment,
+					spec.requiresVariableWeight
+						? {
+								normalizedWeight: spec.enter.to.font_weight_normalized ?? 0.5,
+								...(spec.enter.to.letter_spacing_em === undefined
+									? {}
+									: { letterSpacingEm: spec.enter.to.letter_spacing_em })
+							}
+						: null
+				);
+			}
 
 			// Allocate / resize the per-unit alpha buffer.
 			let alphaBuf = this.#unitAlpha.get(key);

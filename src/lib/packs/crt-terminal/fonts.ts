@@ -16,6 +16,7 @@ import '@fontsource/jetbrains-mono/500.css';
 import '@fontsource/jetbrains-mono/600.css';
 import '@fontsource/jetbrains-mono/700.css';
 import '@fontsource/jetbrains-mono/800.css';
+import '@fontsource-variable/jetbrains-mono/index.css';
 
 import type { PackFont } from '$lib/platform/packs/types';
 
@@ -26,5 +27,6 @@ import type { PackFont } from '$lib/platform/packs/types';
 // masthead) render at 800 — JetBrains Mono's heaviest cut — via CSS weight
 // matching, so 800 is the one that must be resident before capture.
 export const crtTerminalFonts: readonly PackFont[] = [
-	{ family: 'JetBrains Mono', weights: [400, 500, 600, 700, 800] }
+	{ family: 'JetBrains Mono', weights: [400, 500, 600, 700, 800] },
+	{ family: 'JetBrains Mono Variable', weights: [100, 600, 800] }
 ];

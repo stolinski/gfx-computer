@@ -1221,7 +1221,7 @@ const CompositionTransitionSchema = z.object({
 // Slot enums match the surface / overlay content slots GFX ships today plus
 // the chrome-only kicker slot the newspaper surface added in ADR-0008. The
 // `target` discriminated union is parsed at load time; the rules below
-// (per-character → title-scale; layout-aware renderer → title-scale) are
+// (per-character/title-scale-only → title-scale; layout-aware renderer → title-scale) are
 // enforced as a `superRefine` validator so the failure messages reach the
 // preset author with a path-indexed string from `parsePreset`.
 const SurfaceSlotSchema = z.enum([
@@ -1339,11 +1339,14 @@ const TextAnimationsSchema = z
 
 			const slotKey = targetSlotKey(entry.target);
 
-			if (spec.target === 'per-character' && !TEXT_ANIMATION_TITLE_SCALE_SLOTS.has(slotKey)) {
+			if (
+				(spec.target === 'per-character' || spec.titleScaleOnly) &&
+				!TEXT_ANIMATION_TITLE_SCALE_SLOTS.has(slotKey)
+			) {
 				ctx.addIssue({
 					code: 'custom',
 					path: [i, 'target', 'slot'],
-					message: `Per-character effect "${entry.effect}" can only target title-scale slots (title, kicker, overlay title/kicker). Slot "${slotKey}" is body-scale.`
+					message: `${spec.target === 'per-character' ? 'Per-character' : 'Title-scale-only'} effect "${entry.effect}" can only target title-scale slots (title, kicker, overlay title/kicker). Slot "${slotKey}" is body-scale.`
 				});
 			}
 

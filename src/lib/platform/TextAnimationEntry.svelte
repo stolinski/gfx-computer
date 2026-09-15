@@ -5,13 +5,15 @@
 		type TextAnimation,
 		type TextAnimationParams
 	} from './engine-schema';
-	import { removeTextAnimation } from './engine-state.svelte';
+	import { engineState, packState, removeTextAnimation } from './engine-state.svelte';
+	import { findPack } from './packs/registry';
 	import {
 		TEXT_EFFECT_CATALOG,
 		TEXT_EFFECT_IDS,
 		TEXT_EFFECT_SPLIT_MODES,
 		type TextEffectSplitMode
 	} from '$lib/text-animations/catalog';
+	import { isTextEffectAvailableForTarget } from '$lib/text-animations/availability';
 	import Field from './Field.svelte';
 
 	// One authored text animation: its effect, enter window, and per-effect
@@ -25,20 +27,37 @@
 
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
 
-	const effectsBySplit = (() => {
+	const effectsBySplit = $derived.by(() => {
 		const out: Record<TextEffectSplitMode, { id: string; label: string }[]> = {
 			whole: [],
 			'per-character': [],
 			'per-word': [],
 			'per-line': []
 		};
+		const targetOverlayId = entry.target.kind === 'overlay' ? entry.target.overlayId : null;
+		const targetOverlay =
+			targetOverlayId === null
+				? null
+				: engineState.overlays.find((candidate) => candidate.id === targetOverlayId);
+		const pipelineKey =
+			entry.target.kind === 'surface'
+				? `surface:${engineState.surface.type}`
+				: targetOverlay
+					? `overlay:${targetOverlay.type}`
+					: null;
+		if (pipelineKey === null) return out;
+		const context = {
+			slotKey: entry.target.kind === 'surface' ? entry.target.slot : `overlay:${entry.target.slot}`,
+			pipelineKey,
+			pack: findPack(packState.slug)
+		};
 		for (const id of TEXT_EFFECT_IDS) {
 			const spec = TEXT_EFFECT_CATALOG.get(id);
-			if (!spec) continue;
+			if (!spec || !isTextEffectAvailableForTarget(spec, context)) continue;
 			out[spec.target].push({ id, label: spec.displayName });
 		}
 		return out;
-	})();
+	});
 
 	function clampedFraction(value: string): number | null {
 		const n = Number(value);
@@ -167,7 +186,9 @@
 			placeholder="1"
 			oninput={(e) => setParam('yTravelMultiplier', (e.currentTarget as HTMLInputElement).value)}
 		/>
-		<button type="button" class="clear-btn" onclick={() => clearParam('yTravelMultiplier')}>×</button>
+		<button type="button" class="clear-btn" onclick={() => clearParam('yTravelMultiplier')}
+			>×</button
+		>
 	</Field>
 
 	<Field label="Delay ms">

@@ -16,6 +16,7 @@ import '@fontsource/geist/400.css';
 import '@fontsource/geist/500.css';
 import '@fontsource/geist/600.css';
 import '@fontsource/geist/700.css';
+import '@fontsource-variable/geist/index.css';
 import '@fontsource/geist-mono/400.css';
 import '@fontsource/geist-mono/500.css';
 
@@ -23,5 +24,6 @@ import type { PackFont } from '$lib/platform/packs/types';
 
 export const cleanLightFonts: readonly PackFont[] = [
 	{ family: 'Geist', weights: [400, 500, 600, 700] },
+	{ family: 'Geist Variable', weights: [100, 500, 600] },
 	{ family: 'Geist Mono', weights: [400, 500] }
 ];

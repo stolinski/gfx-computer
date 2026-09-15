@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { engineState, addTextAnimation } from './engine-state.svelte';
+	import { engineState, packState, addTextAnimation } from './engine-state.svelte';
+	import { findPack } from './packs/registry';
 	import {
 		OVERLAY_KEYFRAME_CHANNELS,
 		type Cascade,
@@ -14,6 +15,7 @@
 		TEXT_EFFECT_SPLIT_MODES,
 		type TextEffectSplitMode
 	} from '$lib/text-animations/catalog';
+	import { isTextEffectAvailableForTarget } from '$lib/text-animations/availability';
 	import AddMenu from './AddMenu.svelte';
 	import CascadeSection from './CascadeSection.svelte';
 	import InspectorSection from './InspectorSection.svelte';
@@ -58,12 +60,25 @@
 	});
 
 	// The add-menu's grouped items — one group per split mode with effects.
-	const effectMenuGroups = $derived(
-		TEXT_EFFECT_SPLIT_MODES.filter((mode) => effectsBySplit[mode].length > 0).map((mode) => ({
+	function effectMenuGroupsForSlot(
+		slot: 'kicker' | 'title' | 'subtitle'
+	): { label: string; items: { value: string; label: string }[] }[] {
+		if (!overlay) return [];
+		const context = {
+			slotKey: `overlay:${slot}`,
+			pipelineKey: `overlay:${overlay.type}`,
+			pack: findPack(packState.slug)
+		};
+		return TEXT_EFFECT_SPLIT_MODES.map((mode) => ({
 			label: mode,
-			items: effectsBySplit[mode].map((opt) => ({ value: opt.id, label: opt.label }))
-		}))
-	);
+			items: effectsBySplit[mode]
+				.filter((option) => {
+					const spec = TEXT_EFFECT_CATALOG.get(option.id);
+					return spec ? isTextEffectAvailableForTarget(spec, context) : false;
+				})
+				.map((option) => ({ value: option.id, label: option.label }))
+		})).filter((group) => group.items.length > 0);
+	}
 
 	function setOverlayCascade(ov: Overlay, next: Cascade | undefined): void {
 		if (next === undefined) {
@@ -158,7 +173,7 @@
 			<Field label={slot.charAt(0).toUpperCase() + slot.slice(1)}>
 				<AddMenu
 					label="+ Effect"
-					groups={effectMenuGroups}
+					groups={effectMenuGroupsForSlot(slot)}
 					onselect={(id) => handleAddTextAnimation(slot, id)}
 				/>
 			</Field>

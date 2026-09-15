@@ -108,6 +108,16 @@ export const crtTerminalPack: PackManifest = {
 			kind: 'style',
 			value: '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace'
 		},
+		'variable-weight-treatment': {
+			kind: 'style',
+			value: {
+				fontFamily:
+					'"JetBrains Mono Variable", "JetBrains Mono", "SFMono-Regular", Consolas, monospace',
+				minimum: 100,
+				rest: 600,
+				maximum: 800
+			}
+		},
 
 		// ---------------------------------------------------------------
 		// Chrome (kind:'chrome') — opaque segments/bumpers only: the whole

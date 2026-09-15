@@ -32,6 +32,7 @@ import {
 	resolvePackStyleRoleValue
 } from './role-contract-registry';
 import type { PackManifest } from './types';
+import { variableWeightTreatmentAppearanceVars } from './variable-weight-treatment';
 
 const CORE_APPEARANCE = ['fill', 'ink', 'accent', 'edge', 'depth', 'light'] as const;
 
@@ -282,6 +283,11 @@ export function resolveAppearanceVars(
 	if (fontStack !== null) {
 		vars['--font'] = fontStack;
 	}
+
+	// The optional variable-weight face remains a Pack appearance claim. Text
+	// animation units inherit these values and map normalized motion onto the
+	// real `wght` coordinates without baking one family's axis into a Preset.
+	Object.assign(vars, variableWeightTreatmentAppearanceVars(manifest));
 
 	// 4. The label/chrome voice — same chain one tier down: a per-Pipeline
 	//    `<type>.fontLabel` (already emitted by step 1) beats the pack-wide
@@ -724,7 +730,9 @@ export function resolveTypographyColors(
  */
 export function resolveStageTypefaceRole(manifest: PackManifest): string {
 	const value = resolvePackStyleRoleValue(manifest, 'dimensional-type.face');
-	return typeof value === 'string' && isStageTypeface(value) ? value : REFERENCE_STAGE_TYPEFACE_SLUG;
+	return typeof value === 'string' && isStageTypeface(value)
+		? value
+		: REFERENCE_STAGE_TYPEFACE_SLUG;
 }
 
 export function resolvePackRoleColor(

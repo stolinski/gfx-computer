@@ -1,11 +1,16 @@
 import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
+import type { VariableWeightTreatment } from '$lib/platform/packs/variable-weight-treatment';
 
 import type { TextEffectKeyframeShape, TextEffectPhase, TextEffectStaggerMode } from '../catalog';
 import type { TextAnimationCompileResult, TextEffectStrategyInputs } from '../compile';
 import { textAnimationGsapEaseFromCss } from '../gsap-ease';
 import {
 	applyTextAnimationUnitFade,
-	materializeTextAnimationUnitFilter
+	applyTextAnimationUnitVariableWeight,
+	materializeTextAnimationUnitFilter,
+	resolveTextAnimationVariableWeightTreatment,
+	stabilizeTextAnimationVariableWeightLayout,
+	type TextAnimationVariableWeightLayoutFrame
 } from '../unit-style';
 
 /**
@@ -96,15 +101,37 @@ function materializeFilter(keyframe: TextEffectKeyframeShape): string {
 }
 
 interface UnitStyleWriter {
-	(element: HTMLElement, keyframe: TextEffectKeyframeShape, yTravel: number): void;
+	(
+		element: HTMLElement,
+		keyframe: TextEffectKeyframeShape,
+		yTravel: number,
+		variableWeightTreatment: VariableWeightTreatment | null
+	): void;
 }
 
 /** Default writer applied at every tween tick: transform, filter, opacity. */
-function makeUnitFrameWriter(isVertical: boolean): UnitStyleWriter {
-	return (element, keyframe, yTravel) => {
+function makeUnitFrameWriter(
+	isVertical: boolean,
+	variableWeightLayoutFrame: TextAnimationVariableWeightLayoutFrame | null
+): UnitStyleWriter {
+	return (element, keyframe, yTravel, variableWeightTreatment) => {
+		const activeVariableWeightTreatment =
+			keyframe.font_weight_normalized === undefined
+				? variableWeightTreatment
+				: resolveTextAnimationVariableWeightTreatment(element);
+		stabilizeTextAnimationVariableWeightLayout(
+			element,
+			activeVariableWeightTreatment,
+			variableWeightLayoutFrame
+		);
 		element.style.transform = materializeTransform(keyframe, yTravel, isVertical);
 		element.style.filter = materializeFilter(keyframe);
 		applyTextAnimationUnitFade(element, keyframe.opacity ?? 1);
+		applyTextAnimationUnitVariableWeight(
+			element,
+			keyframe.font_weight_normalized,
+			activeVariableWeightTreatment
+		);
 		if (typeof keyframe.letter_spacing_em === 'number') {
 			element.style.letterSpacing = `${keyframe.letter_spacing_em}em`;
 		}
@@ -139,6 +166,7 @@ function interpolateKeyframe(phase: TextEffectPhase, p: number): TextEffectKeyfr
 function clampChannel(key: (typeof NUMERIC_KEYS)[number], value: number): number {
 	switch (key) {
 		case 'opacity':
+		case 'font_weight_normalized':
 			return Math.max(0, Math.min(1, value));
 		case 'blur_px':
 		case 'scale':
@@ -158,7 +186,8 @@ const NUMERIC_KEYS = [
 	'rotate_deg',
 	'rotate_x_deg',
 	'rotate_y_deg',
-	'letter_spacing_em'
+	'letter_spacing_em',
+	'font_weight_normalized'
 ] as const satisfies readonly (keyof TextEffectKeyframeShape)[];
 
 function mergedKeys(
@@ -179,6 +208,8 @@ function defaultFor(key: (typeof NUMERIC_KEYS)[number]): number {
 		case 'opacity':
 		case 'scale':
 			return 1;
+		case 'font_weight_normalized':
+			return 0.5;
 		default:
 			return 0;
 	}
@@ -277,7 +308,15 @@ export function compileGenericStagger(
 	const staggerOrder = computeTextEffectStaggerOrder(units.length, spec.staggerMode);
 	const yTravel = spec.runtime.y_travel_multiplier ?? 1;
 	const isVertical = transport.orientation === 'vertical';
-	const writeUnitFrame = makeUnitFrameWriter(isVertical);
+	const variableWeightLayoutFrame = spec.requiresVariableWeight
+		? {
+				normalizedWeight: spec.enter.to.font_weight_normalized ?? 0.5,
+				...(spec.enter.to.letter_spacing_em === undefined
+					? {}
+					: { letterSpacingEm: spec.enter.to.letter_spacing_em })
+			}
+		: null;
+	const writeUnitFrame = makeUnitFrameWriter(isVertical, variableWeightLayoutFrame);
 	const enterEase = textAnimationGsapEaseFromCss(spec.enter.easing);
 
 	// The FROM frame is written by AnimationManager's own init loop (it calls
@@ -309,7 +348,7 @@ export function compileGenericStagger(
 			to: 1,
 			onUpdate: (value) => {
 				const frame = interpolateKeyframe(spec.enter, value);
-				writeUnitFrame(unit.element, frame, yTravel);
+				writeUnitFrame(unit.element, frame, yTravel, unit.variableWeightTreatment);
 				writeUnitAlpha(unit.index, frame.opacity ?? 0);
 			}
 		});
@@ -341,7 +380,7 @@ export function compileGenericStagger(
 				to: 1,
 				onUpdate: (value) => {
 					const frame = interpolateKeyframe(spec.exit as TextEffectPhase, value);
-					writeUnitFrame(unit.element, frame, yTravel);
+					writeUnitFrame(unit.element, frame, yTravel, unit.variableWeightTreatment);
 					writeUnitAlpha(unit.index, frame.opacity ?? 0);
 				}
 			});

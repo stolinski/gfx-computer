@@ -70,6 +70,42 @@ describe('Transition Effect semantic validation', () => {
 	});
 });
 
+describe('Variable-weight text effect semantic validation', () => {
+	it('allows a capable Pack-dressed title and refuses a Pack-immune document title', () => {
+		const state = createDefaultEngineState();
+		state.surface.type = 'plain';
+		state.textAnimations = [
+			{
+				id: 'weight-title',
+				target: { kind: 'surface', slot: 'title' },
+				effect: 'weight-resolve',
+				enter: { start: 0.1, duration: 0.1, ease: 'sharp' }
+			}
+		];
+		const preset: Preset = {
+			schema: 'gfx@1',
+			name: 'Variable weight',
+			pack: 'syntax',
+			kind: 'fixture',
+			state
+		};
+		assert.ok(
+			!validatePresetSemantics(preset).some((issue) =>
+				issue.path.join('.').startsWith('state.textAnimations.0.effect')
+			)
+		);
+
+		state.surface.type = 'paper';
+		assert.ok(
+			validatePresetSemantics(preset).some(
+				(issue) =>
+					issue.path.join('.') === 'state.textAnimations.0.effect' &&
+					issue.message.includes('Pack-immune surface:paper')
+			)
+		);
+	});
+});
+
 describe('Video media semantic validation', () => {
 	it('rejects active Video clips on a transition Preset', () => {
 		const preset = videoPreset('Transition');

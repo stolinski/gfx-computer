@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { engineState, addTextAnimation } from './engine-state.svelte';
+	import { engineState, packState, addTextAnimation } from './engine-state.svelte';
+	import { findPack } from './packs/registry';
 	import { getSurfaceDefinition } from './pipelines/definition-registry';
 	import {
 		TEXT_ANIMATION_TITLE_SCALE_SLOTS,
@@ -8,6 +9,7 @@
 		TEXT_EFFECT_SPLIT_MODES,
 		type TextEffectSplitMode
 	} from '$lib/text-animations/catalog';
+	import { isTextEffectAvailableForTarget } from '$lib/text-animations/availability';
 	import { isBodyVisible, resolveDocumentSlotVisibility } from '$lib/utils/surface-document-slots';
 	import AddMenu from './AddMenu.svelte';
 	import InspectorSection from './InspectorSection.svelte';
@@ -65,11 +67,21 @@
 		slot: string
 	): Record<TextEffectSplitMode, { id: string; label: string }[]> {
 		const isTitleScale = TEXT_ANIMATION_TITLE_SCALE_SLOTS.has(slot);
+		const context = {
+			slotKey: slot,
+			pipelineKey: `surface:${engineState.surface.type}`,
+			pack: findPack(packState.slug)
+		};
+		const available = (items: { id: string; label: string }[]): { id: string; label: string }[] =>
+			items.filter((item) => {
+				const spec = TEXT_EFFECT_CATALOG.get(item.id);
+				return spec ? isTextEffectAvailableForTarget(spec, context) : false;
+			});
 		return {
-			whole: effectsBySplit.whole,
-			'per-character': isTitleScale ? effectsBySplit['per-character'] : [],
-			'per-word': effectsBySplit['per-word'],
-			'per-line': effectsBySplit['per-line']
+			whole: available(effectsBySplit.whole),
+			'per-character': isTitleScale ? available(effectsBySplit['per-character']) : [],
+			'per-word': available(effectsBySplit['per-word']),
+			'per-line': available(effectsBySplit['per-line'])
 		};
 	}
 

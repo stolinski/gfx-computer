@@ -71,6 +71,12 @@ export const PACK_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  *     pipelines keep their intrinsic stacks. Pack-immune Pipelines never
  *     receive it; their mounts derive immunity from the Identity Registry. The
  *     family named first must appear in `fonts` so capture gates on it loading.
+ *   - `variable-weight-treatment` — a real variable display face plus ordered
+ *     `minimum` / `rest` / `maximum` `wght` coordinates. Presets animate a
+ *     normalized `[0,1]` value; the Pack maps it onto this appearance range.
+ *     Every coordinate and the first family must appear in `fonts` so capture
+ *     preloads the exact face. Missing means the capability is unavailable,
+ *     never synthesized.
  */
 export const MANDATORY_CORE_ROLES = [
 	'fill-treatment',

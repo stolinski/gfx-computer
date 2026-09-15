@@ -12,7 +12,7 @@ This doc governs the **Syntax Pack** — one Pack of many. Nothing here is an en
 - **Opinionated and direct.** The overlay states the point. No hedged copy, no "in this video we'll explore."
 - **Warm dark, one loud yellow.** Warm near-blacks carry the frame; `#ffd54a` yellow is the single loud voice, used decisively (a chip, a separator, an active cue) — not sprayed.
 - **Mono chrome voice.** Space Mono is the channel's interface voice — tags, labels, kickers, tickers, stamps. Space Grotesk is the display voice — names, titles.
-- **Substrate ≠ chrome.** A found document (newspaper, tweet, research paper, photo) keeps its own physics — that's verisimilitude. Everything the *channel* adds on top (cards, chips, tickers, lower-thirds, diagram strokes) is this flat-card system.
+- **Substrate ≠ chrome.** A found document (newspaper, tweet, research paper, photo) keeps its own physics — that's verisimilitude. Everything the _channel_ adds on top (cards, chips, tickers, lower-thirds, diagram strokes) is this flat-card system.
 
 ---
 
@@ -20,19 +20,19 @@ This doc governs the **Syntax Pack** — one Pack of many. Nothing here is an en
 
 The repo's tokens, verbatim. These are the channel colors — deviate only inside a found-document substrate that carries its own ink.
 
-| Token | Value | Use |
-| --- | --- | --- |
-| Background | `#0e0e0d` | Full-frame fields, dark substrates |
-| Card | `#141413` | Card/plate surfaces |
-| Border | `#454441` | Card borders (2px at 1080 / 4px at 4K) |
-| Shadow | `#050504` | The stepped shadow stack |
-| Accent | `#ffd54a` | THE yellow: chips, separators, active cues, focus |
-| Success | `#3dd816` | Positive marks, live/on-air cues |
-| Danger | `#ff474e` | Negative marks, alerts, the pulse dot |
-| Text | `#f7f6f2` | Primary ink on dark |
-| Byline | `#c9c6bc` | Secondary text on cards |
-| Muted | `#8a8883` | Tertiary/chrome labels |
-| Ink-on-yellow | `#0a0a09` | Text on accent plates |
+| Token         | Value     | Use                                               |
+| ------------- | --------- | ------------------------------------------------- |
+| Background    | `#0e0e0d` | Full-frame fields, dark substrates                |
+| Card          | `#141413` | Card/plate surfaces                               |
+| Border        | `#454441` | Card borders (2px at 1080 / 4px at 4K)            |
+| Shadow        | `#050504` | The stepped shadow stack                          |
+| Accent        | `#ffd54a` | THE yellow: chips, separators, active cues, focus |
+| Success       | `#3dd816` | Positive marks, live/on-air cues                  |
+| Danger        | `#ff474e` | Negative marks, alerts, the pulse dot             |
+| Text          | `#f7f6f2` | Primary ink on dark                               |
+| Byline        | `#c9c6bc` | Secondary text on cards                           |
+| Muted         | `#8a8883` | Tertiary/chrome labels                            |
+| Ink-on-yellow | `#0a0a09` | Text on accent plates                             |
 
 **Saturated-hue cap (Q4)** still binds: ≤ 3 saturated hues visible at once — yellow is the default single slot; green/red enter only with a semantic job.
 
@@ -49,7 +49,7 @@ Two faces, fixed jobs (Q18's 2-family cap holds; a found-document substrate carr
 - **Space Grotesk** — display: names, titles, headlines on cards. 700 for primary (tight, `-0.02em`), 500 for supporting.
 - **Space Mono** — chrome: kickers, tags, tickers, stamps, diagram labels, code. 700 uppercase `.08em` on chips; 400 for quiet labels.
 
-Both self-hosted via `@fontsource` in `src/lib/packs/syntax/fonts.ts`. (Operator Mono is retired from this doc — the repo uses Space Mono.)
+Both are self-hosted via `@fontsource` in `src/lib/packs/syntax/fonts.ts`. Kinetic display motion uses the separate `Space Grotesk Variable` face over the real 300–700 `wght` axis, with 650 as the Pack rest; ordinary typography keeps the static 500/700 cuts. (Operator Mono is retired from this doc — the repo uses Space Mono.)
 
 ---
 
@@ -82,7 +82,7 @@ Clean printed rules — `wobble: 0`. Scribbly/hand-jitter strokes are **not** th
 The found documents the channel quotes. Substrates are **verisimilar artifacts** — they keep their own physics and typography (a tweet looks exactly like Twitter; a newspaper looks like newsprint). The channel layer over them is the card system above.
 
 - **Web documents** (Twitter/Reddit/GitHub/YouTube/news/iMessage): pixel-faithful mocks (see ADR-0030/0031 and the web-document canon).
-- **Paper documents** (research paper, newspaper, letter): real print physics — their own serif/slab faces, their own ink. The newspaper is *photographed, not clipped*: a full-bleed crop into a grey broadsheet page — folio line and heavy rule, tight bold grotesque headline, bold-caps byline, justified serif columns with column rules, lens vignette, grain, soft corners — with one highlighter stroke as the only mark and no page edge ever in shot ([ADR-0056](../../adr/0056-newspaper-photographed-page.md); plates in `docs/inspo/newspaper/`). Torn edges remain *plausible on the other physical documents being quoted*; they are **not** channel chrome and never appear on cards/chips/lower-thirds.
+- **Paper documents** (research paper, newspaper, letter): real print physics — their own serif/slab faces, their own ink. The newspaper is _photographed, not clipped_: a full-bleed crop into a grey broadsheet page — folio line and heavy rule, tight bold grotesque headline, bold-caps byline, justified serif columns with column rules, lens vignette, grain, soft corners — with one highlighter stroke as the only mark and no page edge ever in shot ([ADR-0056](../../adr/0056-newspaper-photographed-page.md); plates in `docs/inspo/newspaper/`). Torn edges remain _plausible on the other physical documents being quoted_; they are **not** channel chrome and never appear on cards/chips/lower-thirds.
 - **Photographs:** real photographic substrates, vignetted for legibility where text rides them; the photo must remain readable AS a photo (R2 substrate-resolution rule).
 - **Marks on substrates:** highlighter/underline/circle are physical pens on the document — hand energy lives HERE (stroke-draw, slight wobble, overshoot), and only here.
 - **Tape is a dressing, not chrome** (Scott, 2026-07-09): the washi-tape capability stays in the engine as a feature, but under Syntax it may only appear as dressing on a quoted physical document (a taped-down clipping). A standalone tape chip is not the brand.
@@ -94,13 +94,16 @@ The found documents the channel quotes. Substrates are **verisimilar artifacts**
 The repo's motion is fast, decisive, flat — enter ~420ms strong decelerate, exit ~350ms accelerate (G6-compatible). Preferences:
 
 **Lean in:**
+
 - **settled-place** for cards (small overshoot = "placed with intent").
 - **stroke-draw** for marks and diagram rules (ink saturates along the path).
 - **brightness-reveal** for spoken-content text over substrates.
 - **counter/ticker rolls** for numbers (the odometer is on-brand chrome).
 - **Chip pop** — a chip lands slightly late after its card, `sharp`.
+- **Variable-weight resolve** for display words — thin-to-650 mass arrives decisively while geometry stays restrained; never substitute horizontal scaling or synthetic bold.
 
 **Lean out (wrong for this channel):**
+
 - Anamorphic flares, glows, light sweeps — all gloss.
 - Gaussian-blur atmosphere; soft photographic shadows on chrome.
 - Full-frame camera moves on chrome compositions (substrate/depth pieces may camera; a ticker never does).
@@ -121,16 +124,16 @@ Reads wrong for **this channel specifically**:
 - **Gaussian shadows on cards** — the stepped stack IS the depth treatment.
 - **Generic stock motion-template moves** — swooshes, glassy wipes, light leaks.
 
-When in doubt: *would this pass as a native element of the syntax-overlay live system?*
+When in doubt: _would this pass as a native element of the syntax-overlay live system?_
 
 ---
 
 ## Reference Reel
 
-| Source | Take from it |
-| --- | --- |
-| [`syntax-overlay`](https://github.com/randyrektor/syntax-overlay) `lower-thirds.html` | The card: plate, border, radius, stepped shadow, Grotesk/byline hierarchy, avatar bleed |
-| [`syntax-overlay`](https://github.com/randyrektor/syntax-overlay) `ticker.html` | The chip/tag, pulse dot, diamond separators, bar construction, motion curves |
-| [`syntax-overlay`](https://github.com/randyrektor/syntax-overlay) `featured-comment.html` | Quoting external content inside the card system |
-| `docs/inspo/newspaper/*.png` | Substrate physics for quoted print documents (substrate, not chrome) |
-| `docs/inspo/pullquote/*.png` | Text-over-photo reveals (substrate register) |
+| Source                                                                                    | Take from it                                                                            |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [`syntax-overlay`](https://github.com/randyrektor/syntax-overlay) `lower-thirds.html`     | The card: plate, border, radius, stepped shadow, Grotesk/byline hierarchy, avatar bleed |
+| [`syntax-overlay`](https://github.com/randyrektor/syntax-overlay) `ticker.html`           | The chip/tag, pulse dot, diamond separators, bar construction, motion curves            |
+| [`syntax-overlay`](https://github.com/randyrektor/syntax-overlay) `featured-comment.html` | Quoting external content inside the card system                                         |
+| `docs/inspo/newspaper/*.png`                                                              | Substrate physics for quoted print documents (substrate, not chrome)                    |
+| `docs/inspo/pullquote/*.png`                                                              | Text-over-photo reveals (substrate register)                                            |

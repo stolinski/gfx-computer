@@ -18,6 +18,11 @@ import { canonicalizeDeterministicRenderValue } from './deterministic-render-reg
 import { PACK_REGISTRY } from './packs/registry';
 import { PACK_SLUG_PATTERN, type PackManifest } from './packs/types';
 import { validateUserPackManifest, type PackValidationIssue } from './packs/validation';
+import {
+	resolveVariableWeightTreatment,
+	variableWeightPrimaryFamily,
+	VARIABLE_WEIGHT_TREATMENT_ROLE
+} from './packs/variable-weight-treatment';
 import { writeUserCompositionFileAtomically } from './user-composition-file-write.server';
 import { trashTimestamp } from './user-composition-trash.server';
 import {
@@ -192,8 +197,10 @@ export async function moveUserPackToTrash(
 
 /**
  * A fork takes the built-in's core vocabulary — the bare roles: the seven
- * mandatory cores, the optional cores, and the chrome recipe — plus its fonts,
- * under the new slug. Its per-Pipeline overrides (`lower-third.accent`,
+ * mandatory cores, User-Pack-materializable optional cores, and the chrome
+ * recipe — plus its fonts, under the new slug. The built-in-only variable
+ * alias is omitted until User Packs can materialize a real variable range.
+ * Its per-Pipeline overrides (`lower-third.accent`,
  * `chapter-card.kicker`, …) stay with the built-in: they beat the cores under
  * ADR-0024's specific → core resolution, so a fork that carried them would
  * render as the built-in whatever its cores were edited to. Null when no
@@ -206,15 +213,21 @@ export function forkedManifestFromBuiltin(
 ): PackManifest | null {
 	const builtin = PACK_REGISTRY[builtinSlug];
 	if (builtin === undefined) return null;
+	const variableWeight = resolveVariableWeightTreatment(builtin);
+	const variableFamily =
+		variableWeight === null ? null : variableWeightPrimaryFamily(variableWeight);
 	const roles = Object.fromEntries(
-		Object.entries(builtin.roles).filter(([key]) => !key.includes('.'))
+		Object.entries(builtin.roles).filter(
+			([key]) => !key.includes('.') && key !== VARIABLE_WEIGHT_TREATMENT_ROLE
+		)
 	);
+	const fonts = builtin.fonts?.filter((font) => font.family !== variableFamily);
 	return {
 		slug,
 		label: options.label ?? builtin.label,
 		description: options.description ?? builtin.description,
 		roles: structuredClone(roles),
-		...(builtin.fonts ? { fonts: structuredClone(builtin.fonts) } : {})
+		...(fonts ? { fonts: structuredClone(fonts) } : {})
 	};
 }
 

@@ -43,9 +43,11 @@ the "signed object" role without collage chrome.
 
 Claimed as the Pack's core voice (the pack switch IS the font switch):
 `font-treatment` is `'Playfair Display', 'EB Garamond', Georgia, serif` and
-`font-label-treatment` is `'JetBrains Mono', ui-monospace, monospace`. Document
-substrates (newspaper / paper) keep their hardcoded faces — substrate physics,
-never Pack dress.
+`font-label-treatment` is `'JetBrains Mono', ui-monospace, monospace`. Kinetic
+display motion uses `Playfair Display Variable` across the real 400–900 `wght`
+axis, with 700 as rest; ordinary typography keeps its static 600/700/800 cuts.
+Document substrates (newspaper / paper) keep their hardcoded faces — substrate
+physics, never Pack dress.
 
 ## Surface Treatment — flat, clean, structural
 

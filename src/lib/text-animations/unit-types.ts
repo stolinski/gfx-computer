@@ -1,3 +1,5 @@
+import type { VariableWeightTreatment } from '$lib/platform/packs/variable-weight-treatment';
+
 /**
  * The unit produced by SplitText (or the hand-rolled fallback). One per
  * animated glyph / word / line, plus one synthetic unit for `whole` effects.
@@ -11,6 +13,8 @@ export interface TextAnimationResolvedUnit {
 	element: HTMLElement;
 	/** The visible text contents of this unit (used by tests and debug). */
 	text: string;
+	/** Initial Pack-owned `wght` coordinates; the writer refreshes them on Pack changes. */
+	variableWeightTreatment: VariableWeightTreatment | null;
 }
 
 /**

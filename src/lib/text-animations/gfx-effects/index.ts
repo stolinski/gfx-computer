@@ -9,8 +9,10 @@
 
 import kerningPop from './kerning-pop.json' with { type: 'json' };
 import bracketPop from './bracket-pop.json' with { type: 'json' };
+import weightResolve from './weight-resolve.json' with { type: 'json' };
 
 export const GFX_TEXT_EFFECT_MODULES: Readonly<Record<string, unknown>> = {
 	'kerning-pop': kerningPop,
-	'bracket-pop': bracketPop
+	'bracket-pop': bracketPop,
+	'weight-resolve': weightResolve
 };

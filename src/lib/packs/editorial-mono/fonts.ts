@@ -15,6 +15,7 @@
 import '@fontsource/playfair-display/600.css';
 import '@fontsource/playfair-display/700.css';
 import '@fontsource/playfair-display/800.css';
+import '@fontsource-variable/playfair-display/index.css';
 import '@fontsource/eb-garamond/400.css';
 import '@fontsource/eb-garamond/500.css';
 import '@fontsource/eb-garamond/700.css';
@@ -26,6 +27,7 @@ import type { PackFont } from '$lib/platform/packs/types';
 
 export const editorialMonoFonts: readonly PackFont[] = [
 	{ family: 'Playfair Display', weights: [600, 700, 800] },
+	{ family: 'Playfair Display Variable', weights: [400, 700, 900] },
 	{ family: 'EB Garamond', weights: [400, 500, 700] },
 	{ family: 'JetBrains Mono', weights: [400, 500, 700] }
 ];
