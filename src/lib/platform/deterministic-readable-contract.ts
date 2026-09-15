@@ -246,6 +246,7 @@ function surfaceHasLegibleHold(state: EngineState, progress: number): boolean {
 }
 
 function blockHasLegibleHold(state: EngineState, blockId: string, progress: number): boolean {
+	if (state.surface.typeField?.words.some((word) => word.id === blockId)) return true;
 	const primitive = state.surface.diagram?.find((entry) => entry.id === blockId);
 	if (!primitive) return false;
 	const resolved = resolveCascadeTimings(state).get(`block:${blockId}`);
@@ -407,6 +408,14 @@ function expectedSurfaceReadableText(
 	const chart = resolveVisibleChartBlock(state.surface.chart, progress);
 	if (chart)
 		entries.push(...resolveChartReadableText(chart, state.transport.orientation, progress));
+	for (const word of state.surface.typeField?.words ?? []) {
+		appendReadableText(
+			entries,
+			`block:${word.id}:text`,
+			word.text,
+			word.hierarchy === 'display' ? 'surface-display' : 'surface-title'
+		);
+	}
 	for (const primitive of state.surface.diagram ?? []) {
 		if (primitive.type === 'node') {
 			appendReadableText(entries, `block:${primitive.id}:text`, primitive.text, 'diagram-caption');

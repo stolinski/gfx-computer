@@ -4,6 +4,7 @@
 **Slug:** kinetic-type-toolbox
 **Pack:** syntax
 **Verification preset:** kinetic-type-field
+**Progress:** Variable-weight substrate and static `kinetic-type-field-static-fixture` shipped 2026-09-15; independent tracks, Motion Beats, and the deliverable remain active.
 
 ## Pitch
 
@@ -43,11 +44,11 @@ The Preset stores only semantic ink/accent selections and normalized weight. Eve
 
 ## Engine work required
 
-- Add the Type Field group: bounded word pool, ordered phrases, focal-word references, and phrase-to-Beat bindings on `plain`.
+- ✅ Add the static Type Field group on `plain`: bounded word pool, ordered phrases, focal-word references, strict semantic validation, and shared Block identity. Phrase-to-Beat bindings remain with the Motion Beat slice.
 - Add top-level named Motion Beats with absolute-millisecond and beat-relative keyframe addressing.
-- Register the `kinetic-word` Block Pipeline with strict content, placement, orientation, appearance, Identity Spec, native DOM renderer, and readable authority.
+- ✅ Register the `kinetic-word` Block Pipeline with strict content, placement, orientation, appearance, Identity Spec, native DOM renderer, readable authority, Timeline rows, Inspector editing, and direct canvas manipulation.
 - Extend generalized Block channels with `weight` and `tracking`, keeping `x`, `y`, `scale`, `rotation`, and `opacity`; add complete per-orientation spatial-track snapshots.
-- Supply a real variable-weight display face and art-directed `wght` mapping from every catalog Pack without changing ordinary static typography pixels. Validate User Pack claims against the existing vendored Google Fonts and materialized-face authorities.
+- ✅ Supply a real variable-weight display face and art-directed `wght` mapping from every catalog Pack without changing ordinary static typography pixels. Validate User Pack claims against the existing vendored Google Fonts and materialized-face authorities.
 - Extend Timeline identity, rows, beat markers/snapping, channel diamonds, Inspector controls, canvas selection/direct manipulation, undo/redo, and critical-frame enumeration.
 - Add or extend shared Operations in the `layer`, `content`, `placement`, `appearance`, and `motion` families. Update the operation inventory and WebMCP schemas; never add raw patch or GUI gesture tools.
 - Add schema/semantic ceilings, Pack/axis validation, deterministic interpolation, layout-contract authority, pixel diagnostics, agent evals, and the reference Preset/poster.

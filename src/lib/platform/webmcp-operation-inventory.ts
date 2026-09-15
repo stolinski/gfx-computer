@@ -66,6 +66,8 @@ export type WebmcpOperationPrecondition =
 	| 'mark-present'
 	| 'text-animation-present'
 	| 'diagram-present'
+	| 'kinetic-word-addable'
+	| 'kinetic-word-present'
 	| 'chart-present'
 	| 'captions-present'
 	| 'chat-surface-active'
@@ -325,7 +327,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/textAnimations', scope: 'membership' },
 			{ pointer: '/state/marks/timings', scope: 'membership' },
 			{ pointer: '/state/surface/diagram', scope: 'membership' },
-			{ pointer: '/state/surface/chart', scope: 'membership' }
+			{ pointer: '/state/surface/chart', scope: 'membership' },
+			{ pointer: '/state/surface/typeField', scope: 'membership' }
 		]
 	},
 	{
@@ -340,6 +343,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/overlays/*/content', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*', scope: 'value' },
+			{ pointer: '/state/surface/typeField/words/*', scope: 'value' },
+			{ pointer: '/state/surface/typeField/phrases', scope: 'value' },
 			{ pointer: '/state/captions', scope: 'value' }
 		]
 	},
@@ -359,7 +364,11 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/diagram/*/control', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/scale', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/maxWidth', scope: 'value' },
-			{ pointer: '/state/surface/diagram/*/orientationOverrides', scope: 'value' }
+			{ pointer: '/state/surface/diagram/*/orientationOverrides', scope: 'value' },
+			{ pointer: '/state/surface/typeField/words/*/position', scope: 'value' },
+			{ pointer: '/state/surface/typeField/words/*/scale', scope: 'value' },
+			{ pointer: '/state/surface/typeField/words/*/rotation', scope: 'value' },
+			{ pointer: '/state/surface/typeField/words/*/orientationOverrides', scope: 'value' }
 		]
 	},
 	{
@@ -376,7 +385,9 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/stage', scope: 'value' },
 			{ pointer: '/state/stage/camera', scope: 'value' },
 			{ pointer: '/state/stage/focus', scope: 'value' },
-			{ pointer: '/state/surface/backgroundVisibility', scope: 'value' }
+			{ pointer: '/state/surface/backgroundVisibility', scope: 'value' },
+			{ pointer: '/state/surface/typeField/words/*/hierarchy', scope: 'value' },
+			{ pointer: '/state/surface/typeField/words/*/ink', scope: 'value' }
 		]
 	},
 	{
@@ -432,7 +443,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		name: 'validation',
 		domain: 'What is wrong with the composition without rendering it.',
 		toolNamePrefix: 'gfx_validation_',
-		disclosure: 'core',
+		disclosure: 'on-demand',
 		ownedPaths: []
 	},
 	{
@@ -446,7 +457,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		name: 'delivery',
 		domain: 'Turning the composition into a file the visitor receives.',
 		toolNamePrefix: 'gfx_delivery_',
-		disclosure: 'core',
+		disclosure: 'on-demand',
 		ownedPaths: []
 	}
 ];
@@ -1009,6 +1020,37 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		guiSurface: 'src/lib/platform/BlockInspector.svelte'
 	},
 	{
+		id: 'layer.add-kinetic-word',
+		family: 'layer',
+		toolName: 'gfx_layer_add_kinetic_word',
+		summary:
+			'Add one first-class Kinetic Word Block to the plain Surface Type Field with authored starter placement.',
+		effect: 'write',
+		writes: ['/state/surface/typeField'],
+		precondition: 'kinetic-word-addable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/TimelineAddMenu.svelte'
+	},
+	{
+		id: 'layer.remove-kinetic-word',
+		family: 'layer',
+		toolName: 'gfx_layer_remove_kinetic_word',
+		summary: 'Remove one Kinetic Word Block by id after semantic phrases stop referencing it.',
+		effect: 'write',
+		writes: ['/state/surface/typeField'],
+		precondition: 'kinetic-word-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/KineticWordInspector.svelte'
+	},
+	{
 		id: 'layer.add-chart-block',
 		family: 'layer',
 		toolName: 'gfx_layer_add_chart_block',
@@ -1118,6 +1160,37 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['block'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/BlockTypeSection.svelte'
+	},
+	{
+		id: 'content.set-kinetic-word-text',
+		family: 'content',
+		toolName: 'gfx_content_set_kinetic_word_text',
+		summary: 'Set the trimmed single-token text carried by one Kinetic Word Block.',
+		effect: 'write',
+		writes: ['/state/surface/typeField/words/*'],
+		precondition: 'kinetic-word-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/KineticWordInspector.svelte'
+	},
+	{
+		id: 'content.set-kinetic-phrases',
+		family: 'content',
+		toolName: 'gfx_content_set_kinetic_phrases',
+		summary:
+			'Replace the ordered semantic phrases, including each phrase word order and one focal display word.',
+		effect: 'write',
+		writes: ['/state/surface/typeField/phrases'],
+		precondition: 'kinetic-word-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/KineticWordInspector.svelte'
 	},
 	{
 		id: 'content.set-chart-block',
@@ -1272,6 +1345,27 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/BlockGeometrySection.svelte'
 	},
+	{
+		id: 'placement.set-kinetic-word-placement',
+		family: 'placement',
+		toolName: 'gfx_placement_set_kinetic_word_placement',
+		summary:
+			"Set one Kinetic Word's complete centre, scale, and rotation for shared placement or one orientation snapshot.",
+		effect: 'write',
+		writes: [
+			'/state/surface/typeField/words/*/position',
+			'/state/surface/typeField/words/*/scale',
+			'/state/surface/typeField/words/*/rotation',
+			'/state/surface/typeField/words/*/orientationOverrides'
+		],
+		precondition: 'kinetic-word-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/KineticWordInspector.svelte'
+	},
 
 	// ---- appearance: Pack and look ----
 	{
@@ -1389,6 +1483,22 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['surface'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SurfaceAppearanceSection.svelte'
+	},
+	{
+		id: 'appearance.set-kinetic-word-appearance',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_kinetic_word_appearance',
+		summary:
+			"Set one Kinetic Word's display/support hierarchy and Pack-owned ink/accent role selection.",
+		effect: 'write',
+		writes: ['/state/surface/typeField/words/*/hierarchy', '/state/surface/typeField/words/*/ink'],
+		precondition: 'kinetic-word-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/KineticWordInspector.svelte'
 	},
 	{
 		id: 'appearance.set-mark-defaults',

@@ -106,6 +106,51 @@ describe('Variable-weight text effect semantic validation', () => {
 	});
 });
 
+describe('Kinetic Type Field semantic validation', () => {
+	function kineticTypePreset(): Preset {
+		const state = createDefaultEngineState();
+		state.surface.type = 'plain';
+		state.surface.typeField = {
+			words: [
+				{
+					type: 'kinetic-word',
+					id: 'type',
+					text: 'TYPE',
+					hierarchy: 'display',
+					ink: 'accent',
+					position: { x: 0.5, y: 0.5 },
+					scale: 1,
+					rotation: 0
+				}
+			],
+			phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+		};
+		return { schema: 'gfx@1', name: 'Kinetic Type', pack: 'syntax', kind: 'fixture', state };
+	}
+
+	it('reports Surface support and focal hierarchy at exact Type Field paths', () => {
+		const preset = kineticTypePreset();
+		preset.state.surface.type = 'paper';
+		preset.state.surface.typeField!.words[0].hierarchy = 'support';
+
+		const issues = validatePresetSemantics(preset);
+		assert.ok(
+			issues.some(
+				(issue) =>
+					issue.path.join('.') === 'state.surface.typeField' &&
+					issue.message.includes('only on the plain Surface')
+			)
+		);
+		assert.ok(
+			issues.some(
+				(issue) =>
+					issue.path.join('.') === 'state.surface.typeField.phrases.0.focalWordId' &&
+					issue.message.includes('display hierarchy')
+			)
+		);
+	});
+});
+
 describe('Video media semantic validation', () => {
 	it('rejects active Video clips on a transition Preset', () => {
 		const preset = videoPreset('Transition');

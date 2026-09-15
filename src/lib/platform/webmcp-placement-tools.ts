@@ -47,6 +47,7 @@ import {
 	runSetCompositionOverlayPoseOperation,
 	runSetCompositionSurfacePageAnchorOperation
 } from './composition-placement-operations';
+import { runSetCompositionKineticWordPlacementOperation } from './composition-kinetic-type-operations';
 import {
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
@@ -116,6 +117,37 @@ function readCompositionPoint(point: Record<string, unknown>): DiagramPoint {
 	return {
 		x: readWebmcpNumberArgument(point, 'x'),
 		y: readWebmcpNumberArgument(point, 'y')
+	};
+}
+
+function kineticWordGeometryProperty(): WebmcpSchemaProperty {
+	return completeObjectProperty('The complete word placement snapshot.', {
+		position: compositionPointProperty('The Kinetic Word centre in composition fractions.'),
+		scale: {
+			type: 'number',
+			description: 'A uniform multiplier on the word hierarchy size.',
+			minimum: 0.25,
+			maximum: 4
+		},
+		rotation: {
+			type: 'number',
+			description: 'Static rotation in degrees about the word centre.',
+			minimum: -180,
+			maximum: 180
+		}
+	});
+}
+
+function readKineticWordGeometry(args: unknown): {
+	position: DiagramPoint;
+	scale: number;
+	rotation: number;
+} {
+	const geometry = readWebmcpRecordArgument(args, 'geometry');
+	return {
+		position: readCompositionPoint(readWebmcpRecordArgument(geometry, 'position')),
+		scale: readWebmcpNumberArgument(geometry, 'scale'),
+		rotation: readWebmcpNumberArgument(geometry, 'rotation')
 	};
 }
 
@@ -407,6 +439,33 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 					runSetCompositionSurfacePageAnchorOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						pageAnchor: readPageAnchor(args)
+					})
+				)
+		},
+		{
+			operationId: 'placement.set-kinetic-word-placement',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					wordId: webmcpEntityIdProperty('The Kinetic Word Block to place.'),
+					target: placementTargetProperty(),
+					geometry: kineticWordGeometryProperty()
+				},
+				required: ['expectedRevision', 'wordId', 'target', 'geometry'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('placement.set-kinetic-word-placement', () =>
+					runSetCompositionKineticWordPlacementOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						wordId: readWebmcpStringArgument(args, 'wordId'),
+						scope: readWebmcpLiteralArgument(
+							args,
+							'target',
+							COMPOSITION_PLACEMENT_TARGETS
+						),
+						geometry: readKineticWordGeometry(args)
 					})
 				)
 		},

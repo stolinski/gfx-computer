@@ -358,8 +358,30 @@ for (const role of [
 	const consumers: PackRoleConsumer[] = [
 		resolverConsumer(role === 'field-treatment' ? 'resolveBackgroundFill' : 'resolveAppearanceVars')
 	];
-	if (role === 'accent-treatment')
+	if (role === 'accent-treatment') {
 		consumers.push(resolverConsumer('resolveAppearanceVars', undefined, 'surface:brand-mark'));
+		consumers.push(
+			resolverConsumer(
+				'requireCoreColor',
+				'src/lib/platform/KineticTypeFieldMount.svelte',
+				'block:kinetic-word'
+			)
+		);
+	}
+	if (role === 'ink-treatment') {
+		consumers.push(
+			resolverConsumer(
+				'resolveTypographyColors',
+				'src/lib/platform/KineticTypeFieldMount.svelte',
+				'block:kinetic-word'
+			),
+			resolverConsumer(
+				'resolveFieldInkColor',
+				'src/lib/platform/KineticTypeFieldMount.svelte',
+				'block:kinetic-word'
+			)
+		);
+	}
 	addContract({
 		role,
 		permittedKind: 'style',
@@ -440,7 +462,14 @@ addContract({
 		resolverConsumer(
 			'resolveVariableWeightTreatment',
 			'src/lib/platform/packs/variable-weight-treatment.ts'
-		)
+		),
+		{
+			kind: 'css-variable',
+			pipelineType: 'kinetic-word',
+			pipelineKey: 'block:kinetic-word',
+			variable: '--variableWeightFont',
+			source: 'src/lib/pipelines/blocks/kinetic-word/CanvasSource.svelte'
+		}
 	],
 	valueDescription:
 		'a variable display fontFamily and ordered integer minimum/rest/maximum wght coordinates from 1 to 1000',

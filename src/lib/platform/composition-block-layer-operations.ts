@@ -368,11 +368,12 @@ function nextChartSequenceStart(items: readonly ChartBlock[]): number {
 	);
 }
 
-/** Every Block id on the Surface — diagram and chart share one id space. */
-function listSurfaceBlockIds(surface: SurfaceState): readonly string[] {
+/** Every Block id on the Surface — diagram, chart, and Type Field share one id space. */
+export function listSurfaceBlockIds(surface: SurfaceState): readonly string[] {
 	return [
 		...(surface.diagram ?? []).map((primitive) => primitive.id),
-		...(surface.chart?.items ?? []).map((item) => item.id)
+		...(surface.chart?.items ?? []).map((item) => item.id),
+		...(surface.typeField?.words ?? []).map((word) => word.id)
 	];
 }
 

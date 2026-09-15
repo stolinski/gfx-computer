@@ -30,6 +30,9 @@ function addPresetRequirements(
 	requirements.blocks.add('paragraph');
 	for (const block of preset.state.surface.diagram ?? []) requirements.blocks.add(block.type);
 	for (const block of preset.state.surface.chart?.items ?? []) requirements.blocks.add(block.type);
+	if ((preset.state.surface.typeField?.words.length ?? 0) > 0) {
+		requirements.blocks.add('kinetic-word');
+	}
 	for (const mark of listSurfaceMarkInstances(preset.state.surface)) {
 		requirements.annotations.add(mark.style);
 	}

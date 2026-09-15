@@ -295,6 +295,7 @@ export const AnnotationMarkStyleSchema = z.enum([
 
 export const BlockTypeSchema = z.enum([
 	'paragraph',
+	'kinetic-word',
 	'node',
 	'edge-arrow',
 	'label',
@@ -729,6 +730,124 @@ export type DiagramStatCallout = z.infer<typeof DiagramStatCalloutSchema>;
 export type DiagramTimelineSegment = z.infer<typeof DiagramTimelineSegmentSchema>;
 export type DiagramPrimitive = z.infer<typeof DiagramPrimitiveSchema>;
 
+// ---- Kinetic Type Field (ADR-0063) ----
+// A bounded group of first-class word Blocks carried only by the plain Surface.
+// Phrases declare semantic reading order; placement remains completely authored
+// and never flows from phrase membership. Motion channels and named Beats land
+// additively in the following kinetic-type tasks.
+export const KINETIC_TYPE_WORD_LIMIT = 16;
+export const KINETIC_TYPE_PHRASE_LIMIT = 8;
+export const KINETIC_TYPE_PHRASE_WORD_LIMIT = 8;
+export const KINETIC_TYPE_WORD_CODE_POINT_LIMIT = 32;
+
+const KineticWordTextSchema = z
+	.string()
+	.min(1, 'Kinetic Word text must not be empty')
+	.refine((value) => value === value.trim(), 'Kinetic Word text must be trimmed')
+	.refine((value) => /^\S+$/u.test(value), 'Kinetic Word text must be one word token')
+	.refine(
+		(value) => [...value].length <= KINETIC_TYPE_WORD_CODE_POINT_LIMIT,
+		`Kinetic Word text must not exceed ${KINETIC_TYPE_WORD_CODE_POINT_LIMIT} Unicode code points`
+	);
+
+export const KineticWordHierarchySchema = z.enum(['display', 'support']);
+export const KINETIC_WORD_HIERARCHIES = KineticWordHierarchySchema.options;
+export const KineticWordInkSchema = z.enum(['ink', 'accent']);
+export const KINETIC_WORD_INK_ROLES = KineticWordInkSchema.options;
+
+export const KineticWordGeometrySchema = z.strictObject({
+	position: DiagramPointSchema,
+	scale: z.number().finite().min(0.25).max(4),
+	rotation: z.number().finite().min(-180).max(180)
+});
+
+export const KineticWordSchema = z.strictObject({
+	type: z.literal('kinetic-word'),
+	id: z.string().min(1),
+	text: KineticWordTextSchema,
+	hierarchy: KineticWordHierarchySchema,
+	ink: KineticWordInkSchema,
+	position: KineticWordGeometrySchema.shape.position,
+	scale: KineticWordGeometrySchema.shape.scale,
+	rotation: KineticWordGeometrySchema.shape.rotation,
+	orientationOverrides: z
+		.strictObject({
+			horizontal: KineticWordGeometrySchema.optional(),
+			vertical: KineticWordGeometrySchema.optional()
+		})
+		.optional()
+});
+
+const KineticPhraseSchema = z.strictObject({
+	id: z.string().min(1),
+	wordIds: z.array(z.string().min(1)).min(1).max(KINETIC_TYPE_PHRASE_WORD_LIMIT),
+	focalWordId: z.string().min(1)
+});
+
+export const KineticTypeFieldSchema = z
+	.strictObject({
+		words: z.array(KineticWordSchema).min(1).max(KINETIC_TYPE_WORD_LIMIT),
+		phrases: z.array(KineticPhraseSchema).min(1).max(KINETIC_TYPE_PHRASE_LIMIT)
+	})
+	.superRefine((field, ctx) => {
+		const wordIds = new Set<string>();
+		for (const [index, word] of field.words.entries()) {
+			if (wordIds.has(word.id)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['words', index, 'id'],
+					message: `Duplicate Type Field word id "${word.id}".`
+				});
+			}
+			wordIds.add(word.id);
+		}
+
+		const phraseIds = new Set<string>();
+		for (const [phraseIndex, phrase] of field.phrases.entries()) {
+			if (phraseIds.has(phrase.id)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['phrases', phraseIndex, 'id'],
+					message: `Duplicate Type Field phrase id "${phrase.id}".`
+				});
+			}
+			phraseIds.add(phrase.id);
+
+			const phraseWordIds = new Set<string>();
+			for (const [wordIndex, wordId] of phrase.wordIds.entries()) {
+				if (!wordIds.has(wordId)) {
+					ctx.addIssue({
+						code: 'custom',
+						path: ['phrases', phraseIndex, 'wordIds', wordIndex],
+						message: `Phrase "${phrase.id}" references missing Kinetic Word "${wordId}".`
+					});
+				}
+				if (phraseWordIds.has(wordId)) {
+					ctx.addIssue({
+						code: 'custom',
+						path: ['phrases', phraseIndex, 'wordIds', wordIndex],
+						message: `Phrase "${phrase.id}" references Kinetic Word "${wordId}" more than once.`
+					});
+				}
+				phraseWordIds.add(wordId);
+			}
+			if (!phraseWordIds.has(phrase.focalWordId)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['phrases', phraseIndex, 'focalWordId'],
+					message: `Phrase "${phrase.id}" focalWordId must name one of its wordIds.`
+				});
+			}
+		}
+	});
+
+export type KineticWordGeometry = z.infer<typeof KineticWordGeometrySchema>;
+export type KineticWordHierarchy = z.infer<typeof KineticWordHierarchySchema>;
+export type KineticWordInk = z.infer<typeof KineticWordInkSchema>;
+export type KineticWord = z.infer<typeof KineticWordSchema>;
+export type KineticPhrase = z.infer<typeof KineticPhraseSchema>;
+export type KineticTypeField = z.infer<typeof KineticTypeFieldSchema>;
+
 // Chart Blocks (ADR-0048): one strict inline declaration shared by agents and
 // the GUI. Structural parsing owns wire shape only; cross-field factual rules
 // live in chart-validation.ts so every ingress reports precise semantic paths.
@@ -1066,7 +1185,10 @@ const SurfaceSchema = z.object({
 	// Chart Blocks (ADR-0048) share one strict group across agent and GUI
 	// authoring. Rendering remains in the Block Layer; this is Surface-carried
 	// content, not a sixth Layer or a parallel chart document model.
-	chart: ChartGroupSchema.optional()
+	chart: ChartGroupSchema.optional(),
+	// A Type Field is a bounded group of first-class Kinetic Word Blocks plus
+	// semantic phrases. Only the plain Surface may carry it (semantic gate).
+	typeField: KineticTypeFieldSchema.optional()
 });
 
 /**
@@ -1735,7 +1857,11 @@ export const EngineStateSchema = z
 				});
 			}
 		}
-		const blockIds = new Set([...diagramBlockIds, ...chartItems.map((chartItem) => chartItem.id)]);
+		const blockIds = new Set([
+			...diagramBlockIds,
+			...chartItems.map((chartItem) => chartItem.id),
+			...(state.surface.typeField?.words ?? []).map((word) => word.id)
+		]);
 
 		for (const edge of edges.values()) {
 			const anchor = edge.anchor;
@@ -1764,7 +1890,7 @@ export const EngineStateSchema = z
 				ctx.addIssue({
 					code: 'custom',
 					path: [...edge.path, 'anchor'],
-					message: `cascade.anchor block "${anchor.block}" does not match any surface.diagram[].id or surface.chart.items[].id.`
+					message: `cascade.anchor block "${anchor.block}" does not match any surface.diagram[].id, surface.chart.items[].id, or surface.typeField.words[].id.`
 				});
 			}
 		}

@@ -23,6 +23,7 @@
 		"probe:stale-build-recovery": "node --experimental-strip-types scripts/probe-stale-build-recovery.ts",
 		"probe:user-pack-render": "node --experimental-strip-types scripts/probe-user-pack-render.ts",
 		"probe:text-animation-weight": "node --experimental-strip-types scripts/probe-text-animation-variable-weight.ts",
+		"probe:kinetic-type-field": "node --experimental-strip-types scripts/probe-kinetic-type-field-static.ts",
 		"audit:timing": "node --experimental-strip-types scripts/audit-timing-coverage.ts",
 		"audit:starter-templates": "node --experimental-strip-types scripts/audit-starter-template-coverage.ts",
 		"audit:tracking": "node --experimental-strip-types scripts/audit-tracking-coverage.ts",

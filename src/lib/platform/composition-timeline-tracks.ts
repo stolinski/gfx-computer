@@ -439,6 +439,18 @@ function appendBlockTracks(
 	state: EngineState,
 	windows: Map<string, CascadeWindow>
 ): void {
+	for (const word of state.surface.typeField?.words ?? []) {
+		const label = truncateMiddle(word.text, 32);
+		tracks.push({
+			id: createTimelineTrackId({ kind: 'block', blockId: word.id }),
+			label,
+			color: BLOCK_COLOR,
+			transitions: [
+				{ id: 'clip', label, color: BLOCK_COLOR, start: 0, duration: 1 }
+			]
+		});
+	}
+
 	for (const primitive of state.surface.diagram ?? []) {
 		const trackId = createTimelineTrackId({ kind: 'block', blockId: primitive.id });
 		const label = diagramTrackLabel(primitive);

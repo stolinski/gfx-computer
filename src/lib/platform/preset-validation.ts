@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 
 import { validateChartGroupSemantics } from './chart-validation';
+import { validateKineticTypeFieldSemantics } from './kinetic-type-field-validation';
 import { STAGE_POSED_OVERLAY_LIMIT, type Preset } from './engine-schema';
 import { findPack, listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
 import { PACK_SLUG_PATTERN } from './packs/types';
@@ -225,6 +226,17 @@ function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[])
 	)) {
 		issues.push({
 			path: ['state', 'surface', ...issue.path],
+			message: issue.message
+		});
+	}
+
+	for (const issue of validateKineticTypeFieldSemantics(
+		preset.state.surface.typeField,
+		preset.state.surface,
+		preset.state.stage !== undefined
+	)) {
+		issues.push({
+			path: ['state', 'surface', 'typeField', ...issue.path],
 			message: issue.message
 		});
 	}

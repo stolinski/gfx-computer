@@ -32,6 +32,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'imessage',
 	'checklist',
 	'paragraph',
+	'kinetic-word',
 	'node',
 	'edge-arrow',
 	'label',
@@ -101,6 +102,7 @@ describe('Pipeline Definition Registry', () => {
 			REGISTERED_BLOCK_TYPES.toSorted(),
 			[
 				'paragraph',
+				'kinetic-word',
 				'node',
 				'edge-arrow',
 				'label',

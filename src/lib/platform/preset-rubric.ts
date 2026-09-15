@@ -8,6 +8,7 @@ import type {
 	DiagramPoint,
 	DiagramPrimitive,
 	EngineState,
+	KineticWord,
 	MarkTiming,
 	Overlay,
 	Preset,
@@ -35,6 +36,7 @@ import { resolveChartLineGeometry } from '../utils/chart-line-geometry.ts';
 import { resolveChartNormalizedGeometry } from '../utils/chart-normalized-geometry.ts';
 import { createChartRenderTextMeasurer } from '../utils/chart-text-measurement.ts';
 import { resolveDiagramPrimitiveGeometry } from '../utils/diagram-geometry.ts';
+import { resolveKineticWordGeometry } from '../utils/kinetic-word-geometry.ts';
 import { resolveOverlayPlacement } from '../utils/overlay-placement.ts';
 
 export type RubricSeverity = 'error' | 'warn';
@@ -185,6 +187,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	checkOverlayPlacement(state.overlays, orientation, issues);
 	checkChartLayout(state.surface.chart?.items ?? [], issues);
 	checkDiagramPlacement(state.surface.diagram ?? [], orientation, issues);
+	checkKineticWordPlacement(state.surface.typeField?.words ?? [], orientation, issues);
 	if (resolvedTypography) {
 		checkContrast(state.surface, resolvedTypography, issues);
 		checkDiagramContrast(
@@ -575,6 +578,31 @@ function checkChartLayout(blocks: readonly ChartBlock[], issues: RubricIssue[]):
 				});
 			}
 		}
+	}
+}
+
+function checkKineticWordPlacement(
+	words: readonly KineticWord[],
+	orientation: 'horizontal' | 'vertical',
+	issues: RubricIssue[]
+): void {
+	const safeArea = getLayoutSafeArea(orientation);
+	for (const [index, word] of words.entries()) {
+		const point = resolveKineticWordGeometry(word, orientation).position;
+		if (
+			point.x >= safeArea.left &&
+			point.x <= 1 - safeArea.right &&
+			point.y >= safeArea.top &&
+			point.y <= 1 - safeArea.bottom
+		) {
+			continue;
+		}
+		issues.push({
+			rule: 'G2',
+			severity: 'error',
+			path: `surface.typeField.words.${index}.position`,
+			message: `Kinetic Word centre sits outside the ${orientation} safe zone (top ${(safeArea.top * 100).toFixed(0)}% / right ${(safeArea.right * 100).toFixed(0)}% / bottom ${(safeArea.bottom * 100).toFixed(0)}% / left ${(safeArea.left * 100).toFixed(0)}%).`
+		});
 	}
 }
 

@@ -117,6 +117,8 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'mark-present': false,
 	'text-animation-present': false,
 	'diagram-present': false,
+	'kinetic-word-addable': false,
+	'kinetic-word-present': false,
 	'chart-present': false,
 	'captions-present': false,
 	'chat-surface-active': false,
@@ -388,6 +390,30 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 	{
 		prompt: 'Add an Overlay of a registered Overlay type and give me its id.',
 		toolName: 'gfx_layer_add_overlay'
+	},
+	{
+		prompt: 'Add one first-class Kinetic Word Block to the plain Surface Type Field.',
+		toolName: 'gfx_layer_add_kinetic_word'
+	},
+	{
+		prompt: 'Remove this unreferenced Kinetic Word Block from the Type Field by id.',
+		toolName: 'gfx_layer_remove_kinetic_word'
+	},
+	{
+		prompt: 'Replace the single-token text carried by this Kinetic Word Block.',
+		toolName: 'gfx_content_set_kinetic_word_text'
+	},
+	{
+		prompt: 'Set the ordered semantic phrases, their word membership, and each focal word.',
+		toolName: 'gfx_content_set_kinetic_phrases'
+	},
+	{
+		prompt: 'Place this Kinetic Word at an exact centre, scale, and rotation for vertical.',
+		toolName: 'gfx_placement_set_kinetic_word_placement'
+	},
+	{
+		prompt: 'Dress this Kinetic Word as display hierarchy using the Pack accent ink role.',
+		toolName: 'gfx_appearance_set_kinetic_word_appearance'
 	},
 	{
 		prompt: 'Write the words that appear inside that Overlay.',

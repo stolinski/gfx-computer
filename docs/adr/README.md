@@ -73,7 +73,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0060](0060-the-stage-in-the-workspace.md)                         | Canon (built and approved 2026-09-03; landed on `main`)                                      | Stage rows, stage inspectors, the body as a canvas entity, and the camera by hand                       |
 | [0061](0061-committed-composition-posters.md)                      | Canon (built 2026-09-03)                                                                     | Library posters are committed stills, chosen by content and gated for freshness; amends 0034 §8, 0052   |
 | [0062](0062-dimensional-type-compiled-typefaces-and-the-first-overlay-body.md) | Canon (built and approved 2026-09-03; landed on `main`)                                      | Dimensional type: compiled typefaces, resolved outlines, and the first Overlay-owned body; amends 0059 §2 |
-| [0063](0063-kinetic-type-word-fields.md)                           | Designed, not built                                                                          | Kinetic type as a bounded Block field with independent word tracks, Motion Beats, and Pack-mapped variable weight |
+| [0063](0063-kinetic-type-word-fields.md)                           | Canon (static substrate shipped 2026-09-15; motion slices active)                            | Kinetic type as a bounded Block field with independent word tracks, Motion Beats, and Pack-mapped variable weight |
 
 ## Supersession And Refinement
 

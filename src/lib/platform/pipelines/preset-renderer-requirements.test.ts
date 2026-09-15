@@ -99,6 +99,28 @@ describe('collectPresetRendererRequirements', () => {
 		assert.equal(diagram.blocks.has('unit-grid-chart'), false);
 	});
 
+	it('requires the kinetic-word renderer when a Type Field is present', () => {
+		const preset = cloneBuiltinPreset('lower-third');
+		preset.state.surface.type = 'plain';
+		preset.state.surface.typeField = {
+			words: [
+				{
+					type: 'kinetic-word',
+					id: 'type',
+					text: 'TYPE',
+					hierarchy: 'display',
+					ink: 'accent',
+					position: { x: 0.5, y: 0.5 },
+					scale: 1,
+					rotation: 0
+				}
+			],
+			phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+		};
+
+		assert.equal(collectRequirements(preset).blocks.has('kinetic-word'), true);
+	});
+
 	it('includes transition renderers and both endpoint Preset graphs', () => {
 		const requirements = collectBuiltinRequirements('transition-wipe-demo');
 

@@ -277,6 +277,39 @@ describe('composition timeline tracks', () => {
 		assert.ok(Math.abs((state.overlays[1].animation?.cascade?.offsetMs ?? 0) - 1200) < 1e-9);
 	});
 
+	it('gives every Kinetic Word a first-class full-clip Block row', () => {
+		const state = makeTimelineState();
+		state.surface.typeField = {
+			words: [
+				{
+					type: 'kinetic-word',
+					id: 'moving-type',
+					text: 'BECOME',
+					hierarchy: 'display',
+					ink: 'accent',
+					position: { x: 0.5, y: 0.5 },
+					scale: 1,
+					rotation: 0
+				}
+			],
+			phrases: [{ id: 'middle', wordIds: ['moving-type'], focalWordId: 'moving-type' }]
+		};
+
+		const track = buildCompositionTimelineTracks(state, appearance).find(
+			(candidate) =>
+				candidate.id === createTimelineTrackId({ kind: 'block', blockId: 'moving-type' })
+		);
+		assert.ok(track);
+		assert.equal(track.label, 'BECOME');
+		assert.deepEqual(track.transitions[0], {
+			id: 'clip',
+			label: 'BECOME',
+			color: '#c8a94e',
+			start: 0,
+			duration: 1
+		});
+	});
+
 	it('exposes chart items through the shared Block timeline identity', () => {
 		const state = makeTimelineState();
 		state.surface.chart = {

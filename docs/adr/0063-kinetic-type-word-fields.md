@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, not built.** Active under Dex epic `fnwlsz1g` and [`../briefs/kinetic-type-toolbox.md`](../briefs/kinetic-type-toolbox.md).
+**Canon.** The Pack-mapped variable-weight substrate and static Type Field authoring substrate shipped 2026-09-15 under Dex epic `fnwlsz1g`. Independent Kinetic Word tracks, named Motion Beats, animated validation, and the reference deliverable remain designed implementation work governed by this ADR and [`../briefs/kinetic-type-toolbox.md`](../briefs/kinetic-type-toolbox.md).
 
 Date: 2026-09-15
 
@@ -76,12 +76,18 @@ Every catalog Pack must supply and preload a real variable-weight display face f
 
 Block membership belongs to `layer`; word and phrase text/reference content belongs to `content`; base geometry belongs to `placement`; ink/hierarchy and font-axis capability belong to `appearance`; Beats and tracks belong to `motion`. The operation inventory records the exact longest-pointer ownership.
 
-Existing operations are extended where their decision already fits, including Block keyframe channels. New operations are added only for decisions that do not exist yet: Motion Beat membership/timing and atomic phrase/reference edits. Every mutating path uses the observed Composition revision, preflights the complete prospective field, records one undo entry, moves Workspace focus, and returns one bounded receipt. No raw patch or UI gesture tool is introduced.
+The static substrate adds six Type Field operations under those existing families because first/last-word parent lifecycle and phrase/reference validity must remain atomic: add/remove word, set word text, set complete phrases, set word placement, and set word appearance. Existing generalized Block operations will be extended where the motion decision already fits, including keyframe channels; new motion operations are reserved for Motion Beat membership/timing and references. Every mutating path uses the observed Composition revision, preflights the complete prospective field, records one undo entry, moves Workspace focus, and returns one bounded receipt. No raw patch or UI gesture tool is introduced.
+
+## Implementation state
+
+The static substrate now ships: bounded `surface.typeField` data, first-class `kinetic-word` Block identity, semantic phrases, complete orientation placement, Pack-resolved real variable faces at rest weight, native DOM capture, full-clip Timeline rows, GUI direct manipulation and Inspector editing, and six revisioned Operation/WebMCP capabilities split across `layer`, `content`, `placement`, and `appearance`. It deliberately has no hidden motion. Removing a referenced word refuses until phrase and Cascade references are explicitly cleared; the first word creates a valid parent field and the last removal clears it atomically.
+
+`pnpm probe:kinetic-type-field` proves native dimensions, complete word-pool rendering, actual safe-area containment, readable identities, real Pack variable faces without synthesis, active-orientation placement, and seek-away/seek-back pixel and geometry replay across all ten Pack × orientation cells. Independent tracks and named Motion Beats remain absent until their following slices land.
 
 ## Consequences
 
 - `TextAnimation` keeps its current job: applying a catalogued effect to one ordinary text slot. A Type Field is the authored multi-word composition domain; the two do not compete for the same target.
-- The first proving piece is `kinetic-type-field`: `TYPE CAN MOVE` → `TYPE CAN BECOME` → `TYPE IS THE COMPOSITION`, with `TYPE` persistent, supporting-word turnover, Pack-mapped weight impacts, and separately authored horizontal/vertical spatial tracks.
-- The Block Pipeline needs a graphic Identity Spec, native readable/geometry authority, variable-face readiness evidence, deterministic random-seek/replay tests, and critical-frame coverage at every beat and channel envelope.
+- The static proving fixture is `kinetic-type-field-static-fixture`: it renders the complete word pool for `TYPE CAN MOVE` → `TYPE CAN BECOME` → `TYPE IS THE COMPOSITION` with Pack-resolved hierarchy and complete horizontal/vertical placement. The first animated deliverable will add persistence, supporting-word turnover, Pack-mapped weight impacts, and separately authored spatial tracks without changing that semantic field.
+- The shipped Block Pipeline has a graphic Identity Spec, native readable/geometry authority, variable-face readiness evidence, deterministic random-seek/replay proof, and Pack-role pixel-consumer declarations. The motion slices add critical-frame coverage at every beat and channel envelope.
 - A Type Field may coexist with ordinary Overlays, Effects, Media, sound, and a transparent or Pack field, but v1 excludes the Dimensional Stage, per-character children, automatic transcript generation, freeform layout recipes, physics, arbitrary font selection in the Preset, and axes other than weight.
 - Evidence that useful word choreography cannot be expressed without arbitrary CSS or per-character nodes would reject this bounded design rather than silently widening it into a node compositor.

@@ -44,6 +44,7 @@ import {
 } from './engine-schema';
 import { listSurfaceMarkInstances } from './surface-mark-instances';
 import { CHART_SURFACE_TYPES } from './chart-validation';
+import { KINETIC_TYPE_FIELD_SURFACE_TYPE } from './kinetic-type-field-validation';
 import { compositionEditHistory } from './composition-edit-history';
 import {
 	CompositionOperationError,
@@ -294,6 +295,15 @@ export async function runSetCompositionSurfaceOperation(
 			'precondition_unmet',
 			`This composition carries chart Blocks, which only a ${CHART_SURFACE_TYPES.join(' or ')} Surface composites. Remove them first.`,
 			{ rejected: request.surfaceType, alternatives: CHART_SURFACE_TYPES }
+		);
+	}
+	if (current.state.surface.typeField && surfaceType !== KINETIC_TYPE_FIELD_SURFACE_TYPE) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'precondition_unmet',
+			`This composition carries Kinetic Word Blocks, which only the ${KINETIC_TYPE_FIELD_SURFACE_TYPE} Surface composites. Remove them first.`,
+			{ rejected: request.surfaceType, alternatives: [KINETIC_TYPE_FIELD_SURFACE_TYPE] }
 		);
 	}
 

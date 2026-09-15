@@ -6190,6 +6190,214 @@
                 "items"
               ],
               "additionalProperties": false
+            },
+            "typeField": {
+              "type": "object",
+              "properties": {
+                "words": {
+                  "minItems": 1,
+                  "maxItems": 16,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "kinetic-word"
+                      },
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "hierarchy": {
+                        "type": "string",
+                        "enum": [
+                          "display",
+                          "support"
+                        ]
+                      },
+                      "ink": {
+                        "type": "string",
+                        "enum": [
+                          "ink",
+                          "accent"
+                        ]
+                      },
+                      "position": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "scale": {
+                        "type": "number",
+                        "minimum": 0.25,
+                        "maximum": 4
+                      },
+                      "rotation": {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
+                      },
+                      "orientationOverrides": {
+                        "type": "object",
+                        "properties": {
+                          "horizontal": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "scale": {
+                                "type": "number",
+                                "minimum": 0.25,
+                                "maximum": 4
+                              },
+                              "rotation": {
+                                "type": "number",
+                                "minimum": -180,
+                                "maximum": 180
+                              }
+                            },
+                            "required": [
+                              "position",
+                              "scale",
+                              "rotation"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "vertical": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "scale": {
+                                "type": "number",
+                                "minimum": 0.25,
+                                "maximum": 4
+                              },
+                              "rotation": {
+                                "type": "number",
+                                "minimum": -180,
+                                "maximum": 180
+                              }
+                            },
+                            "required": [
+                              "position",
+                              "scale",
+                              "rotation"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "id",
+                      "text",
+                      "hierarchy",
+                      "ink",
+                      "position",
+                      "scale",
+                      "rotation"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "phrases": {
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "wordIds": {
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "focalWordId": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "wordIds",
+                      "focalWordId"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "words",
+                "phrases"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [

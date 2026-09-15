@@ -2,6 +2,7 @@
 	import CaptionsMount from './CaptionsMount.svelte';
 	import ChartMount from './ChartMount.svelte';
 	import DiagramMount from './DiagramMount.svelte';
+	import KineticTypeFieldMount from './KineticTypeFieldMount.svelte';
 	import { engineState } from './engine-state.svelte';
 	import OverlayMount from './OverlayMount.svelte';
 	import SurfaceMount from './SurfaceMount.svelte';
@@ -63,6 +64,9 @@
 	style:inline-size={`${frame.width}px`}
 >
 	<SurfaceMount bind:element={surfaceElement} />
+	<!-- Kinetic Word Blocks are crisp native DOM on the Surface plane; semantic
+	     phrases never create a second layout or rendering tree. -->
+	<KineticTypeFieldMount />
 	<!-- Chart Blocks share the Surface plane. DOM chrome provides the intentional
 	     grid/axis underlay and reserved labels; analytic GPU marks punch inside-label plates. -->
 	<ChartMount />

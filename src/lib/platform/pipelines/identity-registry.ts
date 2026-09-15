@@ -58,6 +58,7 @@ import { columnChartIdentity } from '$lib/pipelines/blocks/column-chart/identity
 import { dotFieldChartIdentity } from '$lib/pipelines/blocks/dot-field-chart/identity';
 import { edgeArrowIdentity } from '$lib/pipelines/blocks/edge-arrow/identity';
 import { labelIdentity } from '$lib/pipelines/blocks/label/identity';
+import { kineticWordIdentity } from '$lib/pipelines/blocks/kinetic-word/identity';
 import { nodeIdentity } from '$lib/pipelines/blocks/node/identity';
 import { paragraphIdentity } from '$lib/pipelines/blocks/paragraph/identity';
 import { statCalloutIdentity } from '$lib/pipelines/blocks/stat-callout/identity';
@@ -113,6 +114,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 
 	// Blocks
 	'block:paragraph': paragraphIdentity,
+	'block:kinetic-word': kineticWordIdentity,
 	'block:node': nodeIdentity,
 	'block:edge-arrow': edgeArrowIdentity,
 	'block:label': labelIdentity,

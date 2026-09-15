@@ -161,7 +161,8 @@ When a color is absent, the active Pack's core `fill-treatment` / `ink-treatment
   "animation": { "channels": { "opacity": [ ... ] } },          // optional (see Animation; opacity only)
   "backgroundVisibility": 0..1,                                 // optional
   "diagram": [ ... ],                                           // optional Diagram primitive Blocks
-  "chart": { "mode": "single" | "sequence", "items": [ ... ] } // optional Chart Blocks; plain/paper only
+  "chart": { "mode": "single" | "sequence", "items": [ ... ] }, // optional Chart Blocks; plain/paper only
+  "typeField": { "words": [ ... ], "phrases": [ ... ] }       // optional Kinetic Word Blocks; plain only
 }
 ```
 
@@ -280,6 +281,42 @@ An optional `progressBar: true` draws a subtle Pack-colored ordered-dither strip
 
 The five motion windows are authored, Pack-invariant, and frame-deterministic. Omitted eases resolve to `smooth`, `smooth`, `sharp`, `smooth`, `smooth`; only `smooth | sharp` is accepted. Gaps hold state. Charts have no orientation-override schema: shared layout reflows the one declaration natively in horizontal and vertical and owns factual scales, zero baselines, chrome, legends, labels, source notes, and callout geometry. Marks render analytically through one instanced WebGPU path with Pack-resolved solid, gradient, or ordered-dither recipes localized to mark masks. The GUI add menu and Chart inspector mutate this same `surface.chart.items[]` model through bounded authoring helpers; there is no CSV upload, URL fetch, or GUI-only chart state.
 
+### `surface.typeField` — bounded Kinetic Word Blocks ([ADR-0063](adr/0063-kinetic-type-word-fields.md))
+
+`surface.typeField` is supported only on `plain`. It stores one static word pool plus ordered semantic phrases; phrase order never lays out or duplicates words. Kinetic Words are first-class Blocks rendered as crisp native DOM text on the existing Surface capture plane.
+
+```jsonc
+"typeField": {
+  "words": [
+    {
+      "type": "kinetic-word",
+      "id": "type",                         // stable Block, Timeline, selection, and readable identity
+      "text": "TYPE",                       // one trimmed token; at most 32 Unicode code points
+      "hierarchy": "display" | "support",
+      "ink": "ink" | "accent",
+      "position": { "x": 0..1, "y": 0..1 },
+      "scale": 0.25..4,
+      "rotation": -180..180,
+      "orientationOverrides": {              // optional complete geometry snapshots
+        "horizontal": { "position": { "x": 0..1, "y": 0..1 }, "scale": 0.25..4, "rotation": -180..180 },
+        "vertical": { "position": { "x": 0..1, "y": 0..1 }, "scale": 0.25..4, "rotation": -180..180 }
+      }
+    }
+  ],
+  "phrases": [
+    {
+      "id": "type-can-move",
+      "wordIds": ["type", "can", "move"], // semantic reading order only
+      "focalWordId": "move"
+    }
+  ]
+}
+```
+
+A field contains 1–16 unique words and 1–8 unique phrases. Each phrase references 1–8 unique, existing word ids. Its focal word must belong to the phrase and use `display` hierarchy. Kinetic Word ids share the Surface Block-id namespace with `surface.diagram[]` and `surface.chart.items[]`; Cascade `{ "block": id }` references resolve through that same authority. Removing a referenced word refuses rather than rewriting phrase or Cascade references. Switching to a non-`plain` Surface or enabling the Dimensional Stage also refuses while the field exists; Stage support is outside v1.
+
+The first word added through the GUI or `layer.add-kinetic-word` creates a valid parent field and phrase atomically; removing the last word removes the parent field. Static words occupy the complete composition on one full-clip Timeline row each and have no intrinsic motion. The GUI and six revisioned operations split membership, word text and phrase semantics, placement, and appearance into their owning families. Independent channels and Motion Beats described by ADR-0063 are not yet part of the wire schema.
+
 ### `overlays`
 
 ```jsonc
@@ -342,7 +379,7 @@ Keyframes:
 
 Cascade welds an element's **enter start** to another element's timing (milliseconds, not fractions — a 120 ms stagger stays 120 ms when the piece re-times):
 
-- `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` | `{ "block": id }` (the same identities the timeline rows use; `block` names a `surface.diagram[]` primitive or `surface.chart.items[]` Chart Block).
+- `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` | `{ "block": id }` (the same identities the timeline rows use; `block` names a `surface.diagram[]` primitive, `surface.chart.items[]` Chart Block, or `surface.typeField.words[]` Kinetic Word).
 - `event` — `"start"` | `"end"` of the anchor's enter.
 - `offsetMs` — signed milliseconds after (or before) the anchor event.
 - Allowed on `overlays[].animation`, `marks.timings[]` entries, `textAnimations[]` entries, and `surface.diagram[].animation`. A Chart Block may be an anchor through its intrinsic entry phase, but its five `ChartMotion` phases are not generalized keyframe channels and cannot carry Cascade. The surface is the timing root and carries no cascade.
@@ -521,7 +558,8 @@ Pack immunity is declared by each Pipeline's Identity Spec and derived at runtim
 
 - **`paragraph`** — text run inside `content.body` (the bracket-tag string).
 - **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
-- **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
+- **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers.
+- **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0063](adr/0063-kinetic-type-word-fields.md)); static placement, appearance, phrase semantics, Timeline identity, and direct manipulation ship, while independent tracks and Motion Beats remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
 
 ## Annotation styles
 
