@@ -184,10 +184,16 @@ export interface Keyframe {
 // is a 0..1 fraction; x/y are signed composition-fraction deltas; scale
 // mirrors the static field's 0.1..8; rotation is unbounded degrees so authored
 // spins stay expressible).
+export const COMPOSITION_KEYFRAME_LIMIT = 24;
+
 function createKeyframeTrackSchema(value: z.ZodType<number>) {
 	return z
 		.array(z.strictObject({ atMs: z.number().min(0), value, ease: EaseSchema.optional() }))
 		.min(1, 'A declared channel needs at least one keyframe.')
+		.max(
+			COMPOSITION_KEYFRAME_LIMIT,
+			`A channel holds at most ${COMPOSITION_KEYFRAME_LIMIT} keyframes.`
+		)
 		.superRefine((frames, ctx) => {
 			if (frames.length > 0 && frames[0].ease !== undefined) {
 				ctx.addIssue({
@@ -761,6 +767,49 @@ export const KineticWordGeometrySchema = z.strictObject({
 	rotation: z.number().finite().min(-180).max(180)
 });
 
+// Kinetic Words reuse ADR-0035's channel grammar. Shared opacity and semantic
+// weight survive both targets; one complete orientation group may replace the
+// shared spatial path when a tall-frame recomposition needs different motion.
+const KineticWordSpatialChannelKeyframesSchema = z.strictObject({
+	x: createKeyframeTrackSchema(z.number()).optional(),
+	y: createKeyframeTrackSchema(z.number()).optional(),
+	scale: createKeyframeTrackSchema(z.number().min(0.25).max(4)).optional(),
+	rotation: createKeyframeTrackSchema(z.number().min(-180).max(180)).optional()
+});
+
+const KineticWordChannelKeyframesSchema = z.strictObject({
+	opacity: createKeyframeTrackSchema(FractionSchema).optional(),
+	...KineticWordSpatialChannelKeyframesSchema.shape,
+	weight: createKeyframeTrackSchema(FractionSchema).optional()
+});
+
+const KineticWordAnimationSchema = z
+	.strictObject({
+		channels: KineticWordChannelKeyframesSchema.optional(),
+		orientationOverrides: z
+			.strictObject({
+				horizontal: KineticWordSpatialChannelKeyframesSchema.optional(),
+				vertical: KineticWordSpatialChannelKeyframesSchema.optional()
+			})
+			.optional()
+	})
+	.superRefine((animation, ctx) => {
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			const channels = animation.orientationOverrides?.[orientation];
+			if (!channels) continue;
+			const declared = KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS.filter(
+				(channel) => channels[channel] !== undefined
+			);
+			if (declared.length !== KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS.length) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['orientationOverrides', orientation],
+					message: `A ${orientation} Kinetic Word spatial-track override must declare x, y, scale, and rotation as one complete group.`
+				});
+			}
+		}
+	});
+
 export const KineticWordSchema = z.strictObject({
 	type: z.literal('kinetic-word'),
 	id: z.string().min(1),
@@ -775,7 +824,8 @@ export const KineticWordSchema = z.strictObject({
 			horizontal: KineticWordGeometrySchema.optional(),
 			vertical: KineticWordGeometrySchema.optional()
 		})
-		.optional()
+		.optional(),
+	animation: KineticWordAnimationSchema.optional()
 });
 
 const KineticPhraseSchema = z.strictObject({
@@ -844,6 +894,17 @@ export const KineticTypeFieldSchema = z
 export type KineticWordGeometry = z.infer<typeof KineticWordGeometrySchema>;
 export type KineticWordHierarchy = z.infer<typeof KineticWordHierarchySchema>;
 export type KineticWordInk = z.infer<typeof KineticWordInkSchema>;
+export type KineticWordSpatialChannelKeyframes = z.infer<
+	typeof KineticWordSpatialChannelKeyframesSchema
+>;
+export type KineticWordChannelKeyframes = z.infer<typeof KineticWordChannelKeyframesSchema>;
+export type KineticWordAnimation = z.infer<typeof KineticWordAnimationSchema>;
+export const KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS: readonly (keyof KineticWordSpatialChannelKeyframes)[] =
+	Object.keys(
+		KineticWordSpatialChannelKeyframesSchema.shape
+	) as (keyof KineticWordSpatialChannelKeyframes)[];
+export const KINETIC_WORD_KEYFRAME_CHANNELS: readonly (keyof KineticWordChannelKeyframes)[] =
+	Object.keys(KineticWordChannelKeyframesSchema.shape) as (keyof KineticWordChannelKeyframes)[];
 export type KineticWord = z.infer<typeof KineticWordSchema>;
 export type KineticPhrase = z.infer<typeof KineticPhraseSchema>;
 export type KineticTypeField = z.infer<typeof KineticTypeFieldSchema>;

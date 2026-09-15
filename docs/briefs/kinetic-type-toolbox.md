@@ -4,7 +4,7 @@
 **Slug:** kinetic-type-toolbox
 **Pack:** syntax
 **Verification preset:** kinetic-type-field
-**Progress:** Variable-weight substrate and static `kinetic-type-field-static-fixture` shipped 2026-09-15; independent tracks, Motion Beats, and the deliverable remain active.
+**Progress:** Variable-weight substrate, static `kinetic-type-field-static-fixture`, and independent opacity/spatial/normalized-weight tracks with the moving `kinetic-type-field-motion-fixture` shipped 2026-09-15; Motion Beats, tracking, and the deliverable remain active.
 
 ## Pitch
 
@@ -47,10 +47,10 @@ The Preset stores only semantic ink/accent selections and normalized weight. Eve
 - ✅ Add the static Type Field group on `plain`: bounded word pool, ordered phrases, focal-word references, strict semantic validation, and shared Block identity. Phrase-to-Beat bindings remain with the Motion Beat slice.
 - Add top-level named Motion Beats with absolute-millisecond and beat-relative keyframe addressing.
 - ✅ Register the `kinetic-word` Block Pipeline with strict content, placement, orientation, appearance, Identity Spec, native DOM renderer, readable authority, Timeline rows, Inspector editing, and direct canvas manipulation.
-- Extend generalized Block channels with `weight` and `tracking`, keeping `x`, `y`, `scale`, `rotation`, and `opacity`; add complete per-orientation spatial-track snapshots.
+- ✅ Extend generalized Block channels with normalized `weight`, `x`, `y`, `scale`, `rotation`, and `opacity`; add complete per-orientation spatial-track snapshots. `tracking` remains deferred.
 - ✅ Supply a real variable-weight display face and art-directed `wght` mapping from every catalog Pack without changing ordinary static typography pixels. Validate User Pack claims against the existing vendored Google Fonts and materialized-face authorities.
-- Extend Timeline identity, rows, beat markers/snapping, channel diamonds, Inspector controls, canvas selection/direct manipulation, undo/redo, and critical-frame enumeration.
-- Add or extend shared Operations in the `layer`, `content`, `placement`, `appearance`, and `motion` families. Update the operation inventory and WebMCP schemas; never add raw patch or GUI gesture tools.
+- Extend Timeline identity, rows, beat markers/snapping, channel diamonds, Inspector controls, canvas selection/direct manipulation, undo/redo, and critical-frame enumeration. Rows, diamonds, scoped controls, nonzero-playhead write-back, and gesture undo ship; beat markers/snapping remain.
+- ✅ Add or extend shared Operations in the `layer`, `content`, `placement`, `appearance`, and `motion` families. Update the operation inventory and WebMCP schemas; never add raw patch or GUI gesture tools. Motion Beats will add their own bounded membership/reference operations.
 - Add schema/semantic ceilings, Pack/axis validation, deterministic interpolation, layout-contract authority, pixel diagnostics, agent evals, and the reference Preset/poster.
 - Update `docs/CONTEXT.md`, `docs/engine-architecture.md`, `docs/preset-format.md`, `docs/animation-rubric.md`, `docs/quality-rubric.md`, and authoring workflow documentation as each boundary lands.
 

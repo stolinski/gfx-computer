@@ -371,6 +371,15 @@ Spoken-word captions for the host audio. First-class as the `state.captions` tra
 
 ---
 
+## Kinetic Type Fields
+
+- A Kinetic Word's geometry and typography are independent authored tracks. Geometry should anticipate and settle over the ordinary 250–400 ms editorial band; normalized weight may strike faster at the rhythmic focal moment, then release without synthetic bold or transform-based imitation.
+- Phrase continuity is visible, not inferred from ids alone. At each intended phrase frame, every semantic phrase word is readable, non-members are absent or subordinate, and the focal word has `display` hierarchy. Reused core-word ids must remain perceptually continuous while supporting words turn over.
+- X/Y channels are composition-fraction deltas from the resolved base placement. Scale and rotation are absolute. Shared opacity and weight survive both targets; a target-specific spatial path must replace X/Y/scale/rotation as one complete group.
+- Editing a word at a nonzero playhead creates or updates the intended keyframe. It must not move resting placement, produce duplicate-time keys, split one X/Y gesture into multiple undo entries, or make preview and export disagree.
+- Variable-weight motion uses the active Pack's real loaded face and mapped range with `font-synthesis: none`. Word centers and neighboring layout remain stable through the strike; a Pack swap changes appearance, not normalized timing or motion intent.
+- Verification samples phrase holds, spatial envelopes, weight impacts, and random seek-away/seek-back replay at native horizontal and vertical resolution under every catalog Pack. Exact canonical poster-grid image digests and geometry identity gate aesthetic review. The image digest averages fixed 32×32 poster-pixel blocks, quantizes each channel to eight-level coordinates, and then applies SHA-256; exact computed color and geometry receipts accompany it. This excludes native-browser subpixel coverage noise while preserving phrase form, position, weight, and color differences.
+
 ## Authoring Checklist
 
 When an agent finishes a preset, the agent must verify the following before considering the preset shipped. This list is the literal pass/fail rubric.

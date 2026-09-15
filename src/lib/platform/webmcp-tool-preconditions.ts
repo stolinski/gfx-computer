@@ -66,9 +66,18 @@ function hasKeyframeChannel(state: EngineState): boolean {
 	const carriers = [
 		state.surface.animation,
 		...state.overlays.map((overlay) => overlay.animation),
-		...(state.surface.diagram ?? []).map((primitive) => primitive.animation)
+		...(state.surface.diagram ?? []).map((primitive) => primitive.animation),
+		...(state.surface.typeField?.words ?? []).map((word) => word.animation)
 	];
-	return carriers.some((motion) => Object.keys(motion?.channels ?? {}).length > 0);
+	return carriers.some(
+		(motion) =>
+			Object.keys(motion?.channels ?? {}).length > 0 ||
+			(motion !== undefined &&
+				'orientationOverrides' in motion &&
+				Object.values(motion.orientationOverrides ?? {}).some(
+					(channels) => Object.keys(channels ?? {}).length > 0
+				))
+	);
 }
 
 /** Whether any of the four anchorable entities is welded to another one. */

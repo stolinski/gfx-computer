@@ -10,6 +10,7 @@ import {
 	runSetCompositionKineticPhrasesOperation,
 	runSetCompositionKineticWordAppearanceOperation,
 	runSetCompositionKineticWordPlacementOperation,
+	runSetCompositionKineticWordPositionKeyframeOperation,
 	runSetCompositionKineticWordTextOperation
 } from './composition-kinetic-type-operations';
 import { compositionMeta } from './composition-meta.svelte';
@@ -156,6 +157,106 @@ describe('Kinetic Word membership', () => {
 		expect(engineState.surface.typeField?.words[0].id).toBe('kinetic-word-1');
 		expect(compositionEditHistory.redo()).toBe(true);
 		expect(engineState.surface.typeField).toBeUndefined();
+	});
+});
+
+describe('Kinetic Word motion gestures', () => {
+	beforeEach(async () => {
+		expectApplied(await runAddCompositionKineticWordOperation({ expectedRevision: 0 }));
+	});
+
+	it('writes X/Y at a nonzero playhead as one complete orientation-track transaction', async () => {
+		const receipt = expectApplied(
+			await runSetCompositionKineticWordPositionKeyframeOperation({
+				expectedRevision: 1,
+				wordId: 'kinetic-word-1',
+				scope: 'vertical',
+				atMs: 500,
+				x: 0.08,
+				y: -0.04,
+				ease: 'settled'
+			})
+		);
+
+		expect(receipt.changed.pointers).toEqual(['/state/surface/typeField/words/0/animation']);
+		expect(receipt.focus).toEqual({ target: 'block', blockId: 'kinetic-word-1' });
+		const spatial =
+			engineState.surface.typeField?.words[0].animation?.orientationOverrides?.vertical;
+		expect(spatial?.x).toEqual([
+			{ atMs: 0, value: 0 },
+			{ atMs: 500, value: 0.08, ease: 'settled' }
+		]);
+		expect(spatial?.y).toEqual([
+			{ atMs: 0, value: 0 },
+			{ atMs: 500, value: -0.04, ease: 'settled' }
+		]);
+		expect(spatial?.scale).toEqual([{ atMs: 0, value: 1 }]);
+		expect(spatial?.rotation).toEqual([{ atMs: 0, value: 0 }]);
+
+		expect(compositionEditHistory.undo()).toBe(true);
+		expect(engineState.surface.typeField?.words[0].animation).toBeUndefined();
+		expect(compositionEditHistory.redo()).toBe(true);
+		expect(
+			engineState.surface.typeField?.words[0].animation?.orientationOverrides?.vertical?.x
+		).toHaveLength(2);
+	});
+
+	it('refuses a stale position-key gesture without changing the authored track', async () => {
+		expectApplied(
+			await runSetCompositionKineticWordPositionKeyframeOperation({
+				expectedRevision: 1,
+				wordId: 'kinetic-word-1',
+				scope: 'vertical',
+				atMs: 500,
+				x: 0.08,
+				y: -0.04
+			})
+		);
+		const failure = expectFailed(
+			await runSetCompositionKineticWordPositionKeyframeOperation({
+				expectedRevision: 1,
+				wordId: 'kinetic-word-1',
+				scope: 'vertical',
+				atMs: 500,
+				x: 0.2,
+				y: 0.2
+			})
+		);
+		expect(failure.code).toBe('stale_revision');
+		expect(
+			engineState.surface.typeField?.words[0].animation?.orientationOverrides?.vertical?.x?.[1]
+		).toMatchObject({ value: 0.08 });
+	});
+
+	it('updates an existing playhead key instead of moving static placement', async () => {
+		expectApplied(
+			await runSetCompositionKineticWordPositionKeyframeOperation({
+				expectedRevision: 1,
+				wordId: 'kinetic-word-1',
+				scope: 'horizontal',
+				atMs: 400,
+				x: 0.05,
+				y: 0.02
+			})
+		);
+		expectApplied(
+			await runSetCompositionKineticWordPositionKeyframeOperation({
+				expectedRevision: 2,
+				wordId: 'kinetic-word-1',
+				scope: 'horizontal',
+				atMs: 400,
+				x: 0.12,
+				y: -0.06,
+				ease: 'sharp'
+			})
+		);
+
+		const word = engineState.surface.typeField?.words[0];
+		expect(word?.position).toEqual({ x: 0.5, y: 0.5 });
+		expect(word?.animation?.orientationOverrides?.horizontal?.x).toEqual([
+			{ atMs: 0, value: 0 },
+			{ atMs: 400, value: 0.12, ease: 'sharp' }
+		]);
 	});
 });
 

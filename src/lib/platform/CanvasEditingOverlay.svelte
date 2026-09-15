@@ -47,7 +47,10 @@
 		type CanvasElementSelectionKey
 	} from './canvas-element-selection';
 	import { compositionEditHistory } from './composition-edit-history';
-	import { runSetCompositionKineticWordPlacementOperation } from './composition-kinetic-type-operations';
+	import {
+		runSetCompositionKineticWordPlacementOperation,
+		runSetCompositionKineticWordPositionKeyframeOperation
+	} from './composition-kinetic-type-operations';
 	import {
 		captureCompositionGestureOrigin,
 		recordCompositionGestureEdit
@@ -97,6 +100,7 @@
 		requestInspectorFocus,
 		setCanvasElementSelection
 	} from './selection.svelte';
+	import { timelineHandle } from './timeline-handle.svelte';
 	import {
 		createTimelineTrackId,
 		STAGE_SCREEN_BODY_ID,
@@ -294,7 +298,9 @@
 		// A screen's glass is the Surface plane (ADR-0051 phase 2): the same
 		// opening and crop the renderer builds, so page hit-tests land on the tube.
 		const screenModel = stage.screen ? getStageModel(stage.screen.model) : null;
-		const screenGlass = screenModel ? resolveStageScreenGlass(aspect, screenModel.screen) : undefined;
+		const screenGlass = screenModel
+			? resolveStageScreenGlass(aspect, screenModel.screen)
+			: undefined;
 		return createStageProjector({
 			aspect,
 			camera: resolveStageCameraForOrientation(stage.camera, engineState.transport.orientation),
@@ -1234,6 +1240,9 @@
 		startCompY: number;
 		origin: KineticWordGeometry;
 		target: KineticWordGeometry;
+		atMs: number;
+		originChannelX: number;
+		originChannelY: number;
 		snap: CanvasDragSnapGesture | null;
 	}
 
@@ -1255,14 +1264,20 @@
 		const orientation = engineState.transport.orientation;
 		const override = word.orientationOverrides?.[orientation];
 		const target: KineticWordGeometry = override ?? word;
+		const atMs = (timelineHandle.current?.time ?? 0) * 1000;
+		const writesMotion = atMs > 0;
+		const liveChannels = animState.kineticWordChannels[word.id];
 		kineticWordDrag = {
 			wordId: word.id,
-			scope: override ? orientation : 'shared',
+			scope: writesMotion ? orientation : override ? orientation : 'shared',
 			expectedRevision: compositionEditHistory.revision,
 			startCompX: start.x,
 			startCompY: start.y,
 			origin: cloneKineticWordGeometry(target),
 			target,
+			atMs: writesMotion ? atMs : 0,
+			originChannelX: liveChannels?.x ?? 0,
+			originChannelY: liveChannels?.y ?? 0,
 			snap: createCanvasDragSnapGesture(`block:${word.id}`, 'surface')
 		};
 		if (typeof window !== 'undefined') {
@@ -1283,8 +1298,10 @@
 		};
 		if (Math.abs(proposedDelta.x) < 0.0005 && Math.abs(proposedDelta.y) < 0.0005) return;
 		const delta = resolveCanvasGestureDelta(event, drag.snap, proposedDelta);
-		drag.target.position.x = Math.round(clampNumber(drag.origin.position.x + delta.x, 0, 1) * 10000) / 10000;
-		drag.target.position.y = Math.round(clampNumber(drag.origin.position.y + delta.y, 0, 1) * 10000) / 10000;
+		drag.target.position.x =
+			Math.round(clampNumber(drag.origin.position.x + delta.x, 0, 1) * 10000) / 10000;
+		drag.target.position.y =
+			Math.round(clampNumber(drag.origin.position.y + delta.y, 0, 1) * 10000) / 10000;
 	}
 
 	async function commitKineticWordDrag(): Promise<void> {
@@ -1300,6 +1317,17 @@
 			finalGeometry.position.x === drag.origin.position.x &&
 			finalGeometry.position.y === drag.origin.position.y
 		) {
+			return;
+		}
+		if (drag.atMs > 0 && drag.scope !== 'shared') {
+			await runSetCompositionKineticWordPositionKeyframeOperation({
+				expectedRevision: drag.expectedRevision,
+				wordId: drag.wordId,
+				scope: drag.scope,
+				atMs: drag.atMs,
+				x: drag.originChannelX + (finalGeometry.position.x - drag.origin.position.x),
+				y: drag.originChannelY + (finalGeometry.position.y - drag.origin.position.y)
+			});
 			return;
 		}
 		await runSetCompositionKineticWordPlacementOperation({
@@ -1839,26 +1867,33 @@
 				resolveKineticWordGeometry(kineticWord, orientation)
 			);
 			const nativePixels = event.shiftKey ? 10 : 1;
-			geometry.position.x = clampNumber(
-				geometry.position.x +
-					(event.key === 'ArrowLeft'
-						? -nativePixels / Math.max(1, compositionSize.width)
-						: event.key === 'ArrowRight'
-							? nativePixels / Math.max(1, compositionSize.width)
-							: 0),
-				0,
-				1
-			);
-			geometry.position.y = clampNumber(
-				geometry.position.y +
-					(event.key === 'ArrowUp'
-						? -nativePixels / Math.max(1, compositionSize.height)
-						: event.key === 'ArrowDown'
-							? nativePixels / Math.max(1, compositionSize.height)
-							: 0),
-				0,
-				1
-			);
+			const deltaX =
+				event.key === 'ArrowLeft'
+					? -nativePixels / Math.max(1, compositionSize.width)
+					: event.key === 'ArrowRight'
+						? nativePixels / Math.max(1, compositionSize.width)
+						: 0;
+			const deltaY =
+				event.key === 'ArrowUp'
+					? -nativePixels / Math.max(1, compositionSize.height)
+					: event.key === 'ArrowDown'
+						? nativePixels / Math.max(1, compositionSize.height)
+						: 0;
+			const atMs = (timelineHandle.current?.time ?? 0) * 1000;
+			if (atMs > 0) {
+				const channels = animState.kineticWordChannels[kineticWord.id];
+				void runSetCompositionKineticWordPositionKeyframeOperation({
+					expectedRevision: compositionEditHistory.revision,
+					wordId: kineticWord.id,
+					scope: orientation,
+					atMs,
+					x: (channels?.x ?? 0) + deltaX,
+					y: (channels?.y ?? 0) + deltaY
+				});
+				return true;
+			}
+			geometry.position.x = clampNumber(geometry.position.x + deltaX, 0, 1);
+			geometry.position.y = clampNumber(geometry.position.y + deltaY, 0, 1);
 			void runSetCompositionKineticWordPlacementOperation({
 				expectedRevision: compositionEditHistory.revision,
 				wordId: kineticWord.id,

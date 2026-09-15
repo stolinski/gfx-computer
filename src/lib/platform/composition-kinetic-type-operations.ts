@@ -1,19 +1,26 @@
 /**
- * Shared static Type Field authoring operations (ADR-0063).
+ * Shared Type Field authoring operations that need Kinetic Word atomicity (ADR-0063).
  *
- * Layer membership, word content, semantic phrase content, placement, and
- * appearance remain separate inventory decisions. Every path reaches the same
+ * Layer membership, word content, semantic phrase content, placement,
+ * appearance, and playhead X/Y motion remain separate inventory decisions.
+ * Every path reaches the same
  * revisioned transaction from GUI and WebMCP callers.
  */
 import { createCompositionEntityId } from '$lib/utils/composition-entity-id';
+import { resolveKineticWordGeometry } from '$lib/utils/kinetic-word-geometry';
 import {
+	COMPOSITION_KEYFRAME_LIMIT,
+	ENGINE_EASES,
 	KINETIC_TYPE_WORD_CODE_POINT_LIMIT,
 	KINETIC_TYPE_WORD_LIMIT,
 	KINETIC_WORD_HIERARCHIES,
 	KINETIC_WORD_INK_ROLES,
 	KineticWordGeometrySchema,
+	type Ease,
+	type Keyframe,
 	type KineticPhrase,
 	type KineticWord,
+	type KineticWordAnimation,
 	type KineticWordGeometry,
 	type KineticWordHierarchy,
 	type KineticWordInk
@@ -71,6 +78,18 @@ export interface SetCompositionKineticWordAppearanceRequest {
 	wordId: string;
 	hierarchy: KineticWordHierarchy;
 	ink: KineticWordInk;
+}
+
+export type KineticWordMotionScope = 'shared' | 'horizontal' | 'vertical';
+
+export interface SetCompositionKineticWordPositionKeyframeRequest {
+	expectedRevision: number;
+	wordId: string;
+	scope: KineticWordMotionScope;
+	atMs: number;
+	x: number;
+	y: number;
+	ease?: Ease;
 }
 
 function refuseUnknownKineticWord(
@@ -376,6 +395,158 @@ export async function runSetCompositionKineticWordPlacementOperation(
 			}
 			word.orientationOverrides ??= {};
 			word.orientationOverrides[request.scope] = geometry;
+		}
+	});
+}
+
+function cloneKineticWordAnimation(
+	animation: KineticWordAnimation | undefined
+): KineticWordAnimation {
+	return structuredClone(animation ?? {});
+}
+
+function upsertPositionKeyframe(
+	track: readonly Keyframe[] | undefined,
+	atMs: number,
+	value: number,
+	ease: Ease | undefined
+): Keyframe[] {
+	const next = (track ?? []).map((frame) => ({ ...frame }));
+	if (next.length === 0 && atMs > 0) next.push({ atMs: 0, value: 0 });
+	const existingIndex = next.findIndex((frame) => frame.atMs === atMs);
+	if (existingIndex >= 0) {
+		const existing = next[existingIndex];
+		next[existingIndex] = {
+			atMs,
+			value,
+			...(existingIndex > 0 ? { ease: ease ?? existing.ease ?? 'smooth' } : {})
+		};
+	} else {
+		next.push({ atMs, value, ...(atMs > 0 ? { ease: ease ?? 'smooth' } : {}) });
+		next.sort((left, right) => left.atMs - right.atMs);
+	}
+	if (next[0]) delete next[0].ease;
+	return next;
+}
+
+function materializeKineticWordSpatialMotion(
+	animation: KineticWordAnimation,
+	word: KineticWord,
+	scope: Exclude<KineticWordMotionScope, 'shared'>
+): NonNullable<NonNullable<KineticWordAnimation['orientationOverrides']>[typeof scope]> {
+	const existing = animation.orientationOverrides?.[scope];
+	if (existing) return existing;
+	const shared = animation.channels;
+	const geometry = resolveKineticWordGeometry(word, scope);
+	const spatial = {
+		x: shared?.x?.map((frame) => ({ ...frame })) ?? [{ atMs: 0, value: 0 }],
+		y: shared?.y?.map((frame) => ({ ...frame })) ?? [{ atMs: 0, value: 0 }],
+		scale: shared?.scale?.map((frame) => ({ ...frame })) ?? [{ atMs: 0, value: geometry.scale }],
+		rotation: shared?.rotation?.map((frame) => ({ ...frame })) ?? [
+			{ atMs: 0, value: geometry.rotation }
+		]
+	};
+	animation.orientationOverrides ??= {};
+	animation.orientationOverrides[scope] = spatial;
+	return spatial;
+}
+
+/**
+ * Upsert X and Y together for a canvas direct-manipulation gesture. A first
+ * nonzero key preserves the resting layout with an explicit zero at t=0.
+ */
+export async function runSetCompositionKineticWordPositionKeyframeOperation(
+	request: SetCompositionKineticWordPositionKeyframeRequest
+): Promise<CompositionOperationOutcome> {
+	const row = requireCompositionOperationRow('motion.set-kinetic-word-position-keyframe');
+	const refusal = refuseUnlessCompositionEditable(row);
+	if (refusal) return refusal;
+
+	const state = readOpenCompositionDocument().state;
+	const word = state.surface.typeField?.words.find((candidate) => candidate.id === request.wordId);
+	if (!word) {
+		return refuseUnknownKineticWord(
+			row,
+			request.wordId,
+			(state.surface.typeField?.words ?? []).map((candidate) => candidate.id)
+		);
+	}
+	if (!['shared', 'horizontal', 'vertical'].includes(request.scope)) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'invalid_argument',
+			`"${request.scope}" is not a Kinetic Word motion scope.`,
+			{ rejected: request.scope, alternatives: ['shared', 'horizontal', 'vertical'] }
+		);
+	}
+	const durationMs = state.transport.durationSeconds * 1000;
+	if (!Number.isFinite(request.atMs) || request.atMs < 0 || request.atMs > durationMs) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'invalid_argument',
+			`Kinetic Word keyframe time must be between 0 and ${durationMs}ms.`,
+			{ rejected: String(request.atMs) }
+		);
+	}
+	if (!Number.isFinite(request.x) || !Number.isFinite(request.y)) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'invalid_argument',
+			'Kinetic Word X and Y channels require finite composition-fraction deltas.',
+			{ rejected: `${request.x},${request.y}` }
+		);
+	}
+	if (request.ease !== undefined && !Object.hasOwn(ENGINE_EASES, request.ease)) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'unsupported_variant',
+			`"${request.ease}" is not a motion ease.`,
+			{ rejected: request.ease, alternatives: Object.keys(ENGINE_EASES) }
+		);
+	}
+
+	const currentSpatial =
+		request.scope === 'shared'
+			? word.animation?.channels
+			: (word.animation?.orientationOverrides?.[request.scope] ?? word.animation?.channels);
+	for (const channel of ['x', 'y'] as const) {
+		const track = currentSpatial?.[channel] ?? [];
+		if (
+			!track.some((frame) => frame.atMs === request.atMs) &&
+			track.length + (track.length === 0 && request.atMs > 0 ? 2 : 1) > COMPOSITION_KEYFRAME_LIMIT
+		) {
+			return refuseCompositionOperation(
+				row,
+				compositionEditHistory.revision,
+				'limit_exceeded',
+				`The ${channel} channel already reaches the ${COMPOSITION_KEYFRAME_LIMIT}-keyframe limit.`,
+				{ rejected: channel, alternatives: ['move an existing keyframe', 'clear a keyframe'] }
+			);
+		}
+	}
+
+	return runCompositionEditTransaction({
+		operationId: row.id,
+		expectedRevision: request.expectedRevision,
+		undoLabel: 'Set Kinetic Word position keyframe',
+		focus: { target: 'block', blockId: request.wordId },
+		mutate: (draft) => {
+			const draftWords = draft.state.surface.typeField?.words;
+			if (!draftWords)
+				throw new CompositionOperationError('unknown_target', 'The Type Field is gone.');
+			const draftWord = requireDraftKineticWord(draftWords, request.wordId);
+			const animation = cloneKineticWordAnimation(draftWord.animation);
+			const channels =
+				request.scope === 'shared'
+					? (animation.channels ??= {})
+					: materializeKineticWordSpatialMotion(animation, draftWord, request.scope);
+			channels.x = upsertPositionKeyframe(channels.x, request.atMs, request.x, request.ease);
+			channels.y = upsertPositionKeyframe(channels.y, request.atMs, request.y, request.ease);
+			draftWord.animation = animation;
 		}
 	});
 }

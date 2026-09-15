@@ -1,6 +1,10 @@
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 
-import type { OverlayChannelValues, RenderAnimState } from './anim-state.svelte.ts';
+import type {
+	KineticWordChannelValues,
+	OverlayChannelValues,
+	RenderAnimState
+} from './anim-state.svelte.ts';
 import type { AnimationManifest, AnimationTweenSpec } from './animation-manager.ts';
 import {
 	DEFAULT_BLOCK_ENTER,
@@ -14,6 +18,7 @@ import {
 	SUGAR_OPACITY_EXIT_EASES,
 	type EngineState,
 	type Keyframe,
+	type KineticWordChannelKeyframes,
 	type MarkInstance,
 	type TextAnimation,
 	type Transport
@@ -21,6 +26,10 @@ import {
 import { listSurfaceMarkInstances } from './surface-mark-instances.ts';
 import { clampNumber } from '$lib/utils/math';
 import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
+import {
+	resolveKineticWordChannelKeyframes,
+	resolveKineticWordGeometry
+} from '$lib/utils/kinetic-word-geometry';
 import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 
 const COMPOSITION_CHANNEL_KEYS = ['opacity', 'x', 'y', 'scale', 'rotation'] as const;
@@ -104,6 +113,16 @@ function synchronizeBlockAnimationRecords(runtime: RenderAnimState, ids: readonl
 		runtime.blockAlphas[id] ??= 1;
 		runtime.blockChannels[id] ??= null;
 	}
+}
+
+function synchronizeKineticWordAnimationRecords(
+	runtime: RenderAnimState,
+	ids: readonly string[]
+): void {
+	for (const key of Object.keys(runtime.kineticWordChannels)) {
+		if (!ids.includes(key)) delete runtime.kineticWordChannels[key];
+	}
+	for (const id of ids) runtime.kineticWordChannels[id] ??= null;
 }
 
 /** Surface opacity: the declared channel takes the pen; otherwise the enter/exit sugar. */
@@ -367,6 +386,53 @@ function appendPrimitiveSugarTweens(
 	}
 }
 
+function appendKineticWordTweens(
+	state: EngineState,
+	durationMs: number,
+	runtime: RenderAnimState,
+	tweens: AnimationTweenSpec[]
+): void {
+	const words = state.surface.typeField?.words ?? [];
+	synchronizeKineticWordAnimationRecords(
+		runtime,
+		words.map((word) => word.id)
+	);
+	for (const word of words) {
+		const channels = resolveKineticWordChannelKeyframes(word, state.transport.orientation);
+		const channelNames = Object.keys(channels) as (keyof KineticWordChannelKeyframes)[];
+		if (!channelNames.some((channel) => (channels[channel]?.length ?? 0) > 0)) {
+			runtime.kineticWordChannels[word.id] = null;
+			continue;
+		}
+
+		const geometry = resolveKineticWordGeometry(word, state.transport.orientation);
+		const slot: KineticWordChannelValues = {
+			opacity: channels.opacity?.[0]?.value ?? 1,
+			x: channels.x?.[0]?.value ?? 0,
+			y: channels.y?.[0]?.value ?? 0,
+			scale: channels.scale?.[0]?.value ?? geometry.scale,
+			rotation: channels.rotation?.[0]?.value ?? geometry.rotation,
+			weight: channels.weight?.[0]?.value ?? 0.5
+		};
+		runtime.kineticWordChannels[word.id] = slot;
+		for (const channel of channelNames) {
+			const frames = channels[channel];
+			if (!frames || frames.length === 0) continue;
+			appendChannelKeyframeTweens({
+				tweens,
+				keyPrefix: `kinetic-word-${word.id}-${channel}`,
+				frames,
+				clipStartFraction: 0,
+				durationMs,
+				write: (value) => {
+					const current = runtime.kineticWordChannels[word.id];
+					if (current) current[channel] = value;
+				}
+			});
+		}
+	}
+}
+
 function appendDiagramBlockTweens(
 	state: EngineState,
 	cascadeWindows: CascadeWindowMap,
@@ -381,8 +447,7 @@ function appendDiagramBlockTweens(
 	);
 	for (const primitive of diagramPrimitives) {
 		const channels = primitive.animation?.channels as
-			| Partial<Record<CompositionChannelKey, Keyframe[]>>
-			| undefined;
+			Partial<Record<CompositionChannelKey, Keyframe[]>> | undefined;
 		const window = cascadeWindows.get(`block:${primitive.id}`);
 		const hasChannels =
 			channels !== undefined &&
@@ -438,6 +503,7 @@ export function buildCompositionAnimationManifest(
 
 	runtime.overlayChannels = resolveOverlayChannelValues(state);
 	appendOverlayTweens(state, cascadeWindows, durationMs, runtime, tweens);
+	appendKineticWordTweens(state, durationMs, runtime, tweens);
 	appendDiagramBlockTweens(state, cascadeWindows, durationMs, runtime, tweens);
 
 	return { tweens };

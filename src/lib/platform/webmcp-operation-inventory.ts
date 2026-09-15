@@ -406,6 +406,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/marks/timings/*', scope: 'value' },
 			{ pointer: '/state/textAnimations/*', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/animation', scope: 'value' },
+			{ pointer: '/state/surface/typeField/words/*/animation', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*/motion', scope: 'value' },
 			{ pointer: '/transition', scope: 'value' }
 		]
@@ -1663,12 +1664,13 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'motion',
 		toolName: 'gfx_motion_set_keyframe_channel',
 		summary:
-			'Author one property channel on the Surface, an Overlay, or a diagram primitive as ordered keyframes with per-segment eases.',
+			'Author one property channel on the Surface, an Overlay, a diagram primitive, or a Kinetic Word as ordered keyframes with per-segment eases.',
 		effect: 'write',
 		writes: [
 			'/state/surface/animation',
 			'/state/overlays/*/animation',
-			'/state/surface/diagram/*/animation'
+			'/state/surface/diagram/*/animation',
+			'/state/surface/typeField/words/*/animation'
 		],
 		precondition: 'composition-editable',
 		requiresExpectedRevision: true,
@@ -1679,16 +1681,33 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		guiSurface: 'src/lib/platform/KeyframesSection.svelte'
 	},
 	{
+		id: 'motion.set-kinetic-word-position-keyframe',
+		family: 'motion',
+		toolName: 'gfx_motion_set_kinetic_word_position_keyframe',
+		summary:
+			'Upsert one Kinetic Word X/Y position keyframe atomically for a shared or orientation-specific spatial path.',
+		effect: 'write',
+		writes: ['/state/surface/typeField/words/*/animation'],
+		precondition: 'kinetic-word-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/CanvasEditingOverlay.svelte'
+	},
+	{
 		id: 'motion.clear-keyframe-channel',
 		family: 'motion',
 		toolName: 'gfx_motion_clear_keyframe_channel',
 		summary:
-			"Remove one authored property channel so the element's intrinsic motion form runs again.",
+			"Remove one authored property channel so the element's intrinsic motion form runs again; clearing an orientation-scoped Kinetic Word spatial channel removes that complete replacement group.",
 		effect: 'write',
 		writes: [
 			'/state/surface/animation',
 			'/state/overlays/*/animation',
-			'/state/surface/diagram/*/animation'
+			'/state/surface/diagram/*/animation',
+			'/state/surface/typeField/words/*/animation'
 		],
 		precondition: 'keyframe-channel-present',
 		requiresExpectedRevision: true,

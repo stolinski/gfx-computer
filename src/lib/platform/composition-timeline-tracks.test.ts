@@ -310,6 +310,60 @@ describe('composition timeline tracks', () => {
 		});
 	});
 
+	it('shows active-orientation Kinetic Word diamonds on the full-clip row', () => {
+		const state = makeTimelineState();
+		state.transport.orientation = 'vertical';
+		state.surface.typeField = {
+			words: [
+				{
+					type: 'kinetic-word',
+					id: 'moving-type',
+					text: 'BECOME',
+					hierarchy: 'display',
+					ink: 'accent',
+					position: { x: 0.5, y: 0.5 },
+					scale: 1,
+					rotation: 0,
+					animation: {
+						channels: { weight: [{ atMs: 600, value: 1 }] },
+						orientationOverrides: {
+							vertical: {
+								x: [{ atMs: 400, value: 0.1 }],
+								y: [{ atMs: 400, value: -0.1 }],
+								scale: [{ atMs: 400, value: 1.2 }],
+								rotation: [{ atMs: 400, value: 5 }]
+							}
+						}
+					}
+				}
+			],
+			phrases: [{ id: 'middle', wordIds: ['moving-type'], focalWordId: 'moving-type' }]
+		};
+
+		const track = buildCompositionTimelineTracks(state, appearance).find(
+			(candidate) =>
+				candidate.id === createTimelineTrackId({ kind: 'block', blockId: 'moving-type' })
+		);
+		assert.ok(track);
+		assert.equal(track.transitions[0].duration, 1);
+		assert.deepEqual(
+			track.transitions[0].keyframes?.map((keyframe) => [keyframe.channel, keyframe.fraction]),
+			[
+				['x', 0.04],
+				['y', 0.04],
+				['scale', 0.04],
+				['rotation', 0.04],
+				['weight', 0.06]
+			]
+		);
+		track.transitions[0].onKeyframeDelete?.('x', 0);
+		assert.equal(
+			state.surface.typeField.words[0].animation?.orientationOverrides?.vertical,
+			undefined,
+			'deleting the last scoped spatial key clears the complete orientation group'
+		);
+	});
+
 	it('exposes chart items through the shared Block timeline identity', () => {
 		const state = makeTimelineState();
 		state.surface.chart = {
@@ -451,7 +505,12 @@ describe('stage rows (ADR-0060)', () => {
 					travel: { to: { distance: 0.72 }, start: 0.2, duration: 0.5 }
 				}
 			},
-			focus: { focusZ: 0, aperture: 0.35, band: 0.05, pull: { from: 0, to: 1, start: 0.3, duration: 0.2 } },
+			focus: {
+				focusZ: 0,
+				aperture: 0.35,
+				band: 0.05,
+				pull: { from: 0, to: 1, start: 0.3, duration: 0.2 }
+			},
 			screen: { model: 'crt-fw900' }
 		});
 		return state;
@@ -494,7 +553,10 @@ describe('stage rows (ADR-0060)', () => {
 		);
 		const pull = tracks[1].transitions[0];
 		pull.onUpdate?.({ start: 0.5, duration: 0.3 });
-		assert.deepEqual([state.stage?.focus.pull?.start, state.stage?.focus.pull?.duration], [0.5, 0.3]);
+		assert.deepEqual(
+			[state.stage?.focus.pull?.start, state.stage?.focus.pull?.duration],
+			[0.5, 0.3]
+		);
 	});
 
 	it('films the vertical frame through the vertical travel, and writes it', () => {

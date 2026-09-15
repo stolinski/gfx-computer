@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
 
+	import { animState } from './anim-state.svelte';
 	import { engineState, packState } from './engine-state.svelte';
 	import { getPack } from './packs/registry';
 	import {
@@ -10,6 +11,10 @@
 		resolveFieldInkColor,
 		resolveTypographyColors
 	} from './packs/resolve';
+	import {
+		mapNormalizedVariableWeight,
+		resolveVariableWeightTreatment
+	} from './packs/variable-weight-treatment';
 	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { requireLoadedBlockRenderer } from './pipelines/runtime-loader';
 	import { resolveKineticWordGeometry } from '$lib/utils/kinetic-word-geometry';
@@ -42,16 +47,25 @@
 
 	function wordStyle(word: KineticWord): string {
 		const geometry = resolveKineticWordGeometry(word, engineState.transport.orientation);
+		const channels = animState.kineticWordChannels[word.id];
 		const ink = word.ink === 'accent' ? accentInk : fieldInk;
 		const appearance = resolveAppearanceVars(pack, word.type);
+		const variableWeight = resolveVariableWeightTreatment(pack);
+		const mappedWeight = variableWeight
+			? mapNormalizedVariableWeight(variableWeight, channels?.weight ?? 0.5)
+			: undefined;
 		return [
 			appearanceVarsToStyle(appearance),
 			`--kinetic-word-ink:${ink}`,
-			`left:${geometry.position.x * 100}%`,
-			`top:${geometry.position.y * 100}%`,
-			`scale:${geometry.scale}`,
-			`rotate:${geometry.rotation}deg`
-		].join(';');
+			mappedWeight === undefined ? '' : `--kinetic-word-weight:${mappedWeight}`,
+			`left:${(geometry.position.x + (channels?.x ?? 0)) * 100}%`,
+			`top:${(geometry.position.y + (channels?.y ?? 0)) * 100}%`,
+			`scale:${channels?.scale ?? geometry.scale}`,
+			`rotate:${channels?.rotation ?? geometry.rotation}deg`,
+			`opacity:${channels?.opacity ?? 1}`
+		]
+			.filter(Boolean)
+			.join(';');
 	}
 </script>
 

@@ -14,6 +14,8 @@
 	import {
 		KINETIC_TYPE_PHRASE_LIMIT,
 		KINETIC_WORD_HIERARCHIES,
+		KINETIC_WORD_KEYFRAME_CHANNELS,
+		KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS,
 		KINETIC_WORD_INK_ROLES,
 		type KineticPhrase,
 		type KineticWordGeometry
@@ -21,6 +23,7 @@
 	import { engineState } from './engine-state.svelte';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
+	import KeyframesSection from './KeyframesSection.svelte';
 	import { layerSelection } from './selection.svelte';
 	import { parseTimelineTrackId } from './timeline-entity-identity';
 
@@ -334,6 +337,18 @@
 			</div>
 		{/each}
 	</InspectorSection>
+
+	<KeyframesSection
+		selfKey={`block:${selectedWord.id}`}
+		channelNames={KINETIC_WORD_KEYFRAME_CHANNELS}
+		label="Shared Motion"
+	/>
+	<KeyframesSection
+		selfKey={`block:${selectedWord.id}`}
+		channelNames={KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS}
+		scope={engineState.transport.orientation}
+		label={`${engineState.transport.orientation} Reflow Motion`}
+	/>
 
 	{#if operationMessage}
 		<p class="operation-error" role="status">{operationMessage}</p>

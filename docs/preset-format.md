@@ -300,6 +300,21 @@ The five motion windows are authored, Pack-invariant, and frame-deterministic. O
       "orientationOverrides": {              // optional complete geometry snapshots
         "horizontal": { "position": { "x": 0..1, "y": 0..1 }, "scale": 0.25..4, "rotation": -180..180 },
         "vertical": { "position": { "x": 0..1, "y": 0..1 }, "scale": 0.25..4, "rotation": -180..180 }
+      },
+      "animation": {
+        "channels": {                         // shared opacity/spatial/normalized-weight tracks
+          "opacity": [{ "atMs": 0, "value": 0 }, { "atMs": 300, "value": 1, "ease": "sharp" }],
+          "x": [{ "atMs": 0, "value": -0.08 }, { "atMs": 650, "value": 0, "ease": "settled" }],
+          "weight": [{ "atMs": 0, "value": 0.5 }, { "atMs": 240, "value": 1, "ease": "sharp" }]
+        },
+        "orientationOverrides": {              // optional complete spatial-track replacement
+          "vertical": {
+            "x": [{ "atMs": 0, "value": 0 }],
+            "y": [{ "atMs": 0, "value": -0.04 }],
+            "scale": [{ "atMs": 0, "value": 1.1 }],
+            "rotation": [{ "atMs": 0, "value": 0 }]
+          }
+        }
       }
     }
   ],
@@ -315,7 +330,9 @@ The five motion windows are authored, Pack-invariant, and frame-deterministic. O
 
 A field contains 1–16 unique words and 1–8 unique phrases. Each phrase references 1–8 unique, existing word ids. Its focal word must belong to the phrase and use `display` hierarchy. Kinetic Word ids share the Surface Block-id namespace with `surface.diagram[]` and `surface.chart.items[]`; Cascade `{ "block": id }` references resolve through that same authority. Removing a referenced word refuses rather than rewriting phrase or Cascade references. Switching to a non-`plain` Surface or enabling the Dimensional Stage also refuses while the field exists; Stage support is outside v1.
 
-The first word added through the GUI or `layer.add-kinetic-word` creates a valid parent field and phrase atomically; removing the last word removes the parent field. Static words occupy the complete composition on one full-clip Timeline row each and have no intrinsic motion. The GUI and six revisioned operations split membership, word text and phrase semantics, placement, and appearance into their owning families. Independent channels and Motion Beats described by ADR-0063 are not yet part of the wire schema.
+The first word added through the GUI or `layer.add-kinetic-word` creates a valid parent field and phrase atomically; removing the last word removes the parent field. Every word occupies one full-clip Timeline row. An absent `animation` stays exactly static. Current authored channels are `opacity`, `x`, `y`, `scale`, `rotation`, and normalized `weight`; every track holds 1–24 strictly ordered keys and the first key carries no ease. X/Y remain composition-fraction deltas from resolved base placement, scale and rotation are absolute, and weight `[0,1]` maps through the active Pack's real variable face.
+
+Opacity and weight are always shared. Shared spatial tracks apply to both targets until a complete `horizontal` or `vertical` group replaces all four spatial tracks for that target. The Inspector and generalized keyframe Operations expose the same scope. Canvas drag or nudge at a nonzero playhead uses the atomic Kinetic Word position-key operation, preserving rest geometry and creating/updating X/Y in one undo entry. Motion Beats, beat-relative keys, and tracking described by ADR-0063 remain outside the current wire schema.
 
 ### `overlays`
 
@@ -372,7 +389,7 @@ Ordered per-channel `keyframes[]` are the general motion form; the `enter`/`exit
 
 Keyframes:
 
-- `atMs` — milliseconds from the element's **resolved clip start** (welded-absolute: authored motion survives re-time without drift). Strictly ascending within a track; a declared track needs ≥ 1 keyframe.
+- `atMs` — milliseconds from the element's **resolved clip start** (welded-absolute: authored motion survives re-time without drift). Strictly ascending within a track; a declared track needs 1–24 keyframes.
 - `value` — per channel: `opacity` 0..1 · `x`/`y` signed composition-fraction **deltas** from the element's `position` anchor/offset · `scale` absolute 0.1..8, seeded from `position.scale` · `rotation` absolute degrees (unbounded — spins are legal), seeded from `position.rotation`.
 - `ease` — the constrained enum only (`smooth` | `settled` | `sharp` | `bouncy`), per segment. No bezier values. The first keyframe of a track carries none.
 - Surface channels are `opacity` only — surface transforms are camera territory (`stage.camera`).
@@ -559,7 +576,7 @@ Pack immunity is declared by each Pipeline's Identity Spec and derived at runtim
 - **`paragraph`** — text run inside `content.body` (the bracket-tag string).
 - **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
 - **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers.
-- **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0063](adr/0063-kinetic-type-word-fields.md)); static placement, appearance, phrase semantics, Timeline identity, and direct manipulation ship, while independent tracks and Motion Beats remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
+- **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0063](adr/0063-kinetic-type-word-fields.md)); static and orientation-specific placement, appearance, phrase semantics, Timeline identity, independently authored opacity/spatial/normalized-weight tracks, nonzero-playhead direct manipulation, and shared GUI/WebMCP operations ship. Motion Beats, beat-relative keys, and tracking remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
 
 ## Annotation styles
 

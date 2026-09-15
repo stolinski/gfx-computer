@@ -14,6 +14,7 @@ import { clampNumber } from '$lib/utils/math';
 import { CHART_MOTION_PHASE_NAMES, CHART_TIMING_EPSILON } from '$lib/utils/chart-motion';
 import { isDarkSurfaceColor } from '$lib/utils/color';
 import { truncateMiddle } from '$lib/utils/string';
+import { resolveKineticWordChannelKeyframes } from '$lib/utils/kinetic-word-geometry';
 import { computeUnifiedBar, type RampTiming } from '$lib/utils/timeline-clip';
 
 import {
@@ -441,12 +442,62 @@ function appendBlockTracks(
 ): void {
 	for (const word of state.surface.typeField?.words ?? []) {
 		const label = truncateMiddle(word.text, 32);
+		const channels = resolveKineticWordChannelKeyframes(
+			word,
+			state.transport.orientation
+		) as ChannelTrackMap;
+		const keyframes = clipKeyframes(state, channels, 0);
 		tracks.push({
 			id: createTimelineTrackId({ kind: 'block', blockId: word.id }),
 			label,
 			color: BLOCK_COLOR,
 			transitions: [
-				{ id: 'clip', label, color: BLOCK_COLOR, start: 0, duration: 1 }
+				{
+					id: 'clip',
+					label,
+					color: BLOCK_COLOR,
+					start: 0,
+					duration: 1,
+					...(keyframes.length > 0
+						? {
+								keyframes,
+								onKeyframeRetime: makeKeyframeRetimer(state, channels, 0),
+								onKeyframeDelete: (channel: string, index: number): void => {
+									const track = channels[channel];
+									if (!track?.[index]) return;
+									track.splice(index, 1);
+									if (track.length > 0) {
+										delete track[0].ease;
+										return;
+									}
+									const orientation = state.transport.orientation;
+									const orientationChannels = word.animation?.orientationOverrides?.[orientation];
+									if (
+										channel !== 'opacity' &&
+										channel !== 'weight' &&
+										orientationChannels !== undefined
+									) {
+										delete word.animation?.orientationOverrides?.[orientation];
+									} else if (word.animation?.channels) {
+										delete word.animation.channels[channel as keyof typeof word.animation.channels];
+									}
+									if (
+										word.animation?.orientationOverrides &&
+										Object.keys(word.animation.orientationOverrides).length === 0
+									) {
+										delete word.animation.orientationOverrides;
+									}
+									if (
+										word.animation &&
+										Object.keys(word.animation.channels ?? {}).length === 0 &&
+										word.animation.orientationOverrides === undefined
+									) {
+										delete word.animation;
+									}
+								}
+							}
+						: {})
+				}
 			]
 		});
 	}

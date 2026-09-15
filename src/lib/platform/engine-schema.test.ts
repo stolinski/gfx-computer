@@ -1010,13 +1010,81 @@ describe('Kinetic Type Field structure (ADR-0063)', () => {
 		assert.equal(BlockTypeSchema.safeParse('kinetic-word').success, true);
 	});
 
+	it('accepts shared channels plus a complete orientation spatial-track replacement', () => {
+		const word = kineticWord('type');
+		word.animation = {
+			channels: {
+				opacity: [
+					{ atMs: 0, value: 0 },
+					{ atMs: 240, value: 1, ease: 'sharp' }
+				],
+				weight: [
+					{ atMs: 0, value: 0.5 },
+					{ atMs: 180, value: 1, ease: 'sharp' }
+				]
+			},
+			orientationOverrides: {
+				vertical: {
+					x: [{ atMs: 0, value: 0 }],
+					y: [{ atMs: 0, value: 0.08 }],
+					scale: [{ atMs: 0, value: 1.2 }],
+					rotation: [{ atMs: 0, value: -5 }]
+				}
+			}
+		};
+		expectValid(
+			typeFieldState({
+				words: [word],
+				phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+			}),
+			'animated Kinetic Word'
+		);
+	});
+
+	it('rejects incomplete orientation spatial tracks and overlong keyframe tracks', () => {
+		for (const [label, orientationOverride] of [
+			['partial', { x: [{ atMs: 0, value: 0 }] }],
+			['empty', {}]
+		] as const) {
+			const incomplete = kineticWord('type');
+			incomplete.animation = {
+				orientationOverrides: { vertical: orientationOverride }
+			};
+			expectIssue(
+				typeFieldState({
+					words: [incomplete],
+					phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+				}),
+				'must declare x, y, scale, and rotation',
+				`${label} orientation spatial tracks`
+			);
+		}
+
+		const overlong = kineticWord('type');
+		overlong.animation = {
+			channels: {
+				weight: Array.from({ length: 25 }, (_, index) => ({
+					atMs: index * 20,
+					value: index / 24,
+					...(index > 0 ? { ease: 'smooth' } : {})
+				}))
+			}
+		};
+		expectIssue(
+			typeFieldState({
+				words: [overlong],
+				phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+			}),
+			'at most 24 keyframes',
+			'Kinetic Word keyframe ceiling'
+		);
+	});
+
 	it('rejects duplicate identities and unresolved or repeated phrase membership', () => {
 		expectIssue(
 			typeFieldState({
 				words: [kineticWord('type'), kineticWord('type', 'MOVE')],
-				phrases: [
-					{ id: 'opening', wordIds: ['type', 'missing', 'type'], focalWordId: 'missing' }
-				]
+				phrases: [{ id: 'opening', wordIds: ['type', 'missing', 'type'], focalWordId: 'missing' }]
 			}),
 			'Duplicate Type Field word id',
 			'duplicate Kinetic Word id'

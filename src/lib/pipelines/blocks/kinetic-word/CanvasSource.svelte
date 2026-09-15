@@ -24,8 +24,8 @@
 		font-family: var(--variableWeightFont, var(--font, sans-serif));
 		font-size: calc(5.2 * var(--cqmin));
 		font-synthesis: none;
-		font-variation-settings: 'wght' var(--variableWeightRest, 600);
-		font-weight: var(--variableWeightRest, 600);
+		font-variation-settings: 'wght' var(--kinetic-word-weight, var(--variableWeightRest, 600));
+		font-weight: var(--kinetic-word-weight, var(--variableWeightRest, 600));
 		letter-spacing: -0.035em;
 		line-height: 0.9;
 		white-space: nowrap;

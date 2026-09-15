@@ -13,6 +13,7 @@ import {
 	runAddCompositionOverlayOperation,
 	runAddCompositionTextAnimationOperation
 } from './composition-layer-operations';
+import { runAddCompositionKineticWordOperation } from './composition-kinetic-type-operations';
 import {
 	runClearCompositionCascadeAnchorOperation,
 	runClearCompositionKeyframeChannelOperation,
@@ -91,6 +92,79 @@ describe('keyframe channels', () => {
 
 		expect(receipt.focus).toEqual({ target: 'surface' });
 		expect(engineState.surface.animation?.channels?.opacity).toHaveLength(2);
+	});
+
+	it('authors shared Kinetic Word weight and a complete orientation spatial group', async () => {
+		expectApplied(await runAddCompositionKineticWordOperation({ expectedRevision: 0 }));
+		expectApplied(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 1,
+				subject: { kind: 'block', blockId: 'kinetic-word-1' },
+				channel: 'weight',
+				keyframes: [
+					{ atMs: 0, value: 0.5 },
+					{ atMs: 180, value: 1, ease: 'sharp' }
+				]
+			})
+		);
+		const receipt = expectApplied(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 2,
+				subject: { kind: 'block', blockId: 'kinetic-word-1' },
+				channel: 'x',
+				scope: 'vertical',
+				keyframes: [
+					{ atMs: 0, value: -0.1 },
+					{ atMs: 320, value: 0, ease: 'settled' }
+				]
+			})
+		);
+
+		expect(receipt.focus).toEqual({ target: 'block', blockId: 'kinetic-word-1' });
+		const word = engineState.surface.typeField?.words[0];
+		expect(word?.animation?.channels?.weight).toHaveLength(2);
+		expect(Object.keys(word?.animation?.orientationOverrides?.vertical ?? {}).sort()).toEqual([
+			'rotation',
+			'scale',
+			'x',
+			'y'
+		]);
+		expect(word?.animation?.orientationOverrides?.vertical?.x).toHaveLength(2);
+	});
+
+	it('keeps Kinetic Word opacity and weight shared and clears orientation motion as a group', async () => {
+		expectApplied(await runAddCompositionKineticWordOperation({ expectedRevision: 0 }));
+		const invalidScope = expectFailed(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 1,
+				subject: { kind: 'block', blockId: 'kinetic-word-1' },
+				channel: 'weight',
+				scope: 'vertical',
+				keyframes: [{ atMs: 0, value: 0.5 }]
+			})
+		);
+		expect(invalidScope.code).toBe('unsupported_variant');
+
+		expectApplied(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 1,
+				subject: { kind: 'block', blockId: 'kinetic-word-1' },
+				channel: 'y',
+				scope: 'horizontal',
+				keyframes: [{ atMs: 0, value: 0.08 }]
+			})
+		);
+		expectApplied(
+			await runClearCompositionKeyframeChannelOperation({
+				expectedRevision: 2,
+				subject: { kind: 'block', blockId: 'kinetic-word-1' },
+				channel: 'y',
+				scope: 'horizontal'
+			})
+		);
+		expect(
+			engineState.surface.typeField?.words[0]?.animation?.orientationOverrides
+		).toBeUndefined();
 	});
 
 	it('refuses a channel the Surface does not declare, naming the one it does', async () => {

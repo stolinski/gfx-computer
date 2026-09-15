@@ -15,6 +15,7 @@ function makeRuntime(): RenderAnimState {
 		blockProgresses: {},
 		blockAlphas: {},
 		blockChannels: {},
+		kineticWordChannels: {},
 		paperVisibility: 0,
 		globalProgress: 0
 	};
@@ -134,6 +135,63 @@ describe('composition animation manifest', () => {
 			0.9,
 			'Cascade resolution does not mutate authored text timing'
 		);
+	});
+
+	it('compiles orientation-resolved Kinetic Word channels into id-keyed runtime slots', () => {
+		const runtime = makeRuntime();
+		const state = makeManifestState();
+		state.transport.orientation = 'vertical';
+		state.surface.typeField = {
+			words: [
+				{
+					type: 'kinetic-word',
+					id: 'type',
+					text: 'TYPE',
+					hierarchy: 'display',
+					ink: 'accent',
+					position: { x: 0.5, y: 0.5 },
+					scale: 1,
+					rotation: 0,
+					animation: {
+						channels: {
+							opacity: [{ atMs: 0, value: 0.25 }],
+							weight: [
+								{ atMs: 0, value: 0.5 },
+								{ atMs: 200, value: 1, ease: 'sharp' }
+							]
+						},
+						orientationOverrides: {
+							vertical: {
+								x: [{ atMs: 0, value: 0.08 }],
+								y: [{ atMs: 0, value: -0.04 }],
+								scale: [{ atMs: 0, value: 1.3 }],
+								rotation: [{ atMs: 0, value: 6 }]
+							}
+						}
+					}
+				}
+			],
+			phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+		};
+		const manifest = buildCompositionAnimationManifest({
+			state,
+			runtime,
+			textAnimationRoot: null,
+			textAnimationCompiler: { rebuild: () => [] },
+			resolveMarkColor: () => '#ffee00'
+		});
+
+		assert.deepEqual(runtime.kineticWordChannels.type, {
+			opacity: 0.25,
+			x: 0.08,
+			y: -0.04,
+			scale: 1.3,
+			rotation: 6,
+			weight: 0.5
+		});
+		assert.ok(manifest.tweens.some((tween) => tween.key === 'kinetic-word-type-weight-1'));
+		manifest.tweens.find((tween) => tween.key === 'kinetic-word-type-weight-1')?.onUpdate(0.82);
+		assert.equal(runtime.kineticWordChannels.type?.weight, 0.82);
 	});
 
 	it('seeds and writes composition-owned runtime channels deterministically', () => {
