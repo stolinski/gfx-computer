@@ -28,6 +28,10 @@
 		evaluateKineticWordGlyphFrames,
 		type KineticWordGlyphFrame
 	} from '$lib/utils/kinetic-word-glyphs';
+	import {
+		KINETIC_WORD_BASE_LETTER_SPACING_EM,
+		measureKineticWordOpticalBearings
+	} from '$lib/utils/kinetic-word-optical-bearings';
 	import type { KineticWord } from './engine-schema';
 
 	// Type Field words live on the Surface plane as native DOM text. Phrases are
@@ -63,6 +67,19 @@
 	// the word's own reveal track here rather than riding a per-glyph tween.
 	const frameMs = $derived(animState.globalProgress * engineState.transport.durationSeconds * 1000);
 
+	// Optical bearings are measured against the loaded Pack face. Until a face
+	// arrives the measurement sees a fallback, so every font arrival re-measures.
+	let fontLoadRevision = $state(0);
+	$effect(() => {
+		if (typeof document === 'undefined') return;
+		const bump = (): void => {
+			fontLoadRevision += 1;
+		};
+		document.fonts.addEventListener('loadingdone', bump);
+		void document.fonts.ready.then(bump);
+		return () => document.fonts.removeEventListener('loadingdone', bump);
+	});
+
 	/** Glyph frames while the word's reveal track is live; otherwise one plain text run. */
 	function wordGlyphs(word: KineticWord): readonly KineticWordGlyphFrame[] | undefined {
 		const reveal = resolveKineticWordChannelKeyframes(
@@ -83,11 +100,23 @@
 		const mappedWeight = variableWeight
 			? mapNormalizedVariableWeight(variableWeight, channels?.weight ?? 0.5)
 			: undefined;
+		const letterSpacingEm =
+			KINETIC_WORD_BASE_LETTER_SPACING_EM[word.hierarchy] + (channels?.tracking ?? 0);
+		void fontLoadRevision;
+		const bearings = measureKineticWordOpticalBearings(
+			word.text,
+			variableWeight?.fontFamily,
+			mappedWeight,
+			letterSpacingEm
+		);
 		return [
 			appearanceVarsToStyle(appearance),
 			`--kinetic-word-ink:${ink}`,
 			mappedWeight === undefined ? '' : `--kinetic-word-weight:${mappedWeight}`,
-			channels?.tracking ? `--kinetic-word-tracking:${channels.tracking}em` : '',
+			`--kinetic-word-letter-spacing:${letterSpacingEm}em`,
+			`--kinetic-word-optical-y:${bearings.verticalOffsetEm}em`,
+			horizontalAnchor === 'start' ? `--kinetic-word-bearing-start:${bearings.startEm}em` : '',
+			horizontalAnchor === 'end' ? `--kinetic-word-bearing-end:${bearings.endEm}em` : '',
 			`left:${(geometry.position.x + (channels?.x ?? 0)) * 100}%`,
 			`top:${(geometry.position.y + (channels?.y ?? 0)) * 100}%`,
 			`translate:${kineticWordHorizontalAnchorTranslate(horizontalAnchor)}`,

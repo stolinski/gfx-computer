@@ -34,7 +34,7 @@
 						"ink": "ink",
 						"position": {
 							"x": 0,
-							"y": 0.28
+							"y": 0.2917
 						},
 						"horizontalAnchor": "start",
 						"scale": 4,
@@ -43,7 +43,7 @@
 							"vertical": {
 								"position": {
 									"x": 0,
-									"y": 0.417
+									"y": 0.4137
 								},
 								"horizontalAnchor": "start",
 								"scale": 2.5,
@@ -170,7 +170,7 @@
 						"ink": "accent",
 						"position": {
 							"x": 0,
-							"y": 0.605
+							"y": 0.5951
 						},
 						"horizontalAnchor": "start",
 						"scale": 1.5,
@@ -179,7 +179,7 @@
 							"vertical": {
 								"position": {
 									"x": 0,
-									"y": 0.5375
+									"y": 0.5348
 								},
 								"horizontalAnchor": "start",
 								"scale": 1.5,
@@ -251,7 +251,7 @@
 						"ink": "accent",
 						"position": {
 							"x": 0,
-							"y": 0.786
+							"y": 0.7873
 						},
 						"horizontalAnchor": "start",
 						"scale": 2.4,
@@ -260,7 +260,7 @@
 							"vertical": {
 								"position": {
 									"x": 0,
-									"y": 0.613
+									"y": 0.6145
 								},
 								"horizontalAnchor": "start",
 								"scale": 1.5,
@@ -363,7 +363,7 @@
 						"ink": "accent",
 						"position": {
 							"x": 0,
-							"y": 0.786
+							"y": 0.7873
 						},
 						"horizontalAnchor": "start",
 						"scale": 2.4,
@@ -372,7 +372,7 @@
 							"vertical": {
 								"position": {
 									"x": 0,
-									"y": 0.613
+									"y": 0.6145
 								},
 								"horizontalAnchor": "start",
 								"scale": 1.5,
@@ -485,7 +485,7 @@
 						"ink": "accent",
 						"position": {
 							"x": 0,
-							"y": 0.605
+							"y": 0.5951
 						},
 						"horizontalAnchor": "start",
 						"scale": 1.5,
@@ -494,7 +494,7 @@
 							"vertical": {
 								"position": {
 									"x": 0,
-									"y": 0.5375
+									"y": 0.5348
 								},
 								"horizontalAnchor": "start",
 								"scale": 1.5,
@@ -566,7 +566,7 @@
 						"ink": "accent",
 						"position": {
 							"x": 0.066,
-							"y": 0.605
+							"y": 0.5951
 						},
 						"horizontalAnchor": "start",
 						"scale": 1.5,
@@ -575,7 +575,7 @@
 							"vertical": {
 								"position": {
 									"x": 0.12,
-									"y": 0.5375
+									"y": 0.5348
 								},
 								"horizontalAnchor": "start",
 								"scale": 1.5,
@@ -647,7 +647,7 @@
 						"ink": "ink",
 						"position": {
 							"x": 0,
-							"y": 0.786
+							"y": 0.7873
 						},
 						"horizontalAnchor": "start",
 						"scale": 2.4,
@@ -656,7 +656,7 @@
 							"vertical": {
 								"position": {
 									"x": 0,
-									"y": 0.613
+									"y": 0.6145
 								},
 								"horizontalAnchor": "start",
 								"scale": 1.5,
