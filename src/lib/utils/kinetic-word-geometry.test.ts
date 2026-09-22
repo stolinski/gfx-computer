@@ -3,8 +3,11 @@ import { describe, it } from 'vitest';
 
 import type { KineticWord } from '$lib/platform/engine-schema';
 import {
+	kineticWordHorizontalAnchorTransformOrigin,
+	kineticWordHorizontalAnchorTranslate,
 	resolveKineticWordChannelKeyframes,
-	resolveKineticWordGeometry
+	resolveKineticWordGeometry,
+	resolveKineticWordHorizontalAnchor
 } from './kinetic-word-geometry';
 
 function kineticWord(): KineticWord {
@@ -15,10 +18,16 @@ function kineticWord(): KineticWord {
 		hierarchy: 'display',
 		ink: 'accent',
 		position: { x: 0.4, y: 0.5 },
+		horizontalAnchor: 'start',
 		scale: 1,
 		rotation: 0,
 		orientationOverrides: {
-			vertical: { position: { x: 0.55, y: 0.42 }, scale: 1.2, rotation: -4 }
+			vertical: {
+				position: { x: 0.55, y: 0.42 },
+				horizontalAnchor: 'end',
+				scale: 1.2,
+				rotation: -4
+			}
 		},
 		animation: {
 			channels: {
@@ -46,14 +55,29 @@ describe('Kinetic Word orientation resolution', () => {
 		const word = kineticWord();
 		assert.deepEqual(resolveKineticWordGeometry(word, 'horizontal'), {
 			position: { x: 0.4, y: 0.5 },
+			horizontalAnchor: 'start',
 			scale: 1,
 			rotation: 0
 		});
 		assert.deepEqual(resolveKineticWordGeometry(word, 'vertical'), {
 			position: { x: 0.55, y: 0.42 },
+			horizontalAnchor: 'end',
 			scale: 1.2,
 			rotation: -4
 		});
+	});
+
+	it('maps horizontal anchors to stable edge-pinning CSS', () => {
+		assert.equal(
+			resolveKineticWordHorizontalAnchor({ position: { x: 0, y: 0 }, scale: 1, rotation: 0 }),
+			'center'
+		);
+		assert.equal(kineticWordHorizontalAnchorTranslate('start'), '0 -50%');
+		assert.equal(kineticWordHorizontalAnchorTranslate('center'), '-50% -50%');
+		assert.equal(kineticWordHorizontalAnchorTranslate('end'), '-100% -50%');
+		assert.equal(kineticWordHorizontalAnchorTransformOrigin('start'), 'left center');
+		assert.equal(kineticWordHorizontalAnchorTransformOrigin('center'), 'center');
+		assert.equal(kineticWordHorizontalAnchorTransformOrigin('end'), 'right center');
 	});
 
 	it('keeps shared opacity and weight while replacing all spatial tracks', () => {

@@ -26,15 +26,18 @@ The verification Preset uses this exact ordered phrase content:
 
 ## Motion plan
 
-The composition is 5.2 seconds at 30 fps with three named Motion Beats after the initial establish. Every visual value derives from the explicit frame timestamp.
+The current moving proof is 6 seconds at 30 fps; the Motion Beat slice will replace its raw millisecond landmarks with named Beats. Every visual value derives from the explicit frame timestamp.
 
-- The first phrase gathers from a loose field into a readable line. Words enter over 300–380 ms with `smooth` geometry and no bounce.
-- At the second beat, persistent words travel to their next positions while `MOVE` recedes and `BECOME` arrives. Spatial tracks begin with a restrained 40–70 ms counter-motion, settle over 280–360 ms, and hold as an intentional still.
-- At the third beat, `TYPE` remains the continuity anchor but is free to cross the frame; `IS THE COMPOSITION` forms the final hierarchy.
-- At each beat the focal word's normalized `weight` hits on `sharp` over roughly 90–140 ms, then releases toward the Pack's rest over 160–240 ms while position finishes settling. Weight and geometry never share one indiscriminate ease.
-- Word visibility enters satisfy G6's 250–400 ms band; the complete field exits over 180–280 ms. The final phrase holds long enough to read before exit.
-- Horizontal and vertical share phrases, beats, opacity, weight, and tracking. Complete vertical base/spatial snapshots recompose the same words into the safe middle column rather than cropping the horizontal field.
-- One focal word owns each beat. No generic gradient, swoosh, animated underline, typewriter crawl, random physics, or continuous wall-clock loop.
+- The field treats typography as full-frame graphic material: display words deliberately crop at frame edges, connective words lock to their letterforms, and no universal title-safe inset cages the composition.
+- One system, one axis, one break. Every word is `start`-anchored on the physical left frame edge, so Pack face widths change only where a word ends, never where it begins. `TYPE` fills the top of the frame; `CAN` sits as a small eyebrow; the focal verb owns a fixed bottom slot. Nothing slides across open frame: every entrance and exit is a masked reveal through the word's own line box, letter by letter (`glyphStagger` 20–40 ms, forward), with `tracking` tightening from slightly open to rest as the word lands. `TYPE` never moves — it rises once in hairline, strikes to the Pack maximum on the first beat, and pulses weight on each later beat.
+- Verbs swap inside one shared mask: the outgoing word leaves upward glyph by glyph as the incoming word rises beneath it, one wave passing left to right. Support words rise the same way at eyebrow scale instead of hard-cutting.
+- The third phrase is the break. `IS THE` takes the eyebrow slot and `COMPOSITION` is set at verb size, deliberately longer than the frame: it rises through its mask letter by letter, flush-left, and runs off the right edge — a wide Pack shows `COMPOSIT`, a narrow one `COMPOSITIO`, always a confident mid-letter crop. `TYPE` recomposes in weight, not position: it falls back to hairline while `COMPOSITION` lands black.
+- Vertical is its own art direction, not the horizontal layout letterboxed: a tight, heavy lockup that runs nearly edge to edge in width and sits in the vertical centre, clear of platform chrome.
+- Timing sits on a 500 ms grid. Verb holds shorten (1.0 s, then 0.85 s) into the longest hold on the final phrase (1.6 s), then a staggered exit upward through the masks: `COMPOSITION` and `IS THE` first, `TYPE` last. No Kinetic Word geometry uses an overshooting or bouncy ease.
+- Every arrival lands its normalized `weight` on `sharp` as its reveal finishes settling on `sharp`; tracking releases on `smooth`. Weight and geometry never share one indiscriminate ease.
+- Word visibility enters satisfy G6's 250–400 ms band; the complete field exits over 180–320 ms. The final phrase holds long enough to read before exit.
+- Human review judges intentional cropping and phrase recognition. The deterministic probe requires at least 55% of each visible word's bounds to remain in-frame, at least one word in every phrase hold to meet or cross a physical frame edge, and persistent `TYPE` to recompose between holds by placement or by a Pack-mapped weight change; it does not impose the generic 5% title-safe rectangle on this full-frame bumper.
+- One focal word owns each phrase. No generic gradient, swoosh, animated underline, typewriter crawl, random physics, or continuous wall-clock loop.
 
 ## Channel chrome notes
 

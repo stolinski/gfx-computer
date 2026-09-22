@@ -195,7 +195,13 @@ A bounded Block group on a `plain` Surface that owns a stable Kinetic Word pool 
 _Avoid_: kinetic type Surface, word cloud, text effect, scene, auto-layout.
 
 **Kinetic Word Block**:
-One stable word token in a Type Field, rendered in the Block Layer with independent normalized placement plus `x`, `y`, `scale`, `rotation`, `opacity`, `tracking`, and Pack-mapped variable `weight` channels. Reusing its id across phrases is the continuity mechanism; v1 never expands it into per-character scene nodes.
+One stable word token in a Type Field, rendered in the Block Layer with independent normalized placement, a start/centre/end horizontal anchor, plus `x`, `y`, `scale`, `rotation`, `opacity`, `reveal`, `tracking`, and Pack-mapped variable `weight` channels, and an optional Glyph Stagger. Reusing its id across phrases is the continuity mechanism; v1 never expands it into per-character scene nodes.
+
+**Line-box Mask**:
+The one mask a Kinetic Word owns: its own line box, padded for overshoot. The `reveal` channel offsets the glyphs inside it in mask heights (`-1` hidden below, `0` at rest, `1` hidden above), so a word can rise out of nothing and leave through the top without crossing open frame. The mask exists only while a `reveal` track does.
+
+**Glyph Stagger**:
+One per-glyph delay and one order (`forward`, `reverse`, `center`) on a Kinetic Word. Every grapheme plays the word's own shared `reveal` track delayed by its rank, inline so the Pack face still kerns across glyphs. It is word-level authoring, never per-character tracks.
 _Avoid_: SplitText span, glyph node, text particle, animated label.
 
 **Motion Beat**:

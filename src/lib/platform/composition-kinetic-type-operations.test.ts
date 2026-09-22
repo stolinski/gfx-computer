@@ -9,6 +9,7 @@ import {
 	runRemoveCompositionKineticWordOperation,
 	runSetCompositionKineticPhrasesOperation,
 	runSetCompositionKineticWordAppearanceOperation,
+	runSetCompositionKineticWordGlyphStaggerOperation,
 	runSetCompositionKineticWordPlacementOperation,
 	runSetCompositionKineticWordPositionKeyframeOperation,
 	runSetCompositionKineticWordTextOperation
@@ -59,6 +60,7 @@ describe('Kinetic Word membership', () => {
 					hierarchy: 'display',
 					ink: 'accent',
 					position: { x: 0.5, y: 0.5 },
+					horizontalAnchor: 'center',
 					scale: 1,
 					rotation: 0
 				}
@@ -292,7 +294,12 @@ describe('Kinetic Word static decisions', () => {
 				expectedRevision: 1,
 				wordId: 'kinetic-word-1',
 				scope: 'vertical',
-				geometry: { position: { x: 0.45, y: 0.62 }, scale: 1.4, rotation: -8 }
+				geometry: {
+					position: { x: 0.45, y: 0.62 },
+					horizontalAnchor: 'start',
+					scale: 1.4,
+					rotation: -8
+				}
 			})
 		);
 
@@ -301,6 +308,7 @@ describe('Kinetic Word static decisions', () => {
 		]);
 		expect(engineState.surface.typeField?.words[0].orientationOverrides?.vertical).toEqual({
 			position: { x: 0.45, y: 0.62 },
+			horizontalAnchor: 'start',
 			scale: 1.4,
 			rotation: -8
 		});
@@ -342,5 +350,62 @@ describe('Kinetic Word static decisions', () => {
 		);
 		expect(failure.code).toBe('stale_revision');
 		expect(engineState.surface.typeField?.words[0].position).toEqual({ x: 0.5, y: 0.5 });
+	});
+});
+
+describe('Kinetic Word glyph stagger', () => {
+	beforeEach(async () => {
+		expectApplied(await runAddCompositionKineticWordOperation({ expectedRevision: 0 }));
+	});
+
+	it('sets one per-glyph delay and order, then clears it back to one text run', async () => {
+		const receipt = expectApplied(
+			await runSetCompositionKineticWordGlyphStaggerOperation({
+				expectedRevision: 1,
+				wordId: 'kinetic-word-1',
+				glyphStagger: { offsetMs: 32, order: 'center' }
+			})
+		);
+
+		expect(receipt.changed.pointers).toEqual(['/state/surface/typeField/words/0/glyphStagger']);
+		expect(engineState.surface.typeField?.words[0].glyphStagger).toEqual({
+			offsetMs: 32,
+			order: 'center'
+		});
+
+		expectApplied(
+			await runSetCompositionKineticWordGlyphStaggerOperation({
+				expectedRevision: 2,
+				wordId: 'kinetic-word-1',
+				glyphStagger: null
+			})
+		);
+		expect(engineState.surface.typeField?.words[0].glyphStagger).toBeUndefined();
+	});
+
+	it('refuses a delay past the ceiling without touching the word', async () => {
+		const failure = expectFailed(
+			await runSetCompositionKineticWordGlyphStaggerOperation({
+				expectedRevision: 1,
+				wordId: 'kinetic-word-1',
+				glyphStagger: { offsetMs: 400, order: 'forward' }
+			})
+		);
+
+		expect(failure.code).toBe('invalid_argument');
+		expect(engineState.surface.typeField?.words[0].glyphStagger).toBeUndefined();
+	});
+
+	it('refuses an unknown word and names the words that exist', async () => {
+		const failure = expectFailed(
+			await runSetCompositionKineticWordGlyphStaggerOperation({
+				expectedRevision: 1,
+				wordId: 'ghost',
+				glyphStagger: { offsetMs: 20, order: 'forward' }
+			})
+		);
+
+		expect(failure.code).toBe('unknown_target');
+		expect(failure.alternatives).toEqual(['kinetic-word-1']);
 	});
 });

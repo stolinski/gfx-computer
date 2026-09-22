@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Kinetic Type Field Motion Fixture",
-	"description": "Independent Kinetic Word geometry, opacity, and Pack-mapped weight across three semantic phrases.",
+	"description": "Flush-left kinetic typography built from masked, letter-staggered reveals: a persistent TYPE anchor that strikes and releases Pack-mapped weight on the beat, verbs that roll up through a shared line-box mask, tracking that tightens as words land, and a final phrase whose focal word is deliberately longer than the frame.",
 	"kind": "fixture",
 	"pack": "syntax",
 	"state": {
@@ -31,287 +31,135 @@
 						"id": "type",
 						"text": "TYPE",
 						"hierarchy": "display",
-						"ink": "accent",
+						"ink": "ink",
 						"position": {
-							"x": 0.16,
-							"y": 0.2
+							"x": 0,
+							"y": 0.28
 						},
-						"scale": 0.9,
-						"rotation": -2,
+						"horizontalAnchor": "start",
+						"scale": 4,
+						"rotation": 0,
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.5,
-									"y": 0.14
+									"x": 0,
+									"y": 0.417
 								},
-								"scale": 0.85,
-								"rotation": -2
+								"horizontalAnchor": "start",
+								"scale": 2.5,
+								"rotation": 0
 							}
 						},
 						"animation": {
 							"channels": {
-								"opacity": [
+								"reveal": [
 									{
 										"atMs": 0,
-										"value": 0
+										"value": -1
 									},
 									{
-										"atMs": 180,
-										"value": 0
+										"atMs": 60,
+										"value": -1,
+										"ease": "smooth"
 									},
 									{
 										"atMs": 520,
-										"value": 1,
+										"value": 0,
 										"ease": "sharp"
 									},
 									{
 										"atMs": 5600,
+										"value": 0,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 5860,
 										"value": 1,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 5920,
-										"value": 0,
 										"ease": "sharp"
-									}
-								],
-								"x": [
-									{
-										"atMs": 0,
-										"value": -0.09
-									},
-									{
-										"atMs": 760,
-										"value": 0,
-										"ease": "settled"
-									},
-									{
-										"atMs": 1700,
-										"value": 0,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 2350,
-										"value": 0.05,
-										"ease": "settled"
-									},
-									{
-										"atMs": 3500,
-										"value": 0.05,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 4350,
-										"value": 0.02,
-										"ease": "settled"
-									}
-								],
-								"y": [
-									{
-										"atMs": 0,
-										"value": -0.04
-									},
-									{
-										"atMs": 760,
-										"value": 0,
-										"ease": "settled"
-									},
-									{
-										"atMs": 1700,
-										"value": 0,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 2350,
-										"value": 0.18,
-										"ease": "settled"
-									},
-									{
-										"atMs": 3500,
-										"value": 0.18,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 4350,
-										"value": 0.38,
-										"ease": "settled"
 									}
 								],
 								"weight": [
 									{
 										"atMs": 0,
-										"value": 0.45
+										"value": 0.15
 									},
 									{
-										"atMs": 480,
+										"atMs": 560,
+										"value": 0.15,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 700,
 										"value": 1,
 										"ease": "sharp"
 									},
 									{
 										"atMs": 820,
-										"value": 0.62,
-										"ease": "settled"
+										"value": 1,
+										"ease": "smooth"
 									},
 									{
-										"atMs": 1980,
+										"atMs": 1200,
 										"value": 0.62,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 2050,
-										"value": 1,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 2350,
-										"value": 0.62,
-										"ease": "settled"
-									},
-									{
-										"atMs": 3980,
+										"atMs": 1940,
 										"value": 0.62,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 4050,
+										"atMs": 2000,
 										"value": 1,
 										"ease": "sharp"
 									},
 									{
-										"atMs": 4400,
-										"value": 0.68,
-										"ease": "settled"
+										"atMs": 2400,
+										"value": 0.62,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 3190,
+										"value": 0.62,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 3250,
+										"value": 1,
+										"ease": "sharp"
+									},
+									{
+										"atMs": 3350,
+										"value": 1,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 3900,
+										"value": 0.15,
+										"ease": "smooth"
+									}
+								],
+								"tracking": [
+									{
+										"atMs": 0,
+										"value": 0.08
+									},
+									{
+										"atMs": 60,
+										"value": 0.08,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 700,
+										"value": 0,
+										"ease": "smooth"
 									}
 								]
-							},
-							"orientationOverrides": {
-								"vertical": {
-									"x": [
-										{
-											"atMs": 0,
-											"value": 0
-										},
-										{
-											"atMs": 760,
-											"value": 0,
-											"ease": "settled"
-										},
-										{
-											"atMs": 1700,
-											"value": 0,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 2350,
-											"value": 0,
-											"ease": "settled"
-										},
-										{
-											"atMs": 3500,
-											"value": 0,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 4350,
-											"value": 0,
-											"ease": "settled"
-										}
-									],
-									"y": [
-										{
-											"atMs": 0,
-											"value": -0.055
-										},
-										{
-											"atMs": 760,
-											"value": 0,
-											"ease": "settled"
-										},
-										{
-											"atMs": 1700,
-											"value": 0,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 2350,
-											"value": 0.19,
-											"ease": "settled"
-										},
-										{
-											"atMs": 3500,
-											"value": 0.19,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 4350,
-											"value": 0.39,
-											"ease": "settled"
-										}
-									],
-									"scale": [
-										{
-											"atMs": 0,
-											"value": 0.76
-										},
-										{
-											"atMs": 760,
-											"value": 0.85,
-											"ease": "settled"
-										},
-										{
-											"atMs": 1700,
-											"value": 0.85,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 2350,
-											"value": 0.78,
-											"ease": "settled"
-										},
-										{
-											"atMs": 3500,
-											"value": 0.78,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 4350,
-											"value": 0.74,
-											"ease": "settled"
-										}
-									],
-									"rotation": [
-										{
-											"atMs": 0,
-											"value": -5
-										},
-										{
-											"atMs": 760,
-											"value": -2,
-											"ease": "settled"
-										},
-										{
-											"atMs": 1700,
-											"value": -2,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 2350,
-											"value": 0,
-											"ease": "settled"
-										},
-										{
-											"atMs": 3500,
-											"value": 0,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 4350,
-											"value": -2,
-											"ease": "settled"
-										}
-									]
-								}
 							}
+						},
+						"glyphStagger": {
+							"offsetMs": 40,
+							"order": "forward"
 						}
 					},
 					{
@@ -319,20 +167,22 @@
 						"id": "can",
 						"text": "CAN",
 						"hierarchy": "support",
-						"ink": "ink",
+						"ink": "accent",
 						"position": {
-							"x": 0.38,
-							"y": 0.35
+							"x": 0,
+							"y": 0.605
 						},
-						"scale": 0.9,
+						"horizontalAnchor": "start",
+						"scale": 1.5,
 						"rotation": 0,
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.25,
-									"y": 0.29
+									"x": 0,
+									"y": 0.5375
 								},
-								"scale": 1.1,
+								"horizontalAnchor": "start",
+								"scale": 1.5,
 								"rotation": 0
 							}
 						},
@@ -341,122 +191,56 @@
 								"opacity": [
 									{
 										"atMs": 0,
-										"value": 0
+										"value": 1
 									},
 									{
-										"atMs": 280,
-										"value": 0
-									},
-									{
-										"atMs": 620,
-										"value": 1,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 3500,
+										"atMs": 3520,
 										"value": 1,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 3820,
+										"atMs": 3540,
 										"value": 0,
 										"ease": "sharp"
 									}
 								],
-								"x": [
+								"reveal": [
 									{
 										"atMs": 0,
-										"value": -0.05
+										"value": -1
 									},
 									{
-										"atMs": 820,
-										"value": 0,
-										"ease": "settled"
-									},
-									{
-										"atMs": 1700,
-										"value": 0,
+										"atMs": 700,
+										"value": -1,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 2350,
-										"value": 0.08,
-										"ease": "settled"
-									},
-									{
-										"atMs": 3500,
-										"value": 0.08,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 3950,
-										"value": 0.15,
-										"ease": "settled"
-									}
-								],
-								"y": [
-									{
-										"atMs": 0,
-										"value": 0.045
-									},
-									{
-										"atMs": 820,
+										"atMs": 920,
 										"value": 0,
-										"ease": "settled"
+										"ease": "sharp"
 									},
 									{
-										"atMs": 1700,
+										"atMs": 3250,
 										"value": 0,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 2350,
-										"value": 0.15,
-										"ease": "settled"
-									},
-									{
-										"atMs": 3500,
-										"value": 0.15,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 3950,
-										"value": 0.19,
-										"ease": "settled"
+										"atMs": 3450,
+										"value": 1,
+										"ease": "sharp"
 									}
 								],
 								"weight": [
 									{
 										"atMs": 0,
-										"value": 0.36
-									},
-									{
-										"atMs": 580,
-										"value": 0.72,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 900,
-										"value": 0.48,
-										"ease": "settled"
-									},
-									{
-										"atMs": 2080,
-										"value": 0.48,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 2140,
-										"value": 0.78,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 2420,
-										"value": 0.48,
-										"ease": "settled"
+										"value": 0.55
 									}
 								]
 							}
+						},
+						"glyphStagger": {
+							"offsetMs": 25,
+							"order": "forward"
 						}
 					},
 					{
@@ -466,19 +250,21 @@
 						"hierarchy": "display",
 						"ink": "accent",
 						"position": {
-							"x": 0.63,
-							"y": 0.28
+							"x": 0,
+							"y": 0.786
 						},
-						"scale": 1.05,
-						"rotation": 2,
+						"horizontalAnchor": "start",
+						"scale": 2.4,
+						"rotation": 0,
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.55,
-									"y": 0.35
+									"x": 0,
+									"y": 0.613
 								},
-								"scale": 0.9,
-								"rotation": 2
+								"horizontalAnchor": "start",
+								"scale": 1.5,
+								"rotation": 0
 							}
 						},
 						"animation": {
@@ -486,87 +272,87 @@
 								"opacity": [
 									{
 										"atMs": 0,
-										"value": 0
+										"value": 1
 									},
 									{
-										"atMs": 380,
-										"value": 0
-									},
-									{
-										"atMs": 720,
-										"value": 1,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 1660,
+										"atMs": 2380,
 										"value": 1,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 1980,
+										"atMs": 2400,
 										"value": 0,
 										"ease": "sharp"
 									}
 								],
-								"x": [
+								"reveal": [
 									{
 										"atMs": 0,
-										"value": 0.1
+										"value": -1
 									},
 									{
-										"atMs": 920,
+										"atMs": 760,
+										"value": -1,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 1200,
 										"value": 0,
-										"ease": "settled"
+										"ease": "sharp"
 									},
 									{
-										"atMs": 1660,
+										"atMs": 2000,
 										"value": 0,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 2050,
-										"value": 0.08,
-										"ease": "settled"
-									}
-								],
-								"y": [
-									{
-										"atMs": 0,
-										"value": 0.035
-									},
-									{
-										"atMs": 920,
-										"value": 0,
-										"ease": "settled"
-									},
-									{
-										"atMs": 1660,
-										"value": 0,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 2050,
-										"value": -0.06,
-										"ease": "settled"
+										"atMs": 2260,
+										"value": 1,
+										"ease": "sharp"
 									}
 								],
 								"weight": [
 									{
 										"atMs": 0,
-										"value": 0.42
+										"value": 0.4
 									},
 									{
-										"atMs": 680,
+										"atMs": 1100,
+										"value": 0.4,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 1200,
 										"value": 1,
 										"ease": "sharp"
 									},
 									{
-										"atMs": 980,
-										"value": 0.68,
-										"ease": "settled"
+										"atMs": 1600,
+										"value": 0.72,
+										"ease": "smooth"
+									}
+								],
+								"tracking": [
+									{
+										"atMs": 0,
+										"value": 0.12
+									},
+									{
+										"atMs": 760,
+										"value": 0.12,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 1300,
+										"value": 0,
+										"ease": "smooth"
 									}
 								]
 							}
+						},
+						"glyphStagger": {
+							"offsetMs": 35,
+							"order": "forward"
 						}
 					},
 					{
@@ -574,145 +360,22 @@
 						"id": "become",
 						"text": "BECOME",
 						"hierarchy": "display",
-						"ink": "ink",
+						"ink": "accent",
 						"position": {
-							"x": 0.68,
-							"y": 0.58
+							"x": 0,
+							"y": 0.786
 						},
-						"scale": 0.85,
-						"rotation": -1,
-						"orientationOverrides": {
-							"vertical": {
-								"position": {
-									"x": 0.5,
-									"y": 0.52
-								},
-								"scale": 0.72,
-								"rotation": -1
-							}
-						},
-						"animation": {
-							"channels": {
-								"opacity": [
-									{
-										"atMs": 0,
-										"value": 0
-									},
-									{
-										"atMs": 1740,
-										"value": 0
-									},
-									{
-										"atMs": 2120,
-										"value": 1,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 3500,
-										"value": 1,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 3860,
-										"value": 0,
-										"ease": "sharp"
-									}
-								],
-								"x": [
-									{
-										"atMs": 0,
-										"value": 0.11
-									},
-									{
-										"atMs": 1740,
-										"value": 0.11,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 2440,
-										"value": 0,
-										"ease": "settled"
-									},
-									{
-										"atMs": 3500,
-										"value": 0,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 3940,
-										"value": 0.07,
-										"ease": "settled"
-									}
-								],
-								"y": [
-									{
-										"atMs": 0,
-										"value": 0.05
-									},
-									{
-										"atMs": 1740,
-										"value": 0.05,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 2440,
-										"value": 0,
-										"ease": "settled"
-									},
-									{
-										"atMs": 3500,
-										"value": 0,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 3940,
-										"value": -0.07,
-										"ease": "settled"
-									}
-								],
-								"weight": [
-									{
-										"atMs": 0,
-										"value": 0.42
-									},
-									{
-										"atMs": 1980,
-										"value": 0.42,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 2040,
-										"value": 1,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 2460,
-										"value": 0.68,
-										"ease": "settled"
-									}
-								]
-							}
-						}
-					},
-					{
-						"type": "kinetic-word",
-						"id": "is",
-						"text": "IS",
-						"hierarchy": "support",
-						"ink": "ink",
-						"position": {
-							"x": 0.34,
-							"y": 0.62
-						},
-						"scale": 1,
+						"horizontalAnchor": "start",
+						"scale": 2.4,
 						"rotation": 0,
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.28,
-									"y": 0.66
+									"x": 0,
+									"y": 0.613
 								},
-								"scale": 1,
+								"horizontalAnchor": "start",
+								"scale": 1.5,
 								"rotation": 0
 							}
 						},
@@ -724,79 +387,175 @@
 										"value": 0
 									},
 									{
-										"atMs": 3640,
-										"value": 0
+										"atMs": 2080,
+										"value": 0,
+										"ease": "smooth"
 									},
 									{
-										"atMs": 4020,
+										"atMs": 2100,
 										"value": 1,
 										"ease": "sharp"
 									},
 									{
-										"atMs": 5600,
+										"atMs": 3680,
 										"value": 1,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 5920,
+										"atMs": 3700,
 										"value": 0,
 										"ease": "sharp"
 									}
 								],
-								"x": [
+								"reveal": [
 									{
 										"atMs": 0,
-										"value": -0.08
+										"value": -1
 									},
 									{
-										"atMs": 3640,
-										"value": -0.08,
+										"atMs": 2100,
+										"value": -1,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 4380,
+										"atMs": 2540,
 										"value": 0,
-										"ease": "settled"
-									}
-								],
-								"y": [
-									{
-										"atMs": 0,
-										"value": 0.05
+										"ease": "sharp"
 									},
 									{
-										"atMs": 3640,
-										"value": 0.05,
+										"atMs": 3250,
+										"value": 0,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 4380,
-										"value": 0,
-										"ease": "settled"
+										"atMs": 3510,
+										"value": 1,
+										"ease": "sharp"
 									}
 								],
 								"weight": [
 									{
 										"atMs": 0,
-										"value": 0.38
+										"value": 0.4
 									},
 									{
-										"atMs": 3900,
-										"value": 0.38,
+										"atMs": 2440,
+										"value": 0.4,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 3960,
-										"value": 0.75,
+										"atMs": 2540,
+										"value": 1,
 										"ease": "sharp"
 									},
 									{
-										"atMs": 4340,
-										"value": 0.48,
-										"ease": "settled"
+										"atMs": 2940,
+										"value": 0.72,
+										"ease": "smooth"
+									}
+								],
+								"tracking": [
+									{
+										"atMs": 0,
+										"value": 0.12
+									},
+									{
+										"atMs": 2100,
+										"value": 0.12,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 2640,
+										"value": 0,
+										"ease": "smooth"
 									}
 								]
 							}
+						},
+						"glyphStagger": {
+							"offsetMs": 30,
+							"order": "forward"
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "is",
+						"text": "IS",
+						"hierarchy": "support",
+						"ink": "accent",
+						"position": {
+							"x": 0,
+							"y": 0.605
+						},
+						"horizontalAnchor": "start",
+						"scale": 1.5,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": {
+									"x": 0,
+									"y": 0.5375
+								},
+								"horizontalAnchor": "start",
+								"scale": 1.5,
+								"rotation": 0
+							}
+						},
+						"animation": {
+							"channels": {
+								"opacity": [
+									{
+										"atMs": 0,
+										"value": 0
+									},
+									{
+										"atMs": 3340,
+										"value": 0,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 3360,
+										"value": 1,
+										"ease": "sharp"
+									}
+								],
+								"reveal": [
+									{
+										"atMs": 0,
+										"value": -1
+									},
+									{
+										"atMs": 3360,
+										"value": -1,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 3560,
+										"value": 0,
+										"ease": "sharp"
+									},
+									{
+										"atMs": 5520,
+										"value": 0,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 5700,
+										"value": 1,
+										"ease": "sharp"
+									}
+								],
+								"weight": [
+									{
+										"atMs": 0,
+										"value": 0.55
+									}
+								]
+							}
+						},
+						"glyphStagger": {
+							"offsetMs": 25,
+							"order": "forward"
 						}
 					},
 					{
@@ -806,18 +565,20 @@
 						"hierarchy": "support",
 						"ink": "accent",
 						"position": {
-							"x": 0.43,
-							"y": 0.77
+							"x": 0.066,
+							"y": 0.605
 						},
-						"scale": 1,
+						"horizontalAnchor": "start",
+						"scale": 1.5,
 						"rotation": 0,
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.48,
-									"y": 0.73
+									"x": 0.12,
+									"y": 0.5375
 								},
-								"scale": 1,
+								"horizontalAnchor": "start",
+								"scale": 1.5,
 								"rotation": 0
 							}
 						},
@@ -829,79 +590,53 @@
 										"value": 0
 									},
 									{
-										"atMs": 3740,
-										"value": 0
-									},
-									{
-										"atMs": 4140,
-										"value": 1,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 5600,
-										"value": 1,
+										"atMs": 3400,
+										"value": 0,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 5920,
-										"value": 0,
+										"atMs": 3420,
+										"value": 1,
 										"ease": "sharp"
 									}
 								],
-								"x": [
+								"reveal": [
 									{
 										"atMs": 0,
-										"value": -0.06
+										"value": -1
 									},
 									{
-										"atMs": 3740,
-										"value": -0.06,
+										"atMs": 3420,
+										"value": -1,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 4480,
+										"atMs": 3620,
 										"value": 0,
-										"ease": "settled"
-									}
-								],
-								"y": [
-									{
-										"atMs": 0,
-										"value": 0.06
+										"ease": "sharp"
 									},
 									{
-										"atMs": 3740,
-										"value": 0.06,
+										"atMs": 5520,
+										"value": 0,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 4480,
-										"value": 0,
-										"ease": "settled"
+										"atMs": 5700,
+										"value": 1,
+										"ease": "sharp"
 									}
 								],
 								"weight": [
 									{
 										"atMs": 0,
-										"value": 0.42
-									},
-									{
-										"atMs": 4020,
-										"value": 0.42,
-										"ease": "smooth"
-									},
-									{
-										"atMs": 4080,
-										"value": 0.78,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 4460,
-										"value": 0.52,
-										"ease": "settled"
+										"value": 0.55
 									}
 								]
 							}
+						},
+						"glyphStagger": {
+							"offsetMs": 25,
+							"order": "forward"
 						}
 					},
 					{
@@ -911,19 +646,21 @@
 						"hierarchy": "display",
 						"ink": "ink",
 						"position": {
-							"x": 0.7,
-							"y": 0.8
+							"x": 0,
+							"y": 0.786
 						},
-						"scale": 0.55,
-						"rotation": 1,
+						"horizontalAnchor": "start",
+						"scale": 2.4,
+						"rotation": 0,
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.5,
-									"y": 0.79
+									"x": 0,
+									"y": 0.613
 								},
-								"scale": 0.38,
-								"rotation": 1
+								"horizontalAnchor": "start",
+								"scale": 1.5,
+								"rotation": 0
 							}
 						},
 						"animation": {
@@ -934,55 +671,40 @@
 										"value": 0
 									},
 									{
-										"atMs": 3860,
-										"value": 0
-									},
-									{
-										"atMs": 4280,
-										"value": 1,
-										"ease": "sharp"
-									},
-									{
-										"atMs": 5600,
-										"value": 1,
+										"atMs": 3440,
+										"value": 0,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 5920,
-										"value": 0,
+										"atMs": 3460,
+										"value": 1,
 										"ease": "sharp"
 									}
 								],
-								"x": [
+								"reveal": [
 									{
 										"atMs": 0,
-										"value": 0.12
+										"value": -1
 									},
 									{
-										"atMs": 3860,
-										"value": 0.12,
+										"atMs": 3460,
+										"value": -1,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 4680,
+										"atMs": 3960,
 										"value": 0,
-										"ease": "settled"
-									}
-								],
-								"y": [
-									{
-										"atMs": 0,
-										"value": 0.055
+										"ease": "sharp"
 									},
 									{
-										"atMs": 3860,
-										"value": 0.055,
+										"atMs": 5500,
+										"value": 0,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 4680,
-										"value": 0,
-										"ease": "settled"
+										"atMs": 5760,
+										"value": 1,
+										"ease": "sharp"
 									}
 								],
 								"weight": [
@@ -991,90 +713,42 @@
 										"value": 0.4
 									},
 									{
-										"atMs": 4160,
+										"atMs": 3860,
 										"value": 0.4,
 										"ease": "smooth"
 									},
 									{
-										"atMs": 4220,
+										"atMs": 3960,
 										"value": 1,
 										"ease": "sharp"
 									},
 									{
-										"atMs": 4660,
-										"value": 0.72,
-										"ease": "settled"
+										"atMs": 4460,
+										"value": 0.85,
+										"ease": "smooth"
+									}
+								],
+								"tracking": [
+									{
+										"atMs": 0,
+										"value": 0.1
+									},
+									{
+										"atMs": 3460,
+										"value": 0.1,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 4260,
+										"value": 0,
+										"ease": "smooth"
 									}
 								]
-							},
-							"orientationOverrides": {
-								"vertical": {
-									"x": [
-										{
-											"atMs": 0,
-											"value": 0
-										},
-										{
-											"atMs": 3860,
-											"value": 0,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 4680,
-											"value": 0,
-											"ease": "settled"
-										}
-									],
-									"y": [
-										{
-											"atMs": 0,
-											"value": 0.075
-										},
-										{
-											"atMs": 3860,
-											"value": 0.075,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 4680,
-											"value": 0,
-											"ease": "settled"
-										}
-									],
-									"scale": [
-										{
-											"atMs": 0,
-											"value": 0.32
-										},
-										{
-											"atMs": 3860,
-											"value": 0.32,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 4680,
-											"value": 0.38,
-											"ease": "settled"
-										}
-									],
-									"rotation": [
-										{
-											"atMs": 0,
-											"value": 4
-										},
-										{
-											"atMs": 3860,
-											"value": 4,
-											"ease": "smooth"
-										},
-										{
-											"atMs": 4680,
-											"value": 1,
-											"ease": "settled"
-										}
-									]
-								}
 							}
+						},
+						"glyphStagger": {
+							"offsetMs": 20,
+							"order": "forward"
 						}
 					}
 				],

@@ -5136,6 +5136,10 @@
 												"required": ["x", "y"],
 												"additionalProperties": false
 											},
+											"horizontalAnchor": {
+												"type": "string",
+												"enum": ["start", "center", "end"]
+											},
 											"scale": {
 												"type": "number",
 												"minimum": 0.25,
@@ -5168,6 +5172,10 @@
 																},
 																"required": ["x", "y"],
 																"additionalProperties": false
+															},
+															"horizontalAnchor": {
+																"type": "string",
+																"enum": ["start", "center", "end"]
 															},
 															"scale": {
 																"type": "number",
@@ -5203,6 +5211,10 @@
 																"required": ["x", "y"],
 																"additionalProperties": false
 															},
+															"horizontalAnchor": {
+																"type": "string",
+																"enum": ["start", "center", "end"]
+															},
 															"scale": {
 																"type": "number",
 																"minimum": 0.25,
@@ -5218,6 +5230,22 @@
 														"additionalProperties": false
 													}
 												},
+												"additionalProperties": false
+											},
+											"glyphStagger": {
+												"type": "object",
+												"properties": {
+													"offsetMs": {
+														"type": "integer",
+														"minimum": 0,
+														"maximum": 120
+													},
+													"order": {
+														"type": "string",
+														"enum": ["forward", "reverse", "center"]
+													}
+												},
+												"required": ["offsetMs", "order"],
 												"additionalProperties": false
 											},
 											"animation": {
@@ -5240,6 +5268,31 @@
 																		"value": {
 																			"type": "number",
 																			"minimum": 0,
+																			"maximum": 1
+																		},
+																		"ease": {
+																			"type": "string",
+																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		}
+																	},
+																	"required": ["atMs", "value"],
+																	"additionalProperties": false
+																}
+															},
+															"reveal": {
+																"minItems": 1,
+																"maxItems": 24,
+																"type": "array",
+																"items": {
+																	"type": "object",
+																	"properties": {
+																		"atMs": {
+																			"type": "number",
+																			"minimum": 0
+																		},
+																		"value": {
+																			"type": "number",
+																			"minimum": -1,
 																			"maximum": 1
 																		},
 																		"ease": {
@@ -5361,6 +5414,31 @@
 																		"value": {
 																			"type": "number",
 																			"minimum": 0,
+																			"maximum": 1
+																		},
+																		"ease": {
+																			"type": "string",
+																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		}
+																	},
+																	"required": ["atMs", "value"],
+																	"additionalProperties": false
+																}
+															},
+															"tracking": {
+																"minItems": 1,
+																"maxItems": 24,
+																"type": "array",
+																"items": {
+																	"type": "object",
+																	"properties": {
+																		"atMs": {
+																			"type": "number",
+																			"minimum": 0
+																		},
+																		"value": {
+																			"type": "number",
+																			"minimum": -0.2,
 																			"maximum": 1
 																		},
 																		"ease": {

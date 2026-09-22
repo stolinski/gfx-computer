@@ -17,6 +17,10 @@ export interface OverlayChannelValues {
 export interface KineticWordChannelValues extends OverlayChannelValues {
 	/** Semantic [0, 1], mapped through the active Pack's real `wght` range. */
 	weight: number;
+	/** Word-level glyph offset inside the line-box mask; glyph staggers delay this per glyph. */
+	reveal: number;
+	/** Em delta on the hierarchy's letter-spacing. */
+	tracking: number;
 }
 
 export interface RenderAnimState {

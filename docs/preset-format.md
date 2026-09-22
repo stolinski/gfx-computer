@@ -295,17 +295,21 @@ The five motion windows are authored, Pack-invariant, and frame-deterministic. O
       "hierarchy": "display" | "support",
       "ink": "ink" | "accent",
       "position": { "x": 0..1, "y": 0..1 },
+      "horizontalAnchor": "start" | "center" | "end", // optional; default center
       "scale": 0.25..4,
       "rotation": -180..180,
       "orientationOverrides": {              // optional complete geometry snapshots
-        "horizontal": { "position": { "x": 0..1, "y": 0..1 }, "scale": 0.25..4, "rotation": -180..180 },
-        "vertical": { "position": { "x": 0..1, "y": 0..1 }, "scale": 0.25..4, "rotation": -180..180 }
+        "horizontal": { "position": { "x": 0..1, "y": 0..1 }, "horizontalAnchor": "start" | "center" | "end", "scale": 0.25..4, "rotation": -180..180 },
+        "vertical": { "position": { "x": 0..1, "y": 0..1 }, "horizontalAnchor": "start" | "center" | "end", "scale": 0.25..4, "rotation": -180..180 }
       },
+      "glyphStagger": { "offsetMs": 0..120, "order": "forward" | "reverse" | "center" }, // optional per-glyph reveal delay
       "animation": {
-        "channels": {                         // shared opacity/spatial/normalized-weight tracks
+        "channels": {                         // shared opacity/reveal/spatial/weight/tracking tracks
           "opacity": [{ "atMs": 0, "value": 0 }, { "atMs": 300, "value": 1, "ease": "sharp" }],
+          "reveal": [{ "atMs": 0, "value": -1 }, { "atMs": 420, "value": 0, "ease": "sharp" }],
           "x": [{ "atMs": 0, "value": -0.08 }, { "atMs": 650, "value": 0, "ease": "settled" }],
-          "weight": [{ "atMs": 0, "value": 0.5 }, { "atMs": 240, "value": 1, "ease": "sharp" }]
+          "weight": [{ "atMs": 0, "value": 0.5 }, { "atMs": 240, "value": 1, "ease": "sharp" }],
+          "tracking": [{ "atMs": 0, "value": 0.3 }, { "atMs": 420, "value": 0, "ease": "smooth" }]
         },
         "orientationOverrides": {              // optional complete spatial-track replacement
           "vertical": {
@@ -330,9 +334,13 @@ The five motion windows are authored, Pack-invariant, and frame-deterministic. O
 
 A field contains 1–16 unique words and 1–8 unique phrases. Each phrase references 1–8 unique, existing word ids. Its focal word must belong to the phrase and use `display` hierarchy. Kinetic Word ids share the Surface Block-id namespace with `surface.diagram[]` and `surface.chart.items[]`; Cascade `{ "block": id }` references resolve through that same authority. Removing a referenced word refuses rather than rewriting phrase or Cascade references. Switching to a non-`plain` Surface or enabling the Dimensional Stage also refuses while the field exists; Stage support is outside v1.
 
-The first word added through the GUI or `layer.add-kinetic-word` creates a valid parent field and phrase atomically; removing the last word removes the parent field. Every word occupies one full-clip Timeline row. An absent `animation` stays exactly static. Current authored channels are `opacity`, `x`, `y`, `scale`, `rotation`, and normalized `weight`; every track holds 1–24 strictly ordered keys and the first key carries no ease. X/Y remain composition-fraction deltas from resolved base placement, scale and rotation are absolute, and weight `[0,1]` maps through the active Pack's real variable face.
+The first word added through the GUI or `layer.add-kinetic-word` creates a valid parent field and phrase atomically; removing the last word removes the parent field. Every word occupies one full-clip Timeline row. `horizontalAnchor` pins the word's start, centre, or end edge to `position.x`, remains part of a complete orientation placement snapshot, and defaults to `center` when omitted. An absent `animation` stays exactly static. Current authored channels are `opacity`, `reveal`, `x`, `y`, `scale`, `rotation`, normalized `weight`, and `tracking`; every track holds 1–24 strictly ordered keys and the first key carries no ease. X/Y remain composition-fraction deltas from resolved base placement, scale and rotation are absolute, and weight `[0,1]` maps through the active Pack's real variable face.
 
-Opacity and weight are always shared. Shared spatial tracks apply to both targets until a complete `horizontal` or `vertical` group replaces all four spatial tracks for that target. The Inspector and generalized keyframe Operations expose the same scope. Canvas drag or nudge at a nonzero playhead uses the atomic Kinetic Word position-key operation, preserving rest geometry and creating/updating X/Y in one undo entry. Motion Beats, beat-relative keys, and tracking described by ADR-0063 remain outside the current wire schema.
+`reveal` is the one mask a Kinetic Word owns: its own line box. The value is a glyph offset in mask heights — `0` at rest, `-1` fully hidden below the baseline edge, `1` fully hidden above the cap edge — so a word can rise out of nothing and leave through the top without ever crossing open frame. While a `reveal` track exists the word clips to that mask; without one it renders as one unclipped text run exactly as before. `tracking` is an em delta on the hierarchy's letter-spacing (`-0.2..1`), Pack-neutral because em follows the Pack face.
+
+`glyphStagger` is one number and one order on the word, never per-character tracks. Every grapheme plays the word's own shared `reveal` track delayed by `offsetMs` times its rank — `forward` reads left to right, `reverse` right to left, `center` blooms outward from the middle — so a letter-by-letter reveal stays word-level authoring. Glyphs stay inline text, so the Pack face still kerns across them; only the vertical mask offset is per glyph. Weight, tracking, opacity, and placement remain word-level.
+
+Opacity, reveal, weight, and tracking are always shared. Shared spatial tracks apply to both targets until a complete `horizontal` or `vertical` group replaces all four spatial tracks for that target. The Inspector and generalized keyframe Operations expose the same scope. Canvas drag or nudge at a nonzero playhead uses the atomic Kinetic Word position-key operation, preserving rest geometry and creating/updating X/Y in one undo entry. Motion Beats and beat-relative keys described by ADR-0063 remain outside the current wire schema.
 
 ### `overlays`
 
@@ -576,7 +584,7 @@ Pack immunity is declared by each Pipeline's Identity Spec and derived at runtim
 - **`paragraph`** — text run inside `content.body` (the bracket-tag string).
 - **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
 - **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers.
-- **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0063](adr/0063-kinetic-type-word-fields.md)); static and orientation-specific placement, appearance, phrase semantics, Timeline identity, independently authored opacity/spatial/normalized-weight tracks, nonzero-playhead direct manipulation, and shared GUI/WebMCP operations ship. Motion Beats, beat-relative keys, and tracking remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
+- **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0063](adr/0063-kinetic-type-word-fields.md)); static and orientation-specific placement, appearance, phrase semantics, Timeline identity, independently authored opacity/reveal/spatial/normalized-weight/tracking tracks, a bounded glyph stagger over the word's own line-box mask, nonzero-playhead direct manipulation, and shared GUI/WebMCP operations ship. Motion Beats and beat-relative keys remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
 
 ## Annotation styles
 

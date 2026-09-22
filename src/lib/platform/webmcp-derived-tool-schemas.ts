@@ -39,7 +39,9 @@ import {
 	DIAGRAM_STROKE_KEYFRAME_CHANNELS,
 	ENGINE_EASES,
 	ENGINE_FONT_FAMILIES,
+	KINETIC_WORD_GLYPH_STAGGER_ORDERS,
 	KINETIC_WORD_HIERARCHIES,
+	KINETIC_WORD_HORIZONTAL_ANCHORS,
 	KINETIC_WORD_INK_ROLES,
 	KINETIC_WORD_KEYFRAME_CHANNELS,
 	OVERLAY_KEYFRAME_CHANNELS,
@@ -111,7 +113,9 @@ export type WebmcpDerivedEnumName =
 	| 'diagram-stat-format'
 	| 'diagram-ink-role'
 	| 'kinetic-word-hierarchy'
+	| 'kinetic-word-horizontal-anchor'
 	| 'kinetic-word-ink-role'
+	| 'kinetic-word-glyph-stagger-order'
 	| 'chat-message-side'
 	| 'chat-message-tapback'
 	| 'chat-message-receipt'
@@ -239,7 +243,9 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'diagram-stat-format': DIAGRAM_STAT_FORMATS,
 		'diagram-ink-role': DIAGRAM_INK_ROLES,
 		'kinetic-word-hierarchy': KINETIC_WORD_HIERARCHIES,
+		'kinetic-word-horizontal-anchor': KINETIC_WORD_HORIZONTAL_ANCHORS,
 		'kinetic-word-ink-role': KINETIC_WORD_INK_ROLES,
+		'kinetic-word-glyph-stagger-order': KINETIC_WORD_GLYPH_STAGGER_ORDERS,
 		'chat-message-side': CHAT_MESSAGE_SIDES,
 		'chat-message-tapback': CHAT_MESSAGE_TAPBACKS,
 		'chat-message-receipt': CHAT_MESSAGE_RECEIPTS,

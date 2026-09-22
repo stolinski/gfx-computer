@@ -745,6 +745,16 @@ export const KINETIC_TYPE_WORD_LIMIT = 16;
 export const KINETIC_TYPE_PHRASE_LIMIT = 8;
 export const KINETIC_TYPE_PHRASE_WORD_LIMIT = 8;
 export const KINETIC_TYPE_WORD_CODE_POINT_LIMIT = 32;
+/** Largest per-glyph delay one Kinetic Word may stagger its masked reveal by. */
+export const KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS = 120;
+/**
+ * `reveal` is a glyph offset inside the word's own line-box mask, in mask
+ * heights: 0 at rest, -1 fully hidden below the baseline edge, +1 fully hidden
+ * above the cap edge. It is the one mask GFX Kinetic Words own.
+ */
+export const KINETIC_WORD_REVEAL_LIMIT = 1;
+/** `tracking` is an em delta on the hierarchy's letter-spacing, Pack-neutral by construction. */
+export const KINETIC_WORD_TRACKING_RANGE = { min: -0.2, max: 1 } as const;
 
 const KineticWordTextSchema = z
 	.string()
@@ -760,9 +770,24 @@ export const KineticWordHierarchySchema = z.enum(['display', 'support']);
 export const KINETIC_WORD_HIERARCHIES = KineticWordHierarchySchema.options;
 export const KineticWordInkSchema = z.enum(['ink', 'accent']);
 export const KINETIC_WORD_INK_ROLES = KineticWordInkSchema.options;
+export const KineticWordHorizontalAnchorSchema = z.enum(['start', 'center', 'end']);
+export const KINETIC_WORD_HORIZONTAL_ANCHORS = KineticWordHorizontalAnchorSchema.options;
+export const KineticWordGlyphStaggerOrderSchema = z.enum(['forward', 'reverse', 'center']);
+export const KINETIC_WORD_GLYPH_STAGGER_ORDERS = KineticWordGlyphStaggerOrderSchema.options;
+
+// A glyph stagger is one number and one order on the word, never per-character
+// tracks: every glyph plays the word's own `reveal` track, delayed by its rank.
+// Kerning survives because glyphs stay inline; only the vertical mask offset
+// is per glyph.
+export const KineticWordGlyphStaggerSchema = z.strictObject({
+	offsetMs: z.number().int().min(0).max(KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS),
+	order: KineticWordGlyphStaggerOrderSchema
+});
 
 export const KineticWordGeometrySchema = z.strictObject({
 	position: DiagramPointSchema,
+	/** Which horizontal word edge the normalized position pins; omitted means center. */
+	horizontalAnchor: KineticWordHorizontalAnchorSchema.optional(),
 	scale: z.number().finite().min(0.25).max(4),
 	rotation: z.number().finite().min(-180).max(180)
 });
@@ -779,8 +804,14 @@ const KineticWordSpatialChannelKeyframesSchema = z.strictObject({
 
 const KineticWordChannelKeyframesSchema = z.strictObject({
 	opacity: createKeyframeTrackSchema(FractionSchema).optional(),
+	reveal: createKeyframeTrackSchema(
+		z.number().min(-KINETIC_WORD_REVEAL_LIMIT).max(KINETIC_WORD_REVEAL_LIMIT)
+	).optional(),
 	...KineticWordSpatialChannelKeyframesSchema.shape,
-	weight: createKeyframeTrackSchema(FractionSchema).optional()
+	weight: createKeyframeTrackSchema(FractionSchema).optional(),
+	tracking: createKeyframeTrackSchema(
+		z.number().min(KINETIC_WORD_TRACKING_RANGE.min).max(KINETIC_WORD_TRACKING_RANGE.max)
+	).optional()
 });
 
 const KineticWordAnimationSchema = z
@@ -817,6 +848,7 @@ export const KineticWordSchema = z.strictObject({
 	hierarchy: KineticWordHierarchySchema,
 	ink: KineticWordInkSchema,
 	position: KineticWordGeometrySchema.shape.position,
+	horizontalAnchor: KineticWordGeometrySchema.shape.horizontalAnchor,
 	scale: KineticWordGeometrySchema.shape.scale,
 	rotation: KineticWordGeometrySchema.shape.rotation,
 	orientationOverrides: z
@@ -825,6 +857,7 @@ export const KineticWordSchema = z.strictObject({
 			vertical: KineticWordGeometrySchema.optional()
 		})
 		.optional(),
+	glyphStagger: KineticWordGlyphStaggerSchema.optional(),
 	animation: KineticWordAnimationSchema.optional()
 });
 
@@ -892,8 +925,11 @@ export const KineticTypeFieldSchema = z
 	});
 
 export type KineticWordGeometry = z.infer<typeof KineticWordGeometrySchema>;
+export type KineticWordHorizontalAnchor = z.infer<typeof KineticWordHorizontalAnchorSchema>;
 export type KineticWordHierarchy = z.infer<typeof KineticWordHierarchySchema>;
 export type KineticWordInk = z.infer<typeof KineticWordInkSchema>;
+export type KineticWordGlyphStagger = z.infer<typeof KineticWordGlyphStaggerSchema>;
+export type KineticWordGlyphStaggerOrder = z.infer<typeof KineticWordGlyphStaggerOrderSchema>;
 export type KineticWordSpatialChannelKeyframes = z.infer<
 	typeof KineticWordSpatialChannelKeyframesSchema
 >;

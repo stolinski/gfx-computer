@@ -9,7 +9,6 @@
  */
 import assert from 'node:assert/strict';
 
-import { getLayoutSafeArea } from '../src/lib/utils/safe-area.ts';
 import { connectCdpRenderBrowser } from './cdp-render-page.ts';
 
 const baseUrl = process.env.GFX_PROBE_BASE_URL ?? 'http://127.0.0.1:5173';
@@ -21,7 +20,9 @@ const PHRASE_SAMPLES = [
 	{ progress: 0.42, visible: ['type', 'can', 'become'] },
 	{ progress: 0.8, visible: ['type', 'is', 'the', 'composition'] }
 ] as const;
-const TYPE_STRIKE_PROGRESS = 0.08;
+// TYPE lands its masked rise on the first beat and strikes the Pack maximum
+// weight just after; MOVE is still rising through its own mask at this frame.
+const TYPE_STRIKE_PROGRESS = 0.12;
 const CANONICAL_RASTER_BLOCK_SIZE = 32;
 const CANONICAL_RASTER_QUANTIZATION_STEP = 32;
 
@@ -35,6 +36,8 @@ interface MotionWordSnapshot {
 	fontSynthesis: string;
 	center: { x: number; y: number };
 	bounds: { left: number; top: number; right: number; bottom: number };
+	/** Client-rect tops of the word's masked glyph spans; empty while the word renders as one run. */
+	glyphTops: number[];
 }
 
 interface MotionFrameSnapshot {
@@ -51,6 +54,37 @@ function assertNear(actual: number, expected: number, tolerance: number, message
 	assert.ok(
 		Math.abs(actual - expected) <= tolerance,
 		`${message}: expected ${expected} ± ${tolerance}, received ${actual}`
+	);
+}
+
+function visibleWordAreaRatio(
+	bounds: MotionWordSnapshot['bounds'],
+	field: MotionFrameSnapshot['fieldBounds']
+): number {
+	const width = Math.max(0, bounds.right - bounds.left);
+	const height = Math.max(0, bounds.bottom - bounds.top);
+	if (width === 0 || height === 0) return 0;
+	const visibleWidth = Math.max(
+		0,
+		Math.min(bounds.right, field.left + field.width) - Math.max(bounds.left, field.left)
+	);
+	const visibleHeight = Math.max(
+		0,
+		Math.min(bounds.bottom, field.top + field.height) - Math.max(bounds.top, field.top)
+	);
+	return (visibleWidth * visibleHeight) / (width * height);
+}
+
+function wordReachesFrameEdge(
+	bounds: MotionWordSnapshot['bounds'],
+	field: MotionFrameSnapshot['fieldBounds']
+): boolean {
+	const tolerance = 2;
+	return (
+		bounds.left <= field.left + tolerance ||
+		bounds.right >= field.left + field.width - tolerance ||
+		bounds.top <= field.top + tolerance ||
+		bounds.bottom >= field.top + field.height - tolerance
 	);
 }
 
@@ -200,7 +234,15 @@ try {
 									fontVariationSettings: textStyle.fontVariationSettings,
 									fontSynthesis: textStyle.fontSynthesis,
 									center: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
-									bounds: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
+									bounds: {
+										left: rect.left,
+										top: rect.top,
+										right: rect.right,
+										bottom: rect.bottom
+									},
+									glyphTops: [...text.querySelectorAll<HTMLElement>('.kinetic-word__glyph')].map(
+										(glyph) => glyph.getBoundingClientRect().top
+									)
 								};
 							}
 						);
@@ -310,20 +352,17 @@ try {
 					assert.ok(word.fontFamily.includes(first.fontFamily), `${word.id} variable face drifted`);
 					assert.equal(word.fontSynthesis, 'none', `${word.id} enabled font synthesis`);
 				}
-				const safeArea = getLayoutSafeArea(orientation);
-				for (const word of first.words.filter((candidate) => candidate.opacity > 0.98)) {
+				const visibleWords = first.words.filter((candidate) => candidate.opacity > 0.98);
+				for (const word of visibleWords) {
 					assert.ok(
-						word.bounds.left >=
-							first.fieldBounds.left + safeArea.left * first.fieldBounds.width - 1 &&
-							word.bounds.right <=
-								first.fieldBounds.left + (1 - safeArea.right) * first.fieldBounds.width + 1 &&
-							word.bounds.top >=
-								first.fieldBounds.top + safeArea.top * first.fieldBounds.height - 1 &&
-							word.bounds.bottom <=
-								first.fieldBounds.top + (1 - safeArea.bottom) * first.fieldBounds.height + 1,
-						`${word.id} leaves the ${orientation} safe area at ${sample.progress}`
+						visibleWordAreaRatio(word.bounds, first.fieldBounds) >= 0.55,
+						`${packSlug} ${word.id} is cropped past recognition in ${orientation} at ${sample.progress}: ${JSON.stringify(word.bounds)}`
 					);
 				}
+				assert.ok(
+					visibleWords.some((word) => wordReachesFrameEdge(word.bounds, first.fieldBounds)),
+					`${packSlug} ${orientation} phrase ${sample.progress} lost its intentional edge bleed`
+				);
 				phraseFrames.push(first);
 			}
 
@@ -332,23 +371,45 @@ try {
 				PHRASE_SAMPLES.length,
 				`${packSlug} ${orientation} phrase frames must differ`
 			);
-			const typeCenters = phraseFrames.map((frame) => {
+			const typeWords = phraseFrames.map((frame) => {
 				const type = frame.words.find((word) => word.id === 'type');
 				assert.ok(type, 'persistent TYPE word is missing');
-				return type.center;
+				return type;
 			});
+			const typeCenters = typeWords.map((word) => word.center);
+			// Persistent TYPE keeps its identity but must visibly recompose between
+			// holds: a placement move, or a Pack-mapped weight change wide enough to
+			// read as a different setting of the same word.
+			const weightRange = phraseFrames[0].maximumWeight - phraseFrames[0].minimumWeight;
 			assert.ok(
-				typeCenters.some(
-					(center, index) =>
-						index > 0 &&
-						(Math.abs(center.x - typeCenters[0].x) > 1 || Math.abs(center.y - typeCenters[0].y) > 1)
+				typeWords.some(
+					(word) =>
+						Math.abs(word.center.x - typeCenters[0].x) > expectedCanvas.width * 0.03 ||
+						Math.abs(word.center.y - typeCenters[0].y) > expectedCanvas.height * 0.03 ||
+						Math.abs(word.fontWeight - typeWords[0].fontWeight) >= weightRange * 0.2
 				),
-				`${packSlug} ${orientation} persistent TYPE geometry never moved`
+				`${packSlug} ${orientation} persistent TYPE never recomposed between phrases`
 			);
 
 			const strike = await captureFrame(TYPE_STRIKE_PROGRESS);
 			const strikeType = strike.words.find((word) => word.id === 'type');
+			const travelingMove = strike.words.find((word) => word.id === 'move');
+			const settledMove = phraseFrames[0]?.words.find((word) => word.id === 'move');
 			assert.ok(strikeType, 'TYPE strike is missing');
+			assert.ok(travelingMove && settledMove, 'MOVE spatial proof is missing');
+			// The focal word must still be arriving here: a placement path, or glyphs
+			// still rising through the word's own line-box mask.
+			const glyphsMoved =
+				travelingMove.glyphTops.length === settledMove.glyphTops.length &&
+				travelingMove.glyphTops.some(
+					(top, index) => Math.abs(top - settledMove.glyphTops[index]) > 1
+				);
+			assert.ok(
+				glyphsMoved ||
+					Math.abs(travelingMove.center.x - settledMove.center.x) > 1 ||
+					Math.abs(travelingMove.center.y - settledMove.center.y) > 1,
+				`${packSlug} ${orientation} MOVE never traveled into its focal slot`
+			);
 			assertNear(
 				strikeType.fontWeight,
 				strike.maximumWeight,

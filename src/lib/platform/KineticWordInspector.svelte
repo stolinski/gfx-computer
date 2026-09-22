@@ -6,6 +6,7 @@
 		runRemoveCompositionKineticWordOperation,
 		runSetCompositionKineticPhrasesOperation,
 		runSetCompositionKineticWordAppearanceOperation,
+		runSetCompositionKineticWordGlyphStaggerOperation,
 		runSetCompositionKineticWordPlacementOperation,
 		runSetCompositionKineticWordTextOperation,
 		type KineticWordPlacementScope
@@ -13,12 +14,17 @@
 	import type { CompositionOperationOutcome } from './composition-edit-transaction';
 	import {
 		KINETIC_TYPE_PHRASE_LIMIT,
+		KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS,
+		KINETIC_WORD_GLYPH_STAGGER_ORDERS,
 		KINETIC_WORD_HIERARCHIES,
+		KINETIC_WORD_HORIZONTAL_ANCHORS,
 		KINETIC_WORD_KEYFRAME_CHANNELS,
 		KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS,
 		KINETIC_WORD_INK_ROLES,
 		type KineticPhrase,
-		type KineticWordGeometry
+		type KineticWordGeometry,
+		type KineticWordGlyphStaggerOrder,
+		type KineticWordHorizontalAnchor
 	} from './engine-schema';
 	import { engineState } from './engine-state.svelte';
 	import Field from './Field.svelte';
@@ -44,6 +50,7 @@
 		if (placementScope === 'shared') {
 			return {
 				position: selectedWord.position,
+				horizontalAnchor: selectedWord.horizontalAnchor,
 				scale: selectedWord.scale,
 				rotation: selectedWord.rotation
 			};
@@ -94,13 +101,19 @@
 		);
 	}
 
-	function setGeometry(field: 'x' | 'y' | 'scale' | 'rotation', rawValue: string): void {
-		if (!selectedWord || !selectedGeometry) return;
-		const value = Number(rawValue);
-		if (!Number.isFinite(value)) return;
-		const geometry = cloneKineticWordGeometry(selectedGeometry);
-		if (field === 'x' || field === 'y') geometry.position[field] = value;
-		else geometry[field] = value;
+	function setGlyphStagger(offsetMs: number, order: KineticWordGlyphStaggerOrder): void {
+		if (!selectedWord || !Number.isFinite(offsetMs)) return;
+		void applyOperation(
+			runSetCompositionKineticWordGlyphStaggerOperation({
+				expectedRevision: compositionEditHistory.revision,
+				wordId: selectedWord.id,
+				glyphStagger: offsetMs <= 0 ? null : { offsetMs: Math.round(offsetMs), order }
+			})
+		);
+	}
+
+	function writeGeometry(geometry: KineticWordGeometry): void {
+		if (!selectedWord) return;
 		void applyOperation(
 			runSetCompositionKineticWordPlacementOperation({
 				expectedRevision: compositionEditHistory.revision,
@@ -109,6 +122,27 @@
 				geometry
 			})
 		);
+	}
+
+	function setGeometry(field: 'x' | 'y' | 'scale' | 'rotation', rawValue: string): void {
+		if (!selectedGeometry) return;
+		const value = Number(rawValue);
+		if (!Number.isFinite(value)) return;
+		const geometry = cloneKineticWordGeometry(selectedGeometry);
+		if (field === 'x' || field === 'y') geometry.position[field] = value;
+		else geometry[field] = value;
+		writeGeometry(geometry);
+	}
+
+	function setHorizontalAnchor(rawValue: string): void {
+		if (!selectedGeometry) return;
+		const horizontalAnchor = KINETIC_WORD_HORIZONTAL_ANCHORS.find(
+			(value): value is KineticWordHorizontalAnchor => value === rawValue
+		);
+		if (!horizontalAnchor) return;
+		const geometry = cloneKineticWordGeometry(selectedGeometry);
+		geometry.horizontalAnchor = horizontalAnchor;
+		writeGeometry(geometry);
 	}
 
 	function setPhrases(phrases: readonly KineticPhrase[]): void {
@@ -231,6 +265,17 @@
 			</select>
 		</Field>
 		{#if selectedGeometry}
+			<Field label="Anchor">
+				<select
+					value={selectedGeometry.horizontalAnchor ?? 'center'}
+					disabled={busy}
+					onchange={(event) => setHorizontalAnchor(event.currentTarget.value)}
+				>
+					{#each KINETIC_WORD_HORIZONTAL_ANCHORS as horizontalAnchor (horizontalAnchor)}
+						<option value={horizontalAnchor}>{horizontalAnchor}</option>
+					{/each}
+				</select>
+			</Field>
 			<Field label="X">
 				<input
 					type="number"
@@ -336,6 +381,43 @@
 				</Field>
 			</div>
 		{/each}
+	</InspectorSection>
+
+	<InspectorSection
+		label="Glyph Stagger"
+		summary={selectedWord.glyphStagger ? `${selectedWord.glyphStagger.offsetMs} ms` : 'off'}
+	>
+		<Field label="Offset (ms)">
+			<input
+				type="number"
+				min="0"
+				max={KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS}
+				step="1"
+				value={selectedWord.glyphStagger?.offsetMs ?? 0}
+				disabled={busy}
+				onchange={(event) =>
+					setGlyphStagger(
+						Number(event.currentTarget.value),
+						selectedWord.glyphStagger?.order ?? 'forward'
+					)}
+			/>
+		</Field>
+		<Field label="Order">
+			<select
+				value={selectedWord.glyphStagger?.order ?? 'forward'}
+				disabled={busy || !selectedWord.glyphStagger}
+				onchange={(event) => {
+					const order = KINETIC_WORD_GLYPH_STAGGER_ORDERS.find(
+						(value) => value === event.currentTarget.value
+					);
+					if (order) setGlyphStagger(selectedWord.glyphStagger?.offsetMs ?? 0, order);
+				}}
+			>
+				{#each KINETIC_WORD_GLYPH_STAGGER_ORDERS as order (order)}
+					<option value={order}>{order}</option>
+				{/each}
+			</select>
+		</Field>
 	</InspectorSection>
 
 	<KeyframesSection

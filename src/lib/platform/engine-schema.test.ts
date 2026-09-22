@@ -986,10 +986,16 @@ describe('Kinetic Type Field structure (ADR-0063)', () => {
 			hierarchy: 'display',
 			ink: 'accent',
 			position: { x: 0.5, y: 0.5 },
+			horizontalAnchor: 'start',
 			scale: 1,
 			rotation: 0,
 			orientationOverrides: {
-				vertical: { position: { x: 0.45, y: 0.62 }, scale: 1.2, rotation: -5 }
+				vertical: {
+					position: { x: 0.45, y: 0.62 },
+					horizontalAnchor: 'end',
+					scale: 1.2,
+					rotation: -5
+				}
 			}
 		};
 	}
@@ -1008,6 +1014,18 @@ describe('Kinetic Type Field structure (ADR-0063)', () => {
 
 		expectValid(state, 'valid Type Field');
 		assert.equal(BlockTypeSchema.safeParse('kinetic-word').success, true);
+	});
+
+	it('rejects a handwritten Kinetic Word horizontal anchor', () => {
+		const word = kineticWord('type');
+		word.horizontalAnchor = 'left';
+		const result = EngineStateSchema.safeParse(
+			typeFieldState({
+				words: [word],
+				phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+			})
+		);
+		assert.equal(result.success, false);
 	});
 
 	it('accepts shared channels plus a complete orientation spatial-track replacement', () => {
@@ -1039,6 +1057,33 @@ describe('Kinetic Type Field structure (ADR-0063)', () => {
 			}),
 			'animated Kinetic Word'
 		);
+	});
+
+	it('accepts masked reveal, tracking, and a bounded glyph stagger; rejects glyphs past the ceiling', () => {
+		const word = kineticWord('type');
+		word.glyphStagger = { offsetMs: 36, order: 'center' };
+		word.animation = {
+			channels: {
+				reveal: [
+					{ atMs: 0, value: -1 },
+					{ atMs: 420, value: 0, ease: 'sharp' }
+				],
+				tracking: [
+					{ atMs: 0, value: 0.4 },
+					{ atMs: 420, value: 0, ease: 'smooth' }
+				]
+			}
+		};
+		const phrases = [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }];
+		expectValid(typeFieldState({ words: [word], phrases }), 'masked, tracked, staggered word');
+
+		const overshoot = kineticWord('type');
+		overshoot.animation = { channels: { reveal: [{ atMs: 0, value: 1.5 }] } };
+		expectIssue(typeFieldState({ words: [overshoot], phrases }), '<=1', 'reveal past the mask');
+
+		const tooSlow = kineticWord('type');
+		tooSlow.glyphStagger = { offsetMs: 121, order: 'forward' };
+		expectIssue(typeFieldState({ words: [tooSlow], phrases }), '<=120', 'glyph stagger ceiling');
 	});
 
 	it('rejects incomplete orientation spatial tracks and overlong keyframe tracks', () => {

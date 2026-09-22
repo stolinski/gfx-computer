@@ -2,7 +2,8 @@
  * Shared Type Field authoring operations that need Kinetic Word atomicity (ADR-0063).
  *
  * Layer membership, word content, semantic phrase content, placement,
- * appearance, and playhead X/Y motion remain separate inventory decisions.
+ * appearance, playhead X/Y motion, and glyph stagger remain separate inventory
+ * decisions.
  * Every path reaches the same
  * revisioned transaction from GUI and WebMCP callers.
  */
@@ -16,12 +17,14 @@ import {
 	KINETIC_WORD_HIERARCHIES,
 	KINETIC_WORD_INK_ROLES,
 	KineticWordGeometrySchema,
+	KineticWordGlyphStaggerSchema,
 	type Ease,
 	type Keyframe,
 	type KineticPhrase,
 	type KineticWord,
 	type KineticWordAnimation,
 	type KineticWordGeometry,
+	type KineticWordGlyphStagger,
 	type KineticWordHierarchy,
 	type KineticWordInk
 } from './engine-schema';
@@ -80,6 +83,13 @@ export interface SetCompositionKineticWordAppearanceRequest {
 	ink: KineticWordInk;
 }
 
+export interface SetCompositionKineticWordGlyphStaggerRequest {
+	expectedRevision: number;
+	wordId: string;
+	/** `null` returns the word to one unstaggered text run. */
+	glyphStagger: KineticWordGlyphStagger | null;
+}
+
 export type KineticWordMotionScope = 'shared' | 'horizontal' | 'vertical';
 
 export interface SetCompositionKineticWordPositionKeyframeRequest {
@@ -124,6 +134,7 @@ function nextKineticWordDefaults(id: string, index: number): KineticWord {
 		hierarchy: index === 0 ? 'display' : 'support',
 		ink: index === 0 ? 'accent' : 'ink',
 		position: { x: 0.5, y: 0.5 },
+		horizontalAnchor: 'center',
 		scale: 1,
 		rotation: 0
 	};
@@ -389,6 +400,7 @@ export async function runSetCompositionKineticWordPlacementOperation(
 			const geometry = structuredClone(parsed.data);
 			if (request.scope === 'shared') {
 				word.position = geometry.position;
+				word.horizontalAnchor = geometry.horizontalAnchor;
 				word.scale = geometry.scale;
 				word.rotation = geometry.rotation;
 				return;
@@ -597,6 +609,54 @@ export async function runSetCompositionKineticWordAppearanceOperation(
 			const word = requireDraftKineticWord(draftWords, request.wordId);
 			word.hierarchy = request.hierarchy;
 			word.ink = request.ink;
+		}
+	});
+}
+
+/**
+ * Set or clear one word's glyph stagger: the per-glyph delay its shared
+ * `reveal` track plays with. One number and one order on the word, so a
+ * letter-by-letter reveal stays word-level authoring rather than per-character
+ * tracks.
+ */
+export async function runSetCompositionKineticWordGlyphStaggerOperation(
+	request: SetCompositionKineticWordGlyphStaggerRequest
+): Promise<CompositionOperationOutcome> {
+	const row = requireCompositionOperationRow('motion.set-kinetic-word-glyph-stagger');
+	const refusal = refuseUnlessCompositionEditable(row);
+	if (refusal) return refusal;
+	const words = readOpenCompositionDocument().state.surface.typeField?.words ?? [];
+	if (!words.some((word) => word.id === request.wordId)) {
+		return refuseUnknownKineticWord(
+			row,
+			request.wordId,
+			words.map((word) => word.id)
+		);
+	}
+	if (request.glyphStagger !== null) {
+		const parsed = KineticWordGlyphStaggerSchema.safeParse(request.glyphStagger);
+		if (!parsed.success) {
+			return refuseCompositionOperation(
+				row,
+				compositionEditHistory.revision,
+				'invalid_argument',
+				parsed.error.issues.map((issue) => issue.message).join(' ')
+			);
+		}
+	}
+
+	return runCompositionEditTransaction({
+		operationId: row.id,
+		expectedRevision: request.expectedRevision,
+		undoLabel: request.glyphStagger ? 'Set glyph stagger' : 'Clear glyph stagger',
+		focus: { target: 'block', blockId: request.wordId },
+		mutate: (draft) => {
+			const draftWords = draft.state.surface.typeField?.words;
+			if (!draftWords)
+				throw new CompositionOperationError('unknown_target', 'The Type Field is gone.');
+			const word = requireDraftKineticWord(draftWords, request.wordId);
+			if (request.glyphStagger === null) delete word.glyphStagger;
+			else word.glyphStagger = { ...request.glyphStagger };
 		}
 	});
 }

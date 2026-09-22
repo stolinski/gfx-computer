@@ -412,7 +412,9 @@ function appendKineticWordTweens(
 			y: channels.y?.[0]?.value ?? 0,
 			scale: channels.scale?.[0]?.value ?? geometry.scale,
 			rotation: channels.rotation?.[0]?.value ?? geometry.rotation,
-			weight: channels.weight?.[0]?.value ?? 0.5
+			weight: channels.weight?.[0]?.value ?? 0.5,
+			reveal: channels.reveal?.[0]?.value ?? 0,
+			tracking: channels.tracking?.[0]?.value ?? 0
 		};
 		runtime.kineticWordChannels[word.id] = slot;
 		for (const channel of channelNames) {

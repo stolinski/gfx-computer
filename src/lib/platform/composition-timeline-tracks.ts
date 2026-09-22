@@ -14,7 +14,10 @@ import { clampNumber } from '$lib/utils/math';
 import { CHART_MOTION_PHASE_NAMES, CHART_TIMING_EPSILON } from '$lib/utils/chart-motion';
 import { isDarkSurfaceColor } from '$lib/utils/color';
 import { truncateMiddle } from '$lib/utils/string';
-import { resolveKineticWordChannelKeyframes } from '$lib/utils/kinetic-word-geometry';
+import {
+	isKineticWordSpatialChannel,
+	resolveKineticWordChannelKeyframes
+} from '$lib/utils/kinetic-word-geometry';
 import { computeUnifiedBar, type RampTiming } from '$lib/utils/timeline-clip';
 
 import {
@@ -472,11 +475,7 @@ function appendBlockTracks(
 									}
 									const orientation = state.transport.orientation;
 									const orientationChannels = word.animation?.orientationOverrides?.[orientation];
-									if (
-										channel !== 'opacity' &&
-										channel !== 'weight' &&
-										orientationChannels !== undefined
-									) {
+									if (isKineticWordSpatialChannel(channel) && orientationChannels !== undefined) {
 										delete word.animation?.orientationOverrides?.[orientation];
 									} else if (word.animation?.channels) {
 										delete word.animation.channels[channel as keyof typeof word.animation.channels];

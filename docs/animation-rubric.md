@@ -375,6 +375,7 @@ Spoken-word captions for the host audio. First-class as the `state.captions` tra
 
 - A Kinetic Word's geometry and typography are independent authored tracks. Geometry should anticipate and settle over the ordinary 250–400 ms editorial band; normalized weight may strike faster at the rhythmic focal moment, then release without synthetic bold or transform-based imitation.
 - Phrase continuity is visible, not inferred from ids alone. At each intended phrase frame, every semantic phrase word is readable, non-members are absent or subordinate, and the focal word has `display` hierarchy. Reused core-word ids must remain perceptually continuous while supporting words turn over.
+- A full-frame Type Field bumper may deliberately crop a `display` word at a physical frame edge. This is authored edge tension, not permission to hide copy: support words remain inside the platform-safe reading area, at least 55% of every visible word's measured bounds remains in-frame, and human review must still recognize the complete phrase. This narrow exception does not apply to captions, lower-thirds, or ordinary title copy.
 - X/Y channels are composition-fraction deltas from the resolved base placement. Scale and rotation are absolute. Shared opacity and weight survive both targets; a target-specific spatial path must replace X/Y/scale/rotation as one complete group.
 - Editing a word at a nonzero playhead creates or updates the intended keyframe. It must not move resting placement, produce duplicate-time keys, split one X/Y gesture into multiple undo entries, or make preview and export disagree.
 - Variable-weight motion uses the active Pack's real loaded face and mapped range with `font-synthesis: none`. Word centers and neighboring layout remain stable through the strike; a Pack swap changes appearance, not normalized timing or motion intent.
@@ -385,8 +386,8 @@ Spoken-word captions for the host audio. First-class as the `state.captions` tra
 When an agent finishes a preset, the agent must verify the following before considering the preset shipped. This list is the literal pass/fail rubric.
 
 1. **G1** — Orientation set; fps is 30 unless justified.
-2. **G2** — All readable content inside the 90% title-safe rectangle, measured at the 4K render size by the visual audit harness.
-3. **G3** — On vertical, no readable content in the top 6%, bottom 16%, or right 9%.
+2. **G2** — All readable content inside the 90% title-safe rectangle, measured at the 4K render size by the visual audit harness, except a full-frame Type Field's deliberately cropped `display` words under the bounded rule above.
+3. **G3** — On vertical, no readable content in the top 6%, bottom 16%, or right 9%, with the same bounded full-frame Type Field `display` exception; support copy stays clear.
 4. **G4** — Every rendered text role hits its cap-height floor for the orientation (body / title / caption / kicker per the G4 table), measured at 4K by the visual audit harness.
 5. **G5** — Text/background contrast ≥ 4.5:1 (3:1 for large text); transparent-target overlays carry a legibility treatment.
 6. **G6** — Every `enter`/`exit` ms lands in band; `enter` > `exit` by 20–30%. Every mark `duration` lands in the scaled decorative/focal band for its segment word count. The pre-mark window satisfies 1× read of the establish content; every post-mark window satisfies 1.5× read of its marked segment (captions / lower-thirds with no marks use the 2× rule on their own screen-time).

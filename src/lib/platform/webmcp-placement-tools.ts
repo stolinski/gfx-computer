@@ -21,16 +21,19 @@
  */
 import { COMPOSITION_ORIENTATIONS } from './composition-transport-operations';
 import {
+	KINETIC_WORD_HORIZONTAL_ANCHORS,
 	OVERLAY_PLACEMENT_ANCHORS,
 	STAGE_CAMERA_POSE_LIMITS,
 	type DiagramEndpoint,
-	type DiagramPoint
+	type DiagramPoint,
+	type KineticWordGeometry
 } from './engine-schema';
 import {
 	readWebmcpClearableRecordArgument,
 	readWebmcpLiteralArgument,
 	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
+	readWebmcpOptionalLiteralArgument,
 	readWebmcpOptionalNumberArgument,
 	readWebmcpOptionalRecordArgument,
 	readWebmcpRecordArgument,
@@ -121,31 +124,46 @@ function readCompositionPoint(point: Record<string, unknown>): DiagramPoint {
 }
 
 function kineticWordGeometryProperty(): WebmcpSchemaProperty {
-	return completeObjectProperty('The complete word placement snapshot.', {
-		position: compositionPointProperty('The Kinetic Word centre in composition fractions.'),
+	const properties = {
+		position: compositionPointProperty(
+			'The Kinetic Word anchor position in composition fractions.'
+		),
+		horizontalAnchor: webmcpDerivedEnumProperty(
+			'kinetic-word-horizontal-anchor',
+			'Which horizontal word edge the position pins. Omit for center compatibility.'
+		),
 		scale: {
-			type: 'number',
+			type: 'number' as const,
 			description: 'A uniform multiplier on the word hierarchy size.',
 			minimum: 0.25,
 			maximum: 4
 		},
 		rotation: {
-			type: 'number',
-			description: 'Static rotation in degrees about the word centre.',
+			type: 'number' as const,
+			description: 'Static rotation in degrees about the word anchor.',
 			minimum: -180,
 			maximum: 180
 		}
-	});
+	};
+
+	return {
+		type: 'object',
+		description: 'The complete word placement snapshot.',
+		properties,
+		required: Object.keys(properties).filter((name) => name !== 'horizontalAnchor'),
+		additionalProperties: false
+	};
 }
 
-function readKineticWordGeometry(args: unknown): {
-	position: DiagramPoint;
-	scale: number;
-	rotation: number;
-} {
+function readKineticWordGeometry(args: unknown): KineticWordGeometry {
 	const geometry = readWebmcpRecordArgument(args, 'geometry');
 	return {
 		position: readCompositionPoint(readWebmcpRecordArgument(geometry, 'position')),
+		horizontalAnchor: readWebmcpOptionalLiteralArgument(
+			geometry,
+			'horizontalAnchor',
+			KINETIC_WORD_HORIZONTAL_ANCHORS
+		),
 		scale: readWebmcpNumberArgument(geometry, 'scale'),
 		rotation: readWebmcpNumberArgument(geometry, 'rotation')
 	};
@@ -460,11 +478,7 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 					runSetCompositionKineticWordPlacementOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						wordId: readWebmcpStringArgument(args, 'wordId'),
-						scope: readWebmcpLiteralArgument(
-							args,
-							'target',
-							COMPOSITION_PLACEMENT_TARGETS
-						),
+						scope: readWebmcpLiteralArgument(args, 'target', COMPOSITION_PLACEMENT_TARGETS),
 						geometry: readKineticWordGeometry(args)
 					})
 				)

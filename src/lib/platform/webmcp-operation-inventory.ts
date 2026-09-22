@@ -407,6 +407,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/textAnimations/*', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/animation', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/animation', scope: 'value' },
+			{ pointer: '/state/surface/typeField/words/*/glyphStagger', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*/motion', scope: 'value' },
 			{ pointer: '/transition', scope: 'value' }
 		]
@@ -1695,6 +1696,22 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['block'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CanvasEditingOverlay.svelte'
+	},
+	{
+		id: 'motion.set-kinetic-word-glyph-stagger',
+		family: 'motion',
+		toolName: 'gfx_motion_set_kinetic_word_glyph_stagger',
+		summary:
+			"Set or clear the per-glyph delay one Kinetic Word's masked reveal track plays with, and its glyph order.",
+		effect: 'write',
+		writes: ['/state/surface/typeField/words/*/glyphStagger'],
+		precondition: 'kinetic-word-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/KineticWordInspector.svelte'
 	},
 	{
 		id: 'motion.clear-keyframe-channel',

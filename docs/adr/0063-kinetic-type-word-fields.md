@@ -2,9 +2,9 @@
 
 ## Status
 
-**Canon.** The Pack-mapped variable-weight substrate, static Type Field authoring substrate, and independent Kinetic Word opacity/spatial/normalized-weight tracks shipped 2026-09-15 under Dex epic `fnwlsz1g`. Named Motion Beats, beat-relative keys, tracking, animated release validation, and the listed reference deliverable remain designed implementation work governed by this ADR and [`../briefs/kinetic-type-toolbox.md`](../briefs/kinetic-type-toolbox.md).
+**Canon.** The Pack-mapped variable-weight substrate, static Type Field authoring substrate, and independent Kinetic Word opacity/spatial/normalized-weight tracks shipped 2026-09-15 under Dex epic `fnwlsz1g`. Amended 2026-09-21: the line-box mask (`reveal`), a bounded per-word glyph stagger, and `tracking` joined the vocabulary after the first moving proof showed that whole-word slides and cuts cannot reach the quality bar (see [Amendment](#amendment-2026-09-21--the-line-box-mask-glyph-stagger-and-tracking)). Named Motion Beats, beat-relative keys, animated release validation, and the listed reference deliverable remain designed implementation work governed by this ADR and [`../briefs/kinetic-type-toolbox.md`](../briefs/kinetic-type-toolbox.md).
 
-Date: 2026-09-15
+Date: 2026-09-15 (amended 2026-09-21)
 
 Builds on: [ADR-0011](0011-text-animation-orchestration.md) (slot-bound TextAnimation), [ADR-0023](0023-pack-is-appearance-only.md) (appearance only), [ADR-0035](0035-generalized-keyframes-and-cascade.md) (composition-owned channels), [ADR-0039](0039-pack-neutral-compositions-and-listing-hygiene.md) (one Preset across Packs and orientations), [ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md) (shared Operations), and [ADR-0055](0055-user-defined-packs.md) (validated font declarations)
 
@@ -40,7 +40,7 @@ A phrase is semantic authority, not auto-layout. It says what the viewer must be
 
 `kinetic-word` is a registered graphic Block Pipeline. One Block owns one trimmed word token, a stable id, a display/support role, an ink/accent role selection, and normalized base placement. Punctuation may stay attached; v1 does not expose per-character children.
 
-Base placement is the center point, scale, and rotation. Like Diagram geometry, it has a shared value plus optional complete horizontal and vertical snapshots. Each word is selectable on the canvas and has one Timeline row, one Inspector, one Block identity, and one shared undo/history identity.
+Base placement is a normalized position, optional `start | center | end` horizontal anchor, scale, and rotation. The anchor defaults to `center` for older Presets and pins a stable typographic edge while Pack faces change width. Like Diagram geometry, placement has a shared value plus optional complete horizontal and vertical snapshots. Each word is selectable on the canvas and has one Timeline row, one Inspector, one Block identity, and one shared undo/history identity.
 
 The initial ceilings are 16 words, 8 phrases, 8 Motion Beats, 8 words per phrase, 32 Unicode code points per word, and 24 keyframes per channel. Validation rejects overflow rather than truncating it.
 
@@ -49,12 +49,12 @@ The initial ceilings are 16 words, 8 phrases, 8 Motion Beats, 8 words per phrase
 A Kinetic Word Block may author:
 
 - spatial channels: `x`, `y`, `scale`, `rotation`;
-- visibility: `opacity`;
-- typography: normalized `weight` and `tracking`.
+- visibility: `opacity` and the masked `reveal` offset;
+- typography: normalized `weight` and `tracking` (em delta).
 
-The four existing eases remain the only curves. There are no expressions, arbitrary CSS properties, masks, motion paths, free handles per glyph, or per-character tracks. Declaring channels transfers motion ownership from Pipeline defaults exactly as ADR-0035 defines.
+The four existing eases remain the only curves. There are no expressions, arbitrary CSS properties, motion paths, free handles per glyph, or per-character tracks. The one mask a word may use is its own line box, driven by `reveal`; a per-word glyph stagger delays that single shared track per grapheme. Declaring channels transfers motion ownership from Pipeline defaults exactly as ADR-0035 defines.
 
-Spatial tracks resolve from the active orientation's base placement. An optional orientation override replaces the complete spatial-track group for that target; `opacity`, `weight`, `tracking`, phrase identity, and beat relationships remain shared. This permits a genuine tall-frame recomposition without an orientation-specific Preset.
+Spatial tracks resolve from the active orientation's base placement. An optional orientation override replaces the complete spatial-track group for that target; `opacity`, `reveal`, `weight`, `tracking`, phrase identity, and beat relationships remain shared. This permits a genuine tall-frame recomposition without an orientation-specific Preset.
 
 ### Motion Beats are named time anchors, not animation owners
 
@@ -78,11 +78,21 @@ Block membership belongs to `layer`; word and phrase text/reference content belo
 
 The static substrate adds six Type Field operations under those existing families because first/last-word parent lifecycle and phrase/reference validity must remain atomic: add/remove word, set word text, set complete phrases, set word placement, and set word appearance. Generalized `motion.set-keyframe-channel` and `motion.clear-keyframe-channel` now accept Kinetic Word Block subjects and an optional complete horizontal/vertical spatial scope. `motion.set-kinetic-word-position-keyframe` is the smallest corrective operation for canvas gestures: it upserts X and Y together at the playhead, establishes the complete orientation spatial group when needed, and records one undo entry. New motion operations remain reserved for Motion Beat membership/timing and references. Every mutating path uses the observed Composition revision, preflights the complete prospective field, records one undo entry, moves Workspace focus, and returns one bounded receipt. No raw patch or UI gesture tool is introduced.
 
+## Amendment (2026-09-21) — the line-box mask, glyph stagger, and tracking
+
+The first moving proof was rejected on quality: with only whole-word `opacity`, `x`, `y`, `scale`, `rotation`, and `weight`, every entrance is a slide, a fade, or a cut across open frame — the vocabulary of a slide deck, whatever the layout. Good kinetic typography differs in three specific, bounded ways, and this amendment admits exactly those:
+
+1. **Masked reveals.** `reveal` offsets a word's glyphs inside the word's own padded line box, in mask heights: `0` at rest, `-1` hidden below the baseline edge, `1` hidden above the cap edge. Letters rise out of nothing and leave through the top of their own line, never crossing the frame. The mask exists only while a `reveal` track does; an unmasked word renders as one text run exactly as before. This is a named channel over one fixed mask, not an arbitrary mask.
+2. **Glyph stagger.** `glyphStagger: { offsetMs 0–120, order forward | reverse | center }` is one number and one order on the word. Every grapheme plays the word's own shared `reveal` track delayed by its rank. Glyphs render as inline text so the Pack face still kerns across them (verified: Blink shapes across inline boundaries; inline-block would not); only the vertical mask offset is per glyph. Weight, tracking, opacity, and placement stay word-level. This is not per-character tracks.
+3. **Tracking.** `tracking` is an em delta on the hierarchy's letter-spacing, `-0.2..1`, Pack-neutral because em follows the face. It un-defers the channel this ADR always named.
+
+Glyph stagger belongs to `motion` (`motion.set-kinetic-word-glyph-stagger`, GUI in the Kinetic Word Inspector); `reveal` and `tracking` ride the generalized keyframe Operations. The deterministic motion probe now accepts a Pack-mapped weight change, not only a placement move, as persistent-word recomposition.
+
 ## Implementation state
 
-The bounded `surface.typeField` and first-class `kinetic-word` Block now ship semantic phrases, complete orientation placement, Pack-resolved real variable faces, native DOM capture, and independently authored `opacity`, `x`, `y`, `scale`, `rotation`, and normalized `weight` channels. Shared opacity and weight survive both targets. A complete target-specific spatial group replaces shared spatial motion for that orientation. Kinetic Word rows expose channel diamonds; the Inspector writes revisioned keyframe Operations; canvas drag and nudge at a nonzero playhead upsert X/Y keys instead of moving rest geometry. Removing a referenced word refuses until phrase and Cascade references are explicitly cleared; the first word creates a valid parent field and the last removal clears it atomically.
+The bounded `surface.typeField` and first-class `kinetic-word` Block now ship semantic phrases, complete orientation placement with stable horizontal anchors, Pack-resolved real variable faces, native DOM capture, independently authored `opacity`, `reveal`, `x`, `y`, `scale`, `rotation`, normalized `weight`, and `tracking` channels, and a bounded per-word glyph stagger over the line-box mask. Shared opacity and weight survive both targets. A complete target-specific spatial group replaces shared spatial motion for that orientation. Kinetic Word rows expose channel diamonds; the Inspector writes revisioned keyframe Operations; canvas drag and nudge at a nonzero playhead upsert X/Y keys instead of moving rest geometry. Removing a referenced word refuses until phrase and Cascade references are explicitly cleared; the first word creates a valid parent field and the last removal clears it atomically.
 
-`pnpm probe:kinetic-type-field` still proves the static substrate across all ten Pack × orientation cells. `pnpm probe:kinetic-type-field-motion` parks deterministic capture on three semantic phrase frames plus a real Pack-mapped weight strike, proves seek-away/seek-back image and geometry identity, native dimensions, active-orientation paths, font readiness/no synthesis, distinct phrase pixels, and safe-area containment across the same matrix. The unlisted `kinetic-type-field-motion-fixture` is the moving technical proof. Named Motion Beats, beat-relative keys, tracking, and the listed reference deliverable remain absent until their following slices land.
+`pnpm probe:kinetic-type-field` still proves the static substrate across all ten Pack × orientation cells. `pnpm probe:kinetic-type-field-motion` parks deterministic capture on three semantic phrase frames plus a real Pack-mapped weight strike, proves seek-away/seek-back image and geometry identity, native dimensions, active-orientation paths, font readiness/no synthesis, distinct phrase pixels, controlled edge-bleed visibility, and an intentional frame-edge relationship across the same matrix. The unlisted `kinetic-type-field-motion-fixture` is the moving technical proof. Named Motion Beats, beat-relative keys, and the listed reference deliverable remain absent until their following slices land.
 
 ## Consequences
 
@@ -90,4 +100,4 @@ The bounded `surface.typeField` and first-class `kinetic-word` Block now ship se
 - `kinetic-type-field-static-fixture` preserves the no-motion substrate checkpoint. `kinetic-type-field-motion-fixture` proves the same `TYPE CAN MOVE` → `TYPE CAN BECOME` → `TYPE IS THE COMPOSITION` field with persistent core words, supporting-word turnover, Pack-mapped weight impacts, independently authored spatial paths, and complete vertical spatial replacements. Both remain unlisted fixtures; Motion Beats will replace their raw timing landmarks before the reference composition becomes a deliverable.
 - The shipped Block Pipeline has a graphic Identity Spec, native readable/geometry authority, variable-face readiness evidence, deterministic random-seek/replay proof over exact canonical poster-grid digests, and Pack-role pixel-consumer declarations. The motion slices add critical-frame coverage at every beat and channel envelope.
 - A Type Field may coexist with ordinary Overlays, Effects, Media, sound, and a transparent or Pack field, but v1 excludes the Dimensional Stage, per-character children, automatic transcript generation, freeform layout recipes, physics, arbitrary font selection in the Preset, and axes other than weight.
-- Evidence that useful word choreography cannot be expressed without arbitrary CSS or per-character nodes would reject this bounded design rather than silently widening it into a node compositor.
+- The 2026-09-21 amendment is the bounded answer to exactly that evidence: whole-word transforms could not express a masked, letter-by-letter reveal, so one named mask and one per-word stagger were admitted rather than per-character nodes or arbitrary CSS. Evidence that useful choreography still cannot be expressed would again reject this design rather than silently widening it into a node compositor.

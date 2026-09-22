@@ -416,6 +416,11 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 		toolName: 'gfx_appearance_set_kinetic_word_appearance'
 	},
 	{
+		prompt:
+			'Make this Kinetic Word reveal letter by letter, 30 ms between glyphs, from the middle outward.',
+		toolName: 'gfx_motion_set_kinetic_word_glyph_stagger'
+	},
+	{
 		prompt: 'Write the words that appear inside that Overlay.',
 		toolName: 'gfx_content_set_overlay_content'
 	},

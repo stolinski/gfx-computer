@@ -187,7 +187,9 @@ describe('composition animation manifest', () => {
 			y: -0.04,
 			scale: 1.3,
 			rotation: 6,
-			weight: 0.5
+			weight: 0.5,
+			reveal: 0,
+			tracking: 0
 		});
 		assert.ok(manifest.tweens.some((tween) => tween.key === 'kinetic-word-type-weight-1'));
 		manifest.tweens.find((tween) => tween.key === 'kinetic-word-type-weight-1')?.onUpdate(0.82);

@@ -47,7 +47,10 @@ import {
 	runSetCompositionCascadeAnchorOperation,
 	runSetCompositionKeyframeChannelOperation
 } from './composition-keyframe-cascade-operations';
-import { runSetCompositionKineticWordPositionKeyframeOperation } from './composition-kinetic-type-operations';
+import {
+	runSetCompositionKineticWordGlyphStaggerOperation,
+	runSetCompositionKineticWordPositionKeyframeOperation
+} from './composition-kinetic-type-operations';
 import {
 	runClearCompositionTransitionOperation,
 	runSetCompositionTransitionOperation
@@ -55,6 +58,8 @@ import {
 import {
 	CHART_MOTION_EASES,
 	COMPOSITION_KEYFRAME_LIMIT,
+	KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS,
+	KINETIC_WORD_GLYPH_STAGGER_ORDERS,
 	TEXT_ANIMATION_PARAM_NAMES
 } from './engine-schema';
 import {
@@ -94,7 +99,12 @@ import type {
 	CompositionCascadeSubject,
 	CompositionKeyframeSubject
 } from './composition-keyframe-cascade-operations';
-import type { CascadeAnchor, Keyframe, TextAnimationParams } from './engine-schema';
+import type {
+	CascadeAnchor,
+	Keyframe,
+	KineticWordGlyphStagger,
+	TextAnimationParams
+} from './engine-schema';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
 
@@ -288,6 +298,22 @@ function readKeyframes(args: unknown): readonly Keyframe[] {
 		value: readWebmcpNumberArgument(frame, 'value'),
 		ease: readWebmcpOptionalLiteralArgument(frame, 'ease', COMPOSITION_MOTION_EASES)
 	}));
+}
+
+/** A glyph stagger, or `null` to return the word to one text run. */
+function readGlyphStagger(args: unknown): KineticWordGlyphStagger | null {
+	const record = readWebmcpClearableRecordArgument(args, 'glyphStagger');
+	if (record === undefined) {
+		throw new WebmcpArgumentError(
+			'invalid_argument',
+			'"glyphStagger" is required: an object, or null to clear.'
+		);
+	}
+	if (record === null) return null;
+	return {
+		offsetMs: readWebmcpNumberArgument(record, 'offsetMs'),
+		order: readWebmcpLiteralArgument(record, 'order', KINETIC_WORD_GLYPH_STAGGER_ORDERS)
+	};
 }
 
 function textAnimationParamsProperty(): WebmcpSchemaProperty {
@@ -596,6 +622,51 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 						x: readWebmcpNumberArgument(args, 'x'),
 						y: readWebmcpNumberArgument(args, 'y'),
 						ease: readWebmcpOptionalLiteralArgument(args, 'ease', COMPOSITION_MOTION_EASES)
+					})
+				)
+		},
+		{
+			operationId: 'motion.set-kinetic-word-glyph-stagger',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					wordId: webmcpEntityIdProperty('The Kinetic Word Block whose glyphs stagger.'),
+					glyphStagger: {
+						description:
+							"How far behind the first glyph each later glyph plays the word's reveal track, or null for one unstaggered text run.",
+						oneOf: [
+							{
+								type: 'object',
+								description: 'A per-glyph delay and the order glyphs take it in.',
+								properties: {
+									offsetMs: {
+										type: 'integer',
+										description: `Milliseconds between successive glyphs, 0 through ${KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS}.`,
+										minimum: 0,
+										maximum: KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS
+									},
+									order: webmcpDerivedEnumProperty(
+										'kinetic-word-glyph-stagger-order',
+										'Forward reads left to right, reverse right to left, center blooms outward from the middle.'
+									)
+								},
+								required: ['offsetMs', 'order'],
+								additionalProperties: false
+							},
+							{ type: 'null', description: 'Return the word to one unstaggered text run.' }
+						]
+					}
+				},
+				required: ['expectedRevision', 'wordId', 'glyphStagger'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.set-kinetic-word-glyph-stagger', () =>
+					runSetCompositionKineticWordGlyphStaggerOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						wordId: readWebmcpStringArgument(args, 'wordId'),
+						glyphStagger: readGlyphStagger(args)
 					})
 				)
 		},
