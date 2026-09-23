@@ -63,7 +63,14 @@ scripts/launch-cdp-chrome.sh
 
 It launches Chrome with `--enable-blink-features=CanvasDrawElement` and `--enable-unsafe-webgpu`, in its own profile, listening for DevTools connections on port 9223. Running it again is safe: if that Chrome is already up, the script leaves it alone and says so.
 
-Open http://localhost:7263/p/lower-third in that window.
+Open http://localhost:7263/p/lower-third in that window. Halfway through the timeline, the card looks like this:
+
+<figure class="render">
+<img src="/renders/lower-third-syntax.webp" width="1600" height="900" alt="A dark lower-third card reading Chapter 01, Origins, and How it began." />
+<figcaption>Lower-third · Syntax</figcaption>
+</figure>
+
+The neutral field here stands in for footage. In the Workspace, transparent areas show a checkerboard.
 
 ## Check the render from the command line
 
@@ -138,4 +145,4 @@ If the Workspace reports **"Export requests must come from this origin"**, the b
 
 - [`CONTEXT.md`](CONTEXT.md) — what Preset, Layer, Pack, and Pipeline actually mean here.
 - [`preset-format.md`](preset-format.md) — the composition JSON, if you want to write one by hand.
-- [`packs/syntax/aesthetic.md`](packs/syntax/aesthetic.md) — the look one Pack supplies, and how a Pack is put together.
+- [The Syntax Pack](packs/syntax/aesthetic.md) — the look one Pack supplies, beside the other Packs.

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import gfxLogotype from '$identity/gfx-logotype.svg';
+	import PresetLoops from '$lib/components/PresetLoops.svelte';
 	// The loop the hero plays and what it is, written by `pnpm capture:workspace-loop`
 	// alongside the video and its poster, so the page never states a runtime or a
 	// frame size the recording does not have.
@@ -27,10 +28,9 @@
 			blurb: 'The gfx@1 Preset JSON format — compositions authored by GUI and agents alike.'
 		},
 		{
-			href: '/packs/syntax/aesthetic',
+			href: '/packs',
 			title: 'Packs',
-			blurb:
-				'Appearance is swappable — palette, type, texture, and motion feel, supplied by a Pack.'
+			blurb: 'Appearance is swappable — one composition, rendered under every Pack.'
 		}
 	];
 </script>
@@ -83,6 +83,8 @@
 			<a class="cta" href="/getting-started">Get started</a>
 		</div>
 	</section>
+
+	<PresetLoops />
 
 	<section class="layers">
 		<h2>Five layers, one composition model</h2>

@@ -1,0 +1,32 @@
+[
+	{
+		"stem": "title-card-brand-mark-syntax",
+		"preset": "Title card — Brand mark",
+		"pack": "Syntax",
+		"description": "Syntax types on in yellow, followed by Brought to you by Sentry."
+	},
+	{
+		"stem": "lower-third-syntax",
+		"preset": "Lower-third",
+		"pack": "Syntax",
+		"description": "A chapter label and the title Origins slide into the lower-left, then slide out."
+	},
+	{
+		"stem": "quote-lift-out-editorial-mono",
+		"preset": "Quote lift-out",
+		"pack": "Editorial Mono",
+		"description": "Lines of an academic paper lift onto a white band with a red underline."
+	},
+	{
+		"stem": "docu-stat-build-crt-terminal",
+		"preset": "Docu stat build",
+		"pack": "CRT Terminal",
+		"description": "Three green statistics count up beneath JavaScript by the numbers."
+	},
+	{
+		"stem": "column-us-population-1950-2020-clean-light",
+		"preset": "Column chart — U.S. population",
+		"pack": "Clean Light",
+		"description": "Blue columns show U.S. population by decade from 1950 to 2020."
+	}
+]

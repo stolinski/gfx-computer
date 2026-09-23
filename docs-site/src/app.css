@@ -164,7 +164,8 @@ button {
 	border: 1px solid var(--line-soft);
 	border-radius: 4px;
 	padding: 0.1em 0.35em;
-	white-space: nowrap;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
 .prose a code {
@@ -189,6 +190,7 @@ button {
 	padding: 0;
 	font-size: inherit;
 	white-space: pre;
+	overflow-wrap: normal;
 }
 
 .prose blockquote {
@@ -248,6 +250,29 @@ button {
 
 .prose tr:last-child td {
 	border-bottom: 0;
+}
+
+/* Real engine frames embedded in the setup guide. */
+
+.prose figure {
+	margin: 1.25rem 0;
+}
+
+.prose figure img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--line-soft);
+	border-radius: 8px;
+	background: var(--panel);
+}
+
+.prose figcaption {
+	font-family: var(--mono);
+	font-size: 0.6875rem;
+	letter-spacing: 0.04em;
+	color: var(--faint);
+	margin-top: 0.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
