@@ -109,6 +109,9 @@ export function trackCompositionAuthoringDependencies(state: EngineState, packSl
 	void state.surface.chart?.mode;
 	void state.surface.chart?.items.length;
 	for (const chartItem of state.surface.chart?.items ?? []) void JSON.stringify(chartItem);
+	// Type Field content, placement, and independent word channels all affect the
+	// native DOM capture and animation manifest.
+	if (state.surface.typeField) void JSON.stringify(state.surface.typeField);
 
 	void state.marks.timings.length;
 	for (const timing of state.marks.timings) {

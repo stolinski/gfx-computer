@@ -1,0 +1,77 @@
+{
+	"schema": "gfx@1",
+	"kind": "fixture",
+	"name": "Text animation — variable weight",
+	"description": "Deterministic proof for Pack-mapped variable-font weight in the TextAnimation compiler. The title uses weight-resolve over real wght faces while ordinary corpus typography keeps its static @fontsource cuts. Verification sweeps this fixture under every catalog Pack and both native orientations; it is not a listed deliverable.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 4.8,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": {
+				"title": "TYPE HAS WEIGHT",
+				"author": "REAL AXIS / PACK MAPPED",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.0625,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.925,
+				"duration": 0.05,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			}
+		},
+		"textAnimations": [
+			{
+				"id": "weight-title",
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
+				"effect": "weight-resolve",
+				"enter": {
+					"start": 0.08,
+					"duration": 0.075,
+					"ease": "sharp",
+					"sound": {
+						"mute": true
+					}
+				},
+				"exit": {
+					"start": 0.86,
+					"duration": 0.05,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				}
+			}
+		],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

@@ -1,0 +1,173 @@
+{
+	"schema": "supers@1",
+	"name": "Kinetic Type Field Static Fixture",
+	"description": "Static Type Field substrate with semantic phrase continuity and complete authored reflow.",
+	"kind": "fixture",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"typeField": {
+				"words": [
+					{
+						"type": "kinetic-word",
+						"id": "type",
+						"text": "TYPE",
+						"hierarchy": "display",
+						"ink": "accent",
+						"position": { "x": 0.16, "y": 0.2 },
+						"scale": 0.9,
+						"rotation": -2,
+						"orientationOverrides": {
+							"vertical": {
+								"position": { "x": 0.5, "y": 0.14 },
+								"scale": 0.85,
+								"rotation": -2
+							}
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "can",
+						"text": "CAN",
+						"hierarchy": "support",
+						"ink": "ink",
+						"position": { "x": 0.38, "y": 0.35 },
+						"scale": 0.9,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": { "x": 0.25, "y": 0.29 },
+								"scale": 1.1,
+								"rotation": 0
+							}
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "move",
+						"text": "MOVE",
+						"hierarchy": "display",
+						"ink": "accent",
+						"position": { "x": 0.63, "y": 0.28 },
+						"scale": 1.05,
+						"rotation": 2,
+						"orientationOverrides": {
+							"vertical": {
+								"position": { "x": 0.55, "y": 0.35 },
+								"scale": 0.9,
+								"rotation": 2
+							}
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "become",
+						"text": "BECOME",
+						"hierarchy": "display",
+						"ink": "ink",
+						"position": { "x": 0.68, "y": 0.58 },
+						"scale": 0.85,
+						"rotation": -1,
+						"orientationOverrides": {
+							"vertical": {
+								"position": { "x": 0.5, "y": 0.52 },
+								"scale": 0.72,
+								"rotation": -1
+							}
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "is",
+						"text": "IS",
+						"hierarchy": "support",
+						"ink": "ink",
+						"position": { "x": 0.34, "y": 0.62 },
+						"scale": 1,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": { "x": 0.28, "y": 0.66 },
+								"scale": 1,
+								"rotation": 0
+							}
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "the",
+						"text": "THE",
+						"hierarchy": "support",
+						"ink": "accent",
+						"position": { "x": 0.43, "y": 0.77 },
+						"scale": 1,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": { "x": 0.48, "y": 0.73 },
+								"scale": 1,
+								"rotation": 0
+							}
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "composition",
+						"text": "COMPOSITION",
+						"hierarchy": "display",
+						"ink": "ink",
+						"position": { "x": 0.7, "y": 0.8 },
+						"scale": 0.55,
+						"rotation": 1,
+						"orientationOverrides": {
+							"vertical": {
+								"position": { "x": 0.5, "y": 0.79 },
+								"scale": 0.38,
+								"rotation": 1
+							}
+						}
+					}
+				],
+				"phrases": [
+					{
+						"id": "type-can-move",
+						"wordIds": ["type", "can", "move"],
+						"focalWordId": "move"
+					},
+					{
+						"id": "type-can-become",
+						"wordIds": ["type", "can", "become"],
+						"focalWordId": "become"
+					},
+					{
+						"id": "type-is-the-composition",
+						"wordIds": ["type", "is", "the", "composition"],
+						"focalWordId": "composition"
+					}
+				]
+			}
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

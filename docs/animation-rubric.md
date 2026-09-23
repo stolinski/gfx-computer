@@ -165,6 +165,7 @@ Cap-height is one dimension of legibility. The other two are **measure** (how ma
 - **Why** — Ease is the largest single carrier of "personality" in motion. `power3.out` is the broadcast-safe default because it decelerates without flair. `back.out` is the YouTube/explainer house style for cards landing — the overshoot is what makes a lower-third look "designed" rather than "faded in." `expo.out` is what makes emphasis feel like a beat hit. `elastic` is loud and earns its place only when the content is itself playful.
 - **How to apply** — Set `ease` on every timing block. Do not leave it to the engine default unless the default is the right choice. When in doubt: `enter: 'settled'`, `exit: 'smooth'`, `mark: 'smooth'` for editorial content, `mark: 'sharp'` for explainer/news content.
 - **Per-property, on keyframe channels ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md) §5)** — each keyframe's `ease` is the curve INTO it, per segment, per channel, so the same jobs apply per property: a transform segment landing into rest wants `settled`/`smooth` (decelerate in); an opacity fade-out authored in channels should land AT its final keyframe, not head-load — author the fade with `smooth` over a short final segment rather than a long one (the sugar's automatic `.inOut` opacity-exit default applies only to `enter`/`exit` sugar; authored channels run exactly the curve they declare). A dip-then-land (`scale 0.96 → 1.02 smooth → 1 settled`) is the canonical multi-segment use: the overshoot lives in the VALUES, the eases stay in the constrained vocabulary.
+- **Variable-font axes are typography, not transforms.** Animate only an axis the active Pack supplies as a real variable face, store semantic normalized values, and resolve them through the Pack's art-directed range. Never fake `wght`, `wdth`, or `slnt` with scale, skew, synthetic bold, or a staircase of static cuts. When weight is the emphasis hit, it may use `sharp` over a shorter beat-centered interval while position/scale continue to settle with `smooth`; this dual-speed contrast is preferable to applying one ease to every property. For TextAnimation weight work, run `pnpm probe:text-animation-weight` against the jailed server and sanctioned Chrome; it gates real loaded ranges, intermediate coordinates, `font-synthesis: none`, settled layout boxes, live Pack swaps, replay identity, and both native orientations.
 
 ### G8. Apply the relevant principles of animation
 
@@ -370,13 +371,23 @@ Spoken-word captions for the host audio. First-class as the `state.captions` tra
 
 ---
 
+## Kinetic Type Fields
+
+- A Kinetic Word's geometry and typography are independent authored tracks. Geometry should anticipate and settle over the ordinary 250–400 ms editorial band; normalized weight may strike faster at the rhythmic focal moment, then release without synthetic bold or transform-based imitation.
+- Phrase continuity is visible, not inferred from ids alone. At each intended phrase frame, every semantic phrase word is readable, non-members are absent or subordinate, and the focal word has `display` hierarchy. Reused core-word ids must remain perceptually continuous while supporting words turn over.
+- A full-frame Type Field bumper may deliberately crop a `display` word at a physical frame edge. This is authored edge tension, not permission to hide copy: support words remain inside the platform-safe reading area, at least 55% of every visible word's measured bounds remains in-frame, and human review must still recognize the complete phrase. This narrow exception does not apply to captions, lower-thirds, or ordinary title copy.
+- X/Y channels are composition-fraction deltas from the resolved base placement. Scale and rotation are absolute. Shared opacity and weight survive both targets; a target-specific spatial path must replace X/Y/scale/rotation as one complete group.
+- Editing a word at a nonzero playhead creates or updates the intended keyframe. It must not move resting placement, produce duplicate-time keys, split one X/Y gesture into multiple undo entries, or make preview and export disagree.
+- Variable-weight motion uses the active Pack's real loaded face and mapped range with `font-synthesis: none`. Word centers and neighboring layout remain stable through the strike; a Pack swap changes appearance, not normalized timing or motion intent.
+- Verification samples phrase holds, spatial envelopes, weight impacts, and random seek-away/seek-back replay at native horizontal and vertical resolution under every catalog Pack. Exact canonical poster-grid image digests and geometry identity gate aesthetic review. The image digest averages fixed 32×32 poster-pixel blocks, quantizes each channel to eight-level coordinates, and then applies SHA-256; exact computed color and geometry receipts accompany it. This excludes native-browser subpixel coverage noise while preserving phrase form, position, weight, and color differences.
+
 ## Authoring Checklist
 
 When an agent finishes a preset, the agent must verify the following before considering the preset shipped. This list is the literal pass/fail rubric.
 
 1. **G1** — Orientation set; fps is 30 unless justified.
-2. **G2** — All readable content inside the 90% title-safe rectangle, measured at the 4K render size by the visual audit harness.
-3. **G3** — On vertical, no readable content in the top 6%, bottom 16%, or right 9%.
+2. **G2** — All readable content inside the 90% title-safe rectangle, measured at the 4K render size by the visual audit harness, except a full-frame Type Field's deliberately cropped `display` words under the bounded rule above.
+3. **G3** — On vertical, no readable content in the top 6%, bottom 16%, or right 9%, with the same bounded full-frame Type Field `display` exception; support copy stays clear.
 4. **G4** — Every rendered text role hits its cap-height floor for the orientation (body / title / caption / kicker per the G4 table), measured at 4K by the visual audit harness.
 5. **G5** — Text/background contrast ≥ 4.5:1 (3:1 for large text); transparent-target overlays carry a legibility treatment.
 6. **G6** — Every `enter`/`exit` ms lands in band; `enter` > `exit` by 20–30%. Every mark `duration` lands in the scaled decorative/focal band for its segment word count. The pre-mark window satisfies 1× read of the establish content; every post-mark window satisfies 1.5× read of its marked segment (captions / lower-thirds with no marks use the 2× rule on their own screen-time).

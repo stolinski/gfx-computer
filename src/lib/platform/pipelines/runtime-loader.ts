@@ -75,6 +75,10 @@ const blockRendererLoaders: Record<string, RuntimeRendererLoader<BlockRenderer>>
 		import('$lib/pipelines/blocks/paragraph').then(
 			(module) => module.paragraphBlockRenderer as unknown as BlockRenderer
 		),
+	[PIPELINE_DEFINITION_REGISTRY.blocks.kineticWord.type]: () =>
+		import('$lib/pipelines/blocks/kinetic-word').then(
+			(module) => module.kineticWordBlockRenderer as unknown as BlockRenderer
+		),
 	[PIPELINE_DEFINITION_REGISTRY.blocks.node.type]: () =>
 		import('$lib/pipelines/blocks/node').then(
 			(module) => module.nodeBlockRenderer as unknown as BlockRenderer

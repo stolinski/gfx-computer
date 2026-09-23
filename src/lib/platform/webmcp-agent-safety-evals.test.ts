@@ -297,6 +297,7 @@ describe('WebMCP untrusted composition content', () => {
 		// this receipt as instructions is reading data it was told was data.
 		const inspected = readPayload(await host.call(rowFor('composition.inspect').toolName, {}));
 		const exported = readPayload(await host.call(rowFor('composition.export-json').toolName, {}));
+		await prepareAuthoringFamily(host, 'validation');
 		const findings = readPayload(
 			await host.call(rowFor('validation.inspect-findings').toolName, {})
 		);
@@ -425,6 +426,7 @@ describe('WebMCP cancellation', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host, lifetime.signal);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		await prepareAuthoringFamily(host, 'delivery');
 		const revisionBefore = compositionEditHistory.revision;
 		const documentBefore = await readCompositionJson(host);
 
@@ -456,6 +458,7 @@ describe('WebMCP cancellation', () => {
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
 		const documentBefore = await readCompositionJson(host);
+		await prepareAuthoringFamily(host, 'delivery');
 
 		const result = await host.call(rowFor('delivery.export-video').toolName, {
 			expectedRevision: compositionEditHistory.revision
@@ -601,11 +604,13 @@ describe('WebMCP authoring without an interface', () => {
 		);
 		expect(written).toMatchObject({ status: 'applied', focus: { target: 'overlay', overlayId } });
 
+		await prepareAuthoringFamily(host, 'validation');
 		const findings = readPayload(
 			await host.call(rowFor('validation.inspect-findings').toolName, {})
 		);
 		expect(findings).toMatchObject({ status: 'inspected', loadable: true });
 
+		await prepareAuthoringFamily(host, 'delivery');
 		const delivered = readPayload(
 			await host.call(rowFor('delivery.export-video').toolName, {
 				expectedRevision: compositionEditHistory.revision

@@ -78,7 +78,7 @@ async function ready(slug: string, manifest: PackManifest, now = '2026-09-01T12:
 }
 
 describe('user pack documents', () => {
-	it('forks a built-in as its cores, chrome, and fonts, leaving per-Pipeline overrides behind', () => {
+	it('forks materializable cores and fonts, leaving overrides and built-in-only aliases behind', () => {
 		const manifest = fork();
 		assert.equal(manifest.slug, 'my-brand');
 		assert.equal(manifest.label, 'My brand');
@@ -90,6 +90,8 @@ describe('user pack documents', () => {
 		);
 		assert.ok(Object.keys(PACK_REGISTRY['clean-light'].roles).some((key) => key.includes('.')));
 		assert.ok((manifest.fonts ?? []).some((font) => font.family === 'Geist'));
+		assert.equal(manifest.roles['variable-weight-treatment'], undefined);
+		assert.ok((manifest.fonts ?? []).every((font) => font.family !== 'Geist Variable'));
 	});
 
 	it('round-trips fork → save → load byte-stable, with faces for every declared cut', async () => {

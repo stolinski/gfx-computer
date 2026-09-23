@@ -34,21 +34,21 @@ understated, Sentry is emphatic.
 
 Resolved through the Pack manifest, never inline.
 
-| Job                    | Value     | Source                                                                       |
-| ---------------------- | --------- | ---------------------------------------------------------------------------- |
-| field (rich black)     | `#1f1633` | `main` background, `--color-rich-black`                                      |
-| field, lower (utility) | `#181225` | eyedropped lower sections, `--color-utility-black`                           |
-| field wash (peak)      | `#2f1c48` | eyedropped hero glow centre                                                  |
-| card / panel           | `#2e225c` | eyedropped "Errors" panel interior                                           |
-| ink                    | `#ffffff` | headings, body, nav (computed)                                               |
-| ink, secondary         | `#cfcfdb` | `--color-gray-3`                                                             |
-| ink, tertiary          | `#79628c` | `--color-lt-violet`                                                          |
-| accent (hot pink)      | `#fd44b0` | `--color-hot-pink`; the hero's accent word renders `#fd3ca7`                 |
-| signal / success       | `#c2ef4e` | `--active-accent-end`; the "Root Cause" and "Seer" voice                     |
-| UI blurple             | `#6a5fc1` | snackbar pill background (computed), `--color-blurple`                       |
-| dark blurple (rules)   | `#4e2a9a` | `--color-dk-blurple`; the UI bars inside panels                              |
-| sunrise gradient       | `#fa7faa → #ff9691 → #ffb287` | primary CTA background-image (computed)                        |
-| highlighter            | `#e2abe0` | `--color-v-lt-purple`; the band multiplies, so it must be highlighter-light   |
+| Job                    | Value                         | Source                                                                      |
+| ---------------------- | ----------------------------- | --------------------------------------------------------------------------- |
+| field (rich black)     | `#1f1633`                     | `main` background, `--color-rich-black`                                     |
+| field, lower (utility) | `#181225`                     | eyedropped lower sections, `--color-utility-black`                          |
+| field wash (peak)      | `#2f1c48`                     | eyedropped hero glow centre                                                 |
+| card / panel           | `#2e225c`                     | eyedropped "Errors" panel interior                                          |
+| ink                    | `#ffffff`                     | headings, body, nav (computed)                                              |
+| ink, secondary         | `#cfcfdb`                     | `--color-gray-3`                                                            |
+| ink, tertiary          | `#79628c`                     | `--color-lt-violet`                                                         |
+| accent (hot pink)      | `#fd44b0`                     | `--color-hot-pink`; the hero's accent word renders `#fd3ca7`                |
+| signal / success       | `#c2ef4e`                     | `--active-accent-end`; the "Root Cause" and "Seer" voice                    |
+| UI blurple             | `#6a5fc1`                     | snackbar pill background (computed), `--color-blurple`                      |
+| dark blurple (rules)   | `#4e2a9a`                     | `--color-dk-blurple`; the UI bars inside panels                             |
+| sunrise gradient       | `#fa7faa → #ff9691 → #ffb287` | primary CTA background-image (computed)                                     |
+| highlighter            | `#e2abe0`                     | `--color-v-lt-purple`; the band multiplies, so it must be highlighter-light |
 
 - **Saturated-hue budget (Q4):** pink, blurple, lime — the three the site
   itself keeps on screen at once. Peach appears only as a fourth data series.
@@ -70,6 +70,10 @@ headings measure.
   and buttons measure 0.2px at 14px; claimed as `0.02em`). Buttons are 700
   caps.
 - The accent word: Rubik 700 in hot pink, the one place the pink goes on type.
+- Kinetic display motion uses `Rubik Variable` over the art-directed 300–700
+  portion of its real `wght` axis, with 650 as rest. The face can technically
+  reach 900; this Pack does not — the unavailable Dammit Sans hero is not
+  imitated by making Rubik artificially heavier.
 
 ## Surface Treatment — the console panel
 

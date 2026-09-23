@@ -59,6 +59,10 @@ import {
 	runRemoveCompositionDiagramPrimitiveOperation
 } from './composition-block-layer-operations';
 import {
+	runAddCompositionKineticWordOperation,
+	runRemoveCompositionKineticWordOperation
+} from './composition-kinetic-type-operations';
+import {
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
 	webmcpObservedRevisionProperty
@@ -404,6 +408,40 @@ export function listWebmcpLayerToolDefinitions(): readonly WebmcpToolDefinition[
 					runRemoveCompositionDiagramPrimitiveOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						blockId: readWebmcpStringArgument(args, 'blockId')
+					})
+				)
+		},
+		{
+			operationId: 'layer.add-kinetic-word',
+			inputSchema: {
+				type: 'object',
+				properties: { expectedRevision: webmcpObservedRevisionProperty() },
+				required: ['expectedRevision'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('layer.add-kinetic-word', () =>
+					runAddCompositionKineticWordOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args)
+					})
+				)
+		},
+		{
+			operationId: 'layer.remove-kinetic-word',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					wordId: webmcpEntityIdProperty('The Kinetic Word Block to remove.')
+				},
+				required: ['expectedRevision', 'wordId'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('layer.remove-kinetic-word', () =>
+					runRemoveCompositionKineticWordOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						wordId: readWebmcpStringArgument(args, 'wordId')
 					})
 				)
 		},

@@ -16,6 +16,7 @@
 import { ANNOTATION_MARK_STYLES } from '../annotations/annotation-mark-styles';
 import {
 	readWebmcpClearableStringArgument,
+	readWebmcpLiteralArgument,
 	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
 	readWebmcpOptionalNumberArgument,
@@ -44,6 +45,7 @@ import {
 	runSetCompositionStageOperation,
 	runSetCompositionTypographyOperation
 } from './composition-appearance-operations';
+import { runSetCompositionKineticWordAppearanceOperation } from './composition-kinetic-type-operations';
 import {
 	webmcpClearableTextProperty,
 	webmcpDerivedEnumProperty,
@@ -57,7 +59,11 @@ import {
 } from './webmcp-derived-tool-schemas';
 
 import type { CompositionMarkAppearancePatch } from './composition-appearance-operations';
-import { STAGE_CAMERA_POSE_LIMITS } from './engine-schema';
+import {
+	KINETIC_WORD_HIERARCHIES,
+	KINETIC_WORD_INK_ROLES,
+	STAGE_CAMERA_POSE_LIMITS
+} from './engine-schema';
 import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
@@ -460,6 +466,39 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 						fontFamily: readWebmcpOptionalStringArgument(args, 'fontFamily'),
 						paperColor: readWebmcpClearableStringArgument(args, 'paperColor'),
 						inkColor: readWebmcpClearableStringArgument(args, 'inkColor')
+					})
+				)
+		},
+		{
+			operationId: 'appearance.set-kinetic-word-appearance',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					wordId: webmcpEntityIdProperty('The Kinetic Word Block to dress.'),
+					hierarchy: webmcpDerivedEnumProperty(
+						'kinetic-word-hierarchy',
+						'Display carries focal authority; support carries connective copy.'
+					),
+					ink: webmcpDerivedEnumProperty(
+						'kinetic-word-ink-role',
+						'The Pack-owned ink or accent colour role.'
+					)
+				},
+				required: ['expectedRevision', 'wordId', 'hierarchy', 'ink'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('appearance.set-kinetic-word-appearance', () =>
+					runSetCompositionKineticWordAppearanceOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						wordId: readWebmcpStringArgument(args, 'wordId'),
+						hierarchy: readWebmcpLiteralArgument(
+							args,
+							'hierarchy',
+							KINETIC_WORD_HIERARCHIES
+						),
+						ink: readWebmcpLiteralArgument(args, 'ink', KINETIC_WORD_INK_ROLES)
 					})
 				)
 		},

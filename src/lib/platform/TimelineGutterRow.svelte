@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { invalidateCompositionAutosave } from './composition-autosave-invalidation.svelte.ts';
 	import {
+		engineState,
 		removeCaptions,
 		removeBlock,
 		removeOverlay,
 		removeTextAnimation
 	} from './engine-state.svelte';
+	import { compositionEditHistory } from './composition-edit-history';
+	import { runRemoveCompositionKineticWordOperation } from './composition-kinetic-type-operations';
 	import { deselectLayer, layerSelection, selectLayer } from './selection.svelte';
 	import { lockedLaneIds, toggleLaneLock } from './timeline-lane-locks.svelte';
 	import { parseTimelineTrackId, type TimelineTrackId } from './timeline-entity-identity';
@@ -68,12 +71,23 @@
 		);
 	}
 
-	function handleRemoveTrack(trackId: TimelineTrackId): void {
+	async function handleRemoveTrack(trackId: TimelineTrackId): Promise<void> {
 		const identity = parseTimelineTrackId(trackId);
 		if (identity?.kind === 'overlay') {
 			removeOverlay(identity.overlayId);
 		} else if (identity?.kind === 'block') {
-			removeBlock(identity.blockId);
+			const isKineticWord = engineState.surface.typeField?.words.some(
+				(word) => word.id === identity.blockId
+			);
+			if (isKineticWord) {
+				const outcome = await runRemoveCompositionKineticWordOperation({
+					expectedRevision: compositionEditHistory.revision,
+					wordId: identity.blockId
+				});
+				if (outcome.status === 'failed') return;
+			} else {
+				removeBlock(identity.blockId);
+			}
 		} else if (identity?.kind === 'captions') {
 			removeCaptions();
 		} else if (identity?.kind === 'text-animation') {

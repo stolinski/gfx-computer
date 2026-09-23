@@ -10,8 +10,8 @@ import { GFX_TEXT_EFFECT_MODULES } from './gfx-effects/index.ts';
 // `raw-catalog-bundle.ts` for the loader rationale; see
 // `raw-catalog/CATALOG_SOURCE.md` for upstream provenance.
 //
-// GFX-original effects (motion-primitives plan Phase 4.1: `kerning-pop`,
-// `bracket-pop`) merge in alongside the vendored set so the catalog lane
+// GFX-original effects (`kerning-pop`, `bracket-pop`, and the variable-font
+// `weight-resolve`) merge in alongside the vendored set so the catalog lane
 // stays a single registry from the consumer\'s perspective.
 const { specModules } = RAW_TEXT_EFFECT_CATALOG;
 const textEffectModules: Record<string, unknown> = {
@@ -59,7 +59,8 @@ const KeyframeShapeSchema = z
 		rotate_deg: z.number().optional(),
 		rotate_x_deg: z.number().optional(),
 		rotate_y_deg: z.number().optional(),
-		letter_spacing_em: z.number().optional()
+		letter_spacing_em: z.number().optional(),
+		font_weight_normalized: z.number().min(0).max(1).optional()
 	})
 	.passthrough();
 
@@ -79,6 +80,8 @@ const PortableSpecSchema = z
 		target: z.enum(TEXT_EFFECT_SPLIT_MODES),
 		signature_easing: z.string().optional(),
 		stagger_mode: z.enum(TEXT_EFFECT_STAGGER_MODES).optional(),
+		title_scale_only: z.boolean().optional(),
+		requires_variable_weight: z.boolean().optional(),
 		enter: PhaseSchema,
 		exit: PhaseSchema.optional()
 	})
@@ -135,6 +138,10 @@ export interface TextEffectSpec {
 	renderer: TextEffectRendererFamily;
 	staggerMode: TextEffectStaggerMode;
 	signatureEasing: string | null;
+	/** Restrict the effect to title/kicker slots even when it splits by word. */
+	titleScaleOnly: boolean;
+	/** The effect needs the target Pipeline to accept the Pack's real `wght` face. */
+	requiresVariableWeight: boolean;
 	enter: TextEffectPhase;
 	exit: TextEffectPhase | null;
 	runtime: TextEffectShowcaseRuntime;
@@ -168,6 +175,8 @@ function narrowTextEffect(file: z.infer<typeof EffectFileSchema>): TextEffectSpe
 		renderer,
 		staggerMode,
 		signatureEasing: spec.signature_easing ?? null,
+		titleScaleOnly: spec.title_scale_only ?? false,
+		requiresVariableWeight: spec.requires_variable_weight ?? false,
 		enter: spec.enter,
 		exit: spec.exit ?? null,
 		runtime,

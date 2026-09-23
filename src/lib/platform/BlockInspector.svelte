@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ChartInspector from './ChartInspector.svelte';
+	import KineticWordInspector from './KineticWordInspector.svelte';
 	import CascadeSection from './CascadeSection.svelte';
 	import {
 		DIAGRAM_KEYFRAME_CHANNELS,
@@ -29,6 +30,9 @@
 	);
 	const diagramPrimitive = $derived(
 		(engineState.surface.diagram ?? []).find((entry) => entry.id === blockId) ?? null
+	);
+	const kineticWord = $derived(
+		(engineState.surface.typeField?.words ?? []).find((entry) => entry.id === blockId) ?? null
 	);
 
 	// Stroke primitives expose opacity only (their reveal is the draw-on); DOM
@@ -75,6 +79,8 @@
 
 {#if chartBlock}
 	<ChartInspector {blockId} />
+{:else if kineticWord}
+	<KineticWordInspector />
 {:else if diagramPrimitive}
 	{@const el = diagramPrimitive}
 

@@ -25,6 +25,7 @@ import { cascadeNodeKey } from './cascade-timing';
 import {
 	DIAGRAM_KEYFRAME_CHANNELS,
 	DIAGRAM_STROKE_KEYFRAME_CHANNELS,
+	KINETIC_WORD_KEYFRAME_CHANNELS,
 	OVERLAY_KEYFRAME_CHANNELS,
 	SURFACE_KEYFRAME_CHANNELS,
 	type Cascade,
@@ -32,6 +33,9 @@ import {
 	type DiagramPrimitive,
 	type EngineState,
 	type Keyframe,
+	type KineticWord,
+	type KineticWordAnimation,
+	type KineticWordSpatialChannelKeyframes,
 	type OverlayAnimation,
 	type SurfaceAnimation
 } from './engine-schema';
@@ -48,6 +52,10 @@ import {
 	requireCompositionOperationRow,
 	type CompositionOperationFailure
 } from './composition-operation-preflight';
+import {
+	isKineticWordSpatialChannel,
+	resolveKineticWordGeometry
+} from '$lib/utils/kinetic-word-geometry';
 
 import type { CompositionWorkspaceFocus } from './composition-workspace-focus';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
@@ -90,11 +98,20 @@ export const COMPOSITION_CASCADE_ANCHOR_KINDS: readonly CompositionCascadeAnchor
 	...COMPOSITION_CASCADE_SUBJECT_KINDS
 ];
 
+export type CompositionKeyframeChannelScope = 'shared' | 'horizontal' | 'vertical';
+export const COMPOSITION_KEYFRAME_CHANNEL_SCOPES: readonly CompositionKeyframeChannelScope[] = [
+	'shared',
+	'horizontal',
+	'vertical'
+];
+
 export interface SetCompositionKeyframeChannelRequest {
 	expectedRevision: number;
 	subject: CompositionKeyframeSubject;
 	/** A channel the subject declares, such as `opacity` or `x`. */
 	channel: string;
+	/** Kinetic Word spatial tracks may replace the shared group per orientation. */
+	scope?: CompositionKeyframeChannelScope;
 	/** Ordered keyframes, in ms from the element's resolved clip start. */
 	keyframes: readonly Keyframe[];
 }
@@ -103,6 +120,7 @@ export interface ClearCompositionKeyframeChannelRequest {
 	expectedRevision: number;
 	subject: CompositionKeyframeSubject;
 	channel: string;
+	scope?: CompositionKeyframeChannelScope;
 }
 
 export interface SetCompositionCascadeAnchorRequest {
@@ -125,6 +143,18 @@ export interface ClearCompositionCascadeAnchorRequest {
 interface AuthoredElementMotion {
 	channels?: Partial<Record<string, Keyframe[]>>;
 	cascade?: Cascade;
+	orientationOverrides?: Partial<
+		Record<'horizontal' | 'vertical', KineticWordSpatialChannelKeyframes>
+	>;
+}
+
+type KeyframeOwnerKind = 'surface' | 'overlay' | 'diagram' | 'kinetic-word';
+
+interface CompositionKeyframeOwner {
+	kind: KeyframeOwnerKind;
+	channels: readonly string[];
+	motion: AuthoredElementMotion | undefined;
+	word?: KineticWord;
 }
 
 /** Which edge of the anchor's entrance a weld hangs from. */
@@ -189,17 +219,36 @@ function diagramPrimitiveChannels(primitive: DiagramPrimitive): readonly string[
 function findKeyframeOwner(
 	state: EngineState,
 	subject: CompositionKeyframeSubject
-): { channels: readonly string[]; motion: AuthoredElementMotion | undefined } | null {
+): CompositionKeyframeOwner | null {
 	if (subject.kind === 'surface') {
-		return { channels: SURFACE_KEYFRAME_CHANNELS, motion: state.surface.animation };
+		return {
+			kind: 'surface',
+			channels: SURFACE_KEYFRAME_CHANNELS,
+			motion: state.surface.animation
+		};
 	}
 	if (subject.kind === 'overlay') {
 		const overlay = state.overlays.find((entry) => entry.id === subject.overlayId);
-		return overlay ? { channels: OVERLAY_KEYFRAME_CHANNELS, motion: overlay.animation } : null;
+		return overlay
+			? { kind: 'overlay', channels: OVERLAY_KEYFRAME_CHANNELS, motion: overlay.animation }
+			: null;
 	}
 	const primitive = (state.surface.diagram ?? []).find((entry) => entry.id === subject.blockId);
-	return primitive
-		? { channels: diagramPrimitiveChannels(primitive), motion: primitive.animation }
+	if (primitive) {
+		return {
+			kind: 'diagram',
+			channels: diagramPrimitiveChannels(primitive),
+			motion: primitive.animation
+		};
+	}
+	const word = (state.surface.typeField?.words ?? []).find((entry) => entry.id === subject.blockId);
+	return word
+		? {
+				kind: 'kinetic-word',
+				channels: KINETIC_WORD_KEYFRAME_CHANNELS,
+				motion: word.animation,
+				word
+			}
 		: null;
 }
 
@@ -227,26 +276,109 @@ function writeElementMotion(
 	if (subject.kind !== 'block') return false;
 	const diagram = state.surface.diagram ?? [];
 	const index = diagram.findIndex((entry) => entry.id === subject.blockId);
-	if (index < 0) return false;
-	diagram[index] = { ...diagram[index], animation: motion } as DiagramPrimitive;
+	if (index >= 0) {
+		diagram[index] = { ...diagram[index], animation: motion } as DiagramPrimitive;
+		return true;
+	}
+	const word = (state.surface.typeField?.words ?? []).find((entry) => entry.id === subject.blockId);
+	if (!word) return false;
+	word.animation = motion as KineticWordAnimation | undefined;
 	return true;
 }
 
-/** An element's motion with one channel replaced, or with it dropped. */
+function cloneKeyframeChannels(
+	channels: Partial<Record<string, Keyframe[]>> | undefined
+): Partial<Record<string, Keyframe[]>> {
+	return Object.fromEntries(
+		Object.entries(channels ?? {}).map(([name, frames]) => [
+			name,
+			frames?.map((frame) => ({ ...frame }))
+		])
+	);
+}
+
+function cloneSpatialKeyframeChannels(
+	owner: CompositionKeyframeOwner,
+	scope: Exclude<CompositionKeyframeChannelScope, 'shared'>
+): KineticWordSpatialChannelKeyframes {
+	const existing = owner.motion?.orientationOverrides?.[scope];
+	if (existing) return cloneKeyframeChannels(existing) as KineticWordSpatialChannelKeyframes;
+	const shared = owner.motion?.channels;
+	const geometry = owner.word ? resolveKineticWordGeometry(owner.word, scope) : null;
+	return {
+		x: shared?.x?.map((frame) => ({ ...frame })) ?? [{ atMs: 0, value: 0 }],
+		y: shared?.y?.map((frame) => ({ ...frame })) ?? [{ atMs: 0, value: 0 }],
+		scale: shared?.scale?.map((frame) => ({ ...frame })) ?? [
+			{ atMs: 0, value: geometry?.scale ?? 1 }
+		],
+		rotation: shared?.rotation?.map((frame) => ({ ...frame })) ?? [
+			{ atMs: 0, value: geometry?.rotation ?? 0 }
+		]
+	};
+}
+
+function cleanAuthoredElementMotion(
+	motion: AuthoredElementMotion,
+	ownerKind: KeyframeOwnerKind
+): AuthoredElementMotion | undefined {
+	const hasChannels = Object.keys(motion.channels ?? {}).length > 0;
+	const hasOrientationOverrides = Object.keys(motion.orientationOverrides ?? {}).length > 0;
+	if (hasChannels || hasOrientationOverrides) return motion;
+	if (ownerKind !== 'kinetic-word' && motion.cascade) return { cascade: motion.cascade };
+	return undefined;
+}
+
+/** An element's motion with one scoped channel replaced, or with it dropped. */
 function withKeyframeChannel(
-	motion: AuthoredElementMotion | undefined,
+	owner: CompositionKeyframeOwner,
 	channel: string,
+	scope: CompositionKeyframeChannelScope,
 	track: readonly Keyframe[] | null
 ): AuthoredElementMotion | undefined {
-	const channels: Partial<Record<string, Keyframe[]>> = { ...motion?.channels };
-	if (track === null) delete channels[channel];
-	else channels[channel] = track.map((frame) => ({ ...frame }));
+	const motion: AuthoredElementMotion = {
+		...owner.motion,
+		channels: cloneKeyframeChannels(owner.motion?.channels)
+	};
+	if (owner.kind === 'kinetic-word' && owner.motion?.orientationOverrides) {
+		motion.orientationOverrides = Object.fromEntries(
+			Object.entries(owner.motion.orientationOverrides).map(([orientation, channels]) => [
+				orientation,
+				cloneKeyframeChannels(channels)
+			])
+		);
+	}
 
-	if (Object.keys(channels).length > 0) return { ...motion, channels };
-	// The last channel is gone: the element goes back to its Pipeline's intrinsic
-	// motion form, and the whole animation block goes with it unless a weld
-	// still lives there.
-	return motion?.cascade ? { cascade: motion.cascade } : undefined;
+	if (scope === 'shared') {
+		const channels = (motion.channels ??= {});
+		if (track === null) delete channels[channel];
+		else channels[channel] = track.map((frame) => ({ ...frame }));
+		if (Object.keys(channels).length === 0) motion.channels = undefined;
+		return cleanAuthoredElementMotion(motion, owner.kind);
+	}
+
+	const orientationOverrides = (motion.orientationOverrides ??= {});
+	if (track === null) {
+		delete orientationOverrides[scope];
+	} else {
+		const spatial = cloneSpatialKeyframeChannels(owner, scope);
+		spatial[channel as keyof KineticWordSpatialChannelKeyframes] = track.map((frame) => ({
+			...frame
+		}));
+		orientationOverrides[scope] = spatial;
+	}
+	if (Object.keys(orientationOverrides).length === 0) motion.orientationOverrides = undefined;
+	return cleanAuthoredElementMotion(motion, owner.kind);
+}
+
+function scopedKeyframeTrack(
+	owner: CompositionKeyframeOwner,
+	channel: string,
+	scope: CompositionKeyframeChannelScope
+): readonly Keyframe[] | undefined {
+	if (scope === 'shared') return owner.motion?.channels?.[channel];
+	const channels = owner.motion?.orientationOverrides?.[scope] as
+		Partial<Record<string, Keyframe[]>> | undefined;
+	return channels?.[channel];
 }
 
 /** The refusal for a channel subject the composition does not hold. */
@@ -282,7 +414,10 @@ function refuseMissingKeyframeSubject(
 			alternatives:
 				subject.kind === 'overlay'
 					? state.overlays.map((entry) => entry.id)
-					: (state.surface.diagram ?? []).map((entry) => entry.id)
+					: [
+							...(state.surface.diagram ?? []).map((entry) => entry.id),
+							...(state.surface.typeField?.words ?? []).map((entry) => entry.id)
+						]
 		}
 	);
 }
@@ -300,6 +435,35 @@ function refuseUndeclaredChannel(
 		`${describeSubject(subject)} declares no "${channel}" channel.`,
 		{ rejected: channel, alternatives: declared }
 	);
+}
+
+function refuseInvalidKeyframeScope(
+	row: WebmcpOperationRow,
+	subject: CompositionKeyframeSubject,
+	owner: CompositionKeyframeOwner,
+	channel: string,
+	scope: CompositionKeyframeChannelScope
+): CompositionOperationFailure | null {
+	if (!COMPOSITION_KEYFRAME_CHANNEL_SCOPES.includes(scope)) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'invalid_argument',
+			`"${scope}" is not a keyframe channel scope.`,
+			{ rejected: scope, alternatives: COMPOSITION_KEYFRAME_CHANNEL_SCOPES }
+		);
+	}
+	if (scope === 'shared') return null;
+	if (owner.kind !== 'kinetic-word' || !isKineticWordSpatialChannel(channel)) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'unsupported_variant',
+			`${describeSubject(subject)} can author "${channel}" only in shared scope. Orientation scopes belong only to Kinetic Word spatial channels.`,
+			{ rejected: scope, alternatives: ['shared'] }
+		);
+	}
+	return null;
 }
 
 /**
@@ -320,6 +484,15 @@ export async function runSetCompositionKeyframeChannelOperation(
 	if (!owner.channels.includes(request.channel)) {
 		return refuseUndeclaredChannel(row, request.subject, request.channel, owner.channels);
 	}
+	const scope = request.scope ?? 'shared';
+	const scopeRefusal = refuseInvalidKeyframeScope(
+		row,
+		request.subject,
+		owner,
+		request.channel,
+		scope
+	);
+	if (scopeRefusal) return scopeRefusal;
 	if (request.keyframes.length === 0) {
 		return refuseCompositionOperation(
 			row,
@@ -342,7 +515,7 @@ export async function runSetCompositionKeyframeChannelOperation(
 				!writeElementMotion(
 					draft.state,
 					request.subject,
-					withKeyframeChannel(current.motion, request.channel, request.keyframes)
+					withKeyframeChannel(current, request.channel, scope, request.keyframes)
 				)
 			) {
 				throw new CompositionOperationError(
@@ -365,10 +538,27 @@ export async function runClearCompositionKeyframeChannelOperation(
 	const state = readOpenCompositionDocument().state;
 	const owner = findKeyframeOwner(state, request.subject);
 	if (!owner) return refuseMissingKeyframeSubject(row, state, request.subject);
-	const authored = Object.entries(owner.motion?.channels ?? {})
+	if (!owner.channels.includes(request.channel)) {
+		return refuseUndeclaredChannel(row, request.subject, request.channel, owner.channels);
+	}
+	const scope = request.scope ?? 'shared';
+	const scopeRefusal = refuseInvalidKeyframeScope(
+		row,
+		request.subject,
+		owner,
+		request.channel,
+		scope
+	);
+	if (scopeRefusal) return scopeRefusal;
+	const scopedTrack = scopedKeyframeTrack(owner, request.channel, scope);
+	const authored = Object.entries(
+		scope === 'shared'
+			? (owner.motion?.channels ?? {})
+			: (owner.motion?.orientationOverrides?.[scope] ?? {})
+	)
 		.filter(([, track]) => track !== undefined && track.length > 0)
 		.map(([name]) => name);
-	if (!authored.includes(request.channel)) {
+	if (!scopedTrack || scopedTrack.length === 0) {
 		return refuseCompositionOperation(
 			row,
 			compositionEditHistory.revision,
@@ -390,7 +580,7 @@ export async function runClearCompositionKeyframeChannelOperation(
 				!writeElementMotion(
 					draft.state,
 					request.subject,
-					withKeyframeChannel(current.motion, request.channel, null)
+					withKeyframeChannel(current, request.channel, scope, null)
 				)
 			) {
 				throw new CompositionOperationError(

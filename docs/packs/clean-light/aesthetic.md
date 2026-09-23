@@ -56,6 +56,9 @@ object photographed on a white sweep under flat, even light.
   labels. `0.07em` tracking (measured: vercel's mono eyebrows at 1px/14px),
   weight 400–500. Sentence case stays the default — this pack does not shout;
   uppercase belongs only where a pipeline's label voice is intrinsically caps.
+- Kinetic display motion uses `Geist Variable` over the restrained 100–600
+  portion of its real `wght` axis, with 500 as rest. Weight may strike the 600
+  ceiling; the Pack never borrows the face's available 700–900 cuts.
 
 ## Surface Treatment — the white studio
 

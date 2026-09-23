@@ -91,6 +91,15 @@ export const cleanLightPack: PackManifest = {
 		// mono eyebrow-label voice it pairs with (vercel.com grammar).
 		'font-treatment': { kind: 'style', value: "'Geist', 'Inter', sans-serif" },
 		'font-label-treatment': { kind: 'style', value: "'Geist Mono', ui-monospace, monospace" },
+		'variable-weight-treatment': {
+			kind: 'style',
+			value: {
+				fontFamily: "'Geist Variable', 'Geist', 'Inter', sans-serif",
+				minimum: 100,
+				rest: 500,
+				maximum: 600
+			}
+		},
 
 		// ---------------- plain Surface ----------------
 		'plain.edge': { kind: 'style', value: 'clean' },

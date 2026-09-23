@@ -69,6 +69,15 @@ export const editorialMonoPack: PackManifest = {
 		// faces are substrate physics, hardcoded in the CanvasSource.
 		'font-treatment': { kind: 'style', value: "'Playfair Display', 'EB Garamond', Georgia, serif" },
 		'font-label-treatment': { kind: 'style', value: "'JetBrains Mono', ui-monospace, monospace" },
+		'variable-weight-treatment': {
+			kind: 'style',
+			value: {
+				fontFamily: "'Playfair Display Variable', 'Playfair Display', 'EB Garamond', serif",
+				minimum: 400,
+				rest: 700,
+				maximum: 900
+			}
+		},
 
 		// Overlay (proven 2026-05-29)
 		'lower-third.accent': { kind: 'style', value: '#22d3ee' },

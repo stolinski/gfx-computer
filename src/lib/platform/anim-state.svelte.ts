@@ -13,6 +13,16 @@ export interface OverlayChannelValues {
 	rotation: number;
 }
 
+/** Live normalized channels for one first-class Kinetic Word Block. */
+export interface KineticWordChannelValues extends OverlayChannelValues {
+	/** Semantic [0, 1], mapped through the active Pack's real `wght` range. */
+	weight: number;
+	/** Word-level glyph offset inside the line-box mask; glyph staggers delay this per glyph. */
+	reveal: number;
+	/** Em delta on the hierarchy's letter-spacing. */
+	tracking: number;
+}
+
 export interface RenderAnimState {
 	bodyVisibility: number;
 	markProgresses: number[];
@@ -36,6 +46,8 @@ export interface RenderAnimState {
 	blockProgresses: Record<string, number>;
 	blockAlphas: Record<string, number>;
 	blockChannels: Record<string, OverlayChannelValues | null>;
+	/** Type Field channels stay separate from Diagram Block runtime records. */
+	kineticWordChannels: Record<string, KineticWordChannelValues | null>;
 	paperVisibility: number;
 	/**
 	 * Global timeline progress in [0, 1] — the fraction of the transport
@@ -55,17 +67,22 @@ export const animState = $state<RenderAnimState>({
 	blockProgresses: {},
 	blockAlphas: {},
 	blockChannels: {},
+	kineticWordChannels: {},
 	paperVisibility: 0,
 	globalProgress: 0
 });
 
 /**
-	* Prune Diagram primitive records to the current id set and seed missing ids —
-	* the id-keyed peer of `syncProgressArray`, so a deleted primitive's stale
+ * Prune Diagram primitive records to the current id set and seed missing ids —
+ * the id-keyed peer of `syncProgressArray`, so a deleted primitive's stale
  * progress can't ghost back when an id is reused.
  */
 export function syncBlockRecords(ids: readonly string[]): void {
-	for (const record of [animState.blockProgresses, animState.blockAlphas, animState.blockChannels]) {
+	for (const record of [
+		animState.blockProgresses,
+		animState.blockAlphas,
+		animState.blockChannels
+	]) {
 		for (const key of Object.keys(record)) {
 			if (!ids.includes(key)) {
 				delete record[key];

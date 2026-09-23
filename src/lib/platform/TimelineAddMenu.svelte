@@ -15,6 +15,9 @@
 	import { selectLayer } from './selection.svelte';
 	import { createTimelineTrackId } from './timeline-entity-identity';
 	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
+	import { runAddCompositionKineticWordOperation } from './composition-kinetic-type-operations';
+	import { compositionEditHistory } from './composition-edit-history';
+	import { KINETIC_TYPE_WORD_LIMIT } from './engine-schema';
 
 	// The gutter footer's "Add layer" control: a top-layer popover menu of the
 	// addable layer types — the real add affordance, not a stray <select>. The
@@ -37,6 +40,11 @@
 	const canAddChart = $derived(
 		(engineState.surface.type === 'plain' || engineState.surface.type === 'paper') &&
 			(engineState.surface.chart?.items.length ?? 0) < 4
+	);
+	const canAddKineticWord = $derived(
+		engineState.surface.type === 'plain' &&
+			engineState.stage === undefined &&
+			(engineState.surface.typeField?.words.length ?? 0) < KINETIC_TYPE_WORD_LIMIT
 	);
 
 	const DIAGRAM_TYPES = [
@@ -138,6 +146,14 @@
 		}
 	}
 
+	async function pickKineticWord(): Promise<void> {
+		addOperationGuard.supersede();
+		const outcome = await runAddCompositionKineticWordOperation({
+			expectedRevision: compositionEditHistory.revision
+		});
+		if (outcome.status === 'applied') addMenuEl?.hidePopover();
+	}
+
 	function pickTextAnimation(): void {
 		addOperationGuard.supersede();
 		const firstEffect = TEXT_EFFECT_IDS[0];
@@ -225,6 +241,12 @@
 			>
 		{/each}
 		<div class="add-menu__divider" role="presentation"></div>
+		<button
+			class="add-menu__item"
+			type="button"
+			disabled={!canAddKineticWord}
+			onclick={pickKineticWord}>Kinetic word</button
+		>
 		{#each CHART_TYPES as entry (entry.type)}
 			<button
 				class="add-menu__item"

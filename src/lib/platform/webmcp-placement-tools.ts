@@ -21,16 +21,19 @@
  */
 import { COMPOSITION_ORIENTATIONS } from './composition-transport-operations';
 import {
+	KINETIC_WORD_HORIZONTAL_ANCHORS,
 	OVERLAY_PLACEMENT_ANCHORS,
 	STAGE_CAMERA_POSE_LIMITS,
 	type DiagramEndpoint,
-	type DiagramPoint
+	type DiagramPoint,
+	type KineticWordGeometry
 } from './engine-schema';
 import {
 	readWebmcpClearableRecordArgument,
 	readWebmcpLiteralArgument,
 	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
+	readWebmcpOptionalLiteralArgument,
 	readWebmcpOptionalNumberArgument,
 	readWebmcpOptionalRecordArgument,
 	readWebmcpRecordArgument,
@@ -47,6 +50,7 @@ import {
 	runSetCompositionOverlayPoseOperation,
 	runSetCompositionSurfacePageAnchorOperation
 } from './composition-placement-operations';
+import { runSetCompositionKineticWordPlacementOperation } from './composition-kinetic-type-operations';
 import {
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
@@ -116,6 +120,52 @@ function readCompositionPoint(point: Record<string, unknown>): DiagramPoint {
 	return {
 		x: readWebmcpNumberArgument(point, 'x'),
 		y: readWebmcpNumberArgument(point, 'y')
+	};
+}
+
+function kineticWordGeometryProperty(): WebmcpSchemaProperty {
+	const properties = {
+		position: compositionPointProperty(
+			'The Kinetic Word anchor position in composition fractions.'
+		),
+		horizontalAnchor: webmcpDerivedEnumProperty(
+			'kinetic-word-horizontal-anchor',
+			'Which horizontal word edge the position pins. Omit for center compatibility.'
+		),
+		scale: {
+			type: 'number' as const,
+			description: 'A uniform multiplier on the word hierarchy size.',
+			minimum: 0.25,
+			maximum: 4
+		},
+		rotation: {
+			type: 'number' as const,
+			description: 'Static rotation in degrees about the word anchor.',
+			minimum: -180,
+			maximum: 180
+		}
+	};
+
+	return {
+		type: 'object',
+		description: 'The complete word placement snapshot.',
+		properties,
+		required: Object.keys(properties).filter((name) => name !== 'horizontalAnchor'),
+		additionalProperties: false
+	};
+}
+
+function readKineticWordGeometry(args: unknown): KineticWordGeometry {
+	const geometry = readWebmcpRecordArgument(args, 'geometry');
+	return {
+		position: readCompositionPoint(readWebmcpRecordArgument(geometry, 'position')),
+		horizontalAnchor: readWebmcpOptionalLiteralArgument(
+			geometry,
+			'horizontalAnchor',
+			KINETIC_WORD_HORIZONTAL_ANCHORS
+		),
+		scale: readWebmcpNumberArgument(geometry, 'scale'),
+		rotation: readWebmcpNumberArgument(geometry, 'rotation')
 	};
 }
 
@@ -407,6 +457,29 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 					runSetCompositionSurfacePageAnchorOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						pageAnchor: readPageAnchor(args)
+					})
+				)
+		},
+		{
+			operationId: 'placement.set-kinetic-word-placement',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					wordId: webmcpEntityIdProperty('The Kinetic Word Block to place.'),
+					target: placementTargetProperty(),
+					geometry: kineticWordGeometryProperty()
+				},
+				required: ['expectedRevision', 'wordId', 'target', 'geometry'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('placement.set-kinetic-word-placement', () =>
+					runSetCompositionKineticWordPlacementOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						wordId: readWebmcpStringArgument(args, 'wordId'),
+						scope: readWebmcpLiteralArgument(args, 'target', COMPOSITION_PLACEMENT_TARGETS),
+						geometry: readKineticWordGeometry(args)
 					})
 				)
 		},

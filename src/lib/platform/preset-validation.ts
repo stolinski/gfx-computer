@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 
 import { validateChartGroupSemantics } from './chart-validation';
+import { validateKineticTypeFieldSemantics } from './kinetic-type-field-validation';
 import { STAGE_POSED_OVERLAY_LIMIT, type Preset } from './engine-schema';
 import { findPack, listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
 import { PACK_SLUG_PATTERN } from './packs/types';
@@ -22,6 +23,8 @@ import { isStageModel, listStageModels } from './stage-models';
 import { isSubstrateAsset } from './substrate-textures';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { normalizeWebsiteCaptureUrl } from '../utils/website-showcase';
+import { TEXT_EFFECT_CATALOG } from '../text-animations/catalog';
+import { textEffectUnavailableReason } from '../text-animations/availability';
 
 export interface PresetSemanticIssue {
 	path: (string | number)[];
@@ -226,6 +229,17 @@ function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[])
 			message: issue.message
 		});
 	}
+
+	for (const issue of validateKineticTypeFieldSemantics(
+		preset.state.surface.typeField,
+		preset.state.surface,
+		preset.state.stage !== undefined
+	)) {
+		issues.push({
+			path: ['state', 'surface', 'typeField', ...issue.path],
+			message: issue.message
+		});
+	}
 }
 
 /** Returns the overlay ID set for text-animation target checks. */
@@ -328,11 +342,46 @@ function validateTextAnimationTargets(
 	overlayIds: ReadonlySet<string>,
 	issues: PresetSemanticIssue[]
 ): void {
+	const pack = findPack(preset.pack);
 	for (const [index, animation] of preset.state.textAnimations.entries()) {
 		if (animation.target.kind === 'overlay' && !overlayIds.has(animation.target.overlayId)) {
 			issues.push({
 				path: ['state', 'textAnimations', index, 'target', 'overlayId'],
 				message: `Overlay target "${animation.target.overlayId}" does not match any overlays[].id`
+			});
+		}
+
+		const effect = TEXT_EFFECT_CATALOG.get(animation.effect);
+		if (!effect?.requiresVariableWeight || pack === null) continue;
+		const targetOverlayId = animation.target.kind === 'overlay' ? animation.target.overlayId : null;
+		const targetOverlay =
+			targetOverlayId === null
+				? undefined
+				: preset.state.overlays.find((candidate) => candidate.id === targetOverlayId);
+		const pipelineKey =
+			animation.target.kind === 'surface'
+				? `surface:${preset.state.surface.type}`
+				: targetOverlay
+					? `overlay:${targetOverlay.type}`
+					: null;
+		if (pipelineKey === null) continue;
+		const reason = textEffectUnavailableReason(effect, {
+			slotKey:
+				animation.target.kind === 'surface'
+					? animation.target.slot
+					: `overlay:${animation.target.slot}`,
+			pipelineKey,
+			pack
+		});
+		if (reason === 'variable-weight-unavailable') {
+			issues.push({
+				path: ['state', 'textAnimations', index, 'effect'],
+				message: `Text effect "${animation.effect}" requires Pack "${preset.pack}" to declare a real variable-weight-treatment.`
+			});
+		} else if (reason === 'pack-appearance-blocked') {
+			issues.push({
+				path: ['state', 'textAnimations', index, 'effect'],
+				message: `Text effect "${animation.effect}" cannot target Pack-immune ${pipelineKey}; its variable face is a Pack appearance claim.`
 			});
 		}
 	}

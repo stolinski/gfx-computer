@@ -40,6 +40,7 @@ import {
 	COMPOSITION_CASCADE_ANCHOR_KINDS,
 	COMPOSITION_CASCADE_EVENTS,
 	COMPOSITION_CASCADE_SUBJECT_KINDS,
+	COMPOSITION_KEYFRAME_CHANNEL_SCOPES,
 	COMPOSITION_KEYFRAME_SUBJECT_KINDS,
 	runClearCompositionCascadeAnchorOperation,
 	runClearCompositionKeyframeChannelOperation,
@@ -47,10 +48,20 @@ import {
 	runSetCompositionKeyframeChannelOperation
 } from './composition-keyframe-cascade-operations';
 import {
+	runSetCompositionKineticWordGlyphStaggerOperation,
+	runSetCompositionKineticWordPositionKeyframeOperation
+} from './composition-kinetic-type-operations';
+import {
 	runClearCompositionTransitionOperation,
 	runSetCompositionTransitionOperation
 } from './composition-transition-operations';
-import { CHART_MOTION_EASES, TEXT_ANIMATION_PARAM_NAMES } from './engine-schema';
+import {
+	CHART_MOTION_EASES,
+	COMPOSITION_KEYFRAME_LIMIT,
+	KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS,
+	KINETIC_WORD_GLYPH_STAGGER_ORDERS,
+	TEXT_ANIMATION_PARAM_NAMES
+} from './engine-schema';
 import {
 	readWebmcpClearableNumberArgument,
 	readWebmcpClearableRecordArgument,
@@ -88,7 +99,12 @@ import type {
 	CompositionCascadeSubject,
 	CompositionKeyframeSubject
 } from './composition-keyframe-cascade-operations';
-import type { CascadeAnchor, Keyframe, TextAnimationParams } from './engine-schema';
+import type {
+	CascadeAnchor,
+	Keyframe,
+	KineticWordGlyphStagger,
+	TextAnimationParams
+} from './engine-schema';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
 
@@ -253,6 +269,8 @@ function keyframeTrackProperty(): WebmcpSchemaProperty {
 		type: 'array',
 		description:
 			'The ordered keyframes, by strictly ascending atMs. At least one; clear the channel instead of sending none.',
+		minItems: 1,
+		maxItems: COMPOSITION_KEYFRAME_LIMIT,
 		items: {
 			type: 'object',
 			description: 'One keyframe on this channel.',
@@ -280,6 +298,22 @@ function readKeyframes(args: unknown): readonly Keyframe[] {
 		value: readWebmcpNumberArgument(frame, 'value'),
 		ease: readWebmcpOptionalLiteralArgument(frame, 'ease', COMPOSITION_MOTION_EASES)
 	}));
+}
+
+/** A glyph stagger, or `null` to return the word to one text run. */
+function readGlyphStagger(args: unknown): KineticWordGlyphStagger | null {
+	const record = readWebmcpClearableRecordArgument(args, 'glyphStagger');
+	if (record === undefined) {
+		throw new WebmcpArgumentError(
+			'invalid_argument',
+			'"glyphStagger" is required: an object, or null to clear.'
+		);
+	}
+	if (record === null) return null;
+	return {
+		offsetMs: readWebmcpNumberArgument(record, 'offsetMs'),
+		order: readWebmcpLiteralArgument(record, 'order', KINETIC_WORD_GLYPH_STAGGER_ORDERS)
+	};
 }
 
 function textAnimationParamsProperty(): WebmcpSchemaProperty {
@@ -518,7 +552,13 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 						'keyframe-channel',
 						'The property to author. A subject that declares no such channel names the ones it does.'
 					),
-					keyframes: keyframeTrackProperty()
+					keyframes: keyframeTrackProperty(),
+					scope: {
+						type: 'string',
+						description:
+							'Shared by default. Horizontal or vertical is valid only for a Kinetic Word spatial channel and replaces that orientation spatial group.',
+						enum: COMPOSITION_KEYFRAME_CHANNEL_SCOPES
+					}
 				},
 				required: ['expectedRevision', 'subject', 'channel', 'keyframes'],
 				additionalProperties: false
@@ -529,7 +569,104 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						subject: readKeyframeSubject(args),
 						channel: readWebmcpStringArgument(args, 'channel'),
+						scope: readWebmcpOptionalLiteralArgument(
+							args,
+							'scope',
+							COMPOSITION_KEYFRAME_CHANNEL_SCOPES
+						),
 						keyframes: readKeyframes(args)
+					})
+				)
+		},
+		{
+			operationId: 'motion.set-kinetic-word-position-keyframe',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					wordId: webmcpEntityIdProperty('The Kinetic Word Block to key.'),
+					scope: {
+						type: 'string',
+						description:
+							'Shared spatial motion, or the complete horizontal/vertical replacement group.',
+						enum: COMPOSITION_KEYFRAME_CHANNEL_SCOPES
+					},
+					atMs: {
+						type: 'number',
+						description: 'Milliseconds from composition start.',
+						minimum: 0
+					},
+					x: {
+						type: 'number',
+						description: 'Composition-fraction X delta from the active orientation base placement.'
+					},
+					y: {
+						type: 'number',
+						description: 'Composition-fraction Y delta from the active orientation base placement.'
+					},
+					ease: webmcpDerivedEnumProperty(
+						'motion-ease',
+						'The curve into this position keyframe. Omit at t=0.'
+					)
+				},
+				required: 'expectedRevision wordId scope atMs x y'.split(' '),
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.set-kinetic-word-position-keyframe', () =>
+					runSetCompositionKineticWordPositionKeyframeOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						wordId: readWebmcpStringArgument(args, 'wordId'),
+						scope: readWebmcpLiteralArgument(args, 'scope', COMPOSITION_KEYFRAME_CHANNEL_SCOPES),
+						atMs: readWebmcpNumberArgument(args, 'atMs'),
+						x: readWebmcpNumberArgument(args, 'x'),
+						y: readWebmcpNumberArgument(args, 'y'),
+						ease: readWebmcpOptionalLiteralArgument(args, 'ease', COMPOSITION_MOTION_EASES)
+					})
+				)
+		},
+		{
+			operationId: 'motion.set-kinetic-word-glyph-stagger',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					wordId: webmcpEntityIdProperty('The Kinetic Word Block whose glyphs stagger.'),
+					glyphStagger: {
+						description:
+							"How far behind the first glyph each later glyph plays the word's reveal track, or null for one unstaggered text run.",
+						oneOf: [
+							{
+								type: 'object',
+								description: 'A per-glyph delay and the order glyphs take it in.',
+								properties: {
+									offsetMs: {
+										type: 'integer',
+										description: `Milliseconds between successive glyphs, 0 through ${KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS}.`,
+										minimum: 0,
+										maximum: KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS
+									},
+									order: webmcpDerivedEnumProperty(
+										'kinetic-word-glyph-stagger-order',
+										'Forward reads left to right, reverse right to left, center blooms outward from the middle.'
+									)
+								},
+								required: ['offsetMs', 'order'],
+								additionalProperties: false
+							},
+							{ type: 'null', description: 'Return the word to one unstaggered text run.' }
+						]
+					}
+				},
+				required: ['expectedRevision', 'wordId', 'glyphStagger'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.set-kinetic-word-glyph-stagger', () =>
+					runSetCompositionKineticWordGlyphStaggerOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						wordId: readWebmcpStringArgument(args, 'wordId'),
+						glyphStagger: readGlyphStagger(args)
 					})
 				)
 		},
@@ -543,7 +680,13 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 						COMPOSITION_KEYFRAME_SUBJECT_KINDS,
 						'The element that hands the pen back.'
 					),
-					channel: webmcpDerivedEnumProperty('keyframe-channel', 'The authored channel to remove.')
+					channel: webmcpDerivedEnumProperty('keyframe-channel', 'The authored channel to remove.'),
+					scope: {
+						type: 'string',
+						description:
+							'Shared by default. Horizontal or vertical is valid only for a Kinetic Word spatial channel.',
+						enum: COMPOSITION_KEYFRAME_CHANNEL_SCOPES
+					}
 				},
 				required: ['expectedRevision', 'subject', 'channel'],
 				additionalProperties: false
@@ -553,7 +696,12 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 					runClearCompositionKeyframeChannelOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						subject: readKeyframeSubject(args),
-						channel: readWebmcpStringArgument(args, 'channel')
+						channel: readWebmcpStringArgument(args, 'channel'),
+						scope: readWebmcpOptionalLiteralArgument(
+							args,
+							'scope',
+							COMPOSITION_KEYFRAME_CHANNEL_SCOPES
+						)
 					})
 				)
 		},

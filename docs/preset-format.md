@@ -161,7 +161,8 @@ When a color is absent, the active Pack's core `fill-treatment` / `ink-treatment
   "animation": { "channels": { "opacity": [ ... ] } },          // optional (see Animation; opacity only)
   "backgroundVisibility": 0..1,                                 // optional
   "diagram": [ ... ],                                           // optional Diagram primitive Blocks
-  "chart": { "mode": "single" | "sequence", "items": [ ... ] } // optional Chart Blocks; plain/paper only
+  "chart": { "mode": "single" | "sequence", "items": [ ... ] }, // optional Chart Blocks; plain/paper only
+  "typeField": { "words": [ ... ], "phrases": [ ... ] }       // optional Kinetic Word Blocks; plain only
 }
 ```
 
@@ -280,6 +281,67 @@ An optional `progressBar: true` draws a subtle Pack-colored ordered-dither strip
 
 The five motion windows are authored, Pack-invariant, and frame-deterministic. Omitted eases resolve to `smooth`, `smooth`, `sharp`, `smooth`, `smooth`; only `smooth | sharp` is accepted. Gaps hold state. Charts have no orientation-override schema: shared layout reflows the one declaration natively in horizontal and vertical and owns factual scales, zero baselines, chrome, legends, labels, source notes, and callout geometry. Marks render analytically through one instanced WebGPU path with Pack-resolved solid, gradient, or ordered-dither recipes localized to mark masks. The GUI add menu and Chart inspector mutate this same `surface.chart.items[]` model through bounded authoring helpers; there is no CSV upload, URL fetch, or GUI-only chart state.
 
+### `surface.typeField` — bounded Kinetic Word Blocks ([ADR-0064](adr/0064-kinetic-type-word-fields.md))
+
+`surface.typeField` is supported only on `plain`. It stores one static word pool plus ordered semantic phrases; phrase order never lays out or duplicates words. Kinetic Words are first-class Blocks rendered as crisp native DOM text on the existing Surface capture plane.
+
+```jsonc
+"typeField": {
+  "words": [
+    {
+      "type": "kinetic-word",
+      "id": "type",                         // stable Block, Timeline, selection, and readable identity
+      "text": "TYPE",                       // one trimmed token; at most 32 Unicode code points
+      "hierarchy": "display" | "support",
+      "ink": "ink" | "accent",
+      "position": { "x": 0..1, "y": 0..1 },
+      "horizontalAnchor": "start" | "center" | "end", // optional; default center
+      "scale": 0.25..4,
+      "rotation": -180..180,
+      "orientationOverrides": {              // optional complete geometry snapshots
+        "horizontal": { "position": { "x": 0..1, "y": 0..1 }, "horizontalAnchor": "start" | "center" | "end", "scale": 0.25..4, "rotation": -180..180 },
+        "vertical": { "position": { "x": 0..1, "y": 0..1 }, "horizontalAnchor": "start" | "center" | "end", "scale": 0.25..4, "rotation": -180..180 }
+      },
+      "glyphStagger": { "offsetMs": 0..120, "order": "forward" | "reverse" | "center" }, // optional per-glyph reveal delay
+      "animation": {
+        "channels": {                         // shared opacity/reveal/spatial/weight/tracking tracks
+          "opacity": [{ "atMs": 0, "value": 0 }, { "atMs": 300, "value": 1, "ease": "sharp" }],
+          "reveal": [{ "atMs": 0, "value": -1 }, { "atMs": 420, "value": 0, "ease": "sharp" }],
+          "x": [{ "atMs": 0, "value": -0.08 }, { "atMs": 650, "value": 0, "ease": "settled" }],
+          "weight": [{ "atMs": 0, "value": 0.5 }, { "atMs": 240, "value": 1, "ease": "sharp" }],
+          "tracking": [{ "atMs": 0, "value": 0.3 }, { "atMs": 420, "value": 0, "ease": "smooth" }]
+        },
+        "orientationOverrides": {              // optional complete spatial-track replacement
+          "vertical": {
+            "x": [{ "atMs": 0, "value": 0 }],
+            "y": [{ "atMs": 0, "value": -0.04 }],
+            "scale": [{ "atMs": 0, "value": 1.1 }],
+            "rotation": [{ "atMs": 0, "value": 0 }]
+          }
+        }
+      }
+    }
+  ],
+  "phrases": [
+    {
+      "id": "type-can-move",
+      "wordIds": ["type", "can", "move"], // semantic reading order only
+      "focalWordId": "move"
+    }
+  ]
+}
+```
+
+A field contains 1–16 unique words and 1–8 unique phrases. Each phrase references 1–8 unique, existing word ids. Its focal word must belong to the phrase and use `display` hierarchy. Kinetic Word ids share the Surface Block-id namespace with `surface.diagram[]` and `surface.chart.items[]`; Cascade `{ "block": id }` references resolve through that same authority. Removing a referenced word refuses rather than rewriting phrase or Cascade references. Switching to a non-`plain` Surface or enabling the Dimensional Stage also refuses while the field exists; Stage support is outside v1.
+
+The first word added through the GUI or `layer.add-kinetic-word` creates a valid parent field and phrase atomically; removing the last word removes the parent field. Every word occupies one full-clip Timeline row. `horizontalAnchor` pins the word's start, centre, or end edge to `position.x`, remains part of a complete orientation placement snapshot, and defaults to `center` when omitted. Placement pins ink, not the advance box: the renderer measures the active Pack face's outer side bearings and its ink-versus-line-box centre, so a `start` edge is one flush edge across `T`, `C`, and `M`, and `position.y` is the optical centre of the word under every Pack. An absent `animation` stays exactly static. Current authored channels are `opacity`, `reveal`, `x`, `y`, `scale`, `rotation`, normalized `weight`, and `tracking`; every track holds 1–24 strictly ordered keys and the first key carries no ease. X/Y remain composition-fraction deltas from resolved base placement, scale and rotation are absolute, and weight `[0,1]` maps through the active Pack's real variable face.
+
+`reveal` is the one mask a Kinetic Word owns: its own line box. The value is a glyph offset in mask heights — `0` at rest, `-1` fully hidden below the baseline edge, `1` fully hidden above the cap edge — so a word can rise out of nothing and leave through the top without ever crossing open frame. While a `reveal` track exists the word clips to that mask; without one it renders as one unclipped text run exactly as before. `tracking` is an em delta on the hierarchy's letter-spacing (`-0.2..1`), Pack-neutral because em follows the Pack face.
+
+`glyphStagger` is one number and one order on the word, never per-character tracks. Every grapheme plays the word's own shared `reveal` track delayed by `offsetMs` times its rank — `forward` reads left to right, `reverse` right to left, `center` blooms outward from the middle — so a letter-by-letter reveal stays word-level authoring. Glyphs stay inline text, so the Pack face still kerns across them; only the vertical mask offset is per glyph. Weight, tracking, opacity, and placement remain word-level.
+
+Opacity, reveal, weight, and tracking are always shared. Shared spatial tracks apply to both targets until a complete `horizontal` or `vertical` group replaces all four spatial tracks for that target. The Inspector and generalized keyframe Operations expose the same scope. Canvas drag or nudge at a nonzero playhead uses the atomic Kinetic Word position-key operation, preserving rest geometry and creating/updating X/Y in one undo entry. Motion Beats and beat-relative keys described by ADR-0064 remain outside the current wire schema.
+
 ### `overlays`
 
 ```jsonc
@@ -335,14 +397,14 @@ Ordered per-channel `keyframes[]` are the general motion form; the `enter`/`exit
 
 Keyframes:
 
-- `atMs` — milliseconds from the element's **resolved clip start** (welded-absolute: authored motion survives re-time without drift). Strictly ascending within a track; a declared track needs ≥ 1 keyframe.
+- `atMs` — milliseconds from the element's **resolved clip start** (welded-absolute: authored motion survives re-time without drift). Strictly ascending within a track; a declared track needs 1–24 keyframes.
 - `value` — per channel: `opacity` 0..1 · `x`/`y` signed composition-fraction **deltas** from the element's `position` anchor/offset · `scale` absolute 0.1..8, seeded from `position.scale` · `rotation` absolute degrees (unbounded — spins are legal), seeded from `position.rotation`.
 - `ease` — the constrained enum only (`smooth` | `settled` | `sharp` | `bouncy`), per segment. No bezier values. The first keyframe of a track carries none.
 - Surface channels are `opacity` only — surface transforms are camera territory (`stage.camera`).
 
 Cascade welds an element's **enter start** to another element's timing (milliseconds, not fractions — a 120 ms stagger stays 120 ms when the piece re-times):
 
-- `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` | `{ "block": id }` (the same identities the timeline rows use; `block` names a `surface.diagram[]` primitive or `surface.chart.items[]` Chart Block).
+- `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` | `{ "block": id }` (the same identities the timeline rows use; `block` names a `surface.diagram[]` primitive, `surface.chart.items[]` Chart Block, or `surface.typeField.words[]` Kinetic Word).
 - `event` — `"start"` | `"end"` of the anchor's enter.
 - `offsetMs` — signed milliseconds after (or before) the anchor event.
 - Allowed on `overlays[].animation`, `marks.timings[]` entries, `textAnimations[]` entries, and `surface.diagram[].animation`. A Chart Block may be an anchor through its intrinsic entry phase, but its five `ChartMotion` phases are not generalized keyframe channels and cannot carry Cascade. The surface is the timing root and carries no cascade.
@@ -370,7 +432,7 @@ Fields:
 
 - `id` — stable identity for Inspector selection and its Timeline track.
 - `target` — discriminated union: `{ kind: 'surface', slot }` for the active surface, `{ kind: 'overlay', overlayId, slot }` for an overlay slot.
-- `effect` — an id from `TEXT_EFFECT_CATALOG` (`soft-blur-in`, `per-character-rise`, `typewriter`, `bottom-up-letters`, `top-down-letters`, `stagger-from-center`, `stagger-from-edges`, `mask-reveal-up`, `line-by-line-slide`, `per-word-crossfade`, `spring-scale-in`, `depth-parallax-words`, `blur-out-up`, `shared-axis-y`, `kinetic-center-build`, `short-slide-right`, `short-slide-down`, `micro-scale-fade`, `fade-through`, `scale-down-fade`, `focus-blur-resolve`, `shimmer-sweep`, `shared-axis-x`, `shared-axis-z`).
+- `effect` — an id from the live `TEXT_EFFECT_CATALOG`; GUI and WebMCP choices derive from that registry. GFX-authored entries include `kerning-pop`, `bracket-pop`, and `weight-resolve` alongside the vendored set.
 - `enter` — required `Transition`. The compiler scales the effect's per-unit `duration_ms` / `stagger_ms` / `from` → `to` keyframes to fit this window.
 - `exit` — optional `Transition`. Without it the text stays visible until preset end.
 - `cascade` — optional [ADR-0035](adr/0035-generalized-keyframes-and-cascade.md) timing weld; when present it anchors this animation's enter start (see Animation). `enter.start` remains the fallback.
@@ -378,8 +440,9 @@ Fields:
 
 Parse-time validation:
 
-- `per-character` effects accept `title` / `kicker` / `lower-third.title` only.
-- Layout-aware renderers (`kinetic-center-build`, `kinetic-top-build`, `short-slide-right`, `short-slide-down`) accept title-scale slots only — they reflow the line as words push in.
+- `per-character` and catalog-declared `title_scale_only` effects accept `title` / `kicker` / overlay `title` or `kicker` only.
+- Layout-aware renderer families accept title-scale slots only because they reflow the line as words push in.
+- `weight-resolve` requires the active Pack's real `variable-weight-treatment` and a target Pipeline whose Identity accepts Pack typography. Its internal `font_weight_normalized` keyframes map `0` → Pack minimum, `0.5` → Pack rest, and `1` → Pack maximum; Preset JSON never carries raw `wght` coordinates.
 - A target slot may appear at most once in `textAnimations[]`.
 - `effect` must resolve in the catalog.
 
@@ -520,7 +583,8 @@ Pack immunity is declared by each Pipeline's Identity Spec and derived at runtim
 
 - **`paragraph`** — text run inside `content.body` (the bracket-tag string).
 - **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
-- **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
+- **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers.
+- **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0064](adr/0064-kinetic-type-word-fields.md)); static and orientation-specific placement, appearance, phrase semantics, Timeline identity, independently authored opacity/reveal/spatial/normalized-weight/tracking tracks, a bounded glyph stagger over the word's own line-box mask, nonzero-playhead direct manipulation, and shared GUI/WebMCP operations ship. Motion Beats and beat-relative keys remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
 
 ## Annotation styles
 

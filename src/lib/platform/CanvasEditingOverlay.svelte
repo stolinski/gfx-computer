@@ -48,6 +48,10 @@
 	} from './canvas-element-selection';
 	import { compositionEditHistory } from './composition-edit-history';
 	import {
+		runSetCompositionKineticWordPlacementOperation,
+		runSetCompositionKineticWordPositionKeyframeOperation
+	} from './composition-kinetic-type-operations';
+	import {
 		captureCompositionGestureOrigin,
 		recordCompositionGestureEdit
 	} from './composition-edit-transaction';
@@ -96,12 +100,17 @@
 		requestInspectorFocus,
 		setCanvasElementSelection
 	} from './selection.svelte';
+	import { timelineHandle } from './timeline-handle.svelte';
 	import {
 		createTimelineTrackId,
 		STAGE_SCREEN_BODY_ID,
 		type TimelineTrackIdentity
 	} from './timeline-entity-identity';
 	import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
+	import {
+		cloneKineticWordGeometry,
+		resolveKineticWordGeometry
+	} from '$lib/utils/kinetic-word-geometry';
 	import { clampNumber } from '$lib/utils/math';
 	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 	import type {
@@ -109,6 +118,8 @@
 		ChecklistItem,
 		DiagramLabel,
 		DiagramPrimitive,
+		KineticWord,
+		KineticWordGeometry,
 		Overlay,
 		OverlayPlacement
 	} from './engine-schema';
@@ -287,7 +298,9 @@
 		// A screen's glass is the Surface plane (ADR-0051 phase 2): the same
 		// opening and crop the renderer builds, so page hit-tests land on the tube.
 		const screenModel = stage.screen ? getStageModel(stage.screen.model) : null;
-		const screenGlass = screenModel ? resolveStageScreenGlass(aspect, screenModel.screen) : undefined;
+		const screenGlass = screenModel
+			? resolveStageScreenGlass(aspect, screenModel.screen)
+			: undefined;
 		return createStageProjector({
 			aspect,
 			camera: resolveStageCameraForOrientation(stage.camera, engineState.transport.orientation),
@@ -1066,6 +1079,19 @@
 		);
 	}
 
+	const kineticWordDraggables = $derived(engineState.surface.typeField?.words ?? []);
+
+	function kineticWordRelRect(
+		word: KineticWord
+	): { left: number; top: number; width: number; height: number } | null {
+		void measureEpoch;
+		void JSON.stringify(resolveKineticWordGeometry(word, engineState.transport.orientation));
+		const element = compositionElement?.querySelector<HTMLElement>(
+			`[data-kinetic-word="${CSS.escape(word.id)}"]`
+		);
+		return element ? projectRect(element) : null;
+	}
+
 	function blockRelRect(
 		primitive: DiagramPrimitive
 	): { left: number; top: number; width: number; height: number } | null {
@@ -1204,6 +1230,122 @@
 			window.removeEventListener('pointerup', onBlockPointerUp);
 			window.removeEventListener('pointercancel', onBlockPointerUp);
 		}
+	}
+
+	interface KineticWordDragState {
+		wordId: string;
+		scope: 'shared' | 'horizontal' | 'vertical';
+		expectedRevision: number;
+		startCompX: number;
+		startCompY: number;
+		origin: KineticWordGeometry;
+		target: KineticWordGeometry;
+		atMs: number;
+		originChannelX: number;
+		originChannelY: number;
+		snap: CanvasDragSnapGesture | null;
+	}
+
+	let kineticWordDrag: KineticWordDragState | null = null;
+
+	function removeKineticWordDragListeners(): void {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onKineticWordPointerMove);
+		window.removeEventListener('pointerup', commitKineticWordDrag);
+		window.removeEventListener('pointercancel', cancelKineticWordDrag);
+	}
+
+	function onKineticWordPointerDown(event: PointerEvent, word: KineticWord): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const start = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!start) return;
+		const orientation = engineState.transport.orientation;
+		const override = word.orientationOverrides?.[orientation];
+		const target: KineticWordGeometry = override ?? word;
+		const atMs = (timelineHandle.current?.time ?? 0) * 1000;
+		const writesMotion = atMs > 0;
+		const liveChannels = animState.kineticWordChannels[word.id];
+		kineticWordDrag = {
+			wordId: word.id,
+			scope: writesMotion ? orientation : override ? orientation : 'shared',
+			expectedRevision: compositionEditHistory.revision,
+			startCompX: start.x,
+			startCompY: start.y,
+			origin: cloneKineticWordGeometry(target),
+			target,
+			atMs: writesMotion ? atMs : 0,
+			originChannelX: liveChannels?.x ?? 0,
+			originChannelY: liveChannels?.y ?? 0,
+			snap: createCanvasDragSnapGesture(`block:${word.id}`, 'surface')
+		};
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', onKineticWordPointerMove);
+			window.addEventListener('pointerup', commitKineticWordDrag);
+			window.addEventListener('pointercancel', cancelKineticWordDrag);
+		}
+	}
+
+	function onKineticWordPointerMove(event: PointerEvent): void {
+		const drag = kineticWordDrag;
+		if (!drag) return;
+		const current = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!current) return;
+		const proposedDelta = {
+			x: current.x - drag.startCompX,
+			y: current.y - drag.startCompY
+		};
+		if (Math.abs(proposedDelta.x) < 0.0005 && Math.abs(proposedDelta.y) < 0.0005) return;
+		const delta = resolveCanvasGestureDelta(event, drag.snap, proposedDelta);
+		drag.target.position.x =
+			Math.round(clampNumber(drag.origin.position.x + delta.x, 0, 1) * 10000) / 10000;
+		drag.target.position.y =
+			Math.round(clampNumber(drag.origin.position.y + delta.y, 0, 1) * 10000) / 10000;
+	}
+
+	async function commitKineticWordDrag(): Promise<void> {
+		const drag = kineticWordDrag;
+		kineticWordDrag = null;
+		activeCanvasSnapGuides = [];
+		removeKineticWordDragListeners();
+		if (!drag) return;
+		const finalGeometry = cloneKineticWordGeometry(drag.target);
+		drag.target.position.x = drag.origin.position.x;
+		drag.target.position.y = drag.origin.position.y;
+		if (
+			finalGeometry.position.x === drag.origin.position.x &&
+			finalGeometry.position.y === drag.origin.position.y
+		) {
+			return;
+		}
+		if (drag.atMs > 0 && drag.scope !== 'shared') {
+			await runSetCompositionKineticWordPositionKeyframeOperation({
+				expectedRevision: drag.expectedRevision,
+				wordId: drag.wordId,
+				scope: drag.scope,
+				atMs: drag.atMs,
+				x: drag.originChannelX + (finalGeometry.position.x - drag.origin.position.x),
+				y: drag.originChannelY + (finalGeometry.position.y - drag.origin.position.y)
+			});
+			return;
+		}
+		await runSetCompositionKineticWordPlacementOperation({
+			expectedRevision: drag.expectedRevision,
+			wordId: drag.wordId,
+			scope: drag.scope,
+			geometry: finalGeometry
+		});
+	}
+
+	function cancelKineticWordDrag(): void {
+		const drag = kineticWordDrag;
+		kineticWordDrag = null;
+		activeCanvasSnapGuides = [];
+		removeKineticWordDragListeners();
+		if (!drag) return;
+		drag.target.position.x = drag.origin.position.x;
+		drag.target.position.y = drag.origin.position.y;
 	}
 
 	// ─── Diagram label text-box resize ───────────────────────────────────────────
@@ -1597,7 +1739,10 @@
 		}
 		if (selectionKey.startsWith('block:')) {
 			const blockId = selectionKey.slice('block:'.length);
-			if (diagramPrimitiveDraggables.some((primitive) => primitive.id === blockId)) {
+			if (
+				diagramPrimitiveDraggables.some((primitive) => primitive.id === blockId) ||
+				kineticWordDraggables.some((word) => word.id === blockId)
+			) {
 				selectLayer(createTimelineTrackId({ kind: 'block', blockId }));
 			}
 			return;
@@ -1644,6 +1789,11 @@
 		}
 		if (selectionKey.startsWith('block:')) {
 			const blockId = selectionKey.slice('block:'.length);
+			const word = kineticWordDraggables.find((candidate) => candidate.id === blockId);
+			if (word) {
+				onKineticWordPointerDown(event, word);
+				return;
+			}
 			const primitive = diagramPrimitiveDraggables.find((candidate) => candidate.id === blockId);
 			if (primitive) onBlockPointerDown(event, primitive);
 			return;
@@ -1705,6 +1855,52 @@
 		event.stopPropagation();
 		if (!canvasElementSelection.keys.includes(selectionKey)) {
 			selectSpatialCanvasElement(selectionKey, 'replace');
+		}
+		const identity = parseCanvasElementSelectionKey(selectionKey);
+		const kineticWord =
+			identity?.kind === 'block'
+				? kineticWordDraggables.find((word) => word.id === identity.id)
+				: undefined;
+		if (kineticWord && canvasElementSelection.keys.length === 1) {
+			const orientation = engineState.transport.orientation;
+			const geometry = cloneKineticWordGeometry(
+				resolveKineticWordGeometry(kineticWord, orientation)
+			);
+			const nativePixels = event.shiftKey ? 10 : 1;
+			const deltaX =
+				event.key === 'ArrowLeft'
+					? -nativePixels / Math.max(1, compositionSize.width)
+					: event.key === 'ArrowRight'
+						? nativePixels / Math.max(1, compositionSize.width)
+						: 0;
+			const deltaY =
+				event.key === 'ArrowUp'
+					? -nativePixels / Math.max(1, compositionSize.height)
+					: event.key === 'ArrowDown'
+						? nativePixels / Math.max(1, compositionSize.height)
+						: 0;
+			const atMs = (timelineHandle.current?.time ?? 0) * 1000;
+			if (atMs > 0) {
+				const channels = animState.kineticWordChannels[kineticWord.id];
+				void runSetCompositionKineticWordPositionKeyframeOperation({
+					expectedRevision: compositionEditHistory.revision,
+					wordId: kineticWord.id,
+					scope: orientation,
+					atMs,
+					x: (channels?.x ?? 0) + deltaX,
+					y: (channels?.y ?? 0) + deltaY
+				});
+				return true;
+			}
+			geometry.position.x = clampNumber(geometry.position.x + deltaX, 0, 1);
+			geometry.position.y = clampNumber(geometry.position.y + deltaY, 0, 1);
+			void runSetCompositionKineticWordPlacementOperation({
+				expectedRevision: compositionEditHistory.revision,
+				wordId: kineticWord.id,
+				scope: kineticWord.orientationOverrides?.[orientation] ? orientation : 'shared',
+				geometry
+			});
+			return true;
 		}
 		const selectionKeys = [...canvasElementSelection.keys];
 		const elements = selectedCanvasAlignableElements(selectionKeys);
@@ -1770,7 +1966,7 @@
 		} else {
 			sourceElement =
 				compositionElement?.querySelector<HTMLElement>(
-					`[data-diagram-primitive="${CSS.escape(identity.id)}"]`
+					`[data-diagram-primitive="${CSS.escape(identity.id)}"], [data-kinetic-word="${CSS.escape(identity.id)}"]`
 				) ?? null;
 		}
 		if (!sourceElement) return null;
@@ -2151,6 +2347,7 @@
 		window.removeEventListener('pointermove', onBlockPointerMove);
 		window.removeEventListener('pointerup', onBlockPointerUp);
 		window.removeEventListener('pointercancel', onBlockPointerUp);
+		removeKineticWordDragListeners();
 		removeTextBoxResizeListeners();
 		removeScaleListeners();
 		removeRotateListeners();
@@ -2418,6 +2615,57 @@
 						></button>
 					{/each}
 				{/if}
+			</div>
+		{/if}
+	{/each}
+	{#each kineticWordDraggables as word, wordIndex (word.id)}
+		{@const rect = kineticWordRelRect(word)}
+		{@const region = rect ? canvasHitRegion(rect) : null}
+		{@const selectionKey = `block:${word.id}` as CanvasElementSelectionKey}
+		{@const selectionIdentity = { kind: 'block', blockId: word.id } as const}
+		{@const selectionId = createTimelineTrackId(selectionIdentity)}
+		{#if region}
+			{@const isSelected = isCanvasElementSelected(selectionKey, selectionIdentity)}
+			{@const isPrimarySelected = isPrimaryCanvasElement(selectionKey, selectionIdentity)}
+			<div
+				class={[
+					'canvas-selection-target',
+					'overlay-hit',
+					'block-hit',
+					isSelected && 'canvas-selection-target--selected',
+					isPrimarySelected && 'canvas-selection-target--primary'
+				]}
+				data-canvas-selection-key={selectionKey}
+				data-canvas-selection-id={selectionId}
+				data-canvas-selection-layer="block"
+				data-canvas-paint-index={diagramPrimitiveDraggables.length + wordIndex}
+				data-canvas-stable-id={word.id}
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
+				role="button"
+				tabindex="0"
+				aria-label={`Move ${word.text}`}
+				aria-pressed={isSelected}
+				aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+				title={CANVAS_SELECTION_MODIFIER_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'block',
+					paintIndex: diagramPrimitiveDraggables.length + wordIndex,
+					stableId: word.id
+				})}
+			>
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
 			</div>
 		{/if}
 	{/each}

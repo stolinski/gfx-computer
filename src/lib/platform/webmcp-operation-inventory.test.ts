@@ -100,7 +100,9 @@ describe('WebMCP operation families', () => {
 			'appearance',
 			'motion',
 			'sound',
-			'media'
+			'media',
+			'validation',
+			'delivery'
 		]);
 		expect(
 			WEBMCP_OPERATION_FAMILIES.filter((family) => family.disclosure === 'internal').map(
@@ -247,6 +249,8 @@ describe('WebMCP operation inventory', () => {
 			'mark-present',
 			'text-animation-present',
 			'diagram-present',
+			'kinetic-word-addable',
+			'kinetic-word-present',
 			'chart-present',
 			'captions-present',
 			'chat-surface-active',

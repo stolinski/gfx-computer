@@ -165,6 +165,16 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 		}
 	}
 
+	// Static Kinetic Words occupy the whole clip until independent authored
+	// tracks land; they are still first-class Block anchors in this substrate.
+	for (const word of state.surface.typeField?.words ?? []) {
+		pending.set(`block:${word.id}`, {
+			baseStartFraction: 0,
+			durationFraction: 1,
+			cascade: undefined
+		});
+	}
+
 	// Chart Blocks use their required entry phase as the stable Block anchor.
 	// Their five intrinsic phases remain ordered inside the chart Pipeline; a
 	// Cascade may target this window but cannot rewrite chart-local phase order.

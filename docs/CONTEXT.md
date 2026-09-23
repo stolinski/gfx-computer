@@ -190,6 +190,24 @@ _Avoid_: chart layer, dashboard, data source, ingestion model, orientation-speci
 One factual statistical graphic rendered in the **Block Layer** with a stable Pipeline identity: `bar-chart`, `column-chart`, `unit-grid-chart`, or `dot-field-chart`. It owns explicit categories and series, factual domain or normalization, semantic targets for highlights and computed callouts, label visibility, a semantic fill role, and the five deterministic phases `entry`, `reveal`, `emphasis`, `annotation`, and `exit`. Shared layout reflows the same declaration at both native orientations; Packs own mark and chrome appearance but never values, geometry, or motion. Shipped in [ADR-0048](adr/0048-agent-authored-chart-domain.md).
 _Avoid_: chart (when the group or Pipeline identity matters), graph, visualization widget, canvas chart, Pack-specific chart variant.
 
+**Type Field**:
+A bounded Block group on a `plain` Surface that owns a stable Kinetic Word pool and ordered semantic phrases linked to Motion Beats. It preserves reading order and continuity while leaving every placement and track explicitly authored; it never auto-layouts the words.
+_Avoid_: kinetic type Surface, word cloud, text effect, scene, auto-layout.
+
+**Kinetic Word Block**:
+One stable word token in a Type Field, rendered in the Block Layer with independent normalized placement, a start/centre/end horizontal anchor, plus `x`, `y`, `scale`, `rotation`, `opacity`, `reveal`, `tracking`, and Pack-mapped variable `weight` channels, and an optional Glyph Stagger. Reusing its id across phrases is the continuity mechanism; v1 never expands it into per-character scene nodes.
+
+**Line-box Mask**:
+The one mask a Kinetic Word owns: its own line box, padded for overshoot. The `reveal` channel offsets the glyphs inside it in mask heights (`-1` hidden below, `0` at rest, `1` hidden above), so a word can rise out of nothing and leave through the top without crossing open frame. The mask exists only while a `reveal` track does.
+
+**Glyph Stagger**:
+One per-glyph delay and one order (`forward`, `reverse`, `center`) on a Kinetic Word. Every grapheme plays the word's own shared `reveal` track delayed by its rank, inline so the Pack face still kerns across glyphs. It is word-level authoring, never per-character tracks.
+_Avoid_: SplitText span, glyph node, text particle, animated label.
+
+**Motion Beat**:
+A named, bounded composition-time anchor at an exact millisecond. Tracks may address it with an offset and phrases may claim it as their readable moment, but the Beat owns no motion and does not replace authored keyframes.
+_Avoid_: marker (reserved for Resolve edit markers), cue (reserved for audio), scene, automatic timing.
+
 ### Pack model
 
 **Pack**:

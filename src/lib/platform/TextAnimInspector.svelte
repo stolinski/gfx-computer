@@ -5,9 +5,11 @@
 		TEXT_EFFECT_SPLIT_MODES,
 		type TextEffectSplitMode
 	} from '$lib/text-animations/catalog';
+	import { isTextEffectAvailableForTarget } from '$lib/text-animations/availability';
 
 	import CascadeSection from './CascadeSection.svelte';
-	import { engineState, removeTextAnimation } from './engine-state.svelte';
+	import { engineState, packState, removeTextAnimation } from './engine-state.svelte';
+	import { findPack } from './packs/registry';
 	import {
 		ENGINE_EASES,
 		type Ease,
@@ -29,13 +31,35 @@
 
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
 
-	const effectsByGroup: { mode: TextEffectSplitMode; items: { id: string; label: string }[] }[] =
-		TEXT_EFFECT_SPLIT_MODES.map((mode) => ({
+	const effectsByGroup = $derived.by(() => {
+		if (!entry)
+			return [] as { mode: TextEffectSplitMode; items: { id: string; label: string }[] }[];
+		const targetOverlayId = entry.target.kind === 'overlay' ? entry.target.overlayId : null;
+		const targetOverlay =
+			targetOverlayId === null
+				? null
+				: engineState.overlays.find((candidate) => candidate.id === targetOverlayId);
+		const pipelineKey =
+			entry.target.kind === 'surface'
+				? `surface:${engineState.surface.type}`
+				: targetOverlay
+					? `overlay:${targetOverlay.type}`
+					: null;
+		if (pipelineKey === null) return [];
+		const context = {
+			slotKey: entry.target.kind === 'surface' ? entry.target.slot : `overlay:${entry.target.slot}`,
+			pipelineKey,
+			pack: findPack(packState.slug)
+		};
+		return TEXT_EFFECT_SPLIT_MODES.map((mode) => ({
 			mode,
 			items: TEXT_EFFECT_IDS.map((id) => ({ id, spec: TEXT_EFFECT_CATALOG.get(id) }))
-				.filter(({ spec }) => spec?.target === mode)
+				.filter(
+					({ spec }) => spec?.target === mode && isTextEffectAvailableForTarget(spec, context)
+				)
 				.map(({ id, spec }) => ({ id, label: spec!.displayName }))
-		})).filter((g) => g.items.length > 0);
+		})).filter((group) => group.items.length > 0);
+	});
 
 	function setParam(e: TextAnimation, key: keyof TextAnimationParams, value: string): void {
 		const n = Number(value);

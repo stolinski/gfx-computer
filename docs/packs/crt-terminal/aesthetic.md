@@ -15,7 +15,7 @@ Preset against.
 > Pack contract is real.
 
 Register references: IBM 5151 monochrome display, DEC VT100, Apple II monitor,
-MU/TH/UR 6000 (*Alien*), WOPR terminals (*WarGames*). Period-*serious*, not
+MU/TH/UR 6000 (_Alien_), WOPR terminals (_WarGames_). Period-_serious_, not
 retro-game.
 
 ## Channel Voice
@@ -29,26 +29,26 @@ nothing is placed casually; everything aligns.
 ## Palette — one phosphor, several excitations
 
 Green phosphor (P1 family) on near-black glass. There is **one hue**; hierarchy
-comes from *intensity* (how hard the phosphor is driven), never from a second
+comes from _intensity_ (how hard the phosphor is driven), never from a second
 color. Resolved through the Pack manifest, never inline.
 
-| Role | Value | Use |
-|---|---|---|
-| substrate / glass | `#070b08` | near-black screen glass, faint green cast |
-| phosphor ink | `#45ff6e` | primary text and strokes — the driven phosphor |
-| hot core | `#d9ffe0` | white-green overdriven centers (title moments, cursor) |
-| dim phosphor | `#1e8f3d` | secondary text, rules, de-emphasised labels |
-| ghost | `#0f3a1c` | persistence residue, faint grid lines, dividers |
+| Role              | Value     | Use                                                    |
+| ----------------- | --------- | ------------------------------------------------------ |
+| substrate / glass | `#070b08` | near-black screen glass, faint green cast              |
+| phosphor ink      | `#45ff6e` | primary text and strokes — the driven phosphor         |
+| hot core          | `#d9ffe0` | white-green overdriven centers (title moments, cursor) |
+| dim phosphor      | `#1e8f3d` | secondary text, rules, de-emphasised labels            |
+| ghost             | `#0f3a1c` | persistence residue, faint grid lines, dividers        |
 
 - **Emissive, not printed:** light values glow on dark glass — the exact
   inversion of both reflective packs. The "ink" is the brightest thing in frame.
 - **No second hue.** No amber (adjacent to Syntax yellow), no cyan (Editorial
-  Mono's mark), no warm anything. Alerts/accents are *brighter or blinking*
+  Mono's mark), no warm anything. Alerts/accents are _brighter or blinking_
   phosphor, not a different color.
 
 ## Type System
 
-**Modern mono wearing the phosphor** — the period feel comes from the *material*
+**Modern mono wearing the phosphor** — the period feel comes from the _material_
 (glow, persistence, grid), never from pixelated glyphs. One family everywhere:
 the engine's mono stack (JetBrains Mono — already bundled for the Syntax
 kicker thread), all weights, generous tracking in caps for labels. Crisp at 4K;
@@ -58,6 +58,9 @@ long-body readability — rejected).
 - Titles: mono, hot-core intensity, optional character-grid reveal.
 - Body: phosphor ink, looser leading (scanlines need air between lines).
 - Labels/kickers: dim phosphor caps — the terminal's status-line voice.
+- Kinetic display motion uses `JetBrains Mono Variable` across its real 100–800
+  `wght` axis, with 600 as rest. The moving outline remains crisp; scanline and
+  phosphor material supply the period character, never stepped static cuts.
 
 ## Surface Treatment — the screen material
 
@@ -70,7 +73,7 @@ The defining structural inversions, and the roles they exercise:
   no torn fiber, no soft feather. The character grid is the only permissible
   edge texture.
 - **Grain is scanline.** The grain/material roles resolve to a subtle horizontal
-  scanline raster + faint phosphor triad shimmer *inside* element pixels — a
+  scanline raster + faint phosphor triad shimmer _inside_ element pixels — a
   screen texture, not paper tooth. Low contrast; visible at pause, invisible in
   motion.
 - **Persistence.** Phosphor decay is the pack's signature material behavior:
@@ -88,7 +91,7 @@ The defining structural inversions, and the roles they exercise:
 - **Opaque segments/bumpers:** the pack's chrome appends the physical
   `crt-tube` effect — a flat-glass beam raster (gaussian scanlines that swell
   on bright strokes), subtle shadow-mask texture, rounded-glass bezel with
-  inner shadow, and bright-pass halation — the whole frame *is* the terminal.
+  inner shadow, and bright-pass halation — the whole frame _is_ the terminal.
   The chrome dial must keep small dim-phosphor text above the G5 floor and
   hairline form dress must span ≥1 raster pitch or the beam nulls it.
 - **No curvature, ever.** Barrel distortion fights composition geometry,
@@ -102,11 +105,11 @@ A subset of the shared vocabulary, biased to the machine end: **type-on /
 character reveal** (the native terminal entrance), **sharp snaps** (`sharp`
 ease — instant excitation, phosphor-decay settle), **stroke-draw** (a plotter
 sweep), cursor-blink beats as punctuation. Phosphor persistence gives exits
-their character: elements *decay* rather than slide away. Avoid: bouncy,
+their character: elements _decay_ rather than slide away. Avoid: bouncy,
 tape-down, settled-place paper physics, anything hand-made or jittery — a
 machine does not wobble.
 
-## Anti-Aesthetic — what CRT Terminal is *not*
+## Anti-Aesthetic — what CRT Terminal is _not_
 
 - Not retro-game kitsch: no bitmap/pixel fonts, no CP437 box-art, no rainbow
   ANSI palettes, no chromatic "glitch" abuse.

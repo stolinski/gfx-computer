@@ -37,6 +37,7 @@ import {
 	SOUND_EVENTS,
 	type Captions,
 	type CaptionCue,
+	type KineticPhrase,
 	type Ease,
 	type SoundOverride
 } from './engine-schema';
@@ -73,6 +74,10 @@ import {
 	runSetCompositionSurfaceContentOperation,
 	SURFACE_CONTENT_SLOTS
 } from './composition-content-operations';
+import {
+	runSetCompositionKineticPhrasesOperation,
+	runSetCompositionKineticWordTextOperation
+} from './composition-kinetic-type-operations';
 import {
 	webmcpClearableTextProperty,
 	webmcpDerivedEnumProperty,
@@ -412,6 +417,44 @@ function readDiagramPrimitiveContent(args: unknown): DiagramPrimitiveContentPatc
 	return patch;
 }
 
+function kineticPhraseProperty(): WebmcpSchemaProperty {
+	return {
+		type: 'object',
+		description: 'One semantic phrase in reading order.',
+		properties: {
+			id: webmcpEntityIdProperty('The phrase identity, unique in this Type Field.'),
+			wordIds: {
+				type: 'array',
+				description: 'Kinetic Word ids in the order the phrase reads.',
+				items: webmcpEntityIdProperty('One Kinetic Word id.'),
+				minItems: 1,
+				maxItems: 8
+			},
+			focalWordId: webmcpEntityIdProperty('The display-hierarchy word with focal authority.')
+		},
+		required: ['id', 'wordIds', 'focalWordId'],
+		additionalProperties: false
+	};
+}
+
+function readKineticPhrases(args: unknown): readonly KineticPhrase[] {
+	return readWebmcpRecordArrayArgument(args, 'phrases').map((phrase, phraseIndex) => {
+		const rawWordIds = phrase.wordIds;
+		if (!Array.isArray(rawWordIds) || rawWordIds.some((wordId) => typeof wordId !== 'string')) {
+			throw new WebmcpArgumentError(
+				'invalid_argument',
+				`"phrases[${phraseIndex}].wordIds" must be an array of Kinetic Word ids.`,
+				{ rejected: JSON.stringify(rawWordIds) }
+			);
+		}
+		return {
+			id: readWebmcpStringArgument(phrase, 'id'),
+			wordIds: rawWordIds,
+			focalWordId: readWebmcpStringArgument(phrase, 'focalWordId')
+		};
+	});
+}
+
 export function listWebmcpContentToolDefinitions(): readonly WebmcpToolDefinition[] {
 	return [
 		{
@@ -554,6 +597,57 @@ export function listWebmcpContentToolDefinitions(): readonly WebmcpToolDefinitio
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						blockId: readWebmcpStringArgument(args, 'blockId'),
 						content: readDiagramPrimitiveContent(args)
+					})
+				)
+		},
+		{
+			operationId: 'content.set-kinetic-word-text',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					wordId: webmcpEntityIdProperty('The Kinetic Word Block to write.'),
+					text: {
+						type: 'string',
+						description: 'One trimmed word token, with punctuation attached.',
+						minLength: 1,
+						maxLength: 64
+					}
+				},
+				required: ['expectedRevision', 'wordId', 'text'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('content.set-kinetic-word-text', () =>
+					runSetCompositionKineticWordTextOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						wordId: readWebmcpStringArgument(args, 'wordId'),
+						text: readWebmcpStringArgument(args, 'text')
+					})
+				)
+		},
+		{
+			operationId: 'content.set-kinetic-phrases',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					phrases: {
+						type: 'array',
+						description: 'Every semantic phrase, in sequence order.',
+						items: kineticPhraseProperty(),
+						minItems: 1,
+						maxItems: 8
+					}
+				},
+				required: ['expectedRevision', 'phrases'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('content.set-kinetic-phrases', () =>
+					runSetCompositionKineticPhrasesOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						phrases: readKineticPhrases(args)
 					})
 				)
 		},

@@ -67,9 +67,9 @@ const UNIT_COUNT = 4; // 4 representative units for the snapshot
 describe('text animation compile shapes', () => {
 	it('exposes qualified text-effect vocabulary without changing catalog ids', () => {
 		const gfxEffectIds = Object.keys(GFX_TEXT_EFFECT_MODULES);
-		assert.deepEqual(gfxEffectIds, ['kerning-pop', 'bracket-pop']);
-		assert.equal(TEXT_EFFECT_IDS.length, 26);
-		assert.deepEqual(TEXT_EFFECT_IDS.slice(-2), gfxEffectIds);
+		assert.deepEqual(gfxEffectIds, ['kerning-pop', 'bracket-pop', 'weight-resolve']);
+		assert.equal(TEXT_EFFECT_IDS.length, 27);
+		assert.deepEqual(TEXT_EFFECT_IDS.slice(-3), gfxEffectIds);
 		assert.deepEqual(TEXT_EFFECT_IDS, [...TEXT_EFFECT_CATALOG.keys()]);
 
 		const spec = resolveTextEffectSpec({
@@ -79,6 +79,13 @@ describe('text animation compile shapes', () => {
 			enter: { start: 0.1, duration: 0.2, ease: 'smooth' }
 		});
 		assert.equal(spec?.id, 'soft-blur-in');
+
+		const weightResolve = TEXT_EFFECT_CATALOG.get('weight-resolve');
+		assert.equal(weightResolve?.target, 'per-word');
+		assert.equal(weightResolve?.titleScaleOnly, true);
+		assert.equal(weightResolve?.requiresVariableWeight, true);
+		assert.equal(weightResolve?.enter.from.font_weight_normalized, 0);
+		assert.equal(weightResolve?.enter.to.font_weight_normalized, 0.5);
 	});
 
 	it('pins every catalog effect across representative progress points', async () => {

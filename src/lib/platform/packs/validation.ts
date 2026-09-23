@@ -14,6 +14,10 @@ import {
 	validatePackRoleContractRegistry
 } from './role-contract-registry';
 import { PACK_SLUG_PATTERN, type PackFont, type PackManifest } from './types';
+import {
+	resolveVariableWeightTreatment,
+	VARIABLE_WEIGHT_TREATMENT_ROLE
+} from './variable-weight-treatment';
 
 export interface PackValidationIssue {
 	pack: string;
@@ -502,6 +506,43 @@ export function validatePackManifest(
 		}
 	}
 
+	const variableWeight = resolveVariableWeightTreatment(manifest);
+	if (variableWeight !== null) {
+		const family = firstFontFamily(variableWeight.fontFamily);
+		const declaration = manifest.fonts?.find((font) => font.family === family);
+		if (!declaredFamilies.has(family) || declaration === undefined) {
+			issues.push({
+				pack: registryKey,
+				path: ['roles', VARIABLE_WEIGHT_TREATMENT_ROLE, 'fontFamily'],
+				kind: 'undeclared-font-family',
+				message: `Pack role "${VARIABLE_WEIGHT_TREATMENT_ROLE}" names "${family}" first, but manifest.fonts does not declare that variable family`
+			});
+		} else {
+			if ((declaration.style ?? 'normal') !== 'normal') {
+				issues.push({
+					pack: registryKey,
+					path: ['roles', VARIABLE_WEIGHT_TREATMENT_ROLE, 'fontFamily'],
+					kind: 'invalid-font-declaration',
+					message: `Variable-weight family "${family}" must declare the normal style because the text-animation writer does not synthesize or force a slant`
+				});
+			}
+			const declaredWeights = new Set(declaration.weights ?? [400]);
+			for (const [coordinate, weight] of [
+				['minimum', variableWeight.minimum],
+				['rest', variableWeight.rest],
+				['maximum', variableWeight.maximum]
+			] as const) {
+				if (declaredWeights.has(weight)) continue;
+				issues.push({
+					pack: registryKey,
+					path: ['roles', VARIABLE_WEIGHT_TREATMENT_ROLE, coordinate],
+					kind: 'invalid-font-declaration',
+					message: `Variable weight ${coordinate} ${weight} is not listed in manifest.fonts for "${family}", so capture would not preload it`
+				});
+			}
+		}
+	}
+
 	appendChartMarkFillIssues(registryKey, manifest, issues);
 	appendChromeIssues(registryKey, manifest, issues);
 	return issues;
@@ -592,6 +633,27 @@ export function validateUserPackFontClaims(
 				path: weightPath,
 				kind: 'unavailable-google-fonts-cut',
 				message: `Pack font "${font.family}" claims weight ${weight} (${style}), but Google Fonts ${describeShippedWeights(resolution.availableWeights, resolution.weightAxis)} — never synthesize a cut`
+			});
+		}
+	}
+
+	const variableWeight = resolveVariableWeightTreatment(manifest);
+	if (variableWeight !== null) {
+		const family = firstFontFamily(variableWeight.fontFamily);
+		const weightAxis = catalog.families[family]?.axes.find((axis) => axis.tag === 'wght');
+		if (
+			weightAxis === undefined ||
+			variableWeight.minimum < weightAxis.min ||
+			variableWeight.maximum > weightAxis.max
+		) {
+			issues.push({
+				pack: manifest.slug,
+				path: ['roles', VARIABLE_WEIGHT_TREATMENT_ROLE],
+				kind: 'unavailable-google-fonts-cut',
+				message:
+					weightAxis === undefined
+						? `Variable-weight family "${family}" has no real wght axis in the vendored Google Fonts catalog`
+						: `Variable-weight range ${variableWeight.minimum}–${variableWeight.maximum} exceeds "${family}"'s real Google Fonts wght axis ${weightAxis.min}–${weightAxis.max}`
 			});
 		}
 	}

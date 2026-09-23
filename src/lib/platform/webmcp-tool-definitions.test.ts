@@ -295,6 +295,14 @@ describe('WebMCP state-aware discovery', () => {
 		expect(summary.registered.length).toBeLessThanOrEqual(WEBMCP_ALWAYS_REGISTERED_CEILING);
 	});
 
+	it('offers Kinetic Word creation only where the current Surface can accept it', async () => {
+		openEditableComposition();
+		expect(readWebmcpCompositionPreconditions()['kinetic-word-addable']).toBe(true);
+
+		engineState.surface.type = 'paper';
+		expect(readWebmcpCompositionPreconditions()['kinetic-word-addable']).toBe(false);
+	});
+
 	it('hides the shared history until there is an edit to replay', async () => {
 		compositionMeta.userCompositionSlug = 'untitled';
 		compositionMeta.isUserComposition = true;
@@ -536,6 +544,7 @@ describe('WebMCP validation and delivery', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'validation');
 
 		const result = await host.call(rowFor('validation.inspect-findings').toolName, {});
 
@@ -560,6 +569,7 @@ describe('WebMCP validation and delivery', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'delivery');
 
 		const result = await host.call(rowFor('delivery.export-video').toolName, {
 			expectedRevision: compositionEditHistory.revision
@@ -584,6 +594,7 @@ describe('WebMCP validation and delivery', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'delivery');
 
 		const result = await host.call(rowFor('delivery.export-video').toolName, {
 			expectedRevision: compositionEditHistory.revision

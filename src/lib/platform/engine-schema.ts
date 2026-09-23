@@ -184,10 +184,16 @@ export interface Keyframe {
 // is a 0..1 fraction; x/y are signed composition-fraction deltas; scale
 // mirrors the static field's 0.1..8; rotation is unbounded degrees so authored
 // spins stay expressible).
+export const COMPOSITION_KEYFRAME_LIMIT = 24;
+
 function createKeyframeTrackSchema(value: z.ZodType<number>) {
 	return z
 		.array(z.strictObject({ atMs: z.number().min(0), value, ease: EaseSchema.optional() }))
 		.min(1, 'A declared channel needs at least one keyframe.')
+		.max(
+			COMPOSITION_KEYFRAME_LIMIT,
+			`A channel holds at most ${COMPOSITION_KEYFRAME_LIMIT} keyframes.`
+		)
 		.superRefine((frames, ctx) => {
 			if (frames.length > 0 && frames[0].ease !== undefined) {
 				ctx.addIssue({
@@ -295,6 +301,7 @@ export const AnnotationMarkStyleSchema = z.enum([
 
 export const BlockTypeSchema = z.enum([
 	'paragraph',
+	'kinetic-word',
 	'node',
 	'edge-arrow',
 	'label',
@@ -729,6 +736,215 @@ export type DiagramStatCallout = z.infer<typeof DiagramStatCalloutSchema>;
 export type DiagramTimelineSegment = z.infer<typeof DiagramTimelineSegmentSchema>;
 export type DiagramPrimitive = z.infer<typeof DiagramPrimitiveSchema>;
 
+// ---- Kinetic Type Field (ADR-0064) ----
+// A bounded group of first-class word Blocks carried only by the plain Surface.
+// Phrases declare semantic reading order; placement remains completely authored
+// and never flows from phrase membership. Motion channels and named Beats land
+// additively in the following kinetic-type tasks.
+export const KINETIC_TYPE_WORD_LIMIT = 16;
+export const KINETIC_TYPE_PHRASE_LIMIT = 8;
+export const KINETIC_TYPE_PHRASE_WORD_LIMIT = 8;
+export const KINETIC_TYPE_WORD_CODE_POINT_LIMIT = 32;
+/** Largest per-glyph delay one Kinetic Word may stagger its masked reveal by. */
+export const KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS = 120;
+/**
+ * `reveal` is a glyph offset inside the word's own line-box mask, in mask
+ * heights: 0 at rest, -1 fully hidden below the baseline edge, +1 fully hidden
+ * above the cap edge. It is the one mask GFX Kinetic Words own.
+ */
+export const KINETIC_WORD_REVEAL_LIMIT = 1;
+/** `tracking` is an em delta on the hierarchy's letter-spacing, Pack-neutral by construction. */
+export const KINETIC_WORD_TRACKING_RANGE = { min: -0.2, max: 1 } as const;
+
+const KineticWordTextSchema = z
+	.string()
+	.min(1, 'Kinetic Word text must not be empty')
+	.refine((value) => value === value.trim(), 'Kinetic Word text must be trimmed')
+	.refine((value) => /^\S+$/u.test(value), 'Kinetic Word text must be one word token')
+	.refine(
+		(value) => [...value].length <= KINETIC_TYPE_WORD_CODE_POINT_LIMIT,
+		`Kinetic Word text must not exceed ${KINETIC_TYPE_WORD_CODE_POINT_LIMIT} Unicode code points`
+	);
+
+export const KineticWordHierarchySchema = z.enum(['display', 'support']);
+export const KINETIC_WORD_HIERARCHIES = KineticWordHierarchySchema.options;
+export const KineticWordInkSchema = z.enum(['ink', 'accent']);
+export const KINETIC_WORD_INK_ROLES = KineticWordInkSchema.options;
+export const KineticWordHorizontalAnchorSchema = z.enum(['start', 'center', 'end']);
+export const KINETIC_WORD_HORIZONTAL_ANCHORS = KineticWordHorizontalAnchorSchema.options;
+export const KineticWordGlyphStaggerOrderSchema = z.enum(['forward', 'reverse', 'center']);
+export const KINETIC_WORD_GLYPH_STAGGER_ORDERS = KineticWordGlyphStaggerOrderSchema.options;
+
+// A glyph stagger is one number and one order on the word, never per-character
+// tracks: every glyph plays the word's own `reveal` track, delayed by its rank.
+// Kerning survives because glyphs stay inline; only the vertical mask offset
+// is per glyph.
+export const KineticWordGlyphStaggerSchema = z.strictObject({
+	offsetMs: z.number().int().min(0).max(KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS),
+	order: KineticWordGlyphStaggerOrderSchema
+});
+
+export const KineticWordGeometrySchema = z.strictObject({
+	position: DiagramPointSchema,
+	/** Which horizontal word edge the normalized position pins; omitted means center. */
+	horizontalAnchor: KineticWordHorizontalAnchorSchema.optional(),
+	scale: z.number().finite().min(0.25).max(4),
+	rotation: z.number().finite().min(-180).max(180)
+});
+
+// Kinetic Words reuse ADR-0035's channel grammar. Shared opacity and semantic
+// weight survive both targets; one complete orientation group may replace the
+// shared spatial path when a tall-frame recomposition needs different motion.
+const KineticWordSpatialChannelKeyframesSchema = z.strictObject({
+	x: createKeyframeTrackSchema(z.number()).optional(),
+	y: createKeyframeTrackSchema(z.number()).optional(),
+	scale: createKeyframeTrackSchema(z.number().min(0.25).max(4)).optional(),
+	rotation: createKeyframeTrackSchema(z.number().min(-180).max(180)).optional()
+});
+
+const KineticWordChannelKeyframesSchema = z.strictObject({
+	opacity: createKeyframeTrackSchema(FractionSchema).optional(),
+	reveal: createKeyframeTrackSchema(
+		z.number().min(-KINETIC_WORD_REVEAL_LIMIT).max(KINETIC_WORD_REVEAL_LIMIT)
+	).optional(),
+	...KineticWordSpatialChannelKeyframesSchema.shape,
+	weight: createKeyframeTrackSchema(FractionSchema).optional(),
+	tracking: createKeyframeTrackSchema(
+		z.number().min(KINETIC_WORD_TRACKING_RANGE.min).max(KINETIC_WORD_TRACKING_RANGE.max)
+	).optional()
+});
+
+const KineticWordAnimationSchema = z
+	.strictObject({
+		channels: KineticWordChannelKeyframesSchema.optional(),
+		orientationOverrides: z
+			.strictObject({
+				horizontal: KineticWordSpatialChannelKeyframesSchema.optional(),
+				vertical: KineticWordSpatialChannelKeyframesSchema.optional()
+			})
+			.optional()
+	})
+	.superRefine((animation, ctx) => {
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			const channels = animation.orientationOverrides?.[orientation];
+			if (!channels) continue;
+			const declared = KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS.filter(
+				(channel) => channels[channel] !== undefined
+			);
+			if (declared.length !== KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS.length) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['orientationOverrides', orientation],
+					message: `A ${orientation} Kinetic Word spatial-track override must declare x, y, scale, and rotation as one complete group.`
+				});
+			}
+		}
+	});
+
+export const KineticWordSchema = z.strictObject({
+	type: z.literal('kinetic-word'),
+	id: z.string().min(1),
+	text: KineticWordTextSchema,
+	hierarchy: KineticWordHierarchySchema,
+	ink: KineticWordInkSchema,
+	position: KineticWordGeometrySchema.shape.position,
+	horizontalAnchor: KineticWordGeometrySchema.shape.horizontalAnchor,
+	scale: KineticWordGeometrySchema.shape.scale,
+	rotation: KineticWordGeometrySchema.shape.rotation,
+	orientationOverrides: z
+		.strictObject({
+			horizontal: KineticWordGeometrySchema.optional(),
+			vertical: KineticWordGeometrySchema.optional()
+		})
+		.optional(),
+	glyphStagger: KineticWordGlyphStaggerSchema.optional(),
+	animation: KineticWordAnimationSchema.optional()
+});
+
+const KineticPhraseSchema = z.strictObject({
+	id: z.string().min(1),
+	wordIds: z.array(z.string().min(1)).min(1).max(KINETIC_TYPE_PHRASE_WORD_LIMIT),
+	focalWordId: z.string().min(1)
+});
+
+export const KineticTypeFieldSchema = z
+	.strictObject({
+		words: z.array(KineticWordSchema).min(1).max(KINETIC_TYPE_WORD_LIMIT),
+		phrases: z.array(KineticPhraseSchema).min(1).max(KINETIC_TYPE_PHRASE_LIMIT)
+	})
+	.superRefine((field, ctx) => {
+		const wordIds = new Set<string>();
+		for (const [index, word] of field.words.entries()) {
+			if (wordIds.has(word.id)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['words', index, 'id'],
+					message: `Duplicate Type Field word id "${word.id}".`
+				});
+			}
+			wordIds.add(word.id);
+		}
+
+		const phraseIds = new Set<string>();
+		for (const [phraseIndex, phrase] of field.phrases.entries()) {
+			if (phraseIds.has(phrase.id)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['phrases', phraseIndex, 'id'],
+					message: `Duplicate Type Field phrase id "${phrase.id}".`
+				});
+			}
+			phraseIds.add(phrase.id);
+
+			const phraseWordIds = new Set<string>();
+			for (const [wordIndex, wordId] of phrase.wordIds.entries()) {
+				if (!wordIds.has(wordId)) {
+					ctx.addIssue({
+						code: 'custom',
+						path: ['phrases', phraseIndex, 'wordIds', wordIndex],
+						message: `Phrase "${phrase.id}" references missing Kinetic Word "${wordId}".`
+					});
+				}
+				if (phraseWordIds.has(wordId)) {
+					ctx.addIssue({
+						code: 'custom',
+						path: ['phrases', phraseIndex, 'wordIds', wordIndex],
+						message: `Phrase "${phrase.id}" references Kinetic Word "${wordId}" more than once.`
+					});
+				}
+				phraseWordIds.add(wordId);
+			}
+			if (!phraseWordIds.has(phrase.focalWordId)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['phrases', phraseIndex, 'focalWordId'],
+					message: `Phrase "${phrase.id}" focalWordId must name one of its wordIds.`
+				});
+			}
+		}
+	});
+
+export type KineticWordGeometry = z.infer<typeof KineticWordGeometrySchema>;
+export type KineticWordHorizontalAnchor = z.infer<typeof KineticWordHorizontalAnchorSchema>;
+export type KineticWordHierarchy = z.infer<typeof KineticWordHierarchySchema>;
+export type KineticWordInk = z.infer<typeof KineticWordInkSchema>;
+export type KineticWordGlyphStagger = z.infer<typeof KineticWordGlyphStaggerSchema>;
+export type KineticWordGlyphStaggerOrder = z.infer<typeof KineticWordGlyphStaggerOrderSchema>;
+export type KineticWordSpatialChannelKeyframes = z.infer<
+	typeof KineticWordSpatialChannelKeyframesSchema
+>;
+export type KineticWordChannelKeyframes = z.infer<typeof KineticWordChannelKeyframesSchema>;
+export type KineticWordAnimation = z.infer<typeof KineticWordAnimationSchema>;
+export const KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS: readonly (keyof KineticWordSpatialChannelKeyframes)[] =
+	Object.keys(
+		KineticWordSpatialChannelKeyframesSchema.shape
+	) as (keyof KineticWordSpatialChannelKeyframes)[];
+export const KINETIC_WORD_KEYFRAME_CHANNELS: readonly (keyof KineticWordChannelKeyframes)[] =
+	Object.keys(KineticWordChannelKeyframesSchema.shape) as (keyof KineticWordChannelKeyframes)[];
+export type KineticWord = z.infer<typeof KineticWordSchema>;
+export type KineticPhrase = z.infer<typeof KineticPhraseSchema>;
+export type KineticTypeField = z.infer<typeof KineticTypeFieldSchema>;
+
 // Chart Blocks (ADR-0048): one strict inline declaration shared by agents and
 // the GUI. Structural parsing owns wire shape only; cross-field factual rules
 // live in chart-validation.ts so every ingress reports precise semantic paths.
@@ -1066,7 +1282,10 @@ const SurfaceSchema = z.object({
 	// Chart Blocks (ADR-0048) share one strict group across agent and GUI
 	// authoring. Rendering remains in the Block Layer; this is Surface-carried
 	// content, not a sixth Layer or a parallel chart document model.
-	chart: ChartGroupSchema.optional()
+	chart: ChartGroupSchema.optional(),
+	// A Type Field is a bounded group of first-class Kinetic Word Blocks plus
+	// semantic phrases. Only the plain Surface may carry it (semantic gate).
+	typeField: KineticTypeFieldSchema.optional()
 });
 
 /**
@@ -1221,7 +1440,7 @@ const CompositionTransitionSchema = z.object({
 // Slot enums match the surface / overlay content slots GFX ships today plus
 // the chrome-only kicker slot the newspaper surface added in ADR-0008. The
 // `target` discriminated union is parsed at load time; the rules below
-// (per-character → title-scale; layout-aware renderer → title-scale) are
+// (per-character/title-scale-only → title-scale; layout-aware renderer → title-scale) are
 // enforced as a `superRefine` validator so the failure messages reach the
 // preset author with a path-indexed string from `parsePreset`.
 const SurfaceSlotSchema = z.enum([
@@ -1339,11 +1558,14 @@ const TextAnimationsSchema = z
 
 			const slotKey = targetSlotKey(entry.target);
 
-			if (spec.target === 'per-character' && !TEXT_ANIMATION_TITLE_SCALE_SLOTS.has(slotKey)) {
+			if (
+				(spec.target === 'per-character' || spec.titleScaleOnly) &&
+				!TEXT_ANIMATION_TITLE_SCALE_SLOTS.has(slotKey)
+			) {
 				ctx.addIssue({
 					code: 'custom',
 					path: [i, 'target', 'slot'],
-					message: `Per-character effect "${entry.effect}" can only target title-scale slots (title, kicker, overlay title/kicker). Slot "${slotKey}" is body-scale.`
+					message: `${spec.target === 'per-character' ? 'Per-character' : 'Title-scale-only'} effect "${entry.effect}" can only target title-scale slots (title, kicker, overlay title/kicker). Slot "${slotKey}" is body-scale.`
 				});
 			}
 
@@ -1732,7 +1954,11 @@ export const EngineStateSchema = z
 				});
 			}
 		}
-		const blockIds = new Set([...diagramBlockIds, ...chartItems.map((chartItem) => chartItem.id)]);
+		const blockIds = new Set([
+			...diagramBlockIds,
+			...chartItems.map((chartItem) => chartItem.id),
+			...(state.surface.typeField?.words ?? []).map((word) => word.id)
+		]);
 
 		for (const edge of edges.values()) {
 			const anchor = edge.anchor;
@@ -1761,7 +1987,7 @@ export const EngineStateSchema = z
 				ctx.addIssue({
 					code: 'custom',
 					path: [...edge.path, 'anchor'],
-					message: `cascade.anchor block "${anchor.block}" does not match any surface.diagram[].id or surface.chart.items[].id.`
+					message: `cascade.anchor block "${anchor.block}" does not match any surface.diagram[].id, surface.chart.items[].id, or surface.typeField.words[].id.`
 				});
 			}
 		}

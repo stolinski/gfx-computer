@@ -977,6 +977,227 @@ describe('stage camera pose and travel (ADR-0057)', () => {
 	});
 });
 
+describe('Kinetic Type Field structure (ADR-0064)', () => {
+	function kineticWord(id: string, text = 'TYPE'): Record<string, unknown> {
+		return {
+			type: 'kinetic-word',
+			id,
+			text,
+			hierarchy: 'display',
+			ink: 'accent',
+			position: { x: 0.5, y: 0.5 },
+			horizontalAnchor: 'start',
+			scale: 1,
+			rotation: 0,
+			orientationOverrides: {
+				vertical: {
+					position: { x: 0.45, y: 0.62 },
+					horizontalAnchor: 'end',
+					scale: 1.2,
+					rotation: -5
+				}
+			}
+		};
+	}
+
+	function typeFieldState(field: Record<string, unknown>): WireState {
+		const state = baseState();
+		state.surface = { type: 'plain', content: { body: '' }, typeField: field };
+		return state;
+	}
+
+	it('accepts bounded words, semantic phrase order, and complete orientation snapshots', () => {
+		const state = typeFieldState({
+			words: [kineticWord('type'), { ...kineticWord('moves', 'MOVES'), hierarchy: 'support' }],
+			phrases: [{ id: 'opening', wordIds: ['type', 'moves'], focalWordId: 'type' }]
+		});
+
+		expectValid(state, 'valid Type Field');
+		assert.equal(BlockTypeSchema.safeParse('kinetic-word').success, true);
+	});
+
+	it('rejects a handwritten Kinetic Word horizontal anchor', () => {
+		const word = kineticWord('type');
+		word.horizontalAnchor = 'left';
+		const result = EngineStateSchema.safeParse(
+			typeFieldState({
+				words: [word],
+				phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+			})
+		);
+		assert.equal(result.success, false);
+	});
+
+	it('accepts shared channels plus a complete orientation spatial-track replacement', () => {
+		const word = kineticWord('type');
+		word.animation = {
+			channels: {
+				opacity: [
+					{ atMs: 0, value: 0 },
+					{ atMs: 240, value: 1, ease: 'sharp' }
+				],
+				weight: [
+					{ atMs: 0, value: 0.5 },
+					{ atMs: 180, value: 1, ease: 'sharp' }
+				]
+			},
+			orientationOverrides: {
+				vertical: {
+					x: [{ atMs: 0, value: 0 }],
+					y: [{ atMs: 0, value: 0.08 }],
+					scale: [{ atMs: 0, value: 1.2 }],
+					rotation: [{ atMs: 0, value: -5 }]
+				}
+			}
+		};
+		expectValid(
+			typeFieldState({
+				words: [word],
+				phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+			}),
+			'animated Kinetic Word'
+		);
+	});
+
+	it('accepts masked reveal, tracking, and a bounded glyph stagger; rejects glyphs past the ceiling', () => {
+		const word = kineticWord('type');
+		word.glyphStagger = { offsetMs: 36, order: 'center' };
+		word.animation = {
+			channels: {
+				reveal: [
+					{ atMs: 0, value: -1 },
+					{ atMs: 420, value: 0, ease: 'sharp' }
+				],
+				tracking: [
+					{ atMs: 0, value: 0.4 },
+					{ atMs: 420, value: 0, ease: 'smooth' }
+				]
+			}
+		};
+		const phrases = [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }];
+		expectValid(typeFieldState({ words: [word], phrases }), 'masked, tracked, staggered word');
+
+		const overshoot = kineticWord('type');
+		overshoot.animation = { channels: { reveal: [{ atMs: 0, value: 1.5 }] } };
+		expectIssue(typeFieldState({ words: [overshoot], phrases }), '<=1', 'reveal past the mask');
+
+		const tooSlow = kineticWord('type');
+		tooSlow.glyphStagger = { offsetMs: 121, order: 'forward' };
+		expectIssue(typeFieldState({ words: [tooSlow], phrases }), '<=120', 'glyph stagger ceiling');
+	});
+
+	it('rejects incomplete orientation spatial tracks and overlong keyframe tracks', () => {
+		for (const [label, orientationOverride] of [
+			['partial', { x: [{ atMs: 0, value: 0 }] }],
+			['empty', {}]
+		] as const) {
+			const incomplete = kineticWord('type');
+			incomplete.animation = {
+				orientationOverrides: { vertical: orientationOverride }
+			};
+			expectIssue(
+				typeFieldState({
+					words: [incomplete],
+					phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+				}),
+				'must declare x, y, scale, and rotation',
+				`${label} orientation spatial tracks`
+			);
+		}
+
+		const overlong = kineticWord('type');
+		overlong.animation = {
+			channels: {
+				weight: Array.from({ length: 25 }, (_, index) => ({
+					atMs: index * 20,
+					value: index / 24,
+					...(index > 0 ? { ease: 'smooth' } : {})
+				}))
+			}
+		};
+		expectIssue(
+			typeFieldState({
+				words: [overlong],
+				phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+			}),
+			'at most 24 keyframes',
+			'Kinetic Word keyframe ceiling'
+		);
+	});
+
+	it('rejects duplicate identities and unresolved or repeated phrase membership', () => {
+		expectIssue(
+			typeFieldState({
+				words: [kineticWord('type'), kineticWord('type', 'MOVE')],
+				phrases: [{ id: 'opening', wordIds: ['type', 'missing', 'type'], focalWordId: 'missing' }]
+			}),
+			'Duplicate Type Field word id',
+			'duplicate Kinetic Word id'
+		);
+		expectIssue(
+			typeFieldState({
+				words: [kineticWord('type')],
+				phrases: [{ id: 'opening', wordIds: ['missing'], focalWordId: 'missing' }]
+			}),
+			'references missing Kinetic Word',
+			'missing phrase word'
+		);
+		expectIssue(
+			typeFieldState({
+				words: [kineticWord('type')],
+				phrases: [{ id: 'opening', wordIds: ['type', 'type'], focalWordId: 'type' }]
+			}),
+			'more than once',
+			'repeated phrase word'
+		);
+	});
+
+	it('rejects untrimmed multi-token text and incomplete orientation geometry', () => {
+		expectIssue(
+			typeFieldState({
+				words: [kineticWord('type', 'TWO WORDS')],
+				phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+			}),
+			'one word token',
+			'multi-token Kinetic Word'
+		);
+		const incomplete = kineticWord('type');
+		incomplete.orientationOverrides = {
+			vertical: { position: { x: 0.5, y: 0.5 }, scale: 1 }
+		};
+		expectIssue(
+			typeFieldState({
+				words: [incomplete],
+				phrases: [{ id: 'opening', wordIds: ['type'], focalWordId: 'type' }]
+			}),
+			'expected number',
+			'incomplete Kinetic Word geometry'
+		);
+	});
+
+	it('enforces word and phrase ceilings', () => {
+		const words = Array.from({ length: 17 }, (_, index) => kineticWord(`word-${index}`));
+		expectIssue(
+			typeFieldState({
+				words,
+				phrases: [{ id: 'opening', wordIds: ['word-0'], focalWordId: 'word-0' }]
+			}),
+			'Too big',
+			'Kinetic Word ceiling'
+		);
+		const phrases = Array.from({ length: 9 }, (_, index) => ({
+			id: `phrase-${index}`,
+			wordIds: ['type'],
+			focalWordId: 'type'
+		}));
+		expectIssue(
+			typeFieldState({ words: [kineticWord('type')], phrases }),
+			'Too big',
+			'Kinetic phrase ceiling'
+		);
+	});
+});
+
 describe('Overlay signed depth and pose (ADR-0057)', () => {
 	function overlayState(overlay: Record<string, unknown>): unknown {
 		return {

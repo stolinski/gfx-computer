@@ -103,6 +103,15 @@ export const sentryPack: PackManifest = {
 		// Rubik for display, body, and labels; hierarchy is weight and case.
 		'font-treatment': { kind: 'style', value: "'Rubik', 'Inter', sans-serif" },
 		'font-label-treatment': { kind: 'style', value: "'Rubik', 'Inter', sans-serif" },
+		'variable-weight-treatment': {
+			kind: 'style',
+			value: {
+				fontFamily: "'Rubik Variable', 'Rubik', 'Inter', sans-serif",
+				minimum: 300,
+				rest: 650,
+				maximum: 700
+			}
+		},
 
 		// ---------------- plain Surface ----------------
 		'plain.edge': { kind: 'style', value: 'clean' },
@@ -244,7 +253,10 @@ export const sentryPack: PackManifest = {
 		'achievement.shadow': { kind: 'style', value: NEON_SHADOW },
 		'achievement.font': { kind: 'style', value: "'Rubik', 'Inter', sans-serif" },
 		'achievement.fontLabel': { kind: 'style', value: "'Rubik', 'Inter', sans-serif" },
-		'achievement.pad': { kind: 'style', value: 'calc(2.4 * var(--cqmin)) calc(3.2 * var(--cqmin))' },
+		'achievement.pad': {
+			kind: 'style',
+			value: 'calc(2.4 * var(--cqmin)) calc(3.2 * var(--cqmin))'
+		},
 		'achievement.gap': { kind: 'style', value: 'calc(1.2 * var(--cqmin))' },
 		'achievement.tracking': { kind: 'style', value: LABEL_TRACKING },
 		'achievement.weight': { kind: 'style', value: '700' },

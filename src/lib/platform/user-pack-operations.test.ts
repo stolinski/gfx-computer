@@ -17,6 +17,7 @@ import {
 	runSaveUserPackOperation,
 	runValidateUserPackOperation
 } from './user-pack-operations';
+import { forkedManifestFromBuiltin } from './user-pack-store-documents.server';
 import { unregisterLoadedUserPack } from './user-pack-runtime.svelte';
 import type { UserPackDocument, UserPackMeta, UserPackStore } from './user-pack-store';
 import { UserPackValidationError } from './user-pack-store-errors';
@@ -42,9 +43,10 @@ function fakeStore(): UserPackStore & { documents: Map<string, UserPackDocument>
 			return documents.get(slug) ?? null;
 		},
 		async forkUserPack(slug, builtinSlug, options) {
-			const builtin = PACK_REGISTRY[builtinSlug];
+			const manifest = forkedManifestFromBuiltin(slug, builtinSlug, options);
+			if (manifest === null) throw new Error(`unknown built-in ${builtinSlug}`);
 			const document: UserPackDocument = {
-				manifest: { ...structuredClone(builtin), slug, label: options?.label ?? builtin.label },
+				manifest,
 				forkedFrom: builtinSlug,
 				savedAt: '2026-09-01T12:00:00.000Z',
 				contentHash: hash(),
@@ -231,15 +233,15 @@ describe('User Pack operations (appearance family, ADR-0055)', () => {
 	});
 
 	it('validates a manifest without storing it, including the no-shadowing rule', async () => {
-		const valid = await runValidateUserPackOperation({
-			document: { ...PACK_REGISTRY['clean-light'], slug: 'my-brand' }
-		});
+		const validManifest = forkedManifestFromBuiltin('my-brand', 'clean-light');
+		assert.ok(validManifest);
+		const valid = await runValidateUserPackOperation({ document: validManifest });
 		assert.equal(valid.status, 'inspected');
 		if (valid.status === 'inspected') assert.equal(valid.valid, true);
 
-		const shadowing = await runValidateUserPackOperation({
-			document: PACK_REGISTRY['clean-light']
-		});
+		const shadowingManifest = forkedManifestFromBuiltin('clean-light', 'clean-light');
+		assert.ok(shadowingManifest);
+		const shadowing = await runValidateUserPackOperation({ document: shadowingManifest });
 		assert.equal(shadowing.status, 'inspected');
 		if (shadowing.status === 'inspected') {
 			assert.equal(shadowing.valid, false);

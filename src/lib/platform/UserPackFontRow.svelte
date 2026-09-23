@@ -4,6 +4,10 @@
 	import type { GoogleFontsCatalog, GoogleFontsFamilyRecord } from './google-fonts-catalog';
 	import { packState } from './engine-state.svelte';
 	import type { PackFont, PackManifest } from './packs/types';
+	import {
+		resolveVariableWeightTreatment,
+		VARIABLE_WEIGHT_TREATMENT_ROLE
+	} from './packs/variable-weight-treatment';
 	import { editBoundUserPack, editableUserPackManifest } from './user-pack-authoring.svelte';
 	import Field from './Field.svelte';
 
@@ -88,14 +92,25 @@
 		if (next.length === 0 || next === family) return;
 		const nextRecord = catalog?.families[next] ?? null;
 		const previous = family;
+		const previousVariableFamily = manifest
+			? firstFamily(resolveVariableWeightTreatment(manifest)?.fontFamily ?? '')
+			: '';
 		editBoundUserPack((draft) => {
 			draft.roles[role] = {
 				kind: 'style',
 				value: `'${next}', ${nextRecord ? GENERIC_FALLBACK[nextRecord.category] : 'sans-serif'}`
 			};
-			const fonts: PackFont[] = [...(draft.fonts ?? [])].filter(
+			let fonts: PackFont[] = [...(draft.fonts ?? [])].filter(
 				(font) => font.family !== previous || familyStillClaimed(draft, font.family)
 			);
+			// A fork inherits its built-in variable face. Once the user changes the
+			// primary voice, retaining that unrelated face would make weight motion
+			// speak the old brand. Disable the capability until the User Pack owns a
+			// materialized variable face through the same contract.
+			if (role === 'font-treatment') {
+				delete draft.roles[VARIABLE_WEIGHT_TREATMENT_ROLE];
+				fonts = fonts.filter((font) => font.family !== previousVariableFamily);
+			}
 			if (!fonts.some((font) => font.family === next)) {
 				const shipped = nextRecord ? shippedUprightWeights(nextRecord) : [400];
 				const weights = [400, 700].filter((weight) => shipped.includes(weight));
@@ -124,10 +139,18 @@
 
 	function removeClaim(): void {
 		const previous = family;
+		const previousVariableFamily = manifest
+			? firstFamily(resolveVariableWeightTreatment(manifest)?.fontFamily ?? '')
+			: '';
 		editBoundUserPack((draft) => {
 			delete draft.roles[role];
+			if (role === 'font-treatment') {
+				delete draft.roles[VARIABLE_WEIGHT_TREATMENT_ROLE];
+			}
 			if (previous !== null && !familyStillClaimed(draft, previous)) {
-				draft.fonts = (draft.fonts ?? []).filter((font) => font.family !== previous);
+				draft.fonts = (draft.fonts ?? []).filter(
+					(font) => font.family !== previous && font.family !== previousVariableFamily
+				);
 			}
 		});
 	}

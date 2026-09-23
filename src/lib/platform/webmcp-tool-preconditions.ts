@@ -28,7 +28,7 @@ import { parseCompositionSessionStoreConfig } from './public-runtime-contract';
 import { userCompositionStore } from './user-composition-store';
 import { userPackStore } from './user-pack-store';
 
-import type { EngineState, Preset } from './engine-schema';
+import { KINETIC_TYPE_WORD_LIMIT, type EngineState, type Preset } from './engine-schema';
 import { env } from '$env/dynamic/public';
 
 import type { WebmcpOperationPrecondition } from './webmcp-operation-inventory';
@@ -66,9 +66,18 @@ function hasKeyframeChannel(state: EngineState): boolean {
 	const carriers = [
 		state.surface.animation,
 		...state.overlays.map((overlay) => overlay.animation),
-		...(state.surface.diagram ?? []).map((primitive) => primitive.animation)
+		...(state.surface.diagram ?? []).map((primitive) => primitive.animation),
+		...(state.surface.typeField?.words ?? []).map((word) => word.animation)
 	];
-	return carriers.some((motion) => Object.keys(motion?.channels ?? {}).length > 0);
+	return carriers.some(
+		(motion) =>
+			Object.keys(motion?.channels ?? {}).length > 0 ||
+			(motion !== undefined &&
+				'orientationOverrides' in motion &&
+				Object.values(motion.orientationOverrides ?? {}).some(
+					(channels) => Object.keys(channels ?? {}).length > 0
+				))
+	);
 }
 
 /** Whether any of the four anchorable entities is welded to another one. */
@@ -99,6 +108,8 @@ function closedCompositionPreconditions(): WebmcpCompositionPreconditions {
 		'mark-present': false,
 		'text-animation-present': false,
 		'diagram-present': false,
+		'kinetic-word-addable': false,
+		'kinetic-word-present': false,
 		'chart-present': false,
 		'captions-present': false,
 		'chat-surface-active': false,
@@ -140,6 +151,12 @@ export function readWebmcpCompositionPreconditions(): WebmcpCompositionPrecondit
 		'mark-present': editable && state.marks.timings.length > 0,
 		'text-animation-present': editable && state.textAnimations.length > 0,
 		'diagram-present': editable && (state.surface.diagram ?? []).length > 0,
+		'kinetic-word-addable':
+			editable &&
+			state.surface.type === 'plain' &&
+			state.stage === undefined &&
+			(state.surface.typeField?.words.length ?? 0) < KINETIC_TYPE_WORD_LIMIT,
+		'kinetic-word-present': editable && (state.surface.typeField?.words ?? []).length > 0,
 		'chart-present': editable && (state.surface.chart?.items ?? []).length > 0,
 		'captions-present': editable && state.captions !== undefined,
 		'chat-surface-active': editable && surface?.controls.messages === true,

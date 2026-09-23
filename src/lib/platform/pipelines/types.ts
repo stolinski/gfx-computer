@@ -12,6 +12,7 @@ import type {
 	ChartBlock,
 	DiagramPrimitive,
 	Effect,
+	KineticWord,
 	Overlay,
 	OverlayPosition,
 	SurfaceState,
@@ -72,13 +73,12 @@ export interface AnnotationRenderer {
 // ---------------- Blocks ----------------
 
 /**
- * Canonical Block Layer union. It includes the body-text `paragraph` (living in
- * `content.body`) plus the five diagram primitives (ADR-0036, living in
- * `surface.diagram[]`). `AnnotationBody` stays paragraph-only — diagram
- * primitives are positioned Blocks, not text flow. The shortest canonical name
- * is unambiguous here because the paragraph-only type is `AnnotationBodyBlock`.
+ * Canonical Block Layer union. It includes body text, diagram primitives,
+ * chart items, and the first-class Kinetic Words in `surface.typeField.words`.
+ * `AnnotationBody` stays paragraph-only; every placed variant keeps its own
+ * authored identity and geometry.
  */
-export type Block = AnnotationBodyBlock | DiagramPrimitive | ChartBlock;
+export type Block = AnnotationBodyBlock | DiagramPrimitive | ChartBlock | KineticWord;
 
 export interface BlockRenderContext<TBlock extends Block = Block> {
 	block: TBlock;

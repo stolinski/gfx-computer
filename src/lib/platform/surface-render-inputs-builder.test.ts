@@ -16,6 +16,7 @@ function animationState(): RenderAnimState {
 		blockProgresses: {},
 		blockAlphas: {},
 		blockChannels: {},
+		kineticWordChannels: {},
 		paperVisibility: 0.6,
 		globalProgress: 0.5
 	};

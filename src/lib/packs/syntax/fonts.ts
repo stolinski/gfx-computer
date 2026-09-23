@@ -31,6 +31,7 @@ import '@fontsource/inter/700.css';
 // Space Mono labels/chrome.
 import '@fontsource/space-grotesk/500.css';
 import '@fontsource/space-grotesk/700.css';
+import '@fontsource-variable/space-grotesk/index.css';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
 
@@ -43,5 +44,6 @@ export const syntaxFonts: readonly PackFont[] = [
 	{ family: 'JetBrains Mono', weights: [400, 500, 700] },
 	{ family: 'Inter', weights: [400, 600, 700] },
 	{ family: 'Space Grotesk', weights: [500, 700] },
+	{ family: 'Space Grotesk Variable', weights: [300, 650, 700] },
 	{ family: 'Space Mono', weights: [400, 700] }
 ];
