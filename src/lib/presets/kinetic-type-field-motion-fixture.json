@@ -485,7 +485,7 @@
 						"ink": "accent",
 						"position": {
 							"x": 0,
-							"y": 0.5951
+							"y": 0.6796
 						},
 						"horizontalAnchor": "start",
 						"scale": 1.5,
@@ -566,7 +566,7 @@
 						"ink": "accent",
 						"position": {
 							"x": 0.066,
-							"y": 0.5951
+							"y": 0.6796
 						},
 						"horizontalAnchor": "start",
 						"scale": 1.5,
@@ -647,19 +647,19 @@
 						"ink": "ink",
 						"position": {
 							"x": 0,
-							"y": 0.7873
+							"y": 0.8296
 						},
 						"horizontalAnchor": "start",
-						"scale": 2.4,
+						"scale": 1.62,
 						"rotation": 0,
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
 									"x": 0,
-									"y": 0.6145
+									"y": 0.5969
 								},
 								"horizontalAnchor": "start",
-								"scale": 1.5,
+								"scale": 0.91,
 								"rotation": 0
 							}
 						},
@@ -731,11 +731,11 @@
 								"tracking": [
 									{
 										"atMs": 0,
-										"value": 0.1
+										"value": 0.05
 									},
 									{
 										"atMs": 3460,
-										"value": 0.1,
+										"value": 0.05,
 										"ease": "smooth"
 									},
 									{
