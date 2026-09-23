@@ -60,6 +60,8 @@ const sleep = (milliseconds: number): Promise<void> =>
 	new Promise((settle) => setTimeout(settle, milliseconds));
 
 assertVerificationOriginAllowed(CAPTURE_ORIGIN);
+if (CAPTURE_SERVER_PORT === 4173)
+	throw new Error('Do not use the managed review service for captures.');
 const encoder = spawnSync('cwebp', ['-version'], { cwd: repoRoot, encoding: 'utf8' });
 if (encoder.status !== 0) throw new Error('Pack captures require cwebp (libwebp) on PATH.');
 const jail = await createVerificationServerJail('pack-dresses');

@@ -147,6 +147,10 @@ try {
 		await page.locator('a[href="/packs#sentry"]').click();
 		await page.waitForURL('**/packs#sentry');
 		assert.ok(await page.locator('#sentry').isVisible());
+		await page.keyboard.press('/');
+		await page.getByPlaceholder('Search the docs…').fill('Sentry');
+		await page.getByRole('dialog', { name: 'Search docs' }).locator('a[href="/packs"]').click();
+		await page.waitForURL('**/packs');
 		assert.deepEqual(errors, [], 'No browser runtime errors');
 		await context.close();
 	}

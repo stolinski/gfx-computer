@@ -7,6 +7,7 @@ import anchor from 'markdown-it-anchor';
 import Shiki from '@shikijs/markdown-it';
 import type { BundledLanguage } from 'shiki';
 import packShowcase from '../pack-showcase.json';
+import { getPacksPage } from './packs';
 
 // shiki accepts the special 'txt' language at runtime; the plugin's option type doesn't admit it
 const PLAINTEXT = 'txt' as unknown as BundledLanguage;
@@ -307,7 +308,11 @@ export function getSearchIndex(): SearchEntry[] {
 				title: item.title,
 				href: item.href,
 				section: item.section,
-				text: 'Compare Pack renders, palettes and typefaces.'
+				text: getPacksPage()
+					.dresses.map((pack) =>
+						[pack.label, pack.feel, ...pack.faces.map((face) => face.family)].join(' ')
+					)
+					.join(' ')
 			};
 		}
 		const src = readFileSync(resolve(DOCS_DIR, entry.file), 'utf-8');
