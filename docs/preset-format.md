@@ -281,7 +281,7 @@ An optional `progressBar: true` draws a subtle Pack-colored ordered-dither strip
 
 The five motion windows are authored, Pack-invariant, and frame-deterministic. Omitted eases resolve to `smooth`, `smooth`, `sharp`, `smooth`, `smooth`; only `smooth | sharp` is accepted. Gaps hold state. Charts have no orientation-override schema: shared layout reflows the one declaration natively in horizontal and vertical and owns factual scales, zero baselines, chrome, legends, labels, source notes, and callout geometry. Marks render analytically through one instanced WebGPU path with Pack-resolved solid, gradient, or ordered-dither recipes localized to mark masks. The GUI add menu and Chart inspector mutate this same `surface.chart.items[]` model through bounded authoring helpers; there is no CSV upload, URL fetch, or GUI-only chart state.
 
-### `surface.typeField` — bounded Kinetic Word Blocks ([ADR-0063](adr/0063-kinetic-type-word-fields.md))
+### `surface.typeField` — bounded Kinetic Word Blocks ([ADR-0064](adr/0064-kinetic-type-word-fields.md))
 
 `surface.typeField` is supported only on `plain`. It stores one static word pool plus ordered semantic phrases; phrase order never lays out or duplicates words. Kinetic Words are first-class Blocks rendered as crisp native DOM text on the existing Surface capture plane.
 
@@ -340,7 +340,7 @@ The first word added through the GUI or `layer.add-kinetic-word` creates a valid
 
 `glyphStagger` is one number and one order on the word, never per-character tracks. Every grapheme plays the word's own shared `reveal` track delayed by `offsetMs` times its rank — `forward` reads left to right, `reverse` right to left, `center` blooms outward from the middle — so a letter-by-letter reveal stays word-level authoring. Glyphs stay inline text, so the Pack face still kerns across them; only the vertical mask offset is per glyph. Weight, tracking, opacity, and placement remain word-level.
 
-Opacity, reveal, weight, and tracking are always shared. Shared spatial tracks apply to both targets until a complete `horizontal` or `vertical` group replaces all four spatial tracks for that target. The Inspector and generalized keyframe Operations expose the same scope. Canvas drag or nudge at a nonzero playhead uses the atomic Kinetic Word position-key operation, preserving rest geometry and creating/updating X/Y in one undo entry. Motion Beats and beat-relative keys described by ADR-0063 remain outside the current wire schema.
+Opacity, reveal, weight, and tracking are always shared. Shared spatial tracks apply to both targets until a complete `horizontal` or `vertical` group replaces all four spatial tracks for that target. The Inspector and generalized keyframe Operations expose the same scope. Canvas drag or nudge at a nonzero playhead uses the atomic Kinetic Word position-key operation, preserving rest geometry and creating/updating X/Y in one undo entry. Motion Beats and beat-relative keys described by ADR-0064 remain outside the current wire schema.
 
 ### `overlays`
 
@@ -584,7 +584,7 @@ Pack immunity is declared by each Pipeline's Identity Spec and derived at runtim
 - **`paragraph`** — text run inside `content.body` (the bracket-tag string).
 - **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
 - **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers.
-- **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0063](adr/0063-kinetic-type-word-fields.md)); static and orientation-specific placement, appearance, phrase semantics, Timeline identity, independently authored opacity/reveal/spatial/normalized-weight/tracking tracks, a bounded glyph stagger over the word's own line-box mask, nonzero-playhead direct manipulation, and shared GUI/WebMCP operations ship. Motion Beats and beat-relative keys remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
+- **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0064](adr/0064-kinetic-type-word-fields.md)); static and orientation-specific placement, appearance, phrase semantics, Timeline identity, independently authored opacity/reveal/spatial/normalized-weight/tracking tracks, a bounded glyph stagger over the word's own line-box mask, nonzero-playhead direct manipulation, and shared GUI/WebMCP operations ship. Motion Beats and beat-relative keys remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
 
 ## Annotation styles
 

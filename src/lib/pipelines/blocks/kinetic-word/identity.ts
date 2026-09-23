@@ -1,4 +1,4 @@
-/** Identity Spec for one first-class word in a Type Field (ADR-0063). */
+/** Identity Spec for one first-class word in a Type Field (ADR-0064). */
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 
 export const kineticWordIdentity: IdentitySpec = {

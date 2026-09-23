@@ -142,7 +142,7 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		// Chart Blocks (ADR-0048) are the same pure JSON contract. Clone the
 		// complete group so applyPreset cannot share mutable data with catalog or wire input.
 		chart: surface.chart ? cloneJsonValue(surface.chart) : undefined,
-		// Type Field words and semantic phrases (ADR-0063) are one atomic Surface group.
+		// Type Field words and semantic phrases (ADR-0064) are one atomic Surface group.
 		typeField: surface.typeField ? cloneJsonValue(surface.typeField) : undefined
 	};
 }

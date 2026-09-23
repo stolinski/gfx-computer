@@ -1,5 +1,5 @@
 /**
- * Shared Type Field authoring operations that need Kinetic Word atomicity (ADR-0063).
+ * Shared Type Field authoring operations that need Kinetic Word atomicity (ADR-0064).
  *
  * Layer membership, word content, semantic phrase content, placement,
  * appearance, playhead X/Y motion, and glyph stagger remain separate inventory

@@ -736,7 +736,7 @@ export type DiagramStatCallout = z.infer<typeof DiagramStatCalloutSchema>;
 export type DiagramTimelineSegment = z.infer<typeof DiagramTimelineSegmentSchema>;
 export type DiagramPrimitive = z.infer<typeof DiagramPrimitiveSchema>;
 
-// ---- Kinetic Type Field (ADR-0063) ----
+// ---- Kinetic Type Field (ADR-0064) ----
 // A bounded group of first-class word Blocks carried only by the plain Surface.
 // Phrases declare semantic reading order; placement remains completely authored
 // and never flows from phrase membership. Motion channels and named Beats land

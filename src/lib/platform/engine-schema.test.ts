@@ -977,7 +977,7 @@ describe('stage camera pose and travel (ADR-0057)', () => {
 	});
 });
 
-describe('Kinetic Type Field structure (ADR-0063)', () => {
+describe('Kinetic Type Field structure (ADR-0064)', () => {
 	function kineticWord(id: string, text = 'TYPE'): Record<string, unknown> {
 		return {
 			type: 'kinetic-word',
