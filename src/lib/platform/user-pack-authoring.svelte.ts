@@ -158,7 +158,10 @@ export function editBoundUserPack(
 	if (current === null || loadedUserPackDocument(slug) === null) {
 		throw new Error(`"${slug}" is not a loaded User Pack, so it cannot be edited`);
 	}
-	const draft = structuredClone(current);
+	// After the first edit, `current` is the stored draft read back through this
+	// module's deep `$state`: a Proxy, which `structuredClone` refuses with
+	// DataCloneError (Sentry GFX-COMPUTER-X). `$state.snapshot` copies it plain.
+	const draft: PackManifest = $state.snapshot(current);
 	mutate(draft);
 	draftVersion += 1;
 	userPackAuthoring.drafts = { ...userPackAuthoring.drafts, [slug]: draft };
