@@ -1,4 +1,4 @@
-swampVersion: 20260828.231706.0
+swampVersion: 20260921.212309.0
 initializedAt: "2026-08-03T21:27:23.919Z"
 repoId: cca5497b-b87c-4f57-81be-4fe61d5e31c3
 tools:
@@ -7,4 +7,4 @@ gitignoreManaged: true
 trustedCollectives:
   - swamp
   - mgreten
-upgradedAt: "2026-08-29T15:15:43.219Z"
+upgradedAt: "2026-09-25T20:26:54.865Z"
