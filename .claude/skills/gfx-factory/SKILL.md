@@ -22,7 +22,7 @@ done`, with rework loop-backs into `implement`. Run `swamp model method run
 gfx-factory describe` for the Mermaid when in doubt.
 
 - **implement** — dispatches `gfx-agent` (`invokeAndParse`), which does all
-  work in an isolated worktree `../gfx-computer-factory-<workItem>` created
+  work in an isolated worktree `~/.worktrees/gfx-computer/gfx-computer-factory-<workItem>` created
   from `main`. The primary checkout's dirty state is irrelevant by
   construction — never treat it as a blocker, never "clean up" before starting.
 - **verify** — `gfx-verify.run_checks` runs suites **scoped to the change**,
@@ -71,7 +71,7 @@ gfx-factory describe` for the Mermaid when in doubt.
 2. `status` → do what the work spec says → `record_dispatch` → run the stage's
    method → `record_artifact` / `record_evidence` → `advance`.
 3. After `done`: `dex complete <dexId> --result "<summary>" --commit <sha>`,
-   remove the worktree (`git worktree remove ../gfx-computer-factory-<dexId>`),
+   remove the worktree (`git worktree remove ~/.worktrees/gfx-computer/gfx-computer-factory-<dexId>`),
    and run `summary`.
 
 ## Epics — one leaf at a time

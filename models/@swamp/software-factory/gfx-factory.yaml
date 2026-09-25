@@ -26,7 +26,8 @@ globalArguments:
             # Dispatch from the worktrees' parent, never the primary checkout:
             # a probe server inheriting the primary's cwd once served — and a
             # clear test destroyed — the real user-composition store (dpqjz38j).
-            cwd: /Users/scotttolinski/Sites/properties
+            # Worktrees live outside ~/Sites (machine convention: ~/.worktrees/<repo>/).
+            cwd: /Users/scotttolinski/.worktrees/gfx-computer
             tags: { lane: factory, workItem: '${{ self.workItem }}' }
             prompt: |
               You are the GFX Delivery implementation agent for one Dex work item.
@@ -37,9 +38,9 @@ globalArguments:
                  ancestor context). Run `dex start ${{ self.workItem }}` unless it is
                  already in progress.
               2. Work in the isolated worktree
-                 /Users/scotttolinski/Sites/properties/gfx-computer-factory-${{ self.workItem }}
+                 /Users/scotttolinski/.worktrees/gfx-computer/gfx-computer-factory-${{ self.workItem }}
                  on branch factory/${{ self.workItem }}. If it does not exist yet:
-                 `git worktree add -b factory/${{ self.workItem }} ../gfx-computer-factory-${{ self.workItem }} main`.
+                 `git -C /Users/scotttolinski/Sites/properties/gfx-computer worktree add -b factory/${{ self.workItem }} /Users/scotttolinski/.worktrees/gfx-computer/gfx-computer-factory-${{ self.workItem }} main`.
                  If it exists from a previous cycle, reuse it and rebase onto main first.
                  Then in the worktree run: `SHARP_IGNORE_GLOBAL_LIBVIPS=1 CI=true pnpm install`.
               3. Implement the task following the worktree's CLAUDE.md. Never touch the

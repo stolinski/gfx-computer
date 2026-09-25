@@ -47,7 +47,7 @@ jobs:
               4. Fix it in an isolated worktree, never in the primary checkout.
                  While the WebMCP Challenge runs, `dev` is the integration
                  branch and `main` is frozen: never commit to or push `main`.
-                 `git worktree add -b sentry/GFX-COMPUTER-<n> ../gfx-computer-sentry-GFX-COMPUTER-<n> dev`
+                 `git worktree add -b sentry/GFX-COMPUTER-<n> /Users/scotttolinski/.worktrees/gfx-computer/gfx-computer-sentry-GFX-COMPUTER-<n> dev`
                  (reuse and rebase onto dev if it already exists), then
                  `SHARP_IGNORE_GLOBAL_LIBVIPS=1 CI=true pnpm install` there.
                  Implement the smallest credible fix per the worktree's CLAUDE.md.
@@ -59,7 +59,7 @@ jobs:
                  — never `--all`. Commit as ONE commit.
               6. Integrate and close out: cherry-pick that commit onto dev in
                  the primary checkout, remove the worktree
-                 (`git worktree remove ../gfx-computer-sentry-GFX-COMPUTER-<n>`),
+                 (`git worktree remove /Users/scotttolinski/.worktrees/gfx-computer/gfx-computer-sentry-GFX-COMPUTER-<n>`),
                  `sentry issue resolve GFX-COMPUTER-<n>`, and
                  `dex complete <taskId> --result "<what changed>" --commit <sha>`.
               7. If any step fails, leave the Dex task open with what you
