@@ -38,6 +38,19 @@ export default defineConfig(
 				parser: ts.parser,
 				svelteConfig
 			}
+		},
+		rules: {
+			// Anything read through `$state` is a Proxy, and `structuredClone` throws
+			// DataCloneError on a Proxy (Sentry GFX-COMPUTER-X). `$state.snapshot`
+			// copies proxies and plain values alike.
+			'no-restricted-globals': [
+				'error',
+				{
+					name: 'structuredClone',
+					message:
+						'structuredClone throws on Svelte $state proxies; use $state.snapshot(value) in Svelte files.'
+				}
+			]
 		}
 	},
 	{

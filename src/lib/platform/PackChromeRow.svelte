@@ -26,7 +26,7 @@
 	// e.g. the rest of an in-flight slider drag, before the prop re-binds —
 	// forwards to the authored effect.
 	function chromeDraftModel(): Effect {
-		const draft = structuredClone((entry.params ?? {}) as Record<string, unknown>);
+		const draft = $state.snapshot(entry.params ?? {}) as Record<string, unknown>;
 		let materializedId: string | null = null;
 		const params = new Proxy(draft, {
 			set(target, prop, value) {

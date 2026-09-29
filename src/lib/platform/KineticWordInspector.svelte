@@ -158,7 +158,7 @@
 		if (!typeField) return;
 		setPhrases(
 			typeField.phrases.map((phrase) =>
-				phrase.id === phraseId ? update(structuredClone(phrase)) : structuredClone(phrase)
+				phrase.id === phraseId ? update($state.snapshot(phrase)) : $state.snapshot(phrase)
 			)
 		);
 	}
@@ -177,7 +177,7 @@
 			typeField.phrases.map((phrase) => phrase.id)
 		);
 		setPhrases([
-			...typeField.phrases.map((phrase) => structuredClone(phrase)),
+			...typeField.phrases.map((phrase) => $state.snapshot(phrase)),
 			{ id: phraseId, wordIds: [focalWord.id], focalWordId: focalWord.id }
 		]);
 	}
@@ -187,7 +187,7 @@
 		setPhrases(
 			typeField.phrases
 				.filter((phrase) => phrase.id !== phraseId)
-				.map((phrase) => structuredClone(phrase))
+				.map((phrase) => $state.snapshot(phrase))
 		);
 	}
 
@@ -195,7 +195,7 @@
 		if (!typeField) return;
 		const nextIndex = phraseIndex + direction;
 		if (nextIndex < 0 || nextIndex >= typeField.phrases.length) return;
-		const phrases = typeField.phrases.map((phrase) => structuredClone(phrase));
+		const phrases = typeField.phrases.map((phrase) => $state.snapshot(phrase));
 		const [phrase] = phrases.splice(phraseIndex, 1);
 		phrases.splice(nextIndex, 0, phrase);
 		setPhrases(phrases);
