@@ -52,10 +52,12 @@ scrubbed preview and an exported file show the same pixels at the same moment.
 
 ## Packs
 
-Four Packs ship with the engine. Each documents its own palette, type system, surface
-vocabulary, motion feel, and the things it refuses to do.
+Five Packs ship with the engine, each with its own palette, type system, surface
+vocabulary, and motion feel. Swapping one for another redresses a composition without
+rewriting it.
 
 - [Syntax](packs/syntax/aesthetic.md) — the house channel aesthetic.
 - [CRT Terminal](packs/crt-terminal/aesthetic.md) — phosphor, scanlines, glow.
 - [Editorial Mono](packs/editorial-mono/aesthetic.md) — print-desk restraint.
 - [Clean Light](packs/clean-light/aesthetic.md) — bright, plain, unfussy.
+- [Sentry](packs/sentry/aesthetic.md) — violet-black, hot pink, and crisp Rubik.

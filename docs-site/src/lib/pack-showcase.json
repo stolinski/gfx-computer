@@ -1,0 +1,185 @@
+{
+	"presetSlug": "chapter-card-descent",
+	"packs": [
+		{
+			"slug": "syntax",
+			"label": "Syntax",
+			"swatches": [
+				{
+					"role": "field-treatment",
+					"name": "Field",
+					"hex": "#0e0e0d"
+				},
+				{
+					"role": "fill-treatment",
+					"name": "Card",
+					"hex": "#f0e8d6"
+				},
+				{
+					"role": "ink-treatment",
+					"name": "Ink",
+					"hex": "#1a1612"
+				},
+				{
+					"role": "accent-treatment",
+					"name": "Accent",
+					"hex": "#ffd54a"
+				}
+			],
+			"faces": [
+				{
+					"role": "font-treatment",
+					"use": "Display",
+					"family": "Space Grotesk"
+				},
+				{
+					"role": "font-label-treatment",
+					"use": "Labels",
+					"family": "Space Mono"
+				}
+			]
+		},
+		{
+			"slug": "editorial-mono",
+			"label": "Editorial Mono",
+			"swatches": [
+				{
+					"role": "field-treatment",
+					"name": "Field",
+					"hex": "#080b10"
+				},
+				{
+					"role": "fill-treatment",
+					"name": "Card",
+					"hex": "#e9eef3"
+				},
+				{
+					"role": "ink-treatment",
+					"name": "Ink",
+					"hex": "#0f151c"
+				},
+				{
+					"role": "accent-treatment",
+					"name": "Accent",
+					"hex": "#22d3ee"
+				}
+			],
+			"faces": [
+				{
+					"role": "font-treatment",
+					"use": "Display",
+					"family": "Playfair Display"
+				},
+				{
+					"role": "font-label-treatment",
+					"use": "Labels",
+					"family": "JetBrains Mono"
+				}
+			]
+		},
+		{
+			"slug": "crt-terminal",
+			"label": "CRT Terminal",
+			"swatches": [
+				{
+					"role": "field-treatment",
+					"name": "Field",
+					"hex": "#070b08"
+				},
+				{
+					"role": "fill-treatment",
+					"name": "Card",
+					"hex": "#070b08"
+				},
+				{
+					"role": "ink-treatment",
+					"name": "Ink",
+					"hex": "#45ff6e"
+				},
+				{
+					"role": "accent-treatment",
+					"name": "Accent",
+					"hex": "#d9ffe0"
+				}
+			],
+			"faces": [
+				{
+					"role": "font-treatment",
+					"use": "Display",
+					"family": "JetBrains Mono"
+				}
+			]
+		},
+		{
+			"slug": "clean-light",
+			"label": "Clean Light",
+			"swatches": [
+				{
+					"role": "field-treatment",
+					"name": "Field",
+					"hex": "#f6f7f8"
+				},
+				{
+					"role": "fill-treatment",
+					"name": "Card",
+					"hex": "#ffffff"
+				},
+				{
+					"role": "ink-treatment",
+					"name": "Ink",
+					"hex": "#16181d"
+				},
+				{
+					"role": "accent-treatment",
+					"name": "Accent",
+					"hex": "#0075de"
+				}
+			],
+			"faces": [
+				{
+					"role": "font-treatment",
+					"use": "Display",
+					"family": "Geist"
+				},
+				{
+					"role": "font-label-treatment",
+					"use": "Labels",
+					"family": "Geist Mono"
+				}
+			]
+		},
+		{
+			"slug": "sentry",
+			"label": "Sentry",
+			"swatches": [
+				{
+					"role": "field-treatment",
+					"name": "Field",
+					"hex": "#1f1633"
+				},
+				{
+					"role": "fill-treatment",
+					"name": "Card",
+					"hex": "#2e225c"
+				},
+				{
+					"role": "ink-treatment",
+					"name": "Ink",
+					"hex": "#ffffff"
+				},
+				{
+					"role": "accent-treatment",
+					"name": "Accent",
+					"hex": "#fd44b0"
+				}
+			],
+			"faces": [
+				{
+					"role": "font-treatment",
+					"use": "Display",
+					"family": "Rubik"
+				}
+			]
+		}
+	]
+}

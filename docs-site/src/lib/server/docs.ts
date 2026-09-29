@@ -6,6 +6,8 @@ import type Token from 'markdown-it/lib/token.mjs';
 import anchor from 'markdown-it-anchor';
 import Shiki from '@shikijs/markdown-it';
 import type { BundledLanguage } from 'shiki';
+import packShowcase from '../pack-showcase.json';
+import { getPacksPage } from './packs';
 
 // shiki accepts the special 'txt' language at runtime; the plugin's option type doesn't admit it
 const PLAINTEXT = 'txt' as unknown as BundledLanguage;
@@ -23,6 +25,18 @@ interface PublishedDoc {
 	section: string;
 }
 
+interface PublishedPage {
+	href: string;
+	title: string;
+	section: string;
+}
+
+type PublishedEntry = PublishedDoc | PublishedPage;
+
+function isPublishedDoc(entry: PublishedEntry): entry is PublishedDoc {
+	return 'file' in entry;
+}
+
 /**
  * The published set, in reading order. docs.gfx.computer is for someone using
  * GFX — running it, authoring a Preset, picking a Pack; the apex is the app
@@ -33,22 +47,20 @@ interface PublishedDoc {
  * them de-link at render time. Publishing a page means adding a row; there is no
  * directory walk that could publish one by accident.
  */
-const PUBLISHED_DOCS: readonly PublishedDoc[] = [
+const PUBLISHED: readonly PublishedEntry[] = [
 	{ file: 'README.md', title: 'Overview', section: 'Start' },
 	{ file: 'getting-started.md', title: 'Getting started', section: 'Start' },
 	{ file: 'CONTEXT.md', title: 'Glossary', section: 'Start' },
 	// Interim: the format reference stands in until the authoring guides land.
 	{ file: 'preset-format.md', title: 'Preset format', section: 'Authoring' },
-	{ file: 'packs/syntax/aesthetic.md', title: 'Syntax', section: 'Packs' },
-	{ file: 'packs/crt-terminal/aesthetic.md', title: 'CRT Terminal', section: 'Packs' },
-	{ file: 'packs/editorial-mono/aesthetic.md', title: 'Editorial Mono', section: 'Packs' },
-	{ file: 'packs/clean-light/aesthetic.md', title: 'Clean Light', section: 'Packs' }
+	{ href: '/packs', title: 'Packs', section: 'Packs' }
 ];
 
+const PUBLISHED_DOCS = PUBLISHED.filter(isPublishedDoc);
 const PUBLISHED_FILES = new Set(PUBLISHED_DOCS.map((doc) => doc.file));
 
 export interface DocMeta {
-	file: string;
+	file?: string;
 	href: string;
 	title: string;
 	section: string;
@@ -66,7 +78,7 @@ export interface DocHeading {
 }
 
 export interface DocPage {
-	meta: DocMeta;
+	meta: DocMeta & { file: string };
 	html: string;
 	headings: DocHeading[];
 	prev: DocMeta | null;
@@ -86,14 +98,16 @@ function fileToHref(file: string): string {
 	return '/' + file.replace(/\.md$/, '');
 }
 
-function toMeta(doc: PublishedDoc): DocMeta {
-	return { file: doc.file, href: fileToHref(doc.file), title: doc.title, section: doc.section };
+function toMeta(entry: PublishedEntry): DocMeta {
+	return isPublishedDoc(entry)
+		? { file: entry.file, href: fileToHref(entry.file), title: entry.title, section: entry.section }
+		: entry;
 }
 
 /** Sections come from the allowlist's own order — consecutive rows sharing a label. */
 function buildNav(): NavSection[] {
 	const sections: NavSection[] = [];
-	for (const doc of PUBLISHED_DOCS) {
+	for (const doc of PUBLISHED) {
 		const open = sections.at(-1);
 		if (open?.label === doc.section) open.items.push(toMeta(doc));
 		else sections.push({ label: doc.section, items: [toMeta(doc)] });
@@ -125,6 +139,11 @@ function resolveDocLink(href: string, currentFile: string): DocLinkResolution {
 	// escapes docs/ — ../src/…, ../AGENTS.md — so no page exists to link to
 	if (target.startsWith('..')) return { kind: 'delink' };
 	target = LINK_ALIASES[target] ?? target;
+	// Keep repository links useful without publishing Pack-authoring doctrine.
+	const pack = /^packs\/([^/]+)\/aesthetic\.md$/.exec(target);
+	if (pack && packShowcase.packs.some((entry) => entry.slug === pack[1])) {
+		return { kind: 'page', href: `/packs#${pack[1]}` };
+	}
 	// a directory link stands for that directory's README
 	const file = target.endsWith('.md') ? target : posix.join(target, 'README.md');
 	if (PUBLISHED_FILES.has(file)) return { kind: 'page', href: fileToHref(file) + suffix };
@@ -263,10 +282,11 @@ export function getAllHrefs(): string[] {
 
 export async function getDoc(slug: string): Promise<DocPage | null> {
 	const href = '/' + slug;
-	const index = PUBLISHED_DOCS.findIndex((doc) => fileToHref(doc.file) === href);
-	if (index < 0) return null;
+	const index = PUBLISHED.findIndex((entry) => toMeta(entry).href === href);
+	const entry = PUBLISHED[index];
+	if (!entry || !isPublishedDoc(entry)) return null;
 
-	const meta = toMeta(PUBLISHED_DOCS[index]);
+	const meta = { ...toMeta(entry), file: entry.file };
 	const md = await getEngine();
 	const src = readFileSync(resolve(DOCS_DIR, meta.file), 'utf-8');
 	const html = md.render(src, { file: meta.file });
@@ -275,14 +295,27 @@ export async function getDoc(slug: string): Promise<DocPage | null> {
 		meta,
 		html,
 		headings: extractHeadings(html),
-		prev: index > 0 ? toMeta(PUBLISHED_DOCS[index - 1]) : null,
-		next: index < PUBLISHED_DOCS.length - 1 ? toMeta(PUBLISHED_DOCS[index + 1]) : null
+		prev: index > 0 ? toMeta(PUBLISHED[index - 1]) : null,
+		next: index < PUBLISHED.length - 1 ? toMeta(PUBLISHED[index + 1]) : null
 	};
 }
 
 export function getSearchIndex(): SearchEntry[] {
-	return PUBLISHED_DOCS.map(toMeta).map((item) => {
-		const src = readFileSync(resolve(DOCS_DIR, item.file), 'utf-8');
+	return PUBLISHED.map((entry) => {
+		const item = toMeta(entry);
+		if (!isPublishedDoc(entry)) {
+			return {
+				title: item.title,
+				href: item.href,
+				section: item.section,
+				text: getPacksPage()
+					.dresses.map((pack) =>
+						[pack.label, pack.feel, ...pack.faces.map((face) => face.family)].join(' ')
+					)
+					.join(' ')
+			};
+		}
+		const src = readFileSync(resolve(DOCS_DIR, entry.file), 'utf-8');
 		const text = src
 			.replace(/```[\s\S]*?```/g, ' ')
 			.replace(/^#.*$/m, ' ')

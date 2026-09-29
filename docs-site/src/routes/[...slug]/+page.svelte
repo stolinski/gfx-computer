@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Toc from '$lib/components/Toc.svelte';
+	import PresetLoops from '$lib/components/PresetLoops.svelte';
 
 	let { data } = $props();
 
@@ -20,6 +21,9 @@
 			<!-- eslint-disable-next-line svelte/no-at-html-tags — HTML is rendered from the repo's own markdown -->
 			{@html doc.html}
 		</div>
+		{#if doc.meta.file === 'README.md'}
+			<PresetLoops />
+		{/if}
 		<footer>
 			{#if doc.prev}
 				<a class="adjacent prev" href={doc.prev.href}>
