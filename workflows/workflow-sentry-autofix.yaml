@@ -4,7 +4,7 @@ description: >-
   Every six hours: pick one unattempted unresolved Sentry issue, gather its
   evidence with the sentry CLI (Seer explain/plan included, no reproduction
   required), fix it in an isolated worktree, verify with the repo's checks,
-  integrate onto dev, resolve the issue, and close its Dex task. Failed
+  integrate onto main, resolve the issue, and close its Dex task. Failed
   attempts stay visible as open Dex repair tasks, which also stops re-attempts.
 tags: { lane: sentry }
 trigger:
@@ -44,11 +44,9 @@ jobs:
               3. Gather evidence — the original event is enough, never block on
                  reproducing: `sentry issue view GFX-COMPUTER-<n>`,
                  `sentry issue explain GFX-COMPUTER-<n>`, `sentry issue plan GFX-COMPUTER-<n>`.
-              4. Fix it in an isolated worktree, never in the primary checkout.
-                 While the WebMCP Challenge runs, `dev` is the integration
-                 branch and `main` is frozen: never commit to or push `main`.
-                 `git worktree add -b sentry/GFX-COMPUTER-<n> /Users/scotttolinski/.worktrees/gfx-computer/gfx-computer-sentry-GFX-COMPUTER-<n> dev`
-                 (reuse and rebase onto dev if it already exists), then
+              4. Fix it in an isolated worktree, never in the primary checkout:
+                 `git worktree add -b sentry/GFX-COMPUTER-<n> /Users/scotttolinski/.worktrees/gfx-computer/gfx-computer-sentry-GFX-COMPUTER-<n> main`
+                 (reuse and rebase onto main if it already exists), then
                  `SHARP_IGNORE_GLOBAL_LIBVIPS=1 CI=true pnpm install` there.
                  Implement the smallest credible fix per the worktree's CLAUDE.md.
                  No speculative test files — add a test only when it pins the
@@ -57,7 +55,7 @@ jobs:
                  green. If the fix touched preset, pack, or pipeline files, also
                  run `node --experimental-strip-types scripts/verify-presets.ts --affected --changed-paths-json '<json array of changed paths>'`
                  — never `--all`. Commit as ONE commit.
-              6. Integrate and close out: cherry-pick that commit onto dev in
+              6. Integrate and close out: cherry-pick that commit onto main in
                  the primary checkout, remove the worktree
                  (`git worktree remove /Users/scotttolinski/.worktrees/gfx-computer/gfx-computer-sentry-GFX-COMPUTER-<n>`),
                  `sentry issue resolve GFX-COMPUTER-<n>`, and

@@ -34,7 +34,7 @@ end-to-end repair attempt through the `gfx-agent` coding agent:
 
 ```text
 observed Sentry error → sentry issue view/explain/plan → fix in isolated worktree
-→ pnpm check + pnpm test → cherry-pick onto dev → sentry issue resolve → dex complete
+→ pnpm check + pnpm test → cherry-pick onto main → sentry issue resolve → dex complete
 ```
 
 - **The original event is enough evidence.** Runtime reproduction, a mandatory
@@ -47,9 +47,8 @@ observed Sentry error → sentry issue view/explain/plan → fix in isolated wor
   `Repair SUPERS-<n> from Sentry evidence` still count — the slug rename
   changed the prefix, never the counter `<n>`.
 - **The primary checkout's state never blocks admission.** All work happens in
-  a worktree created from `dev`; integration is a single cherry-pick onto
-  `dev`. While the WebMCP Challenge runs, `main` is frozen and the lane never
-  touches it; when the challenge ends, both return to `main`.
+  a worktree created from `main`; integration is a single cherry-pick onto
+  `main`.
 - **Resolution is honest.** The issue is resolved only after checks pass and
   the commit lands. A later event reopens it in Sentry and the next run treats
   it as a fresh regression.
