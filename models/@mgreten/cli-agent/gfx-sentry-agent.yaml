@@ -7,6 +7,9 @@ tags: {}
 # Dedicated sentry-lane agent: swamp locks are per model instance, so the
 # 6-hour cron never contends with gfx-agent's factory implement dispatches.
 globalArguments:
+  # One-year token from the keychain, so a failed refresh of the interactive
+  # login cannot log scheduled runs out (see the launcher's header comment).
+  claudePath: /Users/scotttolinski/.local/bin/claude-scheduled
   defaultProvider: claude
   defaultModel: opus
   sandboxMode: 'off'

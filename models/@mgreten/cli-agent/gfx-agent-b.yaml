@@ -10,7 +10,7 @@ globalArguments:
   defaultToolProfile: actor
   commandsDir: .claude/commands
   commandSubdirs: []
-  claudePath: claude
+  claudePath: /Users/scotttolinski/.local/bin/claude-scheduled
   opencodePath: opencode
   ampPath: amp
   geminiPath: gemini

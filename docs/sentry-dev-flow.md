@@ -52,6 +52,13 @@ observed Sentry error → sentry issue view/explain/plan → fix in isolated wor
 - **Resolution is honest.** The issue is resolved only after checks pass and
   the commit lands. A later event reopens it in Sentry and the next run treats
   it as a fresh regression.
+- **Scheduled agents sign in with a one-year token.** `gfx-sentry-agent` and
+  the `gfx-agent*` models launch Claude through `~/.local/bin/claude-scheduled`,
+  which reads the `claude setup-token` token from the login keychain item
+  `gfx-scheduled-claude-oauth-token`. The interactive login's refresh once
+  failed and emptied its keychain entry, which stopped every run for three
+  days (2026-09-21). The token was created 2026-09-29: run `claude setup-token`
+  again before 2026-09-29 next year and replace the keychain item.
 
 ## Logs and metrics
 

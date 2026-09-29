@@ -5,6 +5,9 @@ name: gfx-agent
 version: 1
 tags: {}
 globalArguments:
+  # One-year token from the keychain, so a failed refresh of the interactive
+  # login cannot log scheduled runs out (see the launcher's header comment).
+  claudePath: /Users/scotttolinski/.local/bin/claude-scheduled
   defaultProvider: claude
   defaultModel: opus
   # Worktree creation next to the repo plus pnpm's network access do not fit
