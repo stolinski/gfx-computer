@@ -244,6 +244,13 @@
 		"height": 360,
 		"contentFraction": 0.5276
 	},
+	"effect-keyframes-demo": {
+		"contentKey": "b8dddfb8e232a097",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.1906
+	},
 	"fluid-ripple-demo": {
 		"contentKey": "eb936ea691add659",
 		"timestampSeconds": 1.5,

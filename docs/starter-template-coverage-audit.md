@@ -6,7 +6,7 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **103 Presets** — **45 listed** and **58 fixtures**.
+- Corpus: **107 Presets** — **45 listed** and **62 fixtures**.
 - Structurally distinct Starter candidates: **45**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
@@ -93,6 +93,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `dithering-demo`                                | Effect proof         | Dithering                          | Keep fixture | Isolated Effect proof.                                                |
 | `docu-timeline-build-clean-light`               | Pack calibration     | Clean Light timeline re-dress      | Keep fixture | Calibration evidence, never a listing entry.                          |
 | `dof-multiplane-check`                          | Depth proof          | Multiplane capture                 | Keep fixture | Regression check.                                                     |
+| `effect-keyframes-demo`                         | Animation proof      | Keyframed Effect params            | Keep fixture | Engine contract proof (ADR-0063).                                     |
 | `fluid-ripple-demo`                             | Simulation proof     | Fluid ripple                       | Keep fixture | Isolated simulation proof.                                            |
 | `fluted-glass-demo`                             | Effect proof         | Fluted glass                       | Keep fixture | Isolated Effect proof.                                                |
 | `halftone-cmyk-demo`                            | Effect proof         | CMYK halftone                      | Keep fixture | Isolated Effect proof.                                                |
@@ -101,13 +102,15 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `instance-stack-vertical`                       | Overlay proof        | Instance stack                     | Keep fixture | Feature proof, not a creator job.                                     |
 | `isolate-demo`                                  | Annotation proof     | Isolate focal treatment            | Keep fixture | Isolated Pipeline proof.                                              |
 | `keyframes-cascade-demo`                        | Animation proof      | Generalized keyframes and Cascade  | Keep fixture | Engine contract proof.                                                |
+| `kinetic-type-field-motion-fixture`             | Kinetic type proof   | Independent word tracks            | Keep fixture | Type Field motion contract proof (ADR-0064).                          |
+| `kinetic-type-field-static-fixture`             | Kinetic type proof   | Static Type Field and reflow       | Keep fixture | Type Field substrate proof (ADR-0064).                                |
 | `lower-third-cascade-reveal`                    | Animation proof      | Lower-third Cascade                | Keep fixture | Calibration/reference proof; canonical Starter is `lower-third`.      |
 | `lower-third-clean-light`                       | Pack calibration     | Clean Light lower third            | Keep fixture | Calibration evidence, never a listing entry.                          |
 | `newspaper-body-test`                           | Surface proof        | Newsprint body and highlighter     | Keep fixture | Pipeline regression input.                                            |
 | `ntsc-signal-demo`                              | Effect proof         | NTSC signal                        | Keep fixture | Isolated Effect proof.                                                |
 | `optical-glass-photo-fixture`                   | Effect proof         | Optical glass over photo           | Keep fixture | Isolated Effect proof.                                                |
 | `optical-lens-showcase`                         | Effect proof         | Refractive-lens composition        | Keep fixture | Effect study, not a durable creator job.                              |
-| `pixelation-demo`                               | Effect proof         | Clean pixelation                    | Keep fixture | Isolated Effect proof.                                                |
+| `pixelation-demo`                               | Effect proof         | Clean pixelation                   | Keep fixture | Isolated Effect proof.                                                |
 | `quote-vertical`                                | Reflow proof         | Vertical paper quote               | Keep fixture | Historical orientation proof, not a sibling Starter.                  |
 | `shader-fill-demo`                              | Overlay proof        | Shader fill                        | Keep fixture | Isolated Overlay proof.                                               |
 | `shader-fill-syntax-gradient`                   | Pack proof           | Syntax shader-fill dress           | Keep fixture | Appearance proof, not a separate piece.                               |
@@ -118,6 +121,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `text-anim-showcase-kinetic-top-build`          | Text-animation proof | Kinetic top build                  | Keep fixture | Renderer-family proof.                                                |
 | `text-3d-cylinder`                              | Overlay proof        | Cylindrical 3D text                | Keep fixture | Pipeline proof with a watermark, not a reusable composition job.      |
 | `text-anim-showcase-shared-slide-opacity`       | Text-animation proof | Shared slide/opacity               | Keep fixture | Renderer-family proof.                                                |
+| `text-anim-variable-weight`                     | Text-animation proof | Pack-mapped variable weight        | Keep fixture | Renderer-family proof.                                                |
 | `tiled-deformation-demo`                        | Deformation proof    | Tiled deformation                  | Keep fixture | Isolated Effect proof.                                                |
 | `title-sequence-drop`                           | Surface proof        | Title-sequence impact motion       | Keep fixture | Feature proof; canonical listed sequence is `title-sequence-signal`.  |
 | `transition-particle-dissolve-demo`             | Transition proof     | Particle dissolve                  | Keep fixture | Endpoint/Effect proof, not yet a creator Starter.                     |

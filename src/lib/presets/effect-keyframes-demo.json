@@ -1,0 +1,141 @@
+{
+	"schema": "gfx@1",
+	"name": "Keyframed Effect params — engine fixture",
+	"description": "ADR-0063 verification fixture. The pixelation Effect's pixelSize channel runs 96 → 1 over 400 ms (settled), welded to the end of the `title` lower-third's entrance, so the frame resolves as the title lands. The refractive lens holds, then its region.x channel slides it 0.1 → 0.36 onto the centred title over two seconds (smooth) and holds. Transparent on purpose: alpha must survive both Effects. Both tracks run through the same animation manifest as every other channel.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#14121a",
+			"inkColor": "#f2ede3"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "title",
+				"content": {
+					"variant": "standard",
+					"kicker": "ADR-0063",
+					"title": "Keyframed Effect params",
+					"subtitle": "pixelation · refractive lens"
+				},
+				"position": {
+					"anchor": "center",
+					"orientationOverrides": {
+						"vertical": {
+							"anchor": "center",
+							"scale": 1.5
+						}
+					}
+				},
+				"enter": {
+					"start": 0.12,
+					"duration": 0.06,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.9,
+					"duration": 0.04,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				}
+			}
+		],
+		"effects": [
+			{
+				"type": "pixelation",
+				"id": "resolve",
+				"params": {
+					"pixelSize": 1
+				},
+				"animation": {
+					"channels": {
+						"pixelSize": [
+							{
+								"atMs": 0,
+								"value": 96
+							},
+							{
+								"atMs": 400,
+								"value": 1,
+								"ease": "settled"
+							}
+						]
+					},
+					"cascade": {
+						"anchor": {
+							"overlay": "title"
+						},
+						"event": "end",
+						"offsetMs": 0
+					}
+				}
+			},
+			{
+				"type": "refractive-lens",
+				"id": "sweep",
+				"params": {
+					"shape": "circle",
+					"region": {
+						"x": 0.1,
+						"y": 0.3,
+						"width": 0.28,
+						"height": 0.4
+					},
+					"magnification": 1.3,
+					"thickness": 0.45,
+					"refraction": 0.3,
+					"roughness": 0.02,
+					"dispersion": 0.08,
+					"reflection": 0.2,
+					"rimLight": 0.35,
+					"tint": "#e8f1f5",
+					"tintStrength": 0.02,
+					"edgeFlatness": 0.5,
+					"bevel": 0.24
+				},
+				"animation": {
+					"channels": {
+						"region.x": [
+							{
+								"atMs": 0,
+								"value": 0.1
+							},
+							{
+								"atMs": 1600,
+								"value": 0.1,
+								"ease": "smooth"
+							},
+							{
+								"atMs": 3600,
+								"value": 0.36,
+								"ease": "smooth"
+							}
+						]
+					}
+				}
+			}
+		],
+		"audioCues": []
+	}
+}

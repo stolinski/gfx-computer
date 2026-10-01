@@ -76,7 +76,10 @@ test('focused CLI validates an explicit Preset across every Pack and both orient
 	assert.equal(run.status, 0, run.stderr);
 	assert.match(run.stdout, /lower-third × clean-light \(horizontal \+ vertical\)/);
 	assert.match(run.stdout, /lower-third × syntax \(horizontal \+ vertical\)/);
-	assert.match(run.stdout, /Validated 4 Preset × Pack axes in both orientations/);
+	// One axis per registered Pack, counted from the run rather than restated.
+	const axes = run.stdout.match(/^✓ lower-third × /gm)?.length ?? 0;
+	assert.ok(axes >= 2, 'the focused run validated no Pack axes');
+	assert.match(run.stdout, new RegExp(`Validated ${axes} Preset × Pack axes in both orientations`));
 	assert.match(run.stdout, /no browser, capture, export, Critic, or render matrix was launched/);
 });
 
