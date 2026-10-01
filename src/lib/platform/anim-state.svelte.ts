@@ -48,6 +48,14 @@ export interface RenderAnimState {
 	blockChannels: Record<string, OverlayChannelValues | null>;
 	/** Type Field channels stay separate from Diagram Block runtime records. */
 	kineticWordChannels: Record<string, KineticWordChannelValues | null>;
+	/**
+	 * Live keyframed Effect params (ADR-0063), keyed by Effect id, then by
+	 * channel dotted path. Present only for Effects that declare channels; a
+	 * path absent here renders its static param. Written by the animation
+	 * manifest and handed to the frame renderer in its request — the renderer
+	 * never reads this state itself.
+	 */
+	effectChannels: Record<string, Record<string, number>>;
 	paperVisibility: number;
 	/**
 	 * Global timeline progress in [0, 1] — the fraction of the transport
@@ -68,6 +76,7 @@ export const animState = $state<RenderAnimState>({
 	blockAlphas: {},
 	blockChannels: {},
 	kineticWordChannels: {},
+	effectChannels: {},
 	paperVisibility: 0,
 	globalProgress: 0
 });

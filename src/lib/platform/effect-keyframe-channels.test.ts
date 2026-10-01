@@ -7,8 +7,10 @@ import { listNumericLeafPaths } from '$lib/utils/zod-numeric-leaves';
 
 import {
 	listEffectKeyframeChannels,
+	resolveEffectParamsWithChannelValues,
 	validateEffectKeyframeChannels
 } from './effect-keyframe-channels';
+import type { Effect, Keyframe } from './engine-schema';
 import { PIPELINE_DEFINITION_REGISTRY } from './pipelines/definition-registry';
 import type { EffectPipelineDefinition } from './pipelines/definition-types';
 
@@ -78,70 +80,113 @@ describe('listEffectKeyframeChannels', () => {
 	});
 });
 
+function effectEntry(type: string, params: unknown, animation: Effect['animation']): Effect {
+	return { type, id: `${type}-entry`, params, animation };
+}
+
+function track(...values: number[]): Keyframe[] {
+	return values.map((value, index) =>
+		index === 0 ? { atMs: 0, value } : { atMs: index * 200, value, ease: 'smooth' }
+	);
+}
+
 describe('validateEffectKeyframeChannels', () => {
 	const pixelation = PIPELINE_DEFINITION_REGISTRY.effects.pixelation;
 	const fluid = PIPELINE_DEFINITION_REGISTRY.effects.fluidRipple;
 	const frost = PIPELINE_DEFINITION_REGISTRY.effects.frostedGlass;
 
-	it('accepts in-range whole-number keyframes and nested paths', () => {
+	it('accepts in-range whole-number keyframes and nested paths whose parents exist', () => {
+		const animated = effectEntry(
+			'pixelation',
+			{ pixelSize: 48 },
+			{
+				channels: { pixelSize: track(96, 1) }
+			}
+		);
+		assert.deepEqual(validateEffectKeyframeChannels(animated, pixelation), []);
+		// `region` and `melt.center` are filled from schema defaults when absent.
+		const regionOnly = effectEntry('frosted-glass', {}, { channels: { 'region.x': track(0.1) } });
+		assert.deepEqual(validateEffectKeyframeChannels(regionOnly, frost), []);
+		const meltCenter = effectEntry(
+			'frosted-glass',
+			{ melt: {} },
+			{
+				channels: { 'melt.center.x': track(0.4) }
+			}
+		);
+		assert.deepEqual(validateEffectKeyframeChannels(meltCenter, frost), []);
 		assert.deepEqual(
 			validateEffectKeyframeChannels(
-				{
-					channels: {
-						pixelSize: [
-							{ atMs: 0, value: 96 },
-							{ atMs: 400, value: 1, ease: 'smooth' }
-						]
-					}
-				},
+				effectEntry('pixelation', { pixelSize: 48 }, undefined),
 				pixelation
 			),
 			[]
 		);
-		assert.deepEqual(
-			validateEffectKeyframeChannels(
-				{ channels: { 'region.x': [{ atMs: 0, value: 0.1 }] } },
-				frost
-			),
-			[]
-		);
-		assert.deepEqual(validateEffectKeyframeChannels(undefined, pixelation), []);
 	});
 
-	it('rejects unknown, frozen, out-of-range, and fractional integer channels by path', () => {
-		const unknown = validateEffectKeyframeChannels(
-			{ channels: { blur: [{ atMs: 0, value: 1 }] } },
+	it('rejects unknown, frozen, parentless, out-of-range, and fractional integer channels by path', () => {
+		const [unknown] = validateEffectKeyframeChannels(
+			effectEntry('pixelation', {}, { channels: { blur: track(1) } }),
 			pixelation
 		);
-		assert.deepEqual(unknown[0].path, ['animation', 'channels', 'blur']);
-		assert.match(unknown[0].message, /not a keyframe channel of the pixelation Effect\. Channels: pixelSize/);
+		assert.deepEqual(unknown.path, ['animation', 'channels', 'blur']);
+		assert.match(
+			unknown.message,
+			/not a keyframe channel of the pixelation Effect\. Channels: pixelSize/
+		);
 
-		const frozen = validateEffectKeyframeChannels(
-			{ channels: { damping: [{ atMs: 0, value: 2 }] } },
+		const [frozen] = validateEffectKeyframeChannels(
+			effectEntry('fluid-ripple', {}, { channels: { damping: track(2) } }),
 			fluid
 		);
-		assert.deepEqual(frozen[0].path, ['animation', 'channels', 'damping']);
-		assert.match(frozen[0].message, /frozen on the fluid-ripple Effect/);
+		assert.deepEqual(frozen.path, ['animation', 'channels', 'damping']);
+		assert.match(frozen.message, /frozen on the fluid-ripple Effect/);
 
-		const outOfRange = validateEffectKeyframeChannels(
-			{
-				channels: {
-					pixelSize: [
-						{ atMs: 0, value: 48 },
-						{ atMs: 200, value: 512, ease: 'sharp' }
-					]
-				}
-			},
+		const [parentless] = validateEffectKeyframeChannels(
+			effectEntry('frosted-glass', {}, { channels: { 'melt.radius': track(0.3) } }),
+			frost
+		);
+		assert.deepEqual(parentless.path, ['animation', 'channels', 'melt.radius']);
+		assert.match(parentless.message, /needs a melt block in params/);
+
+		const [outOfRange] = validateEffectKeyframeChannels(
+			effectEntry('pixelation', {}, { channels: { pixelSize: track(48, 512) } }),
 			pixelation
 		);
-		assert.deepEqual(outOfRange[0].path, ['animation', 'channels', 'pixelSize', 1, 'value']);
-		assert.match(outOfRange[0].message, /outside the pixelSize channel's range 1\.\.256/);
+		assert.deepEqual(outOfRange.path, ['animation', 'channels', 'pixelSize', 1, 'value']);
+		assert.match(outOfRange.message, /outside the pixelSize channel's range 1\.\.256/);
 
-		const fractional = validateEffectKeyframeChannels(
-			{ channels: { pixelSize: [{ atMs: 0, value: 2.5 }] } },
+		const [fractional] = validateEffectKeyframeChannels(
+			effectEntry('pixelation', {}, { channels: { pixelSize: track(2.5) } }),
 			pixelation
 		);
-		assert.deepEqual(fractional[0].path, ['animation', 'channels', 'pixelSize', 0, 'value']);
-		assert.match(fractional[0].message, /integer channel/);
+		assert.deepEqual(fractional.path, ['animation', 'channels', 'pixelSize', 0, 'value']);
+		assert.match(fractional.message, /integer channel/);
+	});
+});
+
+describe('resolveEffectParamsWithChannelValues', () => {
+	it('fills schema defaults, sets driven paths, and rounds integer channels', () => {
+		const pixelation = PIPELINE_DEFINITION_REGISTRY.effects.pixelation;
+		assert.deepEqual(
+			resolveEffectParamsWithChannelValues(effectEntry('pixelation', {}, undefined), pixelation, {
+				pixelSize: 31.6
+			}),
+			{ pixelSize: 32 }
+		);
+
+		const frost = PIPELINE_DEFINITION_REGISTRY.effects.frostedGlass;
+		const authored = { coverage: 0.5, region: { x: 0.1, y: 0.2, width: 0.4, height: 0.4 } };
+		const resolved = resolveEffectParamsWithChannelValues(
+			effectEntry('frosted-glass', authored, undefined),
+			frost,
+			{ 'region.x': 0.35, seed: 9 }
+		) as { coverage: number; region: { x: number; y: number }; seed: number };
+		assert.equal(resolved.region.x, 0.35);
+		assert.equal(resolved.region.y, 0.2);
+		assert.equal(resolved.coverage, 0.5);
+		// A frozen param is never driven, even if a value arrives for it.
+		assert.equal(resolved.seed, 4107);
+		assert.equal(authored.region.x, 0.1, 'the authored params are not mutated');
 	});
 });

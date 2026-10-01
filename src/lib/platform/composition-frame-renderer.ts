@@ -20,7 +20,8 @@ import {
 	type LightTreatment,
 	type ResolvedMaterialTreatment
 } from './packs/resolve';
-import { getSurfaceDefinition } from './pipelines/definition-registry';
+import { getEffectDefinition, getSurfaceDefinition } from './pipelines/definition-registry';
+import { resolveEffectParamsWithChannelValues } from './effect-keyframe-channels';
 import type { OverlayChannelValues } from './anim-state.svelte';
 import { resolveOverlayStageBodies } from './stage-body-overlays';
 import type { StageTypefaceData } from './stage-glyph-format';
@@ -164,6 +165,12 @@ export interface CompositionFrameRenderRequest {
 	overlayChannels?: readonly (OverlayChannelValues | null)[];
 	/** Each Overlay's own enter/exit progress, the body's presence when no channel drives it. */
 	overlayProgresses?: readonly number[];
+	/**
+	 * Live keyframed Effect params by Effect id, then channel path (ADR-0063 §5),
+	 * as the animation manifest left them at this frame. The renderer substitutes
+	 * them into the authored Effects and never samples a track itself.
+	 */
+	effectChannels?: Readonly<Record<string, Readonly<Record<string, number>>>>;
 	videoUnderlayTexture: PreparedVideoUnderlayTexture | null;
 	readableProbeMode?: CompositionReadableProbeMode;
 	domCapture?: CompositionDomCaptureGenerations;
@@ -381,6 +388,28 @@ function prepareFramePackTreatments(
 		chromeEffects,
 		background: resolvedFill !== undefined ? hexToRgbaFloat(resolvedFill) : undefined
 	};
+}
+
+/**
+ * The authored Effects with this frame's channel values substituted into their
+ * params (ADR-0063 §5). Runs before Pack chrome is appended, so a Pack's chrome
+ * entries are never touched; an Effect without live values keeps its exact
+ * entry, and the state is returned unchanged when nothing is driven.
+ */
+export function resolveFrameEffectChannelState(
+	state: EngineState,
+	effectChannels: CompositionFrameRenderRequest['effectChannels']
+): EngineState {
+	if (!effectChannels || Object.keys(effectChannels).length === 0) return state;
+	let changed = false;
+	const effects = state.effects.map((effect) => {
+		const values = effectChannels[effect.id];
+		const definition = values ? getEffectDefinition(effect.type) : null;
+		if (!values || !definition) return effect;
+		changed = true;
+		return { ...effect, params: resolveEffectParamsWithChannelValues(effect, definition, values) };
+	});
+	return changed ? { ...state, effects } : state;
 }
 
 function appendPackChrome(
@@ -848,6 +877,18 @@ export function renderCompositionFrameTo(
 		return 'unavailable';
 	}
 
+	return renderLiveCompositionFrame(
+		{ ...request, state: resolveFrameEffectChannelState(request.state, request.effectChannels) },
+		branches
+	);
+}
+
+// The stage, DOF, and flat branches, over a state whose authored Effects
+// already carry this frame's channel values.
+function renderLiveCompositionFrame(
+	request: CompositionFrameRenderRequest,
+	branches: readonly CompositionFrameRenderBranch[]
+): CompositionFrameRenderResult {
 	requireLoadedSurfaceRenderer(request.state.surface.type);
 	for (const overlay of request.state.overlays) requireLoadedOverlayRenderer(overlay.type);
 

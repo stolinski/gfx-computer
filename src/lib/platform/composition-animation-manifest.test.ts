@@ -4,7 +4,7 @@ import { describe, it } from 'vitest';
 import type { RenderAnimState } from './anim-state.svelte.ts';
 import { buildCompositionAnimationManifest } from './composition-animation-manifest.ts';
 import type { AnimationTweenSpec } from './animation-manager.ts';
-import type { EngineState, TextAnimation } from './engine-schema.ts';
+import { getEaseGsap, type EngineState, type TextAnimation } from './engine-schema.ts';
 
 function makeRuntime(): RenderAnimState {
 	return {
@@ -16,6 +16,7 @@ function makeRuntime(): RenderAnimState {
 		blockAlphas: {},
 		blockChannels: {},
 		kineticWordChannels: {},
+		effectChannels: {},
 		paperVisibility: 0,
 		globalProgress: 0
 	};
@@ -230,5 +231,74 @@ describe('composition animation manifest', () => {
 		assert.equal(runtime.paperVisibility, 0.75);
 		assert.equal(runtime.overlayChannels[0]?.y, 0.025);
 		assert.equal(runtime.blockProgresses['node-a'], 1);
+	});
+
+	it('emits keyframed Effect channel tweens seeded from the first keyframe (ADR-0063 §5)', () => {
+		const runtime = makeRuntime();
+		runtime.effectChannels = { removed: { pixelSize: 3 } };
+		const state = makeManifestState();
+		state.effects = [
+			{
+				type: 'pixelation',
+				id: 'unwelded',
+				params: { pixelSize: 48 },
+				animation: {
+					channels: {
+						pixelSize: [
+							{ atMs: 1000, value: 96 },
+							{ atMs: 1400, value: 1, ease: 'sharp' }
+						]
+					}
+				}
+			},
+			{
+				type: 'pixelation',
+				id: 'welded',
+				params: { pixelSize: 48 },
+				animation: {
+					channels: {
+						pixelSize: [
+							{ atMs: 0, value: 64 },
+							{ atMs: 500, value: 8 }
+						]
+					},
+					cascade: { anchor: 'surface', event: 'start', offsetMs: 2000 }
+				}
+			},
+			{ type: 'pixelation', id: 'static', params: { pixelSize: 12 } }
+		];
+		const manifest = buildCompositionAnimationManifest({
+			state,
+			runtime,
+			textAnimationRoot: null,
+			textAnimationCompiler: { rebuild: () => [] },
+			resolveMarkColor: () => '#ffee00'
+		});
+
+		// Seeded from each first keyframe; static and removed Effects hold no record.
+		assert.deepEqual(runtime.effectChannels, {
+			unwelded: { pixelSize: 96 },
+			welded: { pixelSize: 64 }
+		});
+
+		const unwelded = manifest.tweens.find((tween) => tween.key === 'effect-unwelded-pixelSize-1');
+		// 10 s transport: atMs counts from composition start without a cascade.
+		assert.equal(unwelded?.start, 0.1);
+		assert.ok(Math.abs((unwelded?.duration ?? 0) - 0.04) < 1e-9);
+		assert.equal(unwelded?.from, 96);
+		assert.equal(unwelded?.to, 1);
+		assert.equal(unwelded?.ease, getEaseGsap('sharp'));
+
+		const welded = manifest.tweens.find((tween) => tween.key === 'effect-welded-pixelSize-1');
+		// The surface starts at 0, so the weld puts the track at 2000 ms.
+		assert.equal(welded?.start, 0.2);
+		assert.equal(welded?.ease, getEaseGsap('smooth'));
+
+		welded?.onUpdate(20);
+		assert.equal(runtime.effectChannels.welded.pixelSize, 20);
+		assert.equal(
+			manifest.tweens.some((tween) => tween.key.startsWith('effect-static')),
+			false
+		);
 	});
 });

@@ -292,7 +292,7 @@ function validateEffectSemantics(preset: Preset, issues: PresetSemanticIssue[]):
 		}
 
 		if (definition) {
-			for (const issue of validateEffectKeyframeChannels(effect.animation, definition)) {
+			for (const issue of validateEffectKeyframeChannels(effect, definition)) {
 				issues.push({ path: ['state', 'effects', index, ...issue.path], message: issue.message });
 			}
 		} else if (effect.animation) {

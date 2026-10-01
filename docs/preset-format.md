@@ -490,7 +490,8 @@ A single flat list — [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) co
 - `atMs` counts from composition start; a `cascade` welds the track's start to an element's enter start or end plus `offsetMs`. Effects are cascade subjects, never anchors.
 - The static `params` value is the seed: it is what the Effect shows when the channel is cleared.
 - `depth-of-field` takes no `animation` block; it keeps its `focusPull` ramp.
-- A declared Effect channel validates and round-trips, but does not yet drive the render: the animation manifest starts carrying Effect channels in the runtime leaf of ADR-0063.
+- A nested channel needs its parent block in `params` (after schema defaults): `melt.radius` animates only an Effect that declares `melt`.
+- Effect channels drive preview and export through the same animation manifest as every other channel; integer channels round at sample time.
 
 ### `stage` (optional — dimensional depth stage)
 

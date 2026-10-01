@@ -629,6 +629,7 @@
 			stageTypeface: (slug: string) => stageTypefaceController.typeface(slug),
 			overlayChannels: animState.overlayChannels,
 			overlayProgresses: animState.overlayProgresses,
+			effectChannels: animState.effectChannels,
 			videoUnderlayTexture: videoUnderlayRuntimeController.preparedTexture(),
 			readableProbeMode,
 			domCapture: {

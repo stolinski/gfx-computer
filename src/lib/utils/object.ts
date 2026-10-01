@@ -32,3 +32,33 @@ export function hashObject(value: unknown): string {
 	const hex = (n: number): string => (n >>> 0).toString(16).padStart(8, '0');
 	return hex(h2) + hex(h1);
 }
+
+/**
+ * A copy of `source` with each dotted path (`pixelSize`, `region.x`) set to its
+ * number. Only the objects along a written path are copied; everything else is
+ * shared. A path whose parent is absent or not a plain object is skipped
+ * rather than invented, because a half-built nested object (a `melt` with only
+ * a `radius`) is not a value its reader expects.
+ */
+export function withDottedPathNumbers(
+	source: Readonly<Record<string, unknown>>,
+	values: Readonly<Record<string, number>>
+): Record<string, unknown> {
+	const root: Record<string, unknown> = { ...source };
+	for (const [path, value] of Object.entries(values)) {
+		const keys = path.split('.');
+		let parent: Record<string, unknown> | null = root;
+		for (let index = 0; parent && index < keys.length - 1; index += 1) {
+			const child: unknown = parent[keys[index]];
+			if (!isRecord(child) || Array.isArray(child)) {
+				parent = null;
+				break;
+			}
+			const copy: Record<string, unknown> = { ...child };
+			parent[keys[index]] = copy;
+			parent = copy;
+		}
+		if (parent) parent[keys[keys.length - 1]] = value;
+	}
+	return root;
+}

@@ -7,9 +7,10 @@
  */
 import { z } from 'zod';
 
+import { isRecord, withDottedPathNumbers } from '$lib/utils/object';
 import { listNumericLeafPaths, type ZodNumericLeaf } from '$lib/utils/zod-numeric-leaves';
 
-import type { EffectAnimation } from './engine-schema';
+import type { Effect } from './engine-schema';
 import type { EffectPipelineDefinition } from './pipelines/definition-types';
 
 /** One keyframeable Effect param: its dotted path under `params`, bounds, and integer flag. */
@@ -79,18 +80,73 @@ function describeChannelRange(leaf: ZodNumericLeaf): string {
 }
 
 /**
+ * The Effect's params with its schema defaults filled in, so a channel lands
+ * in the same shape the Effect's renderer would otherwise default toward. An
+ * entry the schema rejects keeps its authored params; semantic validation has
+ * already reported it.
+ */
+function readEffectParamsWithDefaults(
+	effect: Pick<Effect, 'type' | 'id' | 'params'>,
+	definition: EffectPipelineDefinition
+): unknown {
+	const parsed = definition.schema.safeParse({
+		type: effect.type,
+		id: effect.id,
+		params: effect.params
+	});
+	return parsed.success && isRecord(parsed.data) ? parsed.data.params : effect.params;
+}
+
+// The first object on a dotted path that is absent from `params`, by its
+// dotted name, or null when every parent exists.
+function findMissingParamParent(params: unknown, channelPath: string): string | null {
+	const keys = channelPath.split('.');
+	let current: unknown = params;
+	for (let index = 0; index < keys.length - 1; index += 1) {
+		const next: unknown = isRecord(current) ? current[keys[index]] : undefined;
+		if (!isRecord(next)) return keys.slice(0, index + 1).join('.');
+		current = next;
+	}
+	return null;
+}
+
+/**
+ * The params one frame renders with (ADR-0063 §5): the authored params with
+ * schema defaults filled in, and each driven channel set at its dotted path.
+ * Integer channels round here, at sample time. `values` comes from the
+ * animation manifest; this function never samples a track itself.
+ */
+export function resolveEffectParamsWithChannelValues(
+	effect: Pick<Effect, 'type' | 'id' | 'params'>,
+	definition: EffectPipelineDefinition,
+	values: Readonly<Record<string, number>>
+): unknown {
+	const base = readEffectParamsWithDefaults(effect, definition);
+	if (!isRecord(base)) return effect.params;
+	const { channels } = readEffectParamLeaves(definition);
+	const driven: Record<string, number> = {};
+	for (const [path, value] of Object.entries(values)) {
+		const leaf = channels.get(path);
+		if (!leaf) continue;
+		driven[path] = leaf.isInteger ? Math.round(value) : value;
+	}
+	return withDottedPathNumbers(base, driven);
+}
+
+/**
  * Checks an Effect's declared channels against its definition: an unknown or
  * frozen channel path, a value outside the leaf's bounds, and a fractional
  * value on an integer channel are each reported at their exact path.
  */
 export function validateEffectKeyframeChannels(
-	animation: EffectAnimation | undefined,
+	effect: Pick<Effect, 'type' | 'id' | 'params' | 'animation'>,
 	definition: EffectPipelineDefinition
 ): EffectKeyframeChannelIssue[] {
-	const declared = animation?.channels;
+	const declared = effect.animation?.channels;
 	if (!declared) return [];
 
 	const { channels, frozen } = readEffectParamLeaves(definition);
+	const resolvedParams = readEffectParamsWithDefaults(effect, definition);
 	const issues: EffectKeyframeChannelIssue[] = [];
 	for (const [channelPath, track] of Object.entries(declared)) {
 		const path = ['animation', 'channels', channelPath];
@@ -107,6 +163,14 @@ export function validateEffectKeyframeChannels(
 			issues.push({
 				path,
 				message: `"${channelPath}" is not a keyframe channel of the ${definition.type} Effect. Channels: ${known.length > 0 ? known.join(', ') : 'none'}.`
+			});
+			continue;
+		}
+		const missingParent = findMissingParamParent(resolvedParams, channelPath);
+		if (missingParent) {
+			issues.push({
+				path,
+				message: `"${channelPath}" needs a ${missingParent} block in params before it can be animated.`
 			});
 			continue;
 		}

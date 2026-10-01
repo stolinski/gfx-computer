@@ -435,6 +435,49 @@ function appendKineticWordTweens(
 	}
 }
 
+/**
+ * Keyframed Effect params (ADR-0063 §5). Each declared channel writes its live
+ * value into `runtime.effectChannels[effectId][path]`, seeded from the first
+ * keyframe; Effects without channels hold no record, so a removed or cleared
+ * channel falls back to the static param. The track starts at the Effect's
+ * cascade-resolved window (composition start when unwelded).
+ */
+function appendEffectChannelTweens(
+	state: EngineState,
+	cascadeWindows: CascadeWindowMap,
+	durationMs: number,
+	runtime: RenderAnimState,
+	tweens: AnimationTweenSpec[]
+): void {
+	const next: Record<string, Record<string, number>> = {};
+	for (const effect of state.effects) {
+		const channels = effect.animation?.channels;
+		if (!channels) continue;
+		const declared = Object.entries(channels).filter(([, frames]) => frames.length > 0);
+		if (declared.length === 0) continue;
+
+		const slot: Record<string, number> = {};
+		for (const [path, frames] of declared) slot[path] = frames[0].value;
+		next[effect.id] = slot;
+
+		const clipStartFraction = cascadeWindows.get(`effect:${effect.id}`)?.startFraction ?? 0;
+		for (const [path, frames] of declared) {
+			appendChannelKeyframeTweens({
+				tweens,
+				keyPrefix: `effect-${effect.id}-${path}`,
+				frames,
+				clipStartFraction,
+				durationMs,
+				write: (value) => {
+					const current = runtime.effectChannels[effect.id];
+					if (current) current[path] = value;
+				}
+			});
+		}
+	}
+	runtime.effectChannels = next;
+}
+
 function appendDiagramBlockTweens(
 	state: EngineState,
 	cascadeWindows: CascadeWindowMap,
@@ -507,6 +550,7 @@ export function buildCompositionAnimationManifest(
 	appendOverlayTweens(state, cascadeWindows, durationMs, runtime, tweens);
 	appendKineticWordTweens(state, durationMs, runtime, tweens);
 	appendDiagramBlockTweens(state, cascadeWindows, durationMs, runtime, tweens);
+	appendEffectChannelTweens(state, cascadeWindows, durationMs, runtime, tweens);
 
 	return { tweens };
 }

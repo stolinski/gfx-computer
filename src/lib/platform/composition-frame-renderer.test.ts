@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'vitest';
 
+import type { RenderAnimState } from './anim-state.svelte';
+import { AnimationManager } from './animation-manager';
+import { buildCompositionAnimationManifest } from './composition-animation-manifest';
 import { createDefaultEngineState, type Effect, type EngineState } from './engine-schema';
 import type { GpuHost } from './gpu-host';
 import { getPack } from './packs/registry';
@@ -485,5 +488,159 @@ describe('composition frame renderer ordering', () => {
 			'composite',
 			'effects'
 		]);
+	});
+});
+
+describe('keyframed Effect params in the frame renderer (ADR-0063 §5)', () => {
+	beforeEach(() => {
+		pipelineRendererController.activate({
+			surfaces: new Map([['paper', { type: 'paper' } as unknown as SurfaceRenderer]]),
+			blocks: new Map(),
+			annotations: new Map(),
+			overlays: new Map(),
+			effects: new Map(),
+			transitions: new Map()
+		});
+	});
+
+	function animatedState(): EngineState {
+		const state = createDefaultEngineState();
+		state.transport.durationSeconds = 2;
+		state.transport.fps = 30;
+		state.backgroundFill = '#101010';
+		state.effects = [
+			{
+				type: 'pixelation',
+				id: 'resolve',
+				params: { pixelSize: 48 },
+				animation: {
+					channels: {
+						pixelSize: [
+							{ atMs: 0, value: 96 },
+							{ atMs: 1000, value: 1, ease: 'smooth' }
+						]
+					}
+				}
+			},
+			{ type: 'chromatic-aberration', id: 'fringe', params: { strength: 0.25, radial: 1 } }
+		];
+		return state;
+	}
+
+	// Renders one flat frame and returns the Effect list the chain received.
+	function renderEffectsAt(
+		state: EngineState,
+		timestamp: number,
+		effectChannels: CompositionFrameRenderRequest['effectChannels']
+	): readonly Effect[] {
+		let received: readonly Effect[] = [];
+		const result = renderCompositionFrameTo({
+			outputView: {} as GPUTextureView,
+			timestamp,
+			state,
+			pack: getPack('crt-terminal'),
+			paperVisibility: 1,
+			compositionElement: null,
+			overlayRootElement: null,
+			substrateTexture: null,
+			videoUnderlayTexture: null,
+			effectChannels,
+			resources: {
+				host: {
+					canvas: { width: 3840, height: 2160 },
+					device: { createCommandEncoder: () => ({}) as GPUCommandEncoder }
+				} as unknown as GpuHost,
+				pipeline: {
+					uploadDom: () => undefined,
+					render: () => undefined,
+					getOutputTexture: () => texture('surface')
+				} as unknown as SurfaceRenderInstance,
+				effectChain: {
+					apply: ({ effects }: { effects: readonly Effect[] }) => {
+						received = effects;
+					}
+				} as unknown as EffectChain,
+				shaderPassDispatcher: {
+					apply: ({ inputTexture }: { inputTexture: GPUTexture }) => inputTexture
+				} as unknown as ShaderPassDispatcher,
+				compositionPlanes: null,
+				depthStage: null
+			},
+			cachedTransition: null,
+			buildSurfaceInputs: (frameTimestamp) => ({ ...SURFACE_INPUTS, timestamp: frameTimestamp })
+		});
+		assert.equal(result, 'flat');
+		return received;
+	}
+
+	it('hands the chain substituted, rounded values and leaves static and Pack chrome entries alone', () => {
+		const state = animatedState();
+		const effects = renderEffectsAt(state, 0.5, { resolve: { pixelSize: 31.6 } });
+
+		assert.deepEqual(
+			effects.map((effect) => effect.type),
+			['pixelation', 'chromatic-aberration', 'crt-tube']
+		);
+		assert.deepEqual(effects[0].params, { pixelSize: 32 });
+		assert.equal(effects[1], state.effects[1], 'an undriven Effect keeps its exact entry');
+		assert.equal(effects[2].id, 'pack-chrome-0');
+		const chrome = getPack('crt-terminal').roles['chrome'];
+		assert.ok(chrome?.kind === 'chrome');
+		assert.deepEqual(effects[2].params, chrome.effects[0].params ?? {});
+		assert.deepEqual(state.effects[0].params, { pixelSize: 48 }, 'authored params are not mutated');
+
+		const withoutValues = renderEffectsAt(state, 0.5, undefined);
+		assert.equal(withoutValues[0], state.effects[0], 'no live values renders the static entry');
+	});
+
+	it('packs the same uniforms whether the manifest is seeked directly or played through', () => {
+		const state = animatedState();
+		const totalFrames = state.transport.durationSeconds * Number(state.transport.fps);
+		const targetFrame = 13;
+		const packPixelationUniforms = (params: unknown): number =>
+			(params as { pixelSize: number }).pixelSize;
+
+		function scrubbedUniforms(frames: readonly number[]): number {
+			const runtime: RenderAnimState = {
+				bodyVisibility: 0,
+				markProgresses: [],
+				overlayProgresses: [],
+				overlayChannels: [],
+				blockProgresses: {},
+				blockAlphas: {},
+				blockChannels: {},
+				kineticWordChannels: {},
+				effectChannels: {},
+				paperVisibility: 0,
+				globalProgress: 0
+			};
+			const manager = new AnimationManager();
+			manager.rebuild(
+				buildCompositionAnimationManifest({
+					state,
+					runtime,
+					textAnimationRoot: null,
+					textAnimationCompiler: { rebuild: () => [] },
+					resolveMarkColor: () => '#000000'
+				})
+			);
+			for (const frame of frames) manager.progress(frame / totalFrames);
+			const effects = renderEffectsAt(
+				state,
+				targetFrame / Number(state.transport.fps),
+				runtime.effectChannels
+			);
+			manager.dispose();
+			return packPixelationUniforms(effects[0].params);
+		}
+
+		// Preview seeks straight to the frame; export plays every frame up to it.
+		const preview = scrubbedUniforms([targetFrame]);
+		const exported = scrubbedUniforms(Array.from({ length: targetFrame + 1 }, (_, frame) => frame));
+		const scrubbedBack = scrubbedUniforms([40, 5, targetFrame]);
+		assert.equal(preview, exported);
+		assert.equal(preview, scrubbedBack);
+		assert.ok(preview > 1 && preview < 96, `frame ${targetFrame} is mid-track: ${preview}`);
+		assert.ok(Number.isInteger(preview), 'pixelSize is an integer channel');
 	});
 });
