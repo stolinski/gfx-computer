@@ -365,17 +365,17 @@
 	},
 	"optical-glass-photo-fixture": {
 		"contentKey": "2f72f5ae7d18f5a9",
-		"timestampSeconds": 2.4,
+		"timestampSeconds": 3,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.8711
+		"contentFraction": 0.8773
 	},
 	"optical-lens-showcase": {
 		"contentKey": "55bb64497f720f76",
 		"timestampSeconds": 6,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.4721
+		"contentFraction": 0.472
 	},
 	"outro-watch-next": {
 		"contentKey": "4293753ce916157a",

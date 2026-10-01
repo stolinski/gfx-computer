@@ -301,4 +301,67 @@ describe('composition animation manifest', () => {
 			false
 		);
 	});
+
+	it('expands frosted glass grow and melt ramps into channel sugar (ADR-0063 §8)', () => {
+		const runtime = makeRuntime();
+		const state = makeManifestState();
+		const frost = {
+			type: 'frosted-glass',
+			id: 'frost',
+			params: {
+				growFrom: 0.2,
+				growTo: 0.3,
+				melt: { center: { x: 0.5, y: 0.5 }, radius: 0.3, softness: 0.08, from: 0.5, to: 0.7 }
+			}
+		};
+		state.effects = [frost];
+		const before = JSON.stringify(state.effects);
+		const manifest = buildCompositionAnimationManifest({
+			state,
+			runtime,
+			textAnimationRoot: null,
+			textAnimationCompiler: { rebuild: () => [] },
+			resolveMarkColor: () => '#ffee00'
+		});
+
+		const growth = manifest.tweens.find((tween) => tween.key === 'effect-frost-growth-1');
+		// 10 s transport: the ramp runs 2000 → 3000 ms from composition start.
+		assert.equal(growth?.start, 0.2);
+		assert.ok(Math.abs((growth?.duration ?? 0) - 0.1) < 1e-9);
+		assert.equal(growth?.from, 0);
+		assert.equal(growth?.to, 1);
+		assert.equal(growth?.ease, getEaseGsap('smooth'));
+		const melt = manifest.tweens.find((tween) => tween.key === 'effect-frost-melt.progress-1');
+		assert.equal(melt?.start, 0.5);
+		assert.deepEqual(runtime.effectChannels.frost, { growth: 0, 'melt.progress': 0 });
+		assert.equal(JSON.stringify(state.effects), before, 'sugar never rewrites the Preset');
+	});
+
+	it('lets a declared growth channel take the pen from the ramp sugar', () => {
+		const runtime = makeRuntime();
+		const state = makeManifestState();
+		state.effects = [
+			{
+				type: 'frosted-glass',
+				id: 'frost',
+				params: { growFrom: 0.2, growTo: 0.3 },
+				animation: { channels: { growth: [{ atMs: 0, value: 0.4 }] } }
+			}
+		];
+		const manifest = buildCompositionAnimationManifest({
+			state,
+			runtime,
+			textAnimationRoot: null,
+			textAnimationCompiler: { rebuild: () => [] },
+			resolveMarkColor: () => '#ffee00'
+		});
+
+		const growthTweens = manifest.tweens.filter((tween) =>
+			tween.key.startsWith('effect-frost-growth')
+		);
+		assert.equal(growthTweens.length, 1);
+		assert.equal(growthTweens[0].from, 0.4);
+		// No melt block, so no melt sugar.
+		assert.deepEqual(runtime.effectChannels.frost, { growth: 0.4 });
+	});
 });

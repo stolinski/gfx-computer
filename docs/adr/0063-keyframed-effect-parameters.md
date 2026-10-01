@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, not built (decided 2026-09-14; building under Dex epic `fvfbrf8t`).** Amends [ADR-0035](0035-generalized-keyframes-and-cascade.md) §3 (the channel vocabulary, which stopped at Overlay and Surface channels), [ADR-0012](0012-effect-pack-context-progress-timestamp.md) (the effect chain saw static params plus a time context), and [ADR-0044](0044-optical-lens-and-frost-family.md) (frosted glass carried its own two-point ramps). Names the consumer [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md) asked for before the camera gains channels, and leaves the camera, the focus, and `depth-of-field` on their one-move vocabulary. Flips to Canon when the epic lands.
+**Canon (built 2026-10-01 under Dex epic `fvfbrf8t`; decided 2026-09-14).** Amends [ADR-0035](0035-generalized-keyframes-and-cascade.md) §3 (the channel vocabulary, which stopped at Overlay and Surface channels), [ADR-0012](0012-effect-pack-context-progress-timestamp.md) (the effect chain saw static params plus a time context), and [ADR-0044](0044-optical-lens-and-frost-family.md) (frosted glass carried its own two-point ramps). Names the consumer [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md) asked for before the camera gains channels, and leaves the camera, the focus, and `depth-of-field` on their one-move vocabulary. Two details settled while building: a nested channel needs its parent block in `params` (after schema defaults), and the Effect vocabulary read takes one `effectType` per call so each receipt stays inside the result budget. Frozen inputs include each simulation's authored event (fluid ripple's impulse, cloth bend's gust), because the kernel reads them too.
 
 Date: 2026-09-14
 

@@ -69,8 +69,13 @@
 	const staticValue = $derived(
 		readNumber(effect.params) ?? readNumber(definition?.defaults().params) ?? param?.min ?? 0
 	);
+	// The manifest's value at the playhead: a declared track, or sugar the
+	// Effect's own timing fields expand into (frosted glass's grow and melt).
+	const live = $derived(keyframeable ? animState.effectChannels[effect.id]?.[path] : undefined);
+	// A sugar-driven param ignores its static value, so a typed value starts a
+	// track (a declared channel takes the pen) instead of editing it unseen.
+	const sugarDriven = $derived(!track && live !== undefined);
 	const value = $derived.by(() => {
-		const live = track ? animState.effectChannels[effect.id]?.[path] : undefined;
 		const shown = live ?? staticValue;
 		return param?.isInteger ? Math.round(shown) : Math.round(shown * 1000) / 1000;
 	});
@@ -151,7 +156,7 @@
 	busy={operationBusy}
 	{trackRowId}
 	onTrackChange={applyTrack}
-	onStaticChange={writeStatic}
+	onStaticChange={sugarDriven ? undefined : writeStatic}
 />
 {#if operationMessage}
 	<small class="operation-error">{operationMessage}</small>

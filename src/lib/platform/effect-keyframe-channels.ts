@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { isRecord, withDottedPathNumbers } from '$lib/utils/object';
 import { listNumericLeafPaths, type ZodNumericLeaf } from '$lib/utils/zod-numeric-leaves';
 
-import type { Effect } from './engine-schema';
+import type { Effect, Keyframe } from './engine-schema';
 import type { EffectPipelineDefinition } from './pipelines/definition-types';
 
 /** One keyframeable Effect param: its dotted path under `params`, bounds, and integer flag. */
@@ -215,4 +215,28 @@ export function validateEffectKeyframeChannels(
 		});
 	}
 	return issues;
+}
+
+/**
+ * The keyframe tracks an Effect's own timing fields expand into (ADR-0063 §8),
+ * minus every path the composition declares as a channel — a declared channel
+ * takes the pen. Only real channel paths survive, so sugar can never drive a
+ * frozen param. Tracks count from composition start.
+ */
+export function expandEffectKeyframeSugar(
+	effect: Pick<Effect, 'type' | 'id' | 'params' | 'animation'>,
+	definition: EffectPipelineDefinition,
+	durationMs: number
+): [string, Keyframe[]][] {
+	if (!definition.keyframeSugar) return [];
+	const params = resolveEffectParamsWithDefaults(effect, definition);
+	const declared = effect.animation?.channels ?? {};
+	const { channels } = readEffectParamLeaves(definition);
+	return Object.entries(definition.keyframeSugar(params, durationMs)).filter(
+		(entry): entry is [string, Keyframe[]] =>
+			entry[1] !== undefined &&
+			entry[1].length > 0 &&
+			channels.has(entry[0]) &&
+			(declared[entry[0]]?.length ?? 0) === 0
+	);
 }

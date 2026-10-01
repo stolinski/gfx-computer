@@ -20,7 +20,8 @@ const FrostedGlassUniforms = d.struct({
 	region: d.vec4f,
 	tint: d.vec4f,
 	melt: d.vec4f,
-	meltTiming: d.vec4f,
+	// x: how far the melt has opened (0..1); z: 1 when the composition declares a melt.
+	meltState: d.vec4f,
 	resolution: d.vec2f,
 	progress: d.f32,
 	timestamp: d.f32,
@@ -33,14 +34,14 @@ const FrostedGlassUniforms = d.struct({
 	tintStrength: d.f32,
 	highlight: d.f32,
 	seed: d.f32,
-	growFrom: d.f32,
-	growTo: d.f32
+	growth: d.f32
 });
 
 // Deterministic pane frost built from three independently-scaled value fields,
 // gaussian transmission blur, derivative relief, and sparse surface highlights. The
-// frost front and optional melt are pure functions of composition progress;
-// output alpha always remains the local input alpha.
+// frost front and the optional melt read the `growth` and `melt.progress` params,
+// which the animation manifest drives (ADR-0063 §8); output alpha always remains
+// the local input alpha.
 const fragmentBody = /* wgsl */ `
 	let region = layout.$.uniforms.region;
 	let resolution = layout.$.uniforms.resolution;
@@ -91,14 +92,13 @@ const fragmentBody = /* wgsl */ `
 	let contrastWidth = mix(0.28, 0.025, layout.$.uniforms.contrast);
 	var frostMask = smoothstep(threshold - contrastWidth, threshold + contrastWidth, frostField);
 
-	let growth = smoothstep(layout.$.uniforms.growFrom, layout.$.uniforms.growTo, layout.$.uniforms.progress);
+	let growth = layout.$.uniforms.growth;
 	let growthFront = 1.0 - smoothstep(growth - 0.08, growth + 0.015, localUv.x);
 	frostMask = frostMask * growthFront;
 
 	let melt = layout.$.uniforms.melt;
-	let meltTiming = layout.$.uniforms.meltTiming;
-	let meltProgress = smoothstep(meltTiming.x, max(meltTiming.y, meltTiming.x + 0.0001), layout.$.uniforms.progress)
-		* meltTiming.z;
+	let meltState = layout.$.uniforms.meltState;
+	let meltProgress = meltState.x * meltState.z;
 	let meltDistance = length((localUv - melt.xy) * vec2f(regionPixels.x / regionPixels.y, 1.0));
 	let meltHole = 1.0 - smoothstep(melt.z - melt.w, melt.z + melt.w, meltDistance);
 	frostMask = frostMask * (1.0 - meltHole * meltProgress) * paneMask;
@@ -174,7 +174,7 @@ export const frostedGlassEffectRenderer: EffectRenderer<FrostedGlassParams> = {
 					melt?.radius ?? 0.28,
 					melt?.softness ?? 0.08
 				),
-				meltTiming: d.vec4f(melt?.from ?? 0.42, melt?.to ?? 0.68, melt ? 1 : 0, 0),
+				meltState: d.vec4f(melt?.progress ?? 0, 0, melt ? 1 : 0, 0),
 				resolution: d.vec2f(ctx.canvasWidth, ctx.canvasHeight),
 				progress: ctx.progress,
 				timestamp: ctx.timestamp,
@@ -187,8 +187,7 @@ export const frostedGlassEffectRenderer: EffectRenderer<FrostedGlassParams> = {
 				tintStrength: params.tintStrength ?? 0.18,
 				highlight: params.highlight ?? 0.22,
 				seed: params.seed ?? 4107,
-				growFrom: params.growFrom ?? 0,
-				growTo: params.growTo ?? 0.08
+				growth: params.growth ?? 1
 			};
 		}
 	},

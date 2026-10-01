@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (v1 built).**
+**Canon (v1 built).** **Amended 2026-10-01:** the frost's grow and melt ramps are sugar over the `growth` and `melt.progress` keyframe channels ([ADR-0063](0063-keyframed-effect-parameters.md) §8); the shader reads those params instead of composition progress, and the ramp's curve is the `smooth` ease rather than `smoothstep`.
 
 Date: 2026-07-27
 Builds on: [ADR-0012](0012-effect-pack-context-progress-timestamp.md) (frame-deterministic Effect context), [ADR-0015](0015-identity-spec-per-pipeline.md) (truthful Pipeline claims), [ADR-0018](0018-collapse-effects-to-frame-only.md) (one frame Effect chain), [ADR-0023](0023-pack-is-appearance-only.md) (motion stays outside Packs)

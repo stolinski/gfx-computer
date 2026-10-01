@@ -12,7 +12,8 @@
 					radius: 0.28,
 					softness: 0.08,
 					from: 0.42,
-					to: 0.68
+					to: 0.68,
+					progress: 0
 				}
 			: undefined;
 	}
@@ -53,6 +54,8 @@
 
 <EffectParamRow {effect} path="growTo" label="Grow to" />
 
+<EffectParamRow {effect} path="growth" label="Growth" />
+
 <label class="row">
 	<span>Melt</span>
 	<input checked={effect.params.melt !== undefined} onchange={handleMeltChange} type="checkbox" />
@@ -70,4 +73,6 @@
 	<EffectParamRow {effect} path="melt.from" label="Melt from" />
 
 	<EffectParamRow {effect} path="melt.to" label="Melt to" />
+
+	<EffectParamRow {effect} path="melt.progress" label="Melt progress" />
 {/if}

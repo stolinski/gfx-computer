@@ -2,7 +2,12 @@ import type { z } from 'zod';
 
 import type { AnnotationBodyBlockType } from '$lib/annotations/annotation-marks';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
-import type { OverlayPosition, SurfaceState, Transition } from '$lib/platform/engine-schema';
+import type {
+	Keyframe,
+	OverlayPosition,
+	SurfaceState,
+	Transition
+} from '$lib/platform/engine-schema';
 import type { PackManifest } from '$lib/platform/packs/types';
 import type { EdgeTreatment } from '$lib/platform/packs/resolve';
 import type {
@@ -92,6 +97,14 @@ export interface EffectPipelineDefinition<TParams = unknown> {
 	 * play-through disagree. GPU-side params of the same Effect stay channels.
 	 */
 	frozenParams?: readonly string[];
+	/**
+	 * Keyframe tracks this Effect's own timing fields expand into when the
+	 * animation manifest is built (ADR-0063 §8), the way `enter` / `exit` sugar
+	 * expands for an Overlay. Keyed by channel path; `atMs` counts from
+	 * composition start. A channel the composition declares takes the pen, so
+	 * its sugar track is dropped. `params` arrive with schema defaults filled.
+	 */
+	keyframeSugar?(params: TParams, durationMs: number): Partial<Record<string, Keyframe[]>>;
 }
 
 export interface TransitionEffectDefinition<TParams = unknown> {

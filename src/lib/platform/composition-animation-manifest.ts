@@ -24,6 +24,8 @@ import {
 	type Transport
 } from './engine-schema.ts';
 import { listSurfaceMarkInstances } from './surface-mark-instances.ts';
+import { expandEffectKeyframeSugar } from './effect-keyframe-channels.ts';
+import { getEffectDefinition } from './pipelines/definition-registry.ts';
 import { clampNumber } from '$lib/utils/math';
 import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 import {
@@ -436,11 +438,13 @@ function appendKineticWordTweens(
 }
 
 /**
- * Keyframed Effect params (ADR-0063 §5). Each declared channel writes its live
- * value into `runtime.effectChannels[effectId][path]`, seeded from the first
- * keyframe; Effects without channels hold no record, so a removed or cleared
- * channel falls back to the static param. The track starts at the Effect's
- * cascade-resolved window (composition start when unwelded).
+ * Keyframed Effect params (ADR-0063 §5, §8). Each declared channel writes its
+ * live value into `runtime.effectChannels[effectId][path]`, seeded from the
+ * first keyframe and started at the Effect's cascade-resolved window
+ * (composition start when unwelded). An Effect's own timing fields expand into
+ * sugar tracks from composition start, the way enter/exit sugar does for an
+ * Overlay; a declared channel takes the pen. Effects with neither hold no
+ * record, so a removed or cleared channel falls back to the static param.
  */
 function appendEffectChannelTweens(
 	state: EngineState,
@@ -451,15 +455,21 @@ function appendEffectChannelTweens(
 ): void {
 	const next: Record<string, Record<string, number>> = {};
 	for (const effect of state.effects) {
-		const channels = effect.animation?.channels;
-		if (!channels) continue;
-		const declared = Object.entries(channels).filter(([, frames]) => frames.length > 0);
-		if (declared.length === 0) continue;
+		const declared = Object.entries(effect.animation?.channels ?? {}).filter(
+			([, frames]) => frames.length > 0
+		);
+		const definition = getEffectDefinition(effect.type);
+		const sugar = definition ? expandEffectKeyframeSugar(effect, definition, durationMs) : [];
+		if (declared.length === 0 && sugar.length === 0) continue;
 
 		const slot: Record<string, number> = {};
-		for (const [path, frames] of declared) slot[path] = frames[0].value;
+		for (const [path, frames] of [...declared, ...sugar]) slot[path] = frames[0].value;
 		next[effect.id] = slot;
 
+		const write = (path: string) => (value: number) => {
+			const current = runtime.effectChannels[effect.id];
+			if (current) current[path] = value;
+		};
 		const clipStartFraction = cascadeWindows.get(`effect:${effect.id}`)?.startFraction ?? 0;
 		for (const [path, frames] of declared) {
 			appendChannelKeyframeTweens({
@@ -468,10 +478,17 @@ function appendEffectChannelTweens(
 				frames,
 				clipStartFraction,
 				durationMs,
-				write: (value) => {
-					const current = runtime.effectChannels[effect.id];
-					if (current) current[path] = value;
-				}
+				write: write(path)
+			});
+		}
+		for (const [path, frames] of sugar) {
+			appendChannelKeyframeTweens({
+				tweens,
+				keyPrefix: `effect-${effect.id}-${path}`,
+				frames,
+				clipStartFraction: 0,
+				durationMs,
+				write: write(path)
 			});
 		}
 	}
