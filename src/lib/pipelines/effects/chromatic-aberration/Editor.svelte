@@ -1,28 +1,11 @@
 <script lang="ts">
+	import EffectParamRow from '$lib/platform/EffectParamRow.svelte';
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { ChromaticAberrationParams } from './index';
 
 	let { effect = $bindable() }: EffectEditorProps<ChromaticAberrationParams> = $props();
 </script>
 
-<label class="row">
-	<span>Strength</span>
-	<input
-		bind:value={effect.params.strength}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="strength" label="Strength" />
 
-<label class="row">
-	<span>Radial</span>
-	<input
-		bind:value={effect.params.radial}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="radial" label="Radial" />

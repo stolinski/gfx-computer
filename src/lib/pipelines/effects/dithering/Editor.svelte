@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EffectParamRow from '$lib/platform/EffectParamRow.svelte';
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { DitheringParams } from './index';
 
@@ -17,15 +18,9 @@
 	</select>
 </label>
 
-<label class="row">
-	<span>Cell size</span>
-	<input bind:value={effect.params.pxSize} max="64" min="1" step="1" type="range" />
-</label>
+<EffectParamRow {effect} path="pxSize" label="Cell size" />
 
-<label class="row">
-	<span>Steps</span>
-	<input bind:value={effect.params.colorSteps} max="7" min="1" step="1" type="range" />
-</label>
+<EffectParamRow {effect} path="colorSteps" label="Steps" />
 
 <div class="row">
 	<span>Original colors</span>

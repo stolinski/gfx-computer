@@ -53,7 +53,7 @@ import {
 import { getPack, listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
 import { ensurePackLoaded } from './user-pack-runtime';
 import { userPackStore } from './user-pack-store';
-import { isRecord } from '../utils/object';
+import { isRecord, readDottedPathValue } from '../utils/object';
 import {
 	getEffectDefinition,
 	getSurfaceDefinition,
@@ -433,6 +433,28 @@ export async function runSetCompositionEffectParamsOperation(
 			'unsupported_variant',
 			`Effect "${effect.id}" is a ${effect.type}, which this engine no longer registers.`,
 			{ rejected: effect.type }
+		);
+	}
+
+	// A param that carries keyframes is owned by its channel (ADR-0063 §10): the
+	// GUI edits it only through its keyframe row, and so does an agent.
+	const channelOwned = Object.entries(effect.animation?.channels ?? {})
+		.filter(([, track]) => track.length > 0)
+		.map(([path]) => path)
+		.filter(
+			(path) =>
+				readDottedPathValue(request.params, path) !== readDottedPathValue(effect.params, path)
+		);
+	if (channelOwned.length > 0) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'precondition_unmet',
+			`Effect "${effect.id}" animates ${channelOwned.join(', ')} with keyframes; change those through its keyframe channel, or clear the channel first.`,
+			{
+				rejected: channelOwned.join(', '),
+				alternatives: ['motion.set-keyframe-channel', 'motion.clear-keyframe-channel']
+			}
 		);
 	}
 

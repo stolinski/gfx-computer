@@ -67,7 +67,8 @@ function hasKeyframeChannel(state: EngineState): boolean {
 		state.surface.animation,
 		...state.overlays.map((overlay) => overlay.animation),
 		...(state.surface.diagram ?? []).map((primitive) => primitive.animation),
-		...(state.surface.typeField?.words ?? []).map((word) => word.animation)
+		...(state.surface.typeField?.words ?? []).map((word) => word.animation),
+		...state.effects.map((effect) => effect.animation)
 	];
 	return carriers.some(
 		(motion) =>
@@ -80,13 +81,14 @@ function hasKeyframeChannel(state: EngineState): boolean {
 	);
 }
 
-/** Whether any of the four anchorable entities is welded to another one. */
+/** Whether any weld subject (an anchorable element or an Effect) is welded to an anchor. */
 function hasCascadeAnchor(state: EngineState): boolean {
 	return (
 		state.overlays.some((overlay) => overlay.animation?.cascade !== undefined) ||
 		state.marks.timings.some((timing) => timing.cascade !== undefined) ||
 		state.textAnimations.some((entry) => entry.cascade !== undefined) ||
-		(state.surface.diagram ?? []).some((primitive) => primitive.animation?.cascade !== undefined)
+		(state.surface.diagram ?? []).some((primitive) => primitive.animation?.cascade !== undefined) ||
+		state.effects.some((effect) => effect.animation?.cascade !== undefined)
 	);
 }
 

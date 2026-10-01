@@ -10,7 +10,7 @@ import {
 	readWebmcpDerivedEnums,
 	readWebmcpVocabularySections
 } from './webmcp-derived-tool-schemas';
-import { REGISTERED_OVERLAY_TYPES } from './pipelines/definition-registry';
+import { REGISTERED_EFFECT_TYPES, REGISTERED_OVERLAY_TYPES } from './pipelines/definition-registry';
 import { STANDARD_TRANSPORT_RATES } from '../utils/composition-timing';
 import {
 	WEBMCP_RESULT_CHARACTER_BUDGET,
@@ -43,6 +43,30 @@ describe('capability vocabulary', () => {
 		for (const section of readWebmcpVocabularySections()) {
 			const serialized = JSON.stringify(runInspectCapabilityVocabularyOperation({ section }));
 			expect(serialized.length, `${section} overruns the result budget`).toBeLessThanOrEqual(
+				WEBMCP_RESULT_CHARACTER_BUDGET
+			);
+		}
+	});
+
+	it("lists one Effect's keyframe channels with bounds, inside the budget for every Effect", () => {
+		const receipt = runInspectCapabilityVocabularyOperation({
+			section: 'effect-type',
+			effectType: 'pixelation'
+		});
+		expect(receipt.effectChannels).toEqual({
+			effectType: 'pixelation',
+			channels: [{ path: 'pixelSize', min: 1, max: 256, isInteger: true }]
+		});
+		expect(
+			runInspectCapabilityVocabularyOperation({ section: 'overlay-type', effectType: 'pixelation' })
+				.effectChannels
+		).toBeUndefined();
+
+		for (const effectType of REGISTERED_EFFECT_TYPES) {
+			const serialized = JSON.stringify(
+				runInspectCapabilityVocabularyOperation({ section: 'effect-type', effectType })
+			);
+			expect(serialized.length, `${effectType} overruns the result budget`).toBeLessThanOrEqual(
 				WEBMCP_RESULT_CHARACTER_BUDGET
 			);
 		}

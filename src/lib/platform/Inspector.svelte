@@ -57,6 +57,9 @@
 					return { kind: 'stage-focus' as const };
 				case 'stage-body':
 					return { kind: 'stage-body' as const, bodyId: track.bodyId };
+				case 'effect':
+					// The Effect chain is a composition-root section; its row lives there.
+					return { kind: 'root' as const };
 			}
 		}
 

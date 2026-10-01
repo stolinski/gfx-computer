@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EffectParamRow from '$lib/platform/EffectParamRow.svelte';
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { CrtTubeParams } from './index';
 
@@ -16,45 +17,21 @@
 	</select>
 </label>
 
-<label class="row">
-	<span>Pitch</span>
-	<input bind:value={effect.params.maskPitchPx} max="24" min="3" step="0.5" type="range" />
-</label>
+<EffectParamRow {effect} path="maskPitchPx" label="Pitch" />
 
-<label class="row">
-	<span>Mask strength</span>
-	<input bind:value={effect.params.maskStrength} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="maskStrength" label="Mask strength" />
 
-<label class="row">
-	<span>Lines</span>
-	<input bind:value={effect.params.lines} max="1080" min="160" step="10" type="range" />
-</label>
+<EffectParamRow {effect} path="lines" label="Lines" />
 
-<label class="row">
-	<span>Focus</span>
-	<input bind:value={effect.params.focus} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="focus" label="Focus" />
 
-<label class="row">
-	<span>Curvature</span>
-	<input bind:value={effect.params.curvature} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="curvature" label="Curvature" />
 
-<label class="row">
-	<span>Bezel</span>
-	<input bind:value={effect.params.bezel} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="bezel" label="Bezel" />
 
-<label class="row">
-	<span>Halation</span>
-	<input bind:value={effect.params.halation} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="halation" label="Halation" />
 
-<label class="row">
-	<span>Vignette</span>
-	<input bind:value={effect.params.vignette} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="vignette" label="Vignette" />
 
 <div class="row">
 	<span>Interlace</span>

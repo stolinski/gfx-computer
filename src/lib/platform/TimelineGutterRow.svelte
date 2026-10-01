@@ -48,6 +48,7 @@
 		'text-animation': 'Text anim',
 		block: 'Block',
 		overlay: 'Overlay',
+		effect: 'Effect',
 		sound: 'Cues',
 		video: 'Video',
 		'stage-camera': 'Stage',

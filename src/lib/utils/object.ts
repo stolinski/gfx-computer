@@ -62,3 +62,31 @@ export function withDottedPathNumbers(
 	}
 	return root;
 }
+
+/** The value at a dotted path (`region.x`), or undefined when any step is missing. */
+export function readDottedPathValue(source: unknown, path: string): unknown {
+	let current: unknown = source;
+	for (const key of path.split('.')) {
+		if (!isRecord(current) || Array.isArray(current)) return undefined;
+		current = current[key];
+	}
+	return current;
+}
+
+/**
+ * `value` with every field it lacks filled from `defaults`, recursively through
+ * plain objects. Fields `value` sets win; arrays and other values are taken as
+ * they are. Used to give a nested write its parent objects without inventing
+ * fields the defaults do not declare.
+ */
+export function fillMissingRecordFields(defaults: unknown, value: unknown): unknown {
+	if (value === undefined) return defaults;
+	if (!isRecord(defaults) || Array.isArray(defaults) || !isRecord(value) || Array.isArray(value)) {
+		return value;
+	}
+	const filled: Record<string, unknown> = { ...value };
+	for (const [key, fallback] of Object.entries(defaults)) {
+		filled[key] = fillMissingRecordFields(fallback, value[key]);
+	}
+	return filled;
+}

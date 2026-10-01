@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EffectParamRow from '$lib/platform/EffectParamRow.svelte';
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { HalftoneDotsParams } from './index';
 
@@ -25,20 +26,11 @@
 	</select>
 </label>
 
-<label class="row">
-	<span>Size</span>
-	<input bind:value={effect.params.size} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="size" label="Size" />
 
-<label class="row">
-	<span>Radius</span>
-	<input bind:value={effect.params.radius} max="2" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="radius" label="Radius" />
 
-<label class="row">
-	<span>Contrast</span>
-	<input bind:value={effect.params.contrast} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="contrast" label="Contrast" />
 
 <div class="row">
 	<span>Original colors</span>

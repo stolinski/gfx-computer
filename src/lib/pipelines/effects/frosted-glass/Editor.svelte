@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EffectParamRow from '$lib/platform/EffectParamRow.svelte';
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { FrostedGlassParams } from './index';
 
@@ -17,85 +18,40 @@
 	}
 </script>
 
-<label class="row">
-	<span>Region x</span>
-	<input bind:value={effect.params.region.x} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="region.x" label="Region x" />
 
-<label class="row">
-	<span>Region y</span>
-	<input bind:value={effect.params.region.y} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="region.y" label="Region y" />
 
-<label class="row">
-	<span>Region width</span>
-	<input bind:value={effect.params.region.width} max="1" min="0.02" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="region.width" label="Region width" />
 
-<label class="row">
-	<span>Region height</span>
-	<input bind:value={effect.params.region.height} max="1" min="0.02" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="region.height" label="Region height" />
 
-<label class="row">
-	<span>Coverage</span>
-	<input bind:value={effect.params.coverage} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="coverage" label="Coverage" />
 
-<label class="row">
-	<span>Contrast</span>
-	<input bind:value={effect.params.contrast} max="1" min="0.05" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="contrast" label="Contrast" />
 
-<label class="row">
-	<span>Roughness</span>
-	<input bind:value={effect.params.roughness} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="roughness" label="Roughness" />
 
-<label class="row">
-	<span>Haze</span>
-	<input bind:value={effect.params.haze} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="haze" label="Haze" />
 
-<label class="row">
-	<span>Refraction</span>
-	<input bind:value={effect.params.refraction} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="refraction" label="Refraction" />
 
-<label class="row">
-	<span>Detail scale</span>
-	<input bind:value={effect.params.detailScale} max="4" min="0.25" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="detailScale" label="Detail scale" />
 
 <label class="row">
 	<span>Tint</span>
 	<input bind:value={effect.params.tint} type="color" />
 </label>
 
-<label class="row">
-	<span>Tint strength</span>
-	<input bind:value={effect.params.tintStrength} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="tintStrength" label="Tint strength" />
 
-<label class="row">
-	<span>Highlight</span>
-	<input bind:value={effect.params.highlight} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="highlight" label="Highlight" />
 
-<label class="row">
-	<span>Seed</span>
-	<input bind:value={effect.params.seed} max="65535" min="0" step="1" type="number" />
-</label>
+<EffectParamRow {effect} path="seed" label="Seed" />
 
-<label class="row">
-	<span>Grow from</span>
-	<input bind:value={effect.params.growFrom} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="growFrom" label="Grow from" />
 
-<label class="row">
-	<span>Grow to</span>
-	<input bind:value={effect.params.growTo} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="growTo" label="Grow to" />
 
 <label class="row">
 	<span>Melt</span>
@@ -103,39 +59,15 @@
 </label>
 
 {#if effect.params.melt}
-	<label class="row">
-		<span>Melt center x</span>
-		<input bind:value={effect.params.melt.center.x} max="1" min="0" step="0.01" type="range" />
-	</label>
+	<EffectParamRow {effect} path="melt.center.x" label="Melt center x" />
 
-	<label class="row">
-		<span>Melt center y</span>
-		<input bind:value={effect.params.melt.center.y} max="1" min="0" step="0.01" type="range" />
-	</label>
+	<EffectParamRow {effect} path="melt.center.y" label="Melt center y" />
 
-	<label class="row">
-		<span>Melt radius</span>
-		<input bind:value={effect.params.melt.radius} max="1.5" min="0.01" step="0.01" type="range" />
-	</label>
+	<EffectParamRow {effect} path="melt.radius" label="Melt radius" />
 
-	<label class="row">
-		<span>Melt softness</span>
-		<input
-			bind:value={effect.params.melt.softness}
-			max="0.5"
-			min="0.001"
-			step="0.001"
-			type="range"
-		/>
-	</label>
+	<EffectParamRow {effect} path="melt.softness" label="Melt softness" />
 
-	<label class="row">
-		<span>Melt from</span>
-		<input bind:value={effect.params.melt.from} max="1" min="0" step="0.01" type="range" />
-	</label>
+	<EffectParamRow {effect} path="melt.from" label="Melt from" />
 
-	<label class="row">
-		<span>Melt to</span>
-		<input bind:value={effect.params.melt.to} max="1" min="0" step="0.01" type="range" />
-	</label>
+	<EffectParamRow {effect} path="melt.to" label="Melt to" />
 {/if}

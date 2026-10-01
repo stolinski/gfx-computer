@@ -441,6 +441,16 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 		toolName: 'gfx_motion_set_cascade_anchor'
 	},
 	{
+		prompt:
+			'Make the pixelation Effect resolve as the title lands: keyframes on its pixelSize param channel.',
+		toolName: 'gfx_motion_set_keyframe_channel'
+	},
+	{
+		prompt:
+			'Slide the lens across the frame over two seconds: animate its region.x Effect param over time.',
+		toolName: 'gfx_motion_set_keyframe_channel'
+	},
+	{
 		prompt: 'Add a sound cue naming a bundled audio asset and its window.',
 		toolName: 'gfx_sound_set_cue'
 	},

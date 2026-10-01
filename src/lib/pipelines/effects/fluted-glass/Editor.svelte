@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EffectParamRow from '$lib/platform/EffectParamRow.svelte';
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { FlutedGlassParams } from './index';
 
@@ -27,148 +28,31 @@
 	</select>
 </label>
 
-<label class="row">
-	<span>Size</span>
-	<input
-		bind:value={effect.params.size}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="size" label="Size" />
 
-<label class="row">
-	<span>Angle</span>
-	<input
-		bind:value={effect.params.angle}
-		max="180"
-		min="0"
-		step="1"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="angle" label="Angle" />
 
-<label class="row">
-	<span>Distortion</span>
-	<input
-		bind:value={effect.params.distortion}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="distortion" label="Distortion" />
 
-<label class="row">
-	<span>Shift</span>
-	<input
-		bind:value={effect.params.shift}
-		max="1"
-		min="-1"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="shift" label="Shift" />
 
-<label class="row">
-	<span>Stretch</span>
-	<input
-		bind:value={effect.params.stretch}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="stretch" label="Stretch" />
 
-<label class="row">
-	<span>Blur</span>
-	<input
-		bind:value={effect.params.blur}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="blur" label="Blur" />
 
-<label class="row">
-	<span>Edges</span>
-	<input
-		bind:value={effect.params.edges}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="edges" label="Edges" />
 
-<label class="row">
-	<span>Shadows</span>
-	<input
-		bind:value={effect.params.shadows}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="shadows" label="Shadows" />
 
-<label class="row">
-	<span>Highlights</span>
-	<input
-		bind:value={effect.params.highlights}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="highlights" label="Highlights" />
 
-<label class="row">
-	<span>Margin left</span>
-	<input
-		bind:value={effect.params.marginLeft}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="marginLeft" label="Margin left" />
 
-<label class="row">
-	<span>Margin right</span>
-	<input
-		bind:value={effect.params.marginRight}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="marginRight" label="Margin right" />
 
-<label class="row">
-	<span>Margin top</span>
-	<input
-		bind:value={effect.params.marginTop}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="marginTop" label="Margin top" />
 
-<label class="row">
-	<span>Margin bottom</span>
-	<input
-		bind:value={effect.params.marginBottom}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="marginBottom" label="Margin bottom" />
 
 <label class="row">
 	<span>Shadow</span>

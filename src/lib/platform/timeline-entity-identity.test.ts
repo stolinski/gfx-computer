@@ -35,6 +35,7 @@ describe('timeline entity identity', () => {
 			{ kind: 'block', blockId: 'revenue-roll-stack-spin-beat' },
 			{ kind: 'block-subtrack', blockId: 'revenue-roll', subtrack: { kind: 'roll' } },
 			{ kind: 'text-animation', textAnimationId: 'title-roll-stack' },
+			{ kind: 'effect', effectId: 'pixelation-1:roll' },
 			{ kind: 'captions' },
 			{ kind: 'video' },
 			{ kind: 'sound' },

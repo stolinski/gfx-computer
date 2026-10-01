@@ -13,9 +13,15 @@
  */
 import {
 	readWebmcpVocabularySections,
+	webmcpDerivedEnumProperty,
 	WEBMCP_NO_ARGUMENTS_SCHEMA
 } from './webmcp-derived-tool-schemas';
-import { readWebmcpLiteralArgument, runWebmcpToolOperation } from './webmcp-tool-arguments';
+import {
+	readWebmcpLiteralArgument,
+	readWebmcpOptionalLiteralArgument,
+	runWebmcpToolOperation
+} from './webmcp-tool-arguments';
+import { REGISTERED_EFFECT_TYPES } from './pipelines/definition-registry';
 import {
 	runInspectCapabilityLimitsOperation,
 	runInspectCapabilityVocabularyOperation,
@@ -36,7 +42,11 @@ export function listWebmcpCapabilityToolDefinitions(): readonly WebmcpToolDefini
 						type: 'string',
 						description: 'Which registered vocabulary to list. One section per call.',
 						enum: readWebmcpVocabularySections()
-					}
+					},
+					effectType: webmcpDerivedEnumProperty(
+						'effect-type',
+						"With the effect-type section, the Effect whose keyframe channels to list with their bounds."
+					)
 				},
 				required: ['section'],
 				additionalProperties: false
@@ -44,7 +54,12 @@ export function listWebmcpCapabilityToolDefinitions(): readonly WebmcpToolDefini
 			run: (args) =>
 				runWebmcpToolOperation('capability.inspect-vocabulary', () =>
 					runInspectCapabilityVocabularyOperation({
-						section: readWebmcpLiteralArgument(args, 'section', readWebmcpVocabularySections())
+						section: readWebmcpLiteralArgument(args, 'section', readWebmcpVocabularySections()),
+						effectType: readWebmcpOptionalLiteralArgument(
+							args,
+							'effectType',
+							REGISTERED_EFFECT_TYPES
+						)
 					})
 				)
 		},

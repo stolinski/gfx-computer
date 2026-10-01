@@ -18,6 +18,11 @@ import {
 	PUBLIC_EXPORT_RUNTIME_LIMITS
 } from './public-runtime-contract';
 import { readWebmcpDerivedEnums } from './webmcp-derived-tool-schemas';
+import {
+	listEffectKeyframeChannels,
+	type EffectKeyframeChannel
+} from './effect-keyframe-channels';
+import { getEffectDefinition } from './pipelines/definition-registry';
 import { requireCompositionOperationRow } from './composition-operation-preflight';
 import { STANDARD_TRANSPORT_RATES } from '../utils/composition-timing';
 import {
@@ -36,6 +41,12 @@ export const CAPABILITY_VOCABULARY_MEMBER_LIMIT = 64;
 
 export interface InspectCapabilityVocabularyRequest {
 	section: WebmcpDerivedEnumName;
+	/**
+	 * With the `effect-type` section, the one Effect whose keyframe channels to
+	 * list with their bounds (ADR-0063). One Effect per call keeps the receipt
+	 * inside the result budget.
+	 */
+	effectType?: string;
 }
 
 export interface PrepareCapabilityAuthoringFamilyRequest {
@@ -57,6 +68,11 @@ export interface CapabilityVocabularyReceipt {
 	members: readonly string[];
 	total: number;
 	truncated: boolean;
+	/** The named Effect's keyframe channels, derived from its params schema. */
+	effectChannels?: {
+		effectType: string;
+		channels: readonly EffectKeyframeChannel[];
+	};
 }
 
 /** Every bound that rejects work before it starts, in one read. */
@@ -122,8 +138,7 @@ export function runInspectCapabilityVocabularyOperation(
 ): CapabilityVocabularyReceipt {
 	const row = requireCompositionOperationRow('capability.inspect-vocabulary');
 	const members = readWebmcpDerivedEnums()[request.section];
-
-	return {
+	const receipt: CapabilityVocabularyReceipt = {
 		status: 'inspected',
 		operationId: row.id,
 		section: request.section,
@@ -131,6 +146,17 @@ export function runInspectCapabilityVocabularyOperation(
 		total: members.length,
 		truncated: members.length > CAPABILITY_VOCABULARY_MEMBER_LIMIT
 	};
+	const definition =
+		request.section === 'effect-type' && request.effectType
+			? getEffectDefinition(request.effectType)
+			: null;
+	if (definition) {
+		receipt.effectChannels = {
+			effectType: definition.type,
+			channels: listEffectKeyframeChannels(definition)
+		};
+	}
+	return receipt;
 }
 
 /**

@@ -406,6 +406,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/marks/timings/*', scope: 'value' },
 			{ pointer: '/state/textAnimations/*', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/animation', scope: 'value' },
+			{ pointer: '/state/effects/*/animation', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/animation', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/glyphStagger', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*/motion', scope: 'value' },
@@ -495,7 +496,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'capability',
 		toolName: 'gfx_capability_inspect_vocabulary',
 		summary:
-			'List the registered Surface, Block, Annotation, Overlay, Effect, transition, text-animation, Pack, Starter, and sound vocabulary, one section per call.',
+			"List the registered Surface, Block, Annotation, Overlay, Effect, transition, text-animation, Pack, Starter, and sound vocabulary, one section per call, or one Effect's keyframe channels with their bounds.",
 		effect: 'read',
 		writes: [],
 		precondition: 'always',
@@ -1665,19 +1666,20 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'motion',
 		toolName: 'gfx_motion_set_keyframe_channel',
 		summary:
-			'Author one property channel on the Surface, an Overlay, a diagram primitive, or a Kinetic Word as ordered keyframes with per-segment eases.',
+			'Animate one property channel over time on the Surface, an Overlay, a diagram primitive, a Kinetic Word, or an Effect param, as ordered keyframes with per-segment eases.',
 		effect: 'write',
 		writes: [
 			'/state/surface/animation',
 			'/state/overlays/*/animation',
 			'/state/surface/diagram/*/animation',
-			'/state/surface/typeField/words/*/animation'
+			'/state/surface/typeField/words/*/animation',
+			'/state/effects/*/animation'
 		],
 		precondition: 'composition-editable',
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: ['surface', 'overlay', 'block'],
+		focus: ['surface', 'overlay', 'block', 'effect'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/KeyframesSection.svelte'
 	},
@@ -1724,13 +1726,14 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 			'/state/surface/animation',
 			'/state/overlays/*/animation',
 			'/state/surface/diagram/*/animation',
-			'/state/surface/typeField/words/*/animation'
+			'/state/surface/typeField/words/*/animation',
+			'/state/effects/*/animation'
 		],
 		precondition: 'keyframe-channel-present',
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: ['surface', 'overlay', 'block'],
+		focus: ['surface', 'overlay', 'block', 'effect'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/KeyframesSection.svelte'
 	},
@@ -1745,13 +1748,14 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 			'/state/overlays/*/animation',
 			'/state/marks/timings/*',
 			'/state/textAnimations/*',
-			'/state/surface/diagram/*/animation'
+			'/state/surface/diagram/*/animation',
+			'/state/effects/*/animation'
 		],
 		precondition: 'composition-editable',
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: ['overlay', 'mark', 'text-animation', 'block'],
+		focus: ['overlay', 'mark', 'text-animation', 'block', 'effect'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CascadeSection.svelte'
 	},
@@ -1765,13 +1769,14 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 			'/state/overlays/*/animation',
 			'/state/marks/timings/*',
 			'/state/textAnimations/*',
-			'/state/surface/diagram/*/animation'
+			'/state/surface/diagram/*/animation',
+			'/state/effects/*/animation'
 		],
 		precondition: 'cascade-anchor-present',
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: ['overlay', 'mark', 'text-animation', 'block'],
+		focus: ['overlay', 'mark', 'text-animation', 'block', 'effect'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CascadeSection.svelte'
 	},

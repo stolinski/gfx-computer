@@ -41,6 +41,9 @@ export type TimelineTrackIdentity =
 	| { kind: 'block'; blockId: string }
 	| { kind: 'block-subtrack'; blockId: string; subtrack: BlockTimelineSubtrack }
 	| { kind: 'text-animation'; textAnimationId: string }
+	// A keyframed or welded Effect (ADR-0063): the row exists only while the
+	// Effect carries a channel or a weld.
+	| { kind: 'effect'; effectId: string }
 	| { kind: 'captions' }
 	| { kind: 'video' }
 	| { kind: 'sound' }
@@ -148,6 +151,8 @@ export function createTimelineTrackId(identity: TimelineTrackIdentity): Timeline
 			return `block-subtrack:${requireIdentitySegment(identity.blockId, 'Block id')}:${identity.subtrack.kind}` as TimelineTrackId;
 		case 'text-animation':
 			return `text-animation:${requireIdentitySegment(identity.textAnimationId, 'Text animation id')}` as TimelineTrackId;
+		case 'effect':
+			return `effect:${requireIdentitySegment(identity.effectId, 'Effect id')}` as TimelineTrackId;
 		default:
 			throw new TypeError(
 				`Timeline entity identity: unsupported track ${describeTrackIdentity(identity)}.`
@@ -183,6 +188,7 @@ export function parseTimelineTrackId(value: string): TimelineTrackIdentity | nul
 			return { kind: 'text-animation', textAnimationId: entityId };
 		}
 		if (prefix === 'stage-body') return { kind: 'stage-body', bodyId: entityId };
+		if (prefix === 'effect') return { kind: 'effect', effectId: entityId };
 		return null;
 	}
 

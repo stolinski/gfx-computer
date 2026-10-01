@@ -589,3 +589,76 @@ describe('stage rows (ADR-0060)', () => {
 		);
 	});
 });
+
+describe('Effect rows (ADR-0063)', () => {
+	function effectRow(state: EngineState, effectId: string) {
+		return buildCompositionTimelineTracks(state, appearance).find(
+			(track) => track.id === createTimelineTrackId({ kind: 'effect', effectId })
+		);
+	}
+
+	it('builds a row only for an Effect with a channel or a weld', () => {
+		const state = makeTimelineState();
+		state.effects = [
+			{ type: 'pixelation', id: 'static', params: { pixelSize: 12 } },
+			{
+				type: 'pixelation',
+				id: 'keyed',
+				params: { pixelSize: 48 },
+				animation: {
+					channels: {
+						pixelSize: [
+							{ atMs: 1000, value: 96 },
+							{ atMs: 1400, value: 1, ease: 'settled' }
+						]
+					}
+				}
+			}
+		];
+
+		assert.equal(effectRow(state, 'static'), undefined);
+		const row = effectRow(state, 'keyed');
+		assert.ok(row);
+		assert.equal(row.label, 'Pixelation');
+		const clip = row.transitions[0];
+		assert.deepEqual(
+			clip.keyframes?.map((keyframe) => [keyframe.channel, keyframe.index, keyframe.fraction]),
+			[
+				['pixelSize', 0, 0.1],
+				['pixelSize', 1, 0.14]
+			]
+		);
+		// An unwelded Effect has no clip start of its own, so its bar does not drag.
+		assert.equal(clip.onUpdate, undefined);
+
+		clip.onKeyframeRetime?.('pixelSize', 1, 0.2);
+		assert.equal(state.effects[1].animation?.channels?.pixelSize[1].atMs, 2000);
+		clip.onKeyframeDelete?.('pixelSize', 0);
+		assert.deepEqual(state.effects[1].animation?.channels?.pixelSize, [{ atMs: 2000, value: 1 }]);
+	});
+
+	it('tethers a welded Effect to its anchor and drags its Cascade offset', () => {
+		const state = makeTimelineState();
+		state.effects = [
+			{
+				type: 'pixelation',
+				id: 'welded',
+				params: { pixelSize: 48 },
+				animation: {
+					channels: { pixelSize: [{ atMs: 0, value: 96 }, { atMs: 400, value: 1 }] },
+					cascade: { anchor: { overlay: 'leader' }, event: 'end', offsetMs: 0 }
+				}
+			}
+		];
+
+		const clip = effectRow(state, 'welded')?.transitions[0];
+		assert.ok(clip);
+		assert.ok(Math.abs(clip.start - 0.15) < 1e-9);
+		assert.equal(
+			clip.cascade?.anchorTrackId,
+			createTimelineTrackId({ kind: 'overlay', overlayId: 'leader' })
+		);
+		clip.onUpdate?.({ start: 0.25, duration: clip.duration });
+		assert.ok(Math.abs((state.effects[0].animation?.cascade?.offsetMs ?? 0) - 1000) < 1e-9);
+	});
+});

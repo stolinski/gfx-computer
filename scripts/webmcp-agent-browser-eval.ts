@@ -37,6 +37,7 @@ import {
 	WEBMCP_FORBIDDEN_TOOL_NAME_FRAGMENTS,
 	WEBMCP_MINIMUM_CHROME_MAJOR_VERSION,
 	WEBMCP_ON_DEMAND_FAMILY_NAMES,
+	WEBMCP_OPERATION_FAMILIES,
 	WEBMCP_OPERATION_INVENTORY,
 	WEBMCP_RESULT_CHARACTER_BUDGET,
 	WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH,
@@ -87,14 +88,20 @@ const ALWAYS_REGISTERED_TOOL_NAMES = new Set(
 	AGENT_TOOL_ROWS.filter((row) => row.precondition === 'always').map((row) => row.toolName)
 );
 
-/** Core operations this eval looks for before an authoring family is prepared. */
-const OPEN_COMPOSITION_OPERATION_IDS: readonly string[] = [
-	'capability.prepare-authoring-family',
-	'composition.inspect',
-	'composition.export-json',
-	'validation.inspect-findings',
-	'delivery.export-video'
-];
+/**
+ * Core operations this eval looks for before an authoring family is prepared:
+ * every agent row of a core family that an open composition makes usable, read
+ * from the inventory so a family moving between core and on-demand cannot
+ * leave this list asserting tools the page no longer offers by design.
+ */
+const CORE_FAMILY_NAMES = new Set(
+	WEBMCP_OPERATION_FAMILIES.filter((family) => family.disclosure === 'core').map(
+		(family) => family.name
+	)
+);
+const OPEN_COMPOSITION_OPERATION_IDS: readonly string[] = AGENT_TOOL_ROWS.filter(
+	(row) => CORE_FAMILY_NAMES.has(row.family) && row.precondition === 'composition-open'
+).map((row) => row.id);
 
 const failures: string[] = [];
 

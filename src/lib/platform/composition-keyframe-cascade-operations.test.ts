@@ -8,8 +8,10 @@ import {
 	runAddCompositionChartBlockOperation,
 	runAddCompositionDiagramPrimitiveOperation
 } from './composition-block-layer-operations';
+import { runSetCompositionEffectParamsOperation } from './composition-appearance-operations';
 import {
 	runAddCompositionAnnotationMarkOperation,
+	runAddCompositionEffectOperation,
 	runAddCompositionOverlayOperation,
 	runAddCompositionTextAnimationOperation
 } from './composition-layer-operations';
@@ -547,5 +549,137 @@ describe('Cascade welds', () => {
 
 		expectApplied(runCompositionHistoryTransaction('redo', 3));
 		expect(engineState.overlays[0].animation?.cascade).toMatchObject({ offsetMs: 120 });
+	});
+});
+
+describe('Effect subjects (ADR-0063)', () => {
+	async function addPixelationAndTitle(): Promise<void> {
+		expectApplied(
+			await runAddCompositionEffectOperation({ expectedRevision: 0, effectType: 'pixelation' })
+		);
+		expectApplied(
+			await runAddCompositionOverlayOperation({ expectedRevision: 1, overlayType: 'lower-third' })
+		);
+	}
+
+	it('sets and clears an Effect channel, focusing the Effect', async () => {
+		await addPixelationAndTitle();
+		const set = expectApplied(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 2,
+				subject: { kind: 'effect', effectId: 'pixelation-1' },
+				channel: 'pixelSize',
+				keyframes: [
+					{ atMs: 0, value: 96 },
+					{ atMs: 400, value: 1, ease: 'settled' }
+				]
+			})
+		);
+		expect(set.focus).toEqual({ target: 'effect', effectId: 'pixelation-1' });
+		expect(set.changed).toContain('/state/effects/0/animation');
+		expect(engineState.effects[0].animation?.channels?.pixelSize).toHaveLength(2);
+
+		expectApplied(
+			await runClearCompositionKeyframeChannelOperation({
+				expectedRevision: 3,
+				subject: { kind: 'effect', effectId: 'pixelation-1' },
+				channel: 'pixelSize'
+			})
+		);
+		expect(engineState.effects[0].animation).toBeUndefined();
+	});
+
+	it('welds and unwelds an Effect track to an Overlay entrance', async () => {
+		await addPixelationAndTitle();
+		const weld = expectApplied(
+			await runSetCompositionCascadeAnchorOperation({
+				expectedRevision: 2,
+				subject: { kind: 'effect', effectId: 'pixelation-1' },
+				anchor: { overlay: 'lower-third-1' },
+				event: 'end',
+				offsetMs: 0
+			})
+		);
+		expect(weld.focus).toEqual({ target: 'effect', effectId: 'pixelation-1' });
+		expect(engineState.effects[0].animation?.cascade?.anchor).toEqual({ overlay: 'lower-third-1' });
+
+		expectApplied(
+			await runClearCompositionCascadeAnchorOperation({
+				expectedRevision: 3,
+				subject: { kind: 'effect', effectId: 'pixelation-1' }
+			})
+		);
+		expect(engineState.effects[0].animation).toBeUndefined();
+	});
+
+	it('refuses a frozen channel, an unknown Effect, and an out-of-range value', async () => {
+		expectApplied(
+			await runAddCompositionEffectOperation({ expectedRevision: 0, effectType: 'fluid-ripple' })
+		);
+		const frozen = expectFailed(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 1,
+				subject: { kind: 'effect', effectId: 'fluid-ripple-1' },
+				channel: 'damping',
+				keyframes: [{ atMs: 0, value: 2 }]
+			})
+		);
+		expect(frozen.code).toBe('unsupported_variant');
+		expect(frozen.message).toMatch(/frozen on the fluid-ripple Effect/);
+		expect(frozen.alternatives).toEqual(['radius', 'refraction', 'highlights']);
+
+		const unknown = expectFailed(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 1,
+				subject: { kind: 'effect', effectId: 'ghost' },
+				channel: 'radius',
+				keyframes: [{ atMs: 0, value: 0.2 }]
+			})
+		);
+		expect(unknown.code).toBe('unknown_target');
+		expect(unknown.alternatives).toEqual(['fluid-ripple-1']);
+
+		const outOfRange = expectFailed(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 1,
+				subject: { kind: 'effect', effectId: 'fluid-ripple-1' },
+				channel: 'radius',
+				keyframes: [{ atMs: 0, value: 4 }]
+			})
+		);
+		expect(outOfRange.code).toBe('semantic_invalid');
+		expect(engineState.effects[0].animation).toBeUndefined();
+	});
+
+	it('refuses an appearance write to a channel-owned param and names the motion operations', async () => {
+		await addPixelationAndTitle();
+		expectApplied(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 2,
+				subject: { kind: 'effect', effectId: 'pixelation-1' },
+				channel: 'pixelSize',
+				keyframes: [{ atMs: 0, value: 64 }]
+			})
+		);
+		const refused = expectFailed(
+			await runSetCompositionEffectParamsOperation({
+				expectedRevision: 3,
+				effectId: 'pixelation-1',
+				params: { pixelSize: 12 }
+			})
+		);
+		expect(refused.code).toBe('precondition_unmet');
+		expect(refused.alternatives).toEqual([
+			'motion.set-keyframe-channel',
+			'motion.clear-keyframe-channel'
+		]);
+		// Writing the same value is not a change to a channel-owned param.
+		expectApplied(
+			await runSetCompositionEffectParamsOperation({
+				expectedRevision: 3,
+				effectId: 'pixelation-1',
+				params: { pixelSize: 48 }
+			})
+		);
 	});
 });

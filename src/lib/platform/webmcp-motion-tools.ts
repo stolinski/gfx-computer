@@ -95,7 +95,7 @@ import type { ChartMotionPhaseName } from '../utils/chart-motion';
 import type { CompositionChartMotionPhaseInput } from './composition-motion-timing-operations';
 import type { CompositionMotionWindow } from './composition-motion-timing-operations';
 import type {
-	CompositionCascadeAnchorKind,
+	CompositionMotionElementKind,
 	CompositionCascadeSubject,
 	CompositionKeyframeSubject
 } from './composition-keyframe-cascade-operations';
@@ -113,7 +113,7 @@ import type { WebmcpToolDefinition } from './webmcp-tool-controller';
  * composition holds exactly one, so naming its kind has already named it.
  */
 function subjectIdProperties(): Readonly<
-	Record<CompositionCascadeAnchorKind, { field: string; property: WebmcpSchemaProperty } | null>
+	Record<CompositionMotionElementKind, { field: string; property: WebmcpSchemaProperty } | null>
 > {
 	return {
 		surface: null,
@@ -130,18 +130,18 @@ function subjectIdProperties(): Readonly<
 			field: 'textAnimationId',
 			property: webmcpEntityIdProperty('The text animation this names.')
 		},
-		block: { field: 'blockId', property: webmcpEntityIdProperty('The Block this names.') }
+		block: { field: 'blockId', property: webmcpEntityIdProperty('The Block this names.') },
+		effect: { field: 'effectId', property: webmcpEntityIdProperty('The Effect this names.') }
 	};
 }
 
 /**
  * The element an edit acts on, carrying only the id fields the kinds it accepts
  * are named by — a channel subject is never a Mark, so it never offers a Mark
- * index. The parameter takes the anchor kinds because those are the widest set;
- * every other list here is a subset of them.
+ * index. An Effect is a subject only, so the anchor list never offers one.
  */
 function elementSubjectProperty(
-	kinds: readonly CompositionCascadeAnchorKind[],
+	kinds: readonly CompositionMotionElementKind[],
 	description: string
 ): WebmcpSchemaProperty {
 	const identifiers = subjectIdProperties();
@@ -168,6 +168,7 @@ function readKeyframeSubject(args: unknown): CompositionKeyframeSubject {
 	if (kind === 'surface') return { kind };
 	if (kind === 'overlay')
 		return { kind, overlayId: readWebmcpStringArgument(subject, 'overlayId') };
+	if (kind === 'effect') return { kind, effectId: readWebmcpStringArgument(subject, 'effectId') };
 	return { kind, blockId: readWebmcpStringArgument(subject, 'blockId') };
 }
 
@@ -183,6 +184,8 @@ function readCascadeSubject(args: unknown): CompositionCascadeSubject {
 			return { kind, textAnimationId: readWebmcpStringArgument(subject, 'textAnimationId') };
 		case 'block':
 			return { kind, blockId: readWebmcpStringArgument(subject, 'blockId') };
+		case 'effect':
+			return { kind, effectId: readWebmcpStringArgument(subject, 'effectId') };
 	}
 }
 

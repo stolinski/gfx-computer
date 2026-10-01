@@ -31,6 +31,13 @@ export interface EffectKeyframeChannelIssue {
 interface EffectParamLeaves {
 	channels: ReadonlyMap<string, ZodNumericLeaf>;
 	frozen: ReadonlySet<string>;
+	/** Every numeric param leaf, frozen ones included, by dotted path. */
+	numeric: ReadonlyMap<string, ZodNumericLeaf>;
+}
+
+/** One numeric Effect param as an editor row needs it: bounds, integer flag, and whether it is frozen. */
+export interface EffectNumericParamDescription extends EffectKeyframeChannel {
+	frozen: boolean;
 }
 
 // An Effect Pipeline declares the schema of its whole entry (`{ type, id,
@@ -50,13 +57,14 @@ function readEffectParamLeaves(definition: EffectPipelineDefinition): EffectPara
 	}
 	const frozen = new Set(definition.frozenParams ?? []);
 	const channels = new Map<string, ZodNumericLeaf>();
+	const numeric = new Map<string, ZodNumericLeaf>();
 	for (const leaf of listNumericLeafPaths(definition.schema)) {
 		if (!leaf.path.startsWith(EFFECT_PARAMS_PATH_PREFIX)) continue;
 		const path = leaf.path.slice(EFFECT_PARAMS_PATH_PREFIX.length);
-		if (frozen.has(path)) continue;
-		channels.set(path, { ...leaf, path });
+		numeric.set(path, { ...leaf, path });
+		if (!frozen.has(path)) channels.set(path, { ...leaf, path });
 	}
-	const leaves: EffectParamLeaves = { channels, frozen };
+	const leaves: EffectParamLeaves = { channels, frozen, numeric };
 	effectParamLeavesByDefinition.set(definition, leaves);
 	return leaves;
 }
@@ -75,6 +83,24 @@ export function listEffectKeyframeChannels(
 	);
 }
 
+/** A numeric Effect param's bounds and frozen state, or null when the path is not a numeric param. */
+export function describeEffectNumericParam(
+	definition: EffectPipelineDefinition,
+	path: string
+): EffectNumericParamDescription | null {
+	const leaves = readEffectParamLeaves(definition);
+	const leaf = leaves.numeric.get(path);
+	if (!leaf) return null;
+	const description: EffectNumericParamDescription = {
+		path,
+		isInteger: leaf.isInteger,
+		frozen: leaves.frozen.has(path)
+	};
+	if (leaf.min !== undefined) description.min = leaf.min;
+	if (leaf.max !== undefined) description.max = leaf.max;
+	return description;
+}
+
 function describeChannelRange(leaf: ZodNumericLeaf): string {
 	return `${leaf.min ?? '-∞'}..${leaf.max ?? '∞'}`;
 }
@@ -85,7 +111,7 @@ function describeChannelRange(leaf: ZodNumericLeaf): string {
  * entry the schema rejects keeps its authored params; semantic validation has
  * already reported it.
  */
-function readEffectParamsWithDefaults(
+export function resolveEffectParamsWithDefaults(
 	effect: Pick<Effect, 'type' | 'id' | 'params'>,
 	definition: EffectPipelineDefinition
 ): unknown {
@@ -121,7 +147,7 @@ export function resolveEffectParamsWithChannelValues(
 	definition: EffectPipelineDefinition,
 	values: Readonly<Record<string, number>>
 ): unknown {
-	const base = readEffectParamsWithDefaults(effect, definition);
+	const base = resolveEffectParamsWithDefaults(effect, definition);
 	if (!isRecord(base)) return effect.params;
 	const { channels } = readEffectParamLeaves(definition);
 	const driven: Record<string, number> = {};
@@ -146,7 +172,7 @@ export function validateEffectKeyframeChannels(
 	if (!declared) return [];
 
 	const { channels, frozen } = readEffectParamLeaves(definition);
-	const resolvedParams = readEffectParamsWithDefaults(effect, definition);
+	const resolvedParams = resolveEffectParamsWithDefaults(effect, definition);
 	const issues: EffectKeyframeChannelIssue[] = [];
 	for (const [channelPath, track] of Object.entries(declared)) {
 		const path = ['animation', 'channels', channelPath];

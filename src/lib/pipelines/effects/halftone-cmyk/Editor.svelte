@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EffectParamRow from '$lib/platform/EffectParamRow.svelte';
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { HalftoneCmykParams } from './index';
 
@@ -14,49 +15,13 @@
 	</select>
 </label>
 
-<label class="row">
-	<span>Size</span>
-	<input
-		bind:value={effect.params.size}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="size" label="Size" />
 
-<label class="row">
-	<span>Contrast</span>
-	<input
-		bind:value={effect.params.contrast}
-		max="2"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="contrast" label="Contrast" />
 
-<label class="row">
-	<span>Softness</span>
-	<input
-		bind:value={effect.params.softness}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="softness" label="Softness" />
 
-<label class="row">
-	<span>Grid noise</span>
-	<input
-		bind:value={effect.params.gridNoise}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="gridNoise" label="Grid noise" />
 
 <label class="row">
 	<span>Paper</span>
@@ -83,90 +48,18 @@
 	<input bind:value={effect.params.colorK} type="color" />
 </label>
 
-<label class="row">
-	<span>Flood C</span>
-	<input
-		bind:value={effect.params.floodC}
-		max="1"
-		min="-1"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="floodC" label="Flood C" />
 
-<label class="row">
-	<span>Flood M</span>
-	<input
-		bind:value={effect.params.floodM}
-		max="1"
-		min="-1"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="floodM" label="Flood M" />
 
-<label class="row">
-	<span>Flood Y</span>
-	<input
-		bind:value={effect.params.floodY}
-		max="1"
-		min="-1"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="floodY" label="Flood Y" />
 
-<label class="row">
-	<span>Flood K</span>
-	<input
-		bind:value={effect.params.floodK}
-		max="1"
-		min="-1"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="floodK" label="Flood K" />
 
-<label class="row">
-	<span>Gain C</span>
-	<input
-		bind:value={effect.params.gainC}
-		max="1"
-		min="-1"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="gainC" label="Gain C" />
 
-<label class="row">
-	<span>Gain M</span>
-	<input
-		bind:value={effect.params.gainM}
-		max="1"
-		min="-1"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="gainM" label="Gain M" />
 
-<label class="row">
-	<span>Gain Y</span>
-	<input
-		bind:value={effect.params.gainY}
-		max="1"
-		min="-1"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="gainY" label="Gain Y" />
 
-<label class="row">
-	<span>Gain K</span>
-	<input
-		bind:value={effect.params.gainK}
-		max="1"
-		min="-1"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="gainK" label="Gain K" />

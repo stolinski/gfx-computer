@@ -16,12 +16,18 @@
  * each weld their entrance. So the focus lands on whichever element the edit
  * touched, and the inventory rows name every one of them.
  *
+ * An Effect (ADR-0063) owns channels too — every numeric param its schema
+ * declares, minus its frozen params — and may weld its track's start. It is a
+ * subject only: nothing anchors to an Effect, so it never joins the anchor list.
+ *
  * A chart Block is the deliberate exception. Its motion is the five ordered
  * phases its Pipeline runs, so it is anchorable — something else may weld to it
  * — but it owns neither channels nor a weld of its own, and naming one here
  * points the caller at `motion.set-chart-motion`.
  */
 import { cascadeNodeKey } from './cascade-timing';
+import { listEffectKeyframeChannels } from './effect-keyframe-channels';
+import { getEffectDefinition } from './pipelines/definition-registry';
 import {
 	DIAGRAM_KEYFRAME_CHANNELS,
 	DIAGRAM_STROKE_KEYFRAME_CHANNELS,
@@ -31,6 +37,7 @@ import {
 	type Cascade,
 	type CascadeAnchor,
 	type DiagramPrimitive,
+	type EffectAnimation,
 	type EngineState,
 	type Keyframe,
 	type KineticWord,
@@ -62,23 +69,36 @@ import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** The elements that can own authored property channels. */
 export type CompositionKeyframeSubject =
-	{ kind: 'surface' } | { kind: 'overlay'; overlayId: string } | { kind: 'block'; blockId: string };
+	| { kind: 'surface' }
+	| { kind: 'overlay'; overlayId: string }
+	| { kind: 'block'; blockId: string }
+	| { kind: 'effect'; effectId: string };
 
 /** The elements that can weld their entrance to another element's. */
 export type CompositionCascadeSubject =
 	| { kind: 'overlay'; overlayId: string }
 	| { kind: 'mark'; markIndex: number }
 	| { kind: 'text-animation'; textAnimationId: string }
-	| { kind: 'block'; blockId: string };
+	| { kind: 'block'; blockId: string }
+	| { kind: 'effect'; effectId: string };
 
-/** Everything a weld can hang from: the timing root, plus every element that welds. */
-export type CompositionCascadeAnchorKind = 'surface' | CompositionCascadeSubject['kind'];
+/**
+ * Everything a weld can hang from: the timing root, plus every element that
+ * welds except an Effect, which is a cascade subject only (ADR-0063 §6).
+ */
+export type CompositionCascadeAnchorKind =
+	| 'surface'
+	| Exclude<CompositionCascadeSubject['kind'], 'effect'>;
+
+/** Every kind of element a motion edit can name, as subject or as anchor. */
+export type CompositionMotionElementKind = CompositionCascadeAnchorKind | 'effect';
 
 /** The kinds of element that can own authored channels, as a caller names them. */
 export const COMPOSITION_KEYFRAME_SUBJECT_KINDS: readonly CompositionKeyframeSubject['kind'][] = [
 	'surface',
 	'overlay',
-	'block'
+	'block',
+	'effect'
 ];
 
 /**
@@ -90,12 +110,15 @@ export const COMPOSITION_CASCADE_SUBJECT_KINDS: readonly CompositionCascadeSubje
 	'overlay',
 	'mark',
 	'text-animation',
-	'block'
+	'block',
+	'effect'
 ];
 
 export const COMPOSITION_CASCADE_ANCHOR_KINDS: readonly CompositionCascadeAnchorKind[] = [
 	'surface',
-	...COMPOSITION_CASCADE_SUBJECT_KINDS
+	...COMPOSITION_CASCADE_SUBJECT_KINDS.filter(
+		(kind): kind is Exclude<CompositionCascadeSubject['kind'], 'effect'> => kind !== 'effect'
+	)
 ];
 
 export type CompositionKeyframeChannelScope = 'shared' | 'horizontal' | 'vertical';
@@ -148,7 +171,7 @@ interface AuthoredElementMotion {
 	>;
 }
 
-type KeyframeOwnerKind = 'surface' | 'overlay' | 'diagram' | 'kinetic-word';
+type KeyframeOwnerKind = 'surface' | 'overlay' | 'diagram' | 'kinetic-word' | 'effect';
 
 interface CompositionKeyframeOwner {
 	kind: KeyframeOwnerKind;
@@ -163,6 +186,7 @@ export const COMPOSITION_CASCADE_EVENTS: readonly Cascade['event'][] = ['start',
 function keyframeSubjectFocus(subject: CompositionKeyframeSubject): CompositionWorkspaceFocus {
 	if (subject.kind === 'surface') return { target: 'surface' };
 	if (subject.kind === 'overlay') return { target: 'overlay', overlayId: subject.overlayId };
+	if (subject.kind === 'effect') return { target: 'effect', effectId: subject.effectId };
 	return { target: 'block', blockId: subject.blockId };
 }
 
@@ -176,6 +200,8 @@ function cascadeSubjectFocus(subject: CompositionCascadeSubject): CompositionWor
 			return { target: 'text-animation', textAnimationId: subject.textAnimationId };
 		case 'block':
 			return { target: 'block', blockId: subject.blockId };
+		case 'effect':
+			return { target: 'effect', effectId: subject.effectId };
 	}
 }
 
@@ -190,6 +216,8 @@ function cascadeSubjectKey(subject: CompositionCascadeSubject): string {
 			return `textAnimation:${subject.textAnimationId}`;
 		case 'block':
 			return `block:${subject.blockId}`;
+		case 'effect':
+			return `effect:${subject.effectId}`;
 	}
 }
 
@@ -205,6 +233,8 @@ function describeSubject(subject: CompositionKeyframeSubject | CompositionCascad
 			return `text animation "${subject.textAnimationId}"`;
 		case 'block':
 			return `Block "${subject.blockId}"`;
+		case 'effect':
+			return `Effect "${subject.effectId}"`;
 	}
 }
 
@@ -231,6 +261,19 @@ function findKeyframeOwner(
 		const overlay = state.overlays.find((entry) => entry.id === subject.overlayId);
 		return overlay
 			? { kind: 'overlay', channels: OVERLAY_KEYFRAME_CHANNELS, motion: overlay.animation }
+			: null;
+	}
+	if (subject.kind === 'effect') {
+		// A composition-owned Effect (depth-of-field) has no Pipeline definition and
+		// keeps its own timing params, so it is not a channel owner.
+		const effect = state.effects.find((entry) => entry.id === subject.effectId);
+		const definition = effect ? getEffectDefinition(effect.type) : null;
+		return effect && definition
+			? {
+					kind: 'effect',
+					channels: listEffectKeyframeChannels(definition).map((channel) => channel.path),
+					motion: effect.animation
+				}
 			: null;
 	}
 	const primitive = (state.surface.diagram ?? []).find((entry) => entry.id === subject.blockId);
@@ -271,6 +314,13 @@ function writeElementMotion(
 		const overlay = state.overlays.find((entry) => entry.id === subject.overlayId);
 		if (!overlay) return false;
 		overlay.animation = motion as OverlayAnimation | undefined;
+		return true;
+	}
+	if (subject.kind === 'effect') {
+		const effect = state.effects.find((entry) => entry.id === subject.effectId);
+		if (!effect) return false;
+		if (motion === undefined) delete effect.animation;
+		else effect.animation = motion as EffectAnimation;
 		return true;
 	}
 	if (subject.kind !== 'block') return false;
@@ -387,6 +437,7 @@ function refuseMissingKeyframeSubject(
 	state: EngineState,
 	subject: CompositionKeyframeSubject
 ): CompositionOperationFailure {
+	if (subject.kind === 'effect') return refuseMissingEffectSubject(row, state, subject.effectId);
 	if (
 		subject.kind === 'block' &&
 		(state.surface.chart?.items ?? []).some((item) => item.id === subject.blockId)
@@ -419,6 +470,55 @@ function refuseMissingKeyframeSubject(
 							...(state.surface.typeField?.words ?? []).map((entry) => entry.id)
 						]
 		}
+	);
+}
+
+/**
+ * The refusal for an Effect that is not a channel owner: absent from the chain,
+ * or composition-owned and so keeping its own timing params (ADR-0063 §7).
+ */
+function refuseMissingEffectSubject(
+	row: WebmcpOperationRow,
+	state: EngineState,
+	effectId: string
+): CompositionOperationFailure {
+	const effect = state.effects.find((entry) => entry.id === effectId);
+	if (effect) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'unsupported_variant',
+			`The ${effect.type} Effect "${effectId}" keeps its own timing params and carries no keyframe channels or weld.`,
+			{ rejected: effectId, alternatives: ['appearance.set-effect-params'] }
+		);
+	}
+	return refuseCompositionOperation(
+		row,
+		compositionEditHistory.revision,
+		'unknown_target',
+		`This composition holds no Effect "${effectId}".`,
+		{ rejected: effectId, alternatives: state.effects.map((entry) => entry.id) }
+	);
+}
+
+/** The refusal for a frozen Effect param, which seeds a simulation or a hash (ADR-0063 §3). */
+function refuseFrozenEffectChannel(
+	row: WebmcpOperationRow,
+	state: EngineState,
+	subject: CompositionKeyframeSubject,
+	channel: string,
+	declared: readonly string[]
+): CompositionOperationFailure | null {
+	if (subject.kind !== 'effect') return null;
+	const effect = state.effects.find((entry) => entry.id === subject.effectId);
+	const definition = effect ? getEffectDefinition(effect.type) : null;
+	if (!definition?.frozenParams?.includes(channel)) return null;
+	return refuseCompositionOperation(
+		row,
+		compositionEditHistory.revision,
+		'unsupported_variant',
+		`"${channel}" is frozen on the ${definition.type} Effect: it seeds a simulation or a hash, so it cannot change over time. Set it with appearance.set-effect-params.`,
+		{ rejected: channel, alternatives: declared }
 	);
 }
 
@@ -482,7 +582,10 @@ export async function runSetCompositionKeyframeChannelOperation(
 	const owner = findKeyframeOwner(state, request.subject);
 	if (!owner) return refuseMissingKeyframeSubject(row, state, request.subject);
 	if (!owner.channels.includes(request.channel)) {
-		return refuseUndeclaredChannel(row, request.subject, request.channel, owner.channels);
+		return (
+			refuseFrozenEffectChannel(row, state, request.subject, request.channel, owner.channels) ??
+			refuseUndeclaredChannel(row, request.subject, request.channel, owner.channels)
+		);
 	}
 	const scope = request.scope ?? 'shared';
 	const scopeRefusal = refuseInvalidKeyframeScope(
@@ -539,7 +642,10 @@ export async function runClearCompositionKeyframeChannelOperation(
 	const owner = findKeyframeOwner(state, request.subject);
 	if (!owner) return refuseMissingKeyframeSubject(row, state, request.subject);
 	if (!owner.channels.includes(request.channel)) {
-		return refuseUndeclaredChannel(row, request.subject, request.channel, owner.channels);
+		return (
+			refuseFrozenEffectChannel(row, state, request.subject, request.channel, owner.channels) ??
+			refuseUndeclaredChannel(row, request.subject, request.channel, owner.channels)
+		);
 	}
 	const scope = request.scope ?? 'shared';
 	const scopeRefusal = refuseInvalidKeyframeScope(
@@ -675,6 +781,12 @@ function findSubjectCascade(
 			const primitive = (state.surface.diagram ?? []).find((entry) => entry.id === subject.blockId);
 			return primitive ? { cascade: primitive.animation?.cascade } : null;
 		}
+		case 'effect': {
+			const effect = state.effects.find((entry) => entry.id === subject.effectId);
+			return effect && getEffectDefinition(effect.type)
+				? { cascade: effect.animation?.cascade }
+				: null;
+		}
 	}
 }
 
@@ -718,6 +830,7 @@ function refuseMissingCascadeSubject(
 	state: EngineState,
 	subject: CompositionCascadeSubject
 ): CompositionOperationFailure {
+	if (subject.kind === 'effect') return refuseMissingEffectSubject(row, state, subject.effectId);
 	if (
 		subject.kind === 'block' &&
 		(state.surface.chart?.items ?? []).some((item) => item.id === subject.blockId)

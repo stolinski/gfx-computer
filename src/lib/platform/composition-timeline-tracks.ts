@@ -1,3 +1,4 @@
+import { getEffectDefinition } from './pipelines/definition-registry';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 import type { AchievementContent } from '$lib/pipelines/overlays/achievement/achievement-content';
@@ -62,6 +63,8 @@ const BLOCK_COLOR = '#c8a94e';
 const OVERLAY_COLOR = '#7d93b2';
 const TEXT_ANIMATION_COLOR = '#9a86c9';
 const SOUND_CUE_COLOR = '#57b3ac';
+/** Keyframed Effect rows (ADR-0063). */
+const EFFECT_COLOR = '#c58a7a';
 /** The stage rows (ADR-0060): the camera, the focus, and the bodies share one lane colour. */
 const STAGE_COLOR = '#8fb996';
 
@@ -72,6 +75,7 @@ export const TIMELINE_KIND_COLORS: Partial<Record<string, string>> = {
 	block: BLOCK_COLOR,
 	overlay: OVERLAY_COLOR,
 	'text-animation': TEXT_ANIMATION_COLOR,
+	effect: EFFECT_COLOR,
 	'sound-cue': SOUND_CUE_COLOR,
 	'stage-camera': STAGE_COLOR,
 	'stage-focus': STAGE_COLOR,
@@ -731,6 +735,52 @@ function appendOverlayTracks(
 	});
 }
 
+/**
+ * One row per authored Effect that carries a keyframe channel or a weld
+ * (ADR-0063 §9), read like an Overlay's channel row: diamonds retime and
+ * delete. An Effect has no clip start of its own, so an unwelded bar does not
+ * drag; a welded bar drags its Cascade offset.
+ */
+function appendEffectTracks(
+	tracks: TimelineTrack[],
+	state: EngineState,
+	windows: Map<string, CascadeWindow>
+): void {
+	for (const effect of state.effects) {
+		const channels = effect.animation?.channels;
+		const cascade = effect.animation?.cascade;
+		const hasChannels = channels !== undefined && clipKeyframes(state, channels, 0).length > 0;
+		if (!hasChannels && !cascade) continue;
+		const label = getEffectDefinition(effect.type)?.label ?? effect.type;
+		const window = windows.get(`effect:${effect.id}`);
+		const clipStart = window?.startFraction ?? 0;
+		const transition: TimelineTransition = {
+			id: 'clip',
+			label,
+			color: EFFECT_COLOR,
+			start: clipStart,
+			duration: Math.max(window?.durationFraction ?? 0, 0.02),
+			cascade: cascadeLinkFor(cascade, windows)
+		};
+		if (channels && hasChannels) {
+			transition.keyframes = clipKeyframes(state, channels, clipStart);
+			transition.onKeyframeRetime = makeKeyframeRetimer(state, channels, clipStart);
+			transition.onKeyframeDelete = makeKeyframeDeleter(channels);
+		}
+		if (cascade) {
+			transition.minStart = 0;
+			transition.maxStart = 0.98;
+			transition.onUpdate = ({ start }) => writeCascadeStart(state, cascade, start);
+		}
+		tracks.push({
+			id: createTimelineTrackId({ kind: 'effect', effectId: effect.id }),
+			label,
+			color: EFFECT_COLOR,
+			transitions: [transition]
+		});
+	}
+}
+
 function appendOverlaySubtracks(tracks: TimelineTrack[], state: EngineState): void {
 	state.overlays.forEach((overlay) => {
 		if (overlay.type !== 'tweet-stack') return;
@@ -1249,6 +1299,7 @@ export function buildCompositionTimelineTracks(
 	appendSpecialOverlayTracks(tracks, state);
 	appendTextAnimationTracks(tracks, state, windows);
 	appendMessageTracks(tracks, state);
+	appendEffectTracks(tracks, state, windows);
 	appendVideoTrack(tracks, state);
 	appendSoundTrack(tracks, state);
 	return tracks;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EffectParamRow from '$lib/platform/EffectParamRow.svelte';
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { NtscSignalParams } from './index';
 
@@ -7,56 +8,23 @@
 	let { effect = $bindable() }: EffectEditorProps<NtscSignalParams> = $props();
 </script>
 
-<label class="row">
-	<span>Lines</span>
-	<input bind:value={effect.params.lines} max="1080" min="160" step="10" type="range" />
-</label>
+<EffectParamRow {effect} path="lines" label="Lines" />
 
-<label class="row">
-	<span>Luma MHz</span>
-	<input bind:value={effect.params.lumaBandwidthMhz} max="6" min="1" step="0.05" type="range" />
-</label>
+<EffectParamRow {effect} path="lumaBandwidthMhz" label="Luma MHz" />
 
-<label class="row">
-	<span>Chroma MHz</span>
-	<input
-		bind:value={effect.params.chromaBandwidthMhz}
-		max="1.5"
-		min="0.1"
-		step="0.05"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="chromaBandwidthMhz" label="Chroma MHz" />
 
-<label class="row">
-	<span>Separation</span>
-	<input bind:value={effect.params.separation} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="separation" label="Separation" />
 
-<label class="row">
-	<span>Chroma lag</span>
-	<input bind:value={effect.params.chromaDelayUs} max="0.8" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="chromaDelayUs" label="Chroma lag" />
 
-<label class="row">
-	<span>Hue jitter</span>
-	<input bind:value={effect.params.phaseJitter} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="phaseJitter" label="Hue jitter" />
 
-<label class="row">
-	<span>Ghost</span>
-	<input bind:value={effect.params.ghost} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="ghost" label="Ghost" />
 
-<label class="row">
-	<span>Ghost delay</span>
-	<input bind:value={effect.params.ghostDelayUs} max="3" min="0" step="0.05" type="range" />
-</label>
+<EffectParamRow {effect} path="ghostDelayUs" label="Ghost delay" />
 
-<label class="row">
-	<span>Noise</span>
-	<input bind:value={effect.params.noise} max="1" min="0" step="0.01" type="range" />
-</label>
+<EffectParamRow {effect} path="noise" label="Noise" />
 
 <div class="row">
 	<span>480i</span>

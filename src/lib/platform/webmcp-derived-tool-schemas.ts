@@ -58,6 +58,7 @@ import {
 } from './engine-schema';
 import { listFixtures, listPresets } from './preset-catalog';
 import { listSubstrateAssets } from './substrate-textures';
+import { listEffectKeyframeChannels } from './effect-keyframe-channels';
 import { PACK_REGISTRY_SLUGS } from './packs/registry';
 import {
 	PIPELINE_DEFINITION_REGISTRY,
@@ -203,7 +204,11 @@ function readKeyframeChannels(): readonly string[] {
 			...OVERLAY_KEYFRAME_CHANNELS,
 			...DIAGRAM_KEYFRAME_CHANNELS,
 			...DIAGRAM_STROKE_KEYFRAME_CHANNELS,
-			...KINETIC_WORD_KEYFRAME_CHANNELS
+			...KINETIC_WORD_KEYFRAME_CHANNELS,
+			// Every registered Effect's channels (ADR-0063), read off its params schema.
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.effects).flatMap((definition) =>
+				listEffectKeyframeChannels(definition).map((channel) => channel.path)
+			)
 		])
 	];
 }

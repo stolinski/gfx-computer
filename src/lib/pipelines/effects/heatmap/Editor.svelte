@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EffectParamRow from '$lib/platform/EffectParamRow.svelte';
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { HeatmapParams } from './index';
 
@@ -22,9 +23,17 @@
 	<div class="stops">
 		{#each effect.params.colors, index (index)}
 			<span class="stop">
-				<input aria-label="Stop {index + 1}" bind:value={effect.params.colors[index]} type="color" />
+				<input
+					aria-label="Stop {index + 1}"
+					bind:value={effect.params.colors[index]}
+					type="color"
+				/>
 				{#if effect.params.colors.length > 2}
-					<button aria-label="Remove stop {index + 1}" onclick={() => removeColor(index)} type="button">×</button>
+					<button
+						aria-label="Remove stop {index + 1}"
+						onclick={() => removeColor(index)}
+						type="button">×</button
+					>
 				{/if}
 			</span>
 		{/each}
@@ -34,60 +43,15 @@
 	</div>
 </div>
 
-<label class="row">
-	<span>Contour</span>
-	<input
-		bind:value={effect.params.contour}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="contour" label="Contour" />
 
-<label class="row">
-	<span>Wave</span>
-	<input
-		bind:value={effect.params.wave}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="wave" label="Wave" />
 
-<label class="row">
-	<span>Angle</span>
-	<input
-		bind:value={effect.params.angle}
-		max="360"
-		min="0"
-		step="1"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="angle" label="Angle" />
 
-<label class="row">
-	<span>Noise</span>
-	<input
-		bind:value={effect.params.noise}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="noise" label="Noise" />
 
-<label class="row">
-	<span>Speed</span>
-	<input
-		bind:value={effect.params.speed}
-		max="3"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
-</label>
+<EffectParamRow {effect} path="speed" label="Speed" />
 
 <style>
 	/* Swatches take the inspector's system input[type='color'] sizing —
