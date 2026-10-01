@@ -186,6 +186,21 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 		});
 	}
 
+	// Animated Effects (ADR-0063 §6) are cascade subjects, never anchors. Their
+	// track counts from composition start (base 0) unless a cascade welds it;
+	// the window spans the authored envelope. Static Effects get no node.
+	for (const effect of state.effects) {
+		const channels = effect.animation?.channels;
+		const cascade = effect.animation?.cascade;
+		const spanMs = channels && hasAnyTrack(channels) ? channelEnvelopeSpanMs(channels) : null;
+		if (spanMs === null && !cascade) continue;
+		pending.set(`effect:${effect.id}`, {
+			baseStartFraction: 0,
+			durationFraction: (spanMs ?? 0) / durationMs,
+			cascade
+		});
+	}
+
 	const resolved = new Map<string, CascadeWindow>();
 	const visiting = new Set<string>();
 

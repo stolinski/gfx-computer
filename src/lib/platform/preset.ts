@@ -175,7 +175,11 @@ function cloneOverlay(overlay: Overlay): Overlay {
 }
 
 function cloneEffect(effect: Effect): Effect {
-	return { type: effect.type, id: effect.id, params: cloneJsonValue(effect.params) };
+	const next: Effect = { type: effect.type, id: effect.id, params: cloneJsonValue(effect.params) };
+	// Keyframed Effect params (ADR-0063). The key stays absent when undeclared so
+	// a static Effect serializes exactly as before.
+	if (effect.animation) next.animation = cloneJsonValue(effect.animation);
+	return next;
 }
 
 function cloneTextAnimation(entry: TextAnimation): TextAnimation {

@@ -1408,10 +1408,27 @@ const OverlaySchema = z.object({
 	pose: OverlayPoseSchema.optional()
 });
 
+// Effect channels (ADR-0063): every numeric leaf of the Effect's params
+// schema, addressed by dotted path (`pixelSize`, `region.x`). The record is
+// open here because the vocabulary belongs to the Effect's definition, not to
+// this file: `validateEffectKeyframeChannels` (preset-validation) rejects an
+// unknown or frozen path and checks every value against the leaf's bounds.
+// `atMs` counts from composition start, or from the weld when `cascade` is set.
+// Effects are cascade subjects only; nothing anchors to an Effect in v1.
+const EffectAnimationSchema = z.strictObject({
+	channels: z.record(z.string().min(1), createKeyframeTrackSchema(z.number())).optional(),
+	cascade: CascadeSchema.optional()
+});
+export type EffectAnimation = z.infer<typeof EffectAnimationSchema>;
+export type EffectChannelKeyframes = NonNullable<EffectAnimation['channels']>;
+
 const EffectSchema = z.object({
 	type: z.string(),
 	id: z.string(),
-	params: z.unknown()
+	params: z.unknown(),
+	// The static params remain the seed and the value a cleared channel returns
+	// to (ADR-0063 §4).
+	animation: EffectAnimationSchema.optional()
 });
 
 // One composition-wide post-process chain run after the final composite into
@@ -1927,6 +1944,17 @@ export const EngineStateSchema = z
 				edges.set(`textAnimation:${state.textAnimations[i].id}`, {
 					anchor: cascade.anchor,
 					path: ['textAnimations', i, 'cascade']
+				});
+			}
+		}
+		// Effects are subjects with an outgoing edge, never anchors, so an effect
+		// can only lead into a cycle; the walk below reports that cycle once.
+		for (let i = 0; i < state.effects.length; i += 1) {
+			const cascade = state.effects[i].animation?.cascade;
+			if (cascade) {
+				edges.set(`effect:${state.effects[i].id}`, {
+					anchor: cascade.anchor,
+					path: ['effects', i, 'animation', 'cascade']
 				});
 			}
 		}

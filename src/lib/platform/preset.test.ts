@@ -274,4 +274,39 @@ describe('applyPreset', () => {
 		engineState.media.videoTrack.clips[0].sourceStartSeconds = 22;
 		assert.equal(preset.state.media.videoTrack.clips[0].sourceStartSeconds, 18.25);
 	});
+
+	it('round-trips an Effect with keyframe channels byte for byte and deep-clones it', () => {
+		const effect = {
+			type: 'pixelation',
+			id: 'resolve',
+			params: { pixelSize: 48 },
+			animation: {
+				channels: {
+					pixelSize: [
+						{ atMs: 0, value: 96 },
+						{ atMs: 400, value: 1, ease: 'smooth' }
+					]
+				},
+				cascade: { anchor: 'surface', event: 'end', offsetMs: 120 }
+			}
+		};
+		const input = { ...blankPresetJson, state: { ...blankPresetJson.state, effects: [effect] } };
+		const preset = parsePresetIngress(input);
+		const wire = presetToWireFormat(preset) as { state: { effects: unknown[] } };
+		assert.equal(JSON.stringify(wire.state.effects), JSON.stringify([effect]));
+
+		applyPreset(preset);
+		const guiExport = presetToWireFormat(
+			serializeCompositionState(
+				{ name: preset.name, description: preset.description, kind: preset.kind },
+				engineState,
+				preset.pack
+			)
+		) as { state: { effects: unknown[] } };
+		assert.equal(JSON.stringify(guiExport.state.effects), JSON.stringify([effect]));
+
+		engineState.effects[0].animation!.channels!.pixelSize[1].value = 2;
+		assert.equal(preset.state.effects[0].animation?.channels?.pixelSize[1].value, 1);
+	});
 });
+

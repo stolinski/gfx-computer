@@ -30,6 +30,8 @@ export const tiledDeformationEffectDefinition = {
 	type: 'tiled-deformation',
 	label: 'Tiled deformation',
 	schema: TiledDeformationEffectSchema,
+	// The seed feeds the per-tile hash; there is no fixed-step kernel (ADR-0063 §3).
+	frozenParams: ['seed'],
 	defaults: () => ({
 		params: {
 			topology: 'grid',

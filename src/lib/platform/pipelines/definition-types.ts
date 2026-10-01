@@ -81,6 +81,17 @@ export interface EffectPipelineDefinition<TParams = unknown> {
 	schema: PipelineSchemaDefinition;
 	defaults(): { params: TParams };
 	isPackInert?(pack: PackManifest): boolean;
+	/**
+	 * Dotted paths of numeric params that never become keyframe channels
+	 * (ADR-0063 §3). Every other numeric leaf of `schema`'s params is a channel;
+	 * a definition may only subtract. Freeze a param that seeds a fixed-step
+	 * simulation, a replay, or a hash: every `seed`, and every input the
+	 * simulation kernel reads (step-function constants and authored events).
+	 * `SeekableSimulationRuntime` continues forward seeks from its current
+	 * state, so a kernel input that changed mid-run would make a jump-seek and a
+	 * play-through disagree. GPU-side params of the same Effect stay channels.
+	 */
+	frozenParams?: readonly string[];
 }
 
 export interface TransitionEffectDefinition<TParams = unknown> {

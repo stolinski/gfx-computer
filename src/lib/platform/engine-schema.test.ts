@@ -1225,3 +1225,100 @@ describe('Overlay signed depth and pose (ADR-0057)', () => {
 		assert.equal(EngineStateSchema.safeParse(overlayState({ pose: { pitch: 50 } })).success, false);
 	});
 });
+
+describe('Effect animation block (ADR-0063)', () => {
+	function animatedEffect(animation: unknown): Record<string, unknown> {
+		return { type: 'pixelation', id: 'resolve', params: { pixelSize: 48 }, animation };
+	}
+
+	it('accepts dotted channel paths with ordered tracks and an overlay weld', () => {
+		const state = baseState();
+		state.overlays = [baseOverlay('title')];
+		state.effects = [
+			animatedEffect({
+				channels: {
+					pixelSize: [
+						{ atMs: 0, value: 96 },
+						{ atMs: 400, value: 1, ease: 'smooth' }
+					],
+					'region.x': [{ atMs: 0, value: 0.2 }]
+				},
+				cascade: { anchor: { overlay: 'title' }, event: 'end', offsetMs: 120 }
+			})
+		];
+		expectValid(state, 'animated effect');
+	});
+
+	it('rejects malformed tracks, unknown animation keys, and effect anchors', () => {
+		const easedFirst = baseState();
+		easedFirst.effects = [
+			animatedEffect({ channels: { pixelSize: [{ atMs: 0, value: 4, ease: 'smooth' }] } })
+		];
+		expectIssue(easedFirst, 'The first keyframe carries no ease', 'eased first keyframe');
+
+		const unordered = baseState();
+		unordered.effects = [
+			animatedEffect({
+				channels: {
+					pixelSize: [
+						{ atMs: 200, value: 4 },
+						{ atMs: 100, value: 8, ease: 'sharp' }
+					]
+				}
+			})
+		];
+		expectIssue(unordered, 'strictly ascending atMs', 'unordered keyframes');
+
+		const empty = baseState();
+		empty.effects = [animatedEffect({ channels: { pixelSize: [] } })];
+		expectIssue(empty, 'at least one keyframe', 'empty track');
+
+		const strayKey = baseState();
+		strayKey.effects = [animatedEffect({ tracks: {} })];
+		assert.equal(EngineStateSchema.safeParse(strayKey).success, false, 'unknown animation key');
+
+		// Effects are subjects, never anchors: the anchor vocabulary is unchanged.
+		const effectAnchor = baseState();
+		effectAnchor.overlays = [
+			{
+				...baseOverlay('title'),
+				animation: { cascade: { anchor: { effect: 'resolve' }, event: 'start', offsetMs: 0 } }
+			}
+		];
+		effectAnchor.effects = [animatedEffect({ channels: { pixelSize: [{ atMs: 0, value: 4 }] } })];
+		assert.equal(EngineStateSchema.safeParse(effectAnchor).success, false, 'effect anchor');
+	});
+
+	it('resolves effect cascade anchors and reports a cycle reached through an effect once', () => {
+		const unknownAnchor = baseState();
+		unknownAnchor.effects = [
+			animatedEffect({ cascade: { anchor: { overlay: 'ghost' }, event: 'end', offsetMs: 0 } })
+		];
+		expectIssue(unknownAnchor, 'does not match any overlays[].id', 'unknown effect anchor');
+
+		const intoCycle = baseState();
+		intoCycle.overlays = [
+			{
+				...baseOverlay('a'),
+				animation: { cascade: { anchor: { overlay: 'b' }, event: 'end', offsetMs: 0 } }
+			},
+			{
+				...baseOverlay('b'),
+				animation: { cascade: { anchor: { overlay: 'a' }, event: 'end', offsetMs: 0 } }
+			}
+		];
+		intoCycle.effects = [
+			animatedEffect({ cascade: { anchor: { overlay: 'a' }, event: 'start', offsetMs: 0 } })
+		];
+		const result = EngineStateSchema.safeParse(intoCycle);
+		assert.ok(!result.success, 'effect into cycle: expected failure');
+		const cycleIssues = result.error.issues.filter((issue) =>
+			issue.message.includes('Cascade cycle')
+		);
+		assert.equal(cycleIssues.length, 1, 'the a↔b cycle reports exactly once');
+		assert.ok(
+			cycleIssues[0].message.includes('effect:resolve') === false,
+			`the effect leads into the loop but is not part of it: ${cycleIssues[0].message}`
+		);
+	});
+});

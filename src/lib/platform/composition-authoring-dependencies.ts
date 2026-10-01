@@ -130,6 +130,8 @@ export function trackCompositionAuthoringDependencies(state: EngineState, packSl
 	for (const entry of state.effects) {
 		void entry.type;
 		if (entry.params && typeof entry.params === 'object') void JSON.stringify(entry.params);
+		trackKeyframeChannels(entry.animation?.channels);
+		trackCascade(entry.animation?.cascade);
 	}
 	void state.backgroundFill;
 	void JSON.stringify(state.media);

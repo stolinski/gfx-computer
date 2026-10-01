@@ -442,3 +442,56 @@ describe('website-screenshot capture sources (ADR-0057)', () => {
 		);
 	});
 });
+
+describe('Effect keyframe channel semantic validation (ADR-0063)', () => {
+	function effectPreset(effects: Preset['state']['effects']): Preset {
+		const state = createDefaultEngineState();
+		state.effects = effects;
+		return { schema: 'gfx@1', name: 'Effect channels', pack: 'syntax', kind: 'fixture', state };
+	}
+
+	it('accepts declared channels and reports bad ones at their full state path', () => {
+		assert.deepEqual(
+			validatePresetSemantics(
+				effectPreset([
+					{
+						type: 'pixelation',
+						id: 'resolve',
+						params: { pixelSize: 48 },
+						animation: { channels: { pixelSize: [{ atMs: 0, value: 96 }] } }
+					}
+				])
+			),
+			[]
+		);
+
+		const issues = validatePresetSemantics(
+			effectPreset([
+				{
+					type: 'pixelation',
+					id: 'resolve',
+					params: { pixelSize: 48 },
+					animation: { channels: { pixelSize: [{ atMs: 0, value: 0 }] } }
+				}
+			])
+		);
+		assert.deepEqual(issues.map((issue) => issue.path), [
+			['state', 'effects', 0, 'animation', 'channels', 'pixelSize', 0, 'value']
+		]);
+	});
+
+	it('refuses an animation block on a composition-owned Effect', () => {
+		const issues = validatePresetSemantics(
+			effectPreset([
+				{
+					type: 'depth-of-field',
+					id: 'dof',
+					params: { focusZ: 0, aperture: 0.4 },
+					animation: { channels: { aperture: [{ atMs: 0, value: 0.2 }] } }
+				}
+			])
+		);
+		assert.deepEqual(issues.map((issue) => issue.path), [['state', 'effects', 0, 'animation']]);
+		assert.match(issues[0].message, /depth-of-field Effect carries no animation block/);
+	});
+});

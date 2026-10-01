@@ -6514,7 +6514,110 @@
 							"id": {
 								"type": "string"
 							},
-							"params": {}
+							"params": {},
+							"animation": {
+								"type": "object",
+								"properties": {
+									"channels": {
+										"type": "object",
+										"propertyNames": {
+											"type": "string",
+											"minLength": 1
+										},
+										"additionalProperties": {
+											"minItems": 1,
+											"maxItems": 24,
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"atMs": {
+														"type": "number",
+														"minimum": 0
+													},
+													"value": {
+														"type": "number"
+													},
+													"ease": {
+														"type": "string",
+														"enum": ["smooth", "settled", "sharp", "bouncy"]
+													}
+												},
+												"required": ["atMs", "value"],
+												"additionalProperties": false
+											}
+										}
+									},
+									"cascade": {
+										"type": "object",
+										"properties": {
+											"anchor": {
+												"anyOf": [
+													{
+														"type": "string",
+														"const": "surface"
+													},
+													{
+														"type": "object",
+														"properties": {
+															"overlay": {
+																"type": "string",
+																"minLength": 1
+															}
+														},
+														"required": ["overlay"],
+														"additionalProperties": false
+													},
+													{
+														"type": "object",
+														"properties": {
+															"mark": {
+																"type": "integer",
+																"minimum": 0,
+																"maximum": 9007199254740991
+															}
+														},
+														"required": ["mark"],
+														"additionalProperties": false
+													},
+													{
+														"type": "object",
+														"properties": {
+															"textAnimation": {
+																"type": "string",
+																"minLength": 1
+															}
+														},
+														"required": ["textAnimation"],
+														"additionalProperties": false
+													},
+													{
+														"type": "object",
+														"properties": {
+															"block": {
+																"type": "string",
+																"minLength": 1
+															}
+														},
+														"required": ["block"],
+														"additionalProperties": false
+													}
+												]
+											},
+											"event": {
+												"type": "string",
+												"enum": ["start", "end"]
+											},
+											"offsetMs": {
+												"type": "number"
+											}
+										},
+										"required": ["anchor", "event", "offsetMs"],
+										"additionalProperties": false
+									}
+								},
+								"additionalProperties": false
+							}
 						},
 						"required": ["type", "id", "params"]
 					}

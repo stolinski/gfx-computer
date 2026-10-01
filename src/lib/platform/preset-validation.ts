@@ -11,6 +11,7 @@ import {
 	getSurfaceDefinition
 } from './pipelines/definition-registry';
 import { getCompositionEffectRegistration } from './pipelines/composition-effect-registry';
+import { validateEffectKeyframeChannels } from './effect-keyframe-channels';
 import { STAGE_BODY_CEILINGS } from './pipelines/depth-stage-geometry';
 import { partitionStageOverlays } from './pipelines/depth-stage-planes';
 import { getStageRegistration } from './pipelines/stage-registry';
@@ -288,6 +289,19 @@ function validateEffectSemantics(preset: Preset, issues: PresetSemanticIssue[]):
 		const result = schema.safeParse(effect);
 		if (!result.success) {
 			appendSchemaIssues(issues, ['state', 'effects', index], result.error);
+		}
+
+		if (definition) {
+			for (const issue of validateEffectKeyframeChannels(effect.animation, definition)) {
+				issues.push({ path: ['state', 'effects', index, ...issue.path], message: issue.message });
+			}
+		} else if (effect.animation) {
+			// A composition-owned Effect keeps its own one-move vocabulary
+			// (`depth-of-field`'s `focusPull`, ADR-0063 §7) and is no cascade subject.
+			issues.push({
+				path: ['state', 'effects', index, 'animation'],
+				message: `The ${effect.type} Effect carries no animation block; it keeps its own timing params (ADR-0063 §7).`
+			});
 		}
 	}
 }

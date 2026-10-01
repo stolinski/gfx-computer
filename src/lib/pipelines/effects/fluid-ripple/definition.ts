@@ -26,6 +26,17 @@ export const fluidRippleEffectDefinition = {
 	type: 'fluid-ripple',
 	label: 'Fluid ripple',
 	schema: FluidRippleEffectSchema,
+	// The seed and every input `resolveFluidState` hands the fixed-step kernel:
+	// the step constants and the authored impulse event (ADR-0063 §3).
+	frozenParams: [
+		'seed',
+		'impulseAtSeconds',
+		'impulseX',
+		'impulseY',
+		'impulseStrength',
+		'damping',
+		'waveSpeed'
+	],
 	defaults: () => ({
 		params: {
 			seed: 8128,

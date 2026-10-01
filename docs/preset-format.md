@@ -380,7 +380,7 @@ Ordered per-channel `keyframes[]` are the general motion form; the `enter`/`exit
 
 ```jsonc
 "animation": {
-  "channels": {                       // overlay: opacity | x | y | scale | rotation; surface: opacity only
+  "channels": {                       // overlay: opacity | x | y | scale | rotation; surface: opacity only; effect: see below
     "opacity": [
       { "atMs": 0,   "value": 0 },                       // first keyframe carries no ease
       { "atMs": 300, "value": 1, "ease": "smooth" }      // ease = the curve INTO this keyframe
@@ -401,13 +401,20 @@ Keyframes:
 - `value` — per channel: `opacity` 0..1 · `x`/`y` signed composition-fraction **deltas** from the element's `position` anchor/offset · `scale` absolute 0.1..8, seeded from `position.scale` · `rotation` absolute degrees (unbounded — spins are legal), seeded from `position.rotation`.
 - `ease` — the constrained enum only (`smooth` | `settled` | `sharp` | `bouncy`), per segment. No bezier values. The first keyframe of a track carries none.
 - Surface channels are `opacity` only — surface transforms are camera territory (`stage.camera`).
+- Effect channels ([ADR-0063](adr/0063-keyframed-effect-parameters.md)) are the Effect's numeric params by dotted path, with the bounds of its params schema; see [`effects`](#effects-one-composition-wide-authored-list). An Effect track's `atMs` counts from **composition start** (an Effect has no clip), or from its cascade weld.
+
+| Subject                    | Channels                                                                                                  | Value                                                     |
+| -------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Overlay, Diagram primitive | `opacity` · `x` · `y` · `scale` · `rotation`                                                              | as above                                                  |
+| Surface                    | `opacity`                                                                                                 | 0..1                                                      |
+| Effect                     | every numeric leaf of its params schema except its frozen params (`pixelSize`, `region.x`, `melt.radius`) | the leaf's own min/max; integer leaves take whole numbers |
 
 Cascade welds an element's **enter start** to another element's timing (milliseconds, not fractions — a 120 ms stagger stays 120 ms when the piece re-times):
 
 - `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` | `{ "block": id }` (the same identities the timeline rows use; `block` names a `surface.diagram[]` primitive, `surface.chart.items[]` Chart Block, or `surface.typeField.words[]` Kinetic Word).
 - `event` — `"start"` | `"end"` of the anchor's enter.
 - `offsetMs` — signed milliseconds after (or before) the anchor event.
-- Allowed on `overlays[].animation`, `marks.timings[]` entries, `textAnimations[]` entries, and `surface.diagram[].animation`. A Chart Block may be an anchor through its intrinsic entry phase, but its five `ChartMotion` phases are not generalized keyframe channels and cannot carry Cascade. The surface is the timing root and carries no cascade.
+- Allowed on `overlays[].animation`, `effects[].animation`, `marks.timings[]` entries, `textAnimations[]` entries, and `surface.diagram[].animation`. An Effect is a cascade subject only: nothing anchors to an Effect, so `anchor` never names one. A Chart Block may be an anchor through its intrinsic entry phase, but its five `ChartMotion` phases are not generalized keyframe channels and cannot carry Cascade. The surface is the timing root and carries no cascade.
 - Parse-time rules: every anchor ref must resolve, and anchor chains must be acyclic — a cycle is rejected with an error naming the loop.
 
 ### `textAnimations` (per-slot text choreography)
@@ -457,7 +464,33 @@ When a body has both `marks.timings[]` and a `textAnimations[]` entry targeting 
 ]
 ```
 
-A single flat list — [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) collapsed the old per-layer `{ surface, body, annotations, overlays, frame }` object (only `frame` was ever consumed). Each entry is `{ type, id, params }`. Ordinary entries resolve through an `EffectRenderer.schema` and run in the final post-process chain; composition-owned entries resolve through `composition-effect-registry.ts` and alter branch dispatch before that chain. `depth-of-field` is the current composition-owned Effect. Per-target shader work that needs layer-local knowledge is a `shaderPass` on the Surface/Overlay renderer, not an Effect ([ADR-0005](adr/0005-overlay-renderer-shader-pass.md)).
+A single flat list — [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) collapsed the old per-layer `{ surface, body, annotations, overlays, frame }` object (only `frame` was ever consumed). Each entry is `{ type, id, params }` plus an optional `animation` block. Ordinary entries resolve through an `EffectRenderer.schema` and run in the final post-process chain; composition-owned entries resolve through `composition-effect-registry.ts` and alter branch dispatch before that chain. `depth-of-field` is the current composition-owned Effect. Per-target shader work that needs layer-local knowledge is a `shaderPass` on the Surface/Overlay renderer, not an Effect ([ADR-0005](adr/0005-overlay-renderer-shader-pass.md)).
+
+**Keyframed params** ([ADR-0063](adr/0063-keyframed-effect-parameters.md)). An entry may carry the same `animation` block an Overlay carries:
+
+```jsonc
+{
+	"type": "pixelation",
+	"id": "resolve",
+	"params": { "pixelSize": 48 },
+	"animation": {
+		"channels": {
+			"pixelSize": [
+				{ "atMs": 0, "value": 96 },
+				{ "atMs": 400, "value": 1, "ease": "smooth" }
+			]
+		},
+		"cascade": { "anchor": { "overlay": "title" }, "event": "end", "offsetMs": 0 } // optional
+	}
+}
+```
+
+- A **channel** is a numeric leaf of the Effect's params schema, named by dotted path (`pixelSize`, `region.x`, `melt.radius`). The list comes from the live schema (`listEffectKeyframeChannels`); enum, string, color, and boolean params are never channels. Each keyframe value must sit inside the leaf's bounds, and an integer leaf takes whole numbers only.
+- **Frozen params** never become channels: every `seed`, and every input a fixed-step simulation kernel reads (`fluid-ripple`: `damping`, `waveSpeed`, and the impulse event; `cloth-bend`: `stiffness`, `damping`, and the gust event). A changing kernel input would make a jump-seek and a play-through disagree. Naming a frozen or unknown channel is a validation error at its exact path.
+- `atMs` counts from composition start; a `cascade` welds the track's start to an element's enter start or end plus `offsetMs`. Effects are cascade subjects, never anchors.
+- The static `params` value is the seed: it is what the Effect shows when the channel is cleared.
+- `depth-of-field` takes no `animation` block; it keeps its `focusPull` ramp.
+- A declared Effect channel validates and round-trips, but does not yet drive the render: the animation manifest starts carrying Effect channels in the runtime leaf of ADR-0063.
 
 ### `stage` (optional — dimensional depth stage)
 

@@ -25,6 +25,9 @@ export const clothBendEffectDefinition = {
 	type: 'cloth-bend',
 	label: 'Cloth bend',
 	schema: ClothBendEffectSchema,
+	// The seed and every input `resolveClothState` hands the fixed-step kernel:
+	// the spring constants and the authored gust event (ADR-0063 §3).
+	frozenParams: ['seed', 'gustAtSeconds', 'gust', 'stiffness', 'damping'],
 	defaults: () => ({
 		params: {
 			seed: 512,

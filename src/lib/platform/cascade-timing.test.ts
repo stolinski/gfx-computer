@@ -15,6 +15,7 @@ function makeState(partial: {
 	overlays?: unknown[];
 	timings?: unknown[];
 	textAnimations?: unknown[];
+	effects?: unknown[];
 }): EngineState {
 	return {
 		transport: { orientation: 'horizontal', durationSeconds: 10, fps: 30, format: 'webm' },
@@ -28,7 +29,7 @@ function makeState(partial: {
 		},
 		textAnimations: partial.textAnimations ?? [],
 		overlays: partial.overlays ?? [],
-		effects: [],
+		effects: partial.effects ?? [],
 		audioCues: []
 	} as unknown as EngineState;
 }
@@ -298,5 +299,52 @@ describe('cascade timing', () => {
 		const windows = resolveCascadeTimings(state);
 		assert.ok(Math.abs((windows.get('overlay:chart-follower')?.startFraction ?? -1) - 0.25) < 1e-9);
 		assert.deepEqual(state.surface.chart.items[0].motion, motionBefore);
+	});
+
+	it('welds an animated Effect to an overlay enter end and spans its envelope (ADR-0063 §6)', () => {
+		const state = makeState({
+			overlays: [
+				{
+					id: 'title',
+					type: 'lower-third',
+					content: {},
+					position: { anchor: 'center' },
+					enter: { start: 0.2, duration: 0.05, ease: 'smooth' }
+				}
+			],
+			effects: [
+				{
+					type: 'pixelation',
+					id: 'resolve',
+					params: { pixelSize: 48 },
+					animation: {
+						channels: {
+							pixelSize: [
+								{ atMs: 0, value: 96 },
+								{ atMs: 400, value: 1, ease: 'smooth' }
+							]
+						},
+						cascade: { anchor: { overlay: 'title' }, event: 'end', offsetMs: 120 }
+					}
+				},
+				{
+					type: 'pixelation',
+					id: 'unwelded',
+					params: { pixelSize: 12 },
+					animation: { channels: { pixelSize: [{ atMs: 0, value: 12 }, { atMs: 1000, value: 2 }] } }
+				},
+				{ type: 'pixelation', id: 'static', params: { pixelSize: 8 } }
+			]
+		});
+		const windows = resolveCascadeTimings(state);
+		const welded = windows.get('effect:resolve');
+		// Overlay enter ends at 0.25 (2500 ms); +120 ms → 2620 ms = 0.262.
+		assert.ok(welded);
+		assert.ok(Math.abs(welded.startFraction - 0.262) < 1e-9, `start ${welded.startFraction}`);
+		assert.equal(welded.durationFraction, 0.04);
+		// Without a cascade the track counts from composition start.
+		assert.deepEqual(windows.get('effect:unwelded'), { startFraction: 0, durationFraction: 0.1 });
+		// A static Effect has no timing node.
+		assert.equal(windows.has('effect:static'), false);
 	});
 });

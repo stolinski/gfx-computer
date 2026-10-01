@@ -57,6 +57,8 @@ export const frostedGlassEffectDefinition = {
 	type: 'frosted-glass',
 	label: 'Frosted glass',
 	schema: FrostedGlassEffectSchema,
+	// The seed offsets the frost noise hash (ADR-0063 §3).
+	frozenParams: ['seed'],
 	defaults: () => ({
 		params: {
 			region: { ...DEFAULT_FROSTED_GLASS_REGION },
