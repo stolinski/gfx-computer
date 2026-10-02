@@ -27,6 +27,7 @@
 	import SoundSection from './SoundSection.svelte';
 	import SurfaceAppearanceSection from './SurfaceAppearanceSection.svelte';
 	import SurfaceChecklistSection from './SurfaceChecklistSection.svelte';
+	import ChecklistCardSection from './ChecklistCardSection.svelte';
 	import SurfaceDocumentSection from './SurfaceDocumentSection.svelte';
 	import SurfaceMessagesSection from './SurfaceMessagesSection.svelte';
 	import SurfaceTextMotionSection from './SurfaceTextMotionSection.svelte';
@@ -304,6 +305,7 @@
 
 	{#if controls.items}
 		<SurfaceChecklistSection />
+		<ChecklistCardSection />
 	{/if}
 
 	<SurfaceAppearanceSection />

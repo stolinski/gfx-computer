@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
 import chartPresetJson from '$lib/presets/bar-chart-apollo-sample-return.json';
+import checklistPresetJson from '$lib/presets/checklist-project-setup.json';
 
 import { compositionMeta } from './composition-meta.svelte';
 import { runAddCompositionDiagramPrimitiveOperation } from './composition-block-layer-operations';
@@ -9,6 +10,7 @@ import { runAddCompositionOverlayOperation } from './composition-layer-operation
 import {
 	runClearCompositionOrientationOverrideOperation,
 	runSetCompositionChartFrameOperation,
+	runSetCompositionChecklistCardOperation,
 	runSetCompositionDiagramGeometryOperation,
 	runSetCompositionOverlayDepthOperation,
 	runSetCompositionOverlayPlacementOperation,
@@ -224,6 +226,67 @@ describe('Overlay placement', () => {
 			})
 		);
 		expect(engineState.overlays[0].pose).toBeUndefined();
+	});
+});
+
+describe('Checklist card', () => {
+	it('refuses a non-checklist Surface and a card wider than the frame', async () => {
+		const refused = expectFailed(
+			await runSetCompositionChecklistCardOperation({
+				expectedRevision: 0,
+				target: 'shared',
+				card: { x: 0.06, y: 0.5, width: 0.38 }
+			})
+		);
+		expect(refused.code).toBe('precondition_unmet');
+
+		applyPreset(parsePresetIngress(checklistPresetJson));
+		compositionMeta.isUserComposition = true;
+		const tooWide = expectFailed(
+			await runSetCompositionChecklistCardOperation({
+				expectedRevision: 0,
+				target: 'shared',
+				card: { x: 0.7, y: 0.5, width: 0.38 }
+			})
+		);
+		expect(tooWide.code).toBe('invalid_argument');
+	});
+
+	it('places the card shared and per orientation, and removes each', async () => {
+		applyPreset(parsePresetIngress(checklistPresetJson));
+		compositionMeta.isUserComposition = true;
+		expectApplied(
+			await runSetCompositionChecklistCardOperation({
+				expectedRevision: 0,
+				target: 'shared',
+				card: { x: 0.06, y: 0.5, width: 0.38 }
+			})
+		);
+		expect(engineState.surface.checklistCard).toEqual({ x: 0.06, y: 0.5, width: 0.38 });
+		const changed = expectApplied(
+			await runSetCompositionChecklistCardOperation({
+				expectedRevision: 1,
+				target: 'vertical',
+				card: { x: 0.07, y: 0.32, width: 0.86 }
+			})
+		);
+		expect(changed).toEqual(['/state/surface/checklistCardOrientationOverrides']);
+		expectApplied(
+			await runSetCompositionChecklistCardOperation({
+				expectedRevision: 2,
+				target: 'vertical',
+				card: null
+			})
+		);
+		expect(engineState.surface.checklistCardOrientationOverrides).toBeUndefined();
+		expectApplied(
+			await runSetCompositionChecklistCardOperation({
+				expectedRevision: 3,
+				target: 'shared',
+				card: null
+			})
+		);
+		expect(engineState.surface.checklistCard).toBeUndefined();
 	});
 });
 

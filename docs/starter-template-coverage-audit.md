@@ -6,7 +6,7 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **111 Presets** — **45 listed** and **66 fixtures**.
+- Corpus: **112 Presets** — **45 listed** and **67 fixtures**.
 - Structurally distinct Starter candidates: **45**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
@@ -77,6 +77,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `captions-pack-style-demo`                      | Caption proof        | Pack-resolved caption style        | Keep fixture | Style proof rather than another caption job.                          |
 | `chart-domain-survey-fixture`                   | Chart proof          | Multi-item chart contract          | Keep fixture | Domain verification corpus.                                           |
 | `chart-frame-orientation-fixture`               | Chart proof          | Chart frame per orientation        | Keep fixture | Engine contract proof (ADR-0048 amendment, ADR-0039 §4).              |
+| `checklist-card-orientation-fixture`            | Checklist proof      | Checklist card per orientation     | Keep fixture | Engine contract proof (ADR-0039 §4 Surface audit).                    |
 | `chromatic-aberration-demo`                     | Effect proof         | Chromatic aberration               | Keep fixture | Isolated Effect proof.                                                |
 | `cloth-bend-demo`                               | Simulation proof     | Cloth bend                         | Keep fixture | Isolated simulation proof.                                            |
 | `counter-demo`                                  | Overlay proof        | Counter Pipeline                   | Keep fixture | Superseded as a Starter by `counter-milestone`.                       |

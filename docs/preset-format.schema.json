@@ -561,6 +561,78 @@
 							},
 							"additionalProperties": false
 						},
+						"checklistCard": {
+							"type": "object",
+							"properties": {
+								"x": {
+									"type": "number",
+									"minimum": 0,
+									"maximum": 1
+								},
+								"y": {
+									"type": "number",
+									"minimum": 0,
+									"maximum": 1
+								},
+								"width": {
+									"type": "number",
+									"minimum": 0.15,
+									"maximum": 1
+								}
+							},
+							"required": ["x", "y", "width"],
+							"additionalProperties": false
+						},
+						"checklistCardOrientationOverrides": {
+							"type": "object",
+							"properties": {
+								"horizontal": {
+									"type": "object",
+									"properties": {
+										"x": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										},
+										"y": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										},
+										"width": {
+											"type": "number",
+											"minimum": 0.15,
+											"maximum": 1
+										}
+									},
+									"required": ["x", "y", "width"],
+									"additionalProperties": false
+								},
+								"vertical": {
+									"type": "object",
+									"properties": {
+										"x": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										},
+										"y": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										},
+										"width": {
+											"type": "number",
+											"minimum": 0.15,
+											"maximum": 1
+										}
+									},
+									"required": ["x", "y", "width"],
+									"additionalProperties": false
+								}
+							},
+							"additionalProperties": false
+						},
 						"enter": {
 							"type": "object",
 							"properties": {

@@ -1,0 +1,87 @@
+{
+	"schema": "supers@1",
+	"name": "Checklist card per orientation — fixture",
+	"description": "Engine contract proof for checklist card placement: the wide card sits on the left half and enters from the left, the tall card sits in the upper band.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {
+				"strike": {
+					"color": "#e5322b",
+					"intensity": 1
+				}
+			},
+			"timings": []
+		},
+		"surface": {
+			"type": "checklist",
+			"content": {
+				"title": "PROJECT SETUP",
+				"body": "",
+				"items": [
+					{
+						"text": "pnpm install",
+						"checked": true
+					},
+					{
+						"text": "Env vars set",
+						"checked": true,
+						"strike": {
+							"start": 0.42,
+							"duration": 0.09,
+							"ease": "sharp"
+						}
+					},
+					{
+						"text": "DB migrated",
+						"checked": false
+					},
+					{
+						"text": "Dev server up",
+						"checked": false
+					},
+					{
+						"text": "First commit",
+						"checked": false
+					}
+				]
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.07,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.9,
+				"duration": 0.04,
+				"ease": "smooth"
+			},
+			"checklistCard": {
+				"x": 0.06,
+				"y": 0.5,
+				"width": 0.38
+			},
+			"checklistCardOrientationOverrides": {
+				"vertical": {
+					"x": 0.07,
+					"y": 0.32,
+					"width": 0.84
+				}
+			}
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	},
+	"kind": "fixture"
+}

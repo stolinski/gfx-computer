@@ -412,6 +412,10 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 		toolName: 'gfx_placement_set_kinetic_word_placement'
 	},
 	{
+		prompt: 'Move the checklist card to the left side of the wide frame so it clears the host.',
+		toolName: 'gfx_placement_set_checklist_card'
+	},
+	{
 		prompt: 'In the tall frame, move the bar chart into the upper half and make it narrower.',
 		toolName: 'gfx_placement_set_chart_frame'
 	},

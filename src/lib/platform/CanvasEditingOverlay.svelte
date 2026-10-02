@@ -48,8 +48,11 @@
 		type CanvasElementSelectionKey
 	} from './canvas-element-selection';
 	import { compositionEditHistory } from './composition-edit-history';
-	import { runSetCompositionChartFrameOperation } from './composition-placement-operations';
-	import type { ChartBlock, ChartFrameRect } from './engine-schema';
+	import {
+		runSetCompositionChartFrameOperation,
+		runSetCompositionChecklistCardOperation
+	} from './composition-placement-operations';
+	import type { ChartBlock, ChartFrameRect, ChecklistCardPlacement } from './engine-schema';
 	import {
 		runSetCompositionKineticWordPlacementOperation,
 		runSetCompositionKineticWordPositionKeyframeOperation
@@ -110,6 +113,10 @@
 		type TimelineTrackIdentity
 	} from './timeline-entity-identity';
 	import { resolveChartLayoutBounds } from '$lib/utils/chart-layout';
+	import {
+		checklistCardPlacementFromLayout,
+		resolveChecklistCardLayout
+	} from '$lib/utils/checklist-card-placement';
 	import { resolveVisibleChartBlock } from '$lib/utils/chart-visibility';
 	import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
@@ -1340,6 +1347,174 @@
 		});
 	}
 
+	// ─── The checklist card (ADR-0039 §4) ───────────────────────────────────────────
+	// The card is selectable by its padding and title row (items keep their own
+	// targets on top). Dragging moves it, the east handle sets its width; both
+	// preview live and commit one placement operation into this orientation's
+	// placement when it has one, else the shared placement.
+
+	const CHECKLIST_CARD_SELECTION_KEY = 'checklist-card';
+	const CHECKLIST_CARD_WIDTH_HANDLE = CANVAS_TEXT_INLINE_RESIZE_HANDLE_DESCRIPTORS[1];
+	const checklistCardVisible = $derived(engineState.surface.type === 'checklist');
+
+	function checklistCardElement(): HTMLElement | null {
+		return compositionElement?.querySelector<HTMLElement>('[data-checklist-card]') ?? null;
+	}
+
+	function checklistCardRelRect(): CanvasInteractionRect | null {
+		void animState.globalProgress;
+		void animState.paperVisibility;
+		void measureEpoch;
+		void JSON.stringify(engineState.surface.checklistCard);
+		void JSON.stringify(engineState.surface.checklistCardOrientationOverrides);
+		void engineState.transport.orientation;
+		const element = checklistCardElement();
+		return element ? projectRect(element) : null;
+	}
+
+	/** The placement the active orientation shows now, as authored values. */
+	function shownChecklistCard(): ChecklistCardPlacement {
+		const orientation = engineState.transport.orientation;
+		const layout = resolveChecklistCardLayout(engineState.surface, orientation);
+		const element = checklistCardElement();
+		const height = getVideoFrameSize(orientation).height;
+		return checklistCardPlacementFromLayout(
+			layout,
+			layout.authored || !element ? 0 : element.offsetHeight / height
+		);
+	}
+
+	function checklistCardTarget(): 'shared' | 'horizontal' | 'vertical' {
+		const orientation = engineState.transport.orientation;
+		return engineState.surface.checklistCardOrientationOverrides?.[orientation]
+			? orientation
+			: 'shared';
+	}
+
+	interface ChecklistCardDragState {
+		mode: 'move' | 'resize';
+		target: 'shared' | 'horizontal' | 'vertical';
+		expectedRevision: number;
+		startCompX: number;
+		startCompY: number;
+		origin: ChecklistCardPlacement;
+		priorShared: ChecklistCardPlacement | undefined;
+		priorOrientation: ChecklistCardPlacement | undefined;
+		preview: ChecklistCardPlacement;
+	}
+
+	let checklistCardDrag: ChecklistCardDragState | null = null;
+
+	function writeChecklistCardPreview(
+		drag: ChecklistCardDragState,
+		card: ChecklistCardPlacement
+	): void {
+		drag.preview = card;
+		const surface = engineState.surface;
+		if (drag.target === 'shared') {
+			surface.checklistCard = { ...card };
+			return;
+		}
+		surface.checklistCardOrientationOverrides = {
+			...surface.checklistCardOrientationOverrides,
+			[drag.target]: { ...card }
+		};
+	}
+
+	function restoreChecklistCard(drag: ChecklistCardDragState): void {
+		const surface = engineState.surface;
+		if (drag.target === 'shared') {
+			surface.checklistCard = drag.priorShared;
+			return;
+		}
+		surface.checklistCardOrientationOverrides = {
+			...surface.checklistCardOrientationOverrides,
+			[drag.target]: drag.priorOrientation
+		};
+	}
+
+	function removeChecklistCardDragListeners(): void {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onChecklistCardPointerMove);
+		window.removeEventListener('pointerup', commitChecklistCardDrag);
+		window.removeEventListener('pointercancel', cancelChecklistCardDrag);
+	}
+
+	function onChecklistCardPointerDown(event: PointerEvent, mode: 'move' | 'resize'): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const start = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!start) return;
+		const origin = shownChecklistCard();
+		const target = checklistCardTarget();
+		const surface = engineState.surface;
+		checklistCardDrag = {
+			mode,
+			target,
+			expectedRevision: compositionEditHistory.revision,
+			startCompX: start.x,
+			startCompY: start.y,
+			origin,
+			priorShared: surface.checklistCard ? { ...surface.checklistCard } : undefined,
+			priorOrientation:
+				target === 'shared'
+					? undefined
+					: { ...(surface.checklistCardOrientationOverrides?.[target] ?? origin) },
+			preview: origin
+		};
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', onChecklistCardPointerMove);
+			window.addEventListener('pointerup', commitChecklistCardDrag);
+			window.addEventListener('pointercancel', cancelChecklistCardDrag);
+		}
+	}
+
+	function onChecklistCardPointerMove(event: PointerEvent): void {
+		const drag = checklistCardDrag;
+		if (!drag) return;
+		const current = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!current) return;
+		const delta = { x: current.x - drag.startCompX, y: current.y - drag.startCompY };
+		if (Math.abs(delta.x) < 0.0005 && Math.abs(delta.y) < 0.0005) return;
+		const { origin } = drag;
+		const round = (value: number): number => Math.round(value * 10000) / 10000;
+		if (drag.mode === 'move') {
+			writeChecklistCardPreview(drag, {
+				...origin,
+				x: round(clampNumber(origin.x + delta.x, 0, 1 - origin.width)),
+				y: round(clampNumber(origin.y + delta.y, 0, 1))
+			});
+			return;
+		}
+		writeChecklistCardPreview(drag, {
+			...origin,
+			width: round(clampNumber(origin.width + delta.x, 0.15, 1 - origin.x))
+		});
+	}
+
+	async function commitChecklistCardDrag(): Promise<void> {
+		const drag = checklistCardDrag;
+		checklistCardDrag = null;
+		removeChecklistCardDragListeners();
+		if (!drag) return;
+		restoreChecklistCard(drag);
+		const { preview, origin } = drag;
+		if (preview.x === origin.x && preview.y === origin.y && preview.width === origin.width) return;
+		await runSetCompositionChecklistCardOperation({
+			expectedRevision: drag.expectedRevision,
+			target: drag.target,
+			card: preview
+		});
+	}
+
+	function cancelChecklistCardDrag(): void {
+		const drag = checklistCardDrag;
+		checklistCardDrag = null;
+		removeChecklistCardDragListeners();
+		if (drag) restoreChecklistCard(drag);
+	}
+
 	interface BlockDragState {
 		blockId: string;
 		/** Drag origin in composition fractions (ray-cast onto the surface plane). */
@@ -1928,6 +2103,10 @@
 	}
 
 	function selectCanvasCandidate(selectionKey: string): void {
+		if (selectionKey === CHECKLIST_CARD_SELECTION_KEY) {
+			selectLayer(createTimelineTrackId({ kind: 'surface' }));
+			return;
+		}
 		if (selectionKey.startsWith('overlay-body:')) {
 			const overlayId = selectionKey.slice('overlay-body:'.length);
 			if (engineState.overlays.some((overlay) => overlay.id === overlayId)) {
@@ -1946,7 +2125,8 @@
 			const blockId = selectionKey.slice('block:'.length);
 			if (
 				diagramPrimitiveDraggables.some((primitive) => primitive.id === blockId) ||
-				kineticWordDraggables.some((word) => word.id === blockId)
+				kineticWordDraggables.some((word) => word.id === blockId) ||
+				visibleChart?.id === blockId
 			) {
 				selectLayer(createTimelineTrackId({ kind: 'block', blockId }));
 			}
@@ -1969,6 +2149,11 @@
 	}
 
 	function startCanvasCandidateGesture(event: PointerEvent, selectionKey: string): void {
+		if (selectionKey === CHECKLIST_CARD_SELECTION_KEY) {
+			selectLayer(createTimelineTrackId({ kind: 'surface' }));
+			onChecklistCardPointerDown(event, 'move');
+			return;
+		}
 		if (selectionKey.startsWith('stage-body:')) {
 			selectStageBody(selectionKey.slice('stage-body:'.length));
 			startStageOrbit(event);
@@ -2662,6 +2847,79 @@
 			</div>
 		{/if}
 	{/each}
+	{#if checklistCardVisible}
+		{@const rect = checklistCardRelRect()}
+		{@const region = rect ? canvasHitRegion(rect) : null}
+		{@const selectionIdentity = { kind: 'surface' } as const}
+		{#if region}
+			{@const isSelected = isCanvasCandidateSelected(
+				CHECKLIST_CARD_SELECTION_KEY,
+				selectionIdentity
+			)}
+			<div
+				class={[
+					'canvas-selection-target',
+					'interior-hit',
+					isSelected && 'canvas-selection-target--selected'
+				]}
+				data-canvas-selection-key={CHECKLIST_CARD_SELECTION_KEY}
+				data-canvas-selection-id={createTimelineTrackId(selectionIdentity)}
+				data-canvas-selection-layer="surface-text"
+				data-canvas-paint-index={-1}
+				data-canvas-stable-id={CHECKLIST_CARD_SELECTION_KEY}
+				data-checklist-card-target
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, CHECKLIST_CARD_SELECTION_KEY)}
+				role="button"
+				tabindex="0"
+				aria-label="Move checklist card"
+				title={CANVAS_OVERLAP_CYCLE_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, CHECKLIST_CARD_SELECTION_KEY)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'surface-text',
+					// Under the title slot: the card's padding moves it, its text edits.
+					paintIndex: -1,
+					stableId: CHECKLIST_CARD_SELECTION_KEY
+				})}
+			>
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
+				{#if isSelected}
+					{@const handle = createCanvasHandleGeometry(
+						{
+							left: region.visibleBounds.left - region.pointerBounds.left,
+							top: region.visibleBounds.top - region.pointerBounds.top,
+							width: region.visibleBounds.width,
+							height: region.visibleBounds.height
+						},
+						CHECKLIST_CARD_WIDTH_HANDLE
+					)}
+					<button
+						class="overlay-hit__handle"
+						type="button"
+						data-handle-position={handle.position}
+						data-handle-purpose={handle.purpose}
+						aria-label="Resize checklist card width"
+						onpointerdown={(event) => onChecklistCardPointerDown(event, 'resize')}
+						style:left="{handle.pointerBounds.left}px"
+						style:top="{handle.pointerBounds.top}px"
+						style:width="{handle.pointerBounds.width}px"
+						style:height="{handle.pointerBounds.height}px"
+						style:cursor={handle.cursor}
+					></button>
+				{/if}
+			</div>
+		{/if}
+	{/if}
 	{#each surfaceItems as item, index (index)}
 		{@const rect = itemRelRect(item, index)}
 		{@const region = rect ? canvasHitRegion(rect) : null}

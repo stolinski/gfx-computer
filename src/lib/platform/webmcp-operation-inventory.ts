@@ -359,6 +359,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/overlays/*/pose', scope: 'value' },
 			{ pointer: '/state/surface/pageAnchor', scope: 'value' },
 			{ pointer: '/state/surface/pageAnchorOrientationOverrides', scope: 'value' },
+			{ pointer: '/state/surface/checklistCard', scope: 'value' },
+			{ pointer: '/state/surface/checklistCardOrientationOverrides', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*/frame', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*/frameOrientationOverrides', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/position', scope: 'value' },
@@ -1326,6 +1328,22 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['surface'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/WebsiteCaptureFields.svelte'
+	},
+	{
+		id: 'placement.set-checklist-card',
+		family: 'placement',
+		toolName: 'gfx_placement_set_checklist_card',
+		summary:
+			'Place the checklist card (left edge, vertical centre, width), shared or per orientation, or return it to the default layout. The card enters from the side it sits on.',
+		effect: 'write',
+		writes: ['/state/surface/checklistCard', '/state/surface/checklistCardOrientationOverrides'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['surface'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/ChecklistCardSection.svelte'
 	},
 	{
 		id: 'placement.set-chart-frame',

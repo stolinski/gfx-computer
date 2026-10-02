@@ -140,6 +140,10 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		pageAnchorOrientationOverrides: surface.pageAnchorOrientationOverrides
 			? cloneJsonValue(surface.pageAnchorOrientationOverrides)
 			: undefined,
+		checklistCard: surface.checklistCard ? { ...surface.checklistCard } : undefined,
+		checklistCardOrientationOverrides: surface.checklistCardOrientationOverrides
+			? cloneJsonValue(surface.checklistCardOrientationOverrides)
+			: undefined,
 		enter: surface.enter ? cloneTransition(surface.enter) : undefined,
 		exit: surface.exit ? cloneTransition(surface.exit) : undefined,
 		animation: surface.animation ? cloneSurfaceAnimation(surface.animation) : undefined,

@@ -32,10 +32,15 @@ import {
 } from './composition-operation-preflight';
 import { COMPOSITION_ORIENTATIONS } from './composition-transport-operations';
 
-import { ChartFrameRectSchema, STAGE_CAMERA_POSE_LIMITS } from './engine-schema';
+import {
+	ChartFrameRectSchema,
+	ChecklistCardPlacementSchema,
+	STAGE_CAMERA_POSE_LIMITS
+} from './engine-schema';
 import { describeCompositionSchemaFindings } from './composition-validation-findings';
 import type {
 	ChartFrameRect,
+	ChecklistCardPlacement,
 	DiagramEndpoint,
 	DiagramPoint,
 	DiagramPrimitive,
@@ -98,6 +103,18 @@ export interface SetCompositionSurfacePageAnchorRequest {
 	pageAnchor: { x: number; y: number } | null;
 	/** The shared point both orientations fall back to, or one orientation's own. Absent is shared. */
 	target?: CompositionPlacementTarget;
+}
+
+export interface SetCompositionChecklistCardRequest {
+	expectedRevision: number;
+	/** The shared placement both orientations fall back to, or one orientation's own. */
+	target: CompositionPlacementTarget;
+	/**
+	 * The card's left edge, vertical centre, and width in frame fractions.
+	 * `null` removes it: the shared placement returns to the pipeline layout,
+	 * and an orientation placement returns that orientation to the shared one.
+	 */
+	card: ChecklistCardPlacement | null;
 }
 
 export interface SetCompositionChartFrameRequest {
@@ -426,6 +443,62 @@ export async function runSetCompositionSurfacePageAnchorOperation(
 			const overrides = { ...surface.pageAnchorOrientationOverrides, [target]: point };
 			if (point === undefined) delete overrides[target];
 			surface.pageAnchorOrientationOverrides =
+				overrides.horizontal || overrides.vertical ? overrides : undefined;
+		}
+	});
+}
+
+// ---- Checklist card ----
+
+/** Place the checklist card, shared or per orientation (ADR-0039 §4). */
+export async function runSetCompositionChecklistCardOperation(
+	request: SetCompositionChecklistCardRequest
+): Promise<CompositionOperationOutcome> {
+	const row = requireCompositionOperationRow('placement.set-checklist-card');
+	const refusal = refuseUnlessCompositionEditable(row);
+	if (refusal) return refusal;
+
+	const surface = readOpenCompositionDocument().state.surface;
+	if (surface.type !== 'checklist') {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'precondition_unmet',
+			`The ${surface.type} Surface has no checklist card to place.`,
+			{ rejected: surface.type, alternatives: ['checklist'] }
+		);
+	}
+	if (!isPlacementTarget(request.target)) return refuseUnknownPlacementTarget(row, request.target);
+	let card: ChecklistCardPlacement | undefined;
+	if (request.card !== null) {
+		const parsed = ChecklistCardPlacementSchema.safeParse(request.card);
+		if (!parsed.success) {
+			return refuseCompositionOperation(
+				row,
+				compositionEditHistory.revision,
+				'invalid_argument',
+				'A checklist card placement is a left edge, vertical centre, and width in frame fractions; the width is at least 0.15 and the card fits the frame width.',
+				{ findings: describeCompositionSchemaFindings(parsed.error) }
+			);
+		}
+		card = parsed.data;
+	}
+	const target = request.target;
+
+	return runCompositionEditTransaction({
+		operationId: row.id,
+		expectedRevision: request.expectedRevision,
+		undoLabel: target === 'shared' ? 'Place checklist card' : `Place ${target} checklist card`,
+		focus: { target: 'surface' },
+		mutate: (draft) => {
+			const draftSurface = draft.state.surface;
+			if (target === 'shared') {
+				draftSurface.checklistCard = card;
+				return;
+			}
+			const overrides = { ...draftSurface.checklistCardOrientationOverrides, [target]: card };
+			if (!card) delete overrides[target];
+			draftSurface.checklistCardOrientationOverrides =
 				overrides.horizontal || overrides.vertical ? overrides : undefined;
 		}
 	});

@@ -76,6 +76,13 @@
 		"height": 360,
 		"contentFraction": 1
 	},
+	"checklist-card-orientation-fixture": {
+		"contentKey": "79108401a475ff01",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.2095
+	},
 	"checklist-project-setup": {
 		"contentKey": "e4f08f4ec33487f7",
 		"timestampSeconds": 3,

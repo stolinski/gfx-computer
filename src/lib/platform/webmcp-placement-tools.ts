@@ -26,6 +26,7 @@ import {
 	STAGE_CAMERA_POSE_LIMITS,
 	type DiagramEndpoint,
 	type ChartFrameRect,
+	type ChecklistCardPlacement,
 	type DiagramPoint,
 	type KineticWordGeometry
 } from './engine-schema';
@@ -50,6 +51,7 @@ import {
 	runSetCompositionOverlayPlacementOperation,
 	runSetCompositionOverlayPoseOperation,
 	runSetCompositionChartFrameOperation,
+	runSetCompositionChecklistCardOperation,
 	runSetCompositionSurfacePageAnchorOperation
 } from './composition-placement-operations';
 import { runSetCompositionKineticWordPlacementOperation } from './composition-kinetic-type-operations';
@@ -86,6 +88,16 @@ function readPageAnchor(args: unknown): { x: number; y: number } | null {
 	const record = readWebmcpClearableRecordArgument(args, 'pageAnchor');
 	if (record === null) return null;
 	return { x: readWebmcpNumberArgument(record, 'x'), y: readWebmcpNumberArgument(record, 'y') };
+}
+
+function readChecklistCard(args: unknown): ChecklistCardPlacement | null {
+	const record = readWebmcpClearableRecordArgument(args, 'card');
+	if (record === null) return null;
+	return {
+		x: readWebmcpNumberArgument(record, 'x'),
+		y: readWebmcpNumberArgument(record, 'y'),
+		width: readWebmcpNumberArgument(record, 'width')
+	};
 }
 
 function readChartFrame(args: unknown): ChartFrameRect | null {
@@ -476,6 +488,40 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						pageAnchor: readPageAnchor(args),
 						target: readWebmcpOptionalLiteralArgument(args, 'target', COMPOSITION_PLACEMENT_TARGETS)
+					})
+				)
+		},
+		{
+			operationId: 'placement.set-checklist-card',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					target: placementTargetProperty(),
+					card: {
+						description:
+							'Where the checklist card sits; null removes it (shared returns to the default layout, an orientation to the shared placement).',
+						oneOf: [
+							completeObjectProperty('The card placement, in frame fractions.', {
+								x: webmcpFractionProperty('Left edge, as a fraction of frame width.'),
+								y: webmcpFractionProperty('Vertical centre, as a fraction of frame height.'),
+								width: webmcpFractionProperty(
+									'Width, as a fraction of frame width (at least 0.15).'
+								)
+							}),
+							{ type: 'null', description: 'Remove this target placement.' }
+						]
+					}
+				},
+				required: ['expectedRevision', 'target', 'card'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('placement.set-checklist-card', () =>
+					runSetCompositionChecklistCardOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						target: readWebmcpLiteralArgument(args, 'target', COMPOSITION_PLACEMENT_TARGETS),
+						card: readChecklistCard(args)
 					})
 				)
 		},

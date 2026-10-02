@@ -256,6 +256,25 @@ describe('preset rubric', () => {
 		);
 	});
 
+	it('reports a checklist card outside the safe zone without moving it', () => {
+		const preset = makePreset({});
+		preset.state.surface.type = 'checklist';
+		preset.state.surface.checklistCard = { x: 0.06, y: 0.5, width: 0.38 };
+		preset.state.surface.checklistCardOrientationOverrides = {
+			vertical: { x: 0.07, y: 0.9, width: 0.86 }
+		};
+
+		const issues = lintPreset(preset).filter(
+			(issue) => issue.rule === 'G2' && issue.path.includes('checklistCard')
+		);
+
+		assert.deepEqual(
+			issues.map((issue) => issue.path),
+			['surface.checklistCardOrientationOverrides.vertical']
+		);
+		assert.equal(preset.state.surface.checklistCardOrientationOverrides?.vertical?.y, 0.9);
+	});
+
 	it('validates resolved Diagram geometry without clamping authored points', () => {
 		const preset = makePreset({
 			surface: {

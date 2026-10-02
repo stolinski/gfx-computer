@@ -31,6 +31,7 @@ import {
 	websiteScreenshotFraming
 } from '../utils/website-showcase.ts';
 import { resolveChartBarColumnGeometry } from '../utils/chart-bar-column-geometry.ts';
+import { resolveChecklistCardPlacement } from '../utils/checklist-card-placement.ts';
 import {
 	resolveChartAuthoredFrame,
 	resolveChartFrameLayout,
@@ -190,6 +191,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	checkOverlayTimings(state.overlays, totalSeconds, cascadeWindows, issues);
 	checkOverlayPlacement(state.overlays, orientation, issues);
 	checkChartLayout(state.surface.chart?.items ?? [], issues);
+	if (state.surface.type === 'checklist') checkChecklistCardPlacement(state.surface, issues);
 	checkDiagramPlacement(state.surface.diagram ?? [], orientation, issues);
 	checkKineticWordPlacement(state.surface.typeField?.words ?? [], orientation, issues);
 	if (resolvedTypography) {
@@ -558,6 +560,36 @@ function resolveChartGeometryOverflow(
 		case 'unit-grid-chart':
 		case 'dot-field-chart':
 			return resolveChartNormalizedGeometry({ block, layout, orientation, measureText }).overflow;
+	}
+}
+
+// An authored checklist card is placed as written; leaving the safe area is
+// reported, never corrected (ADR-0039 §4). Its height is its content's, so the
+// statically checkable edges are the sides and the centre line.
+function checkChecklistCardPlacement(
+	surface: Preset['state']['surface'],
+	issues: RubricIssue[]
+): void {
+	for (const orientation of ['horizontal', 'vertical'] as const) {
+		const card = resolveChecklistCardPlacement(surface, orientation);
+		if (!card) continue;
+		const sa = getLayoutSafeArea(orientation);
+		const tolerance = 1e-6;
+		if (
+			card.x < sa.left - tolerance ||
+			card.x + card.width > 1 - sa.right + tolerance ||
+			card.y < sa.top - tolerance ||
+			card.y > 1 - sa.bottom + tolerance
+		) {
+			issues.push({
+				rule: 'G2',
+				severity: 'error',
+				path: surface.checklistCardOrientationOverrides?.[orientation]
+					? `surface.checklistCardOrientationOverrides.${orientation}`
+					: 'surface.checklistCard',
+				message: `Checklist card extends outside the ${orientation} safe zone.`
+			});
+		}
 	}
 }
 

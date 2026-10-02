@@ -1308,6 +1308,20 @@ const SurfaceContentSchema = z.object({
 	items: z.array(ChecklistItemSchema).optional()
 });
 
+// Where the checklist card sits (ADR-0039 §4, Surface layout inventory): its
+// left edge `x`, vertical centre `y`, and `width`, as frame fractions. The card's
+// height stays its content's. Absent keeps the pipeline layout.
+export const ChecklistCardPlacementSchema = z
+	.strictObject({
+		x: FractionSchema,
+		y: FractionSchema,
+		width: z.number().min(0.15).max(1)
+	})
+	.refine((card) => card.x + card.width <= 1 + 1e-9, {
+		message: 'A checklist card must fit within the frame width.'
+	});
+export type ChecklistCardPlacement = z.infer<typeof ChecklistCardPlacementSchema>;
+
 const SurfaceSchema = z.object({
 	type: SurfaceTypeSchema,
 	content: SurfaceContentSchema,
@@ -1347,6 +1361,18 @@ const SurfaceSchema = z.object({
 		.strictObject({
 			horizontal: z.strictObject({ x: FractionSchema, y: FractionSchema }).optional(),
 			vertical: z.strictObject({ x: FractionSchema, y: FractionSchema }).optional()
+		})
+		.optional(),
+	// The checklist card's placement, shared by both orientations. Ignored by
+	// every other Surface. Absent keeps the card on the right half of the wide
+	// frame and the bottom half of the tall one.
+	checklistCard: ChecklistCardPlacementSchema.optional(),
+	// One complete card placement per orientation that replaces `checklistCard`
+	// while that orientation is active.
+	checklistCardOrientationOverrides: z
+		.strictObject({
+			horizontal: ChecklistCardPlacementSchema.optional(),
+			vertical: ChecklistCardPlacementSchema.optional()
 		})
 		.optional(),
 	enter: TransitionSchema.optional(),

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { resolveChecklistCardLayout } from '$lib/utils/checklist-card-placement';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	import { itemRevealAt, strikeProgressAt } from './schedule';
@@ -13,7 +14,9 @@
 
 	// A half-frame progress tracker: title + numbered tasks in the RIGHT half of
 	// the horizontal frame (footage lives left), reflowing to the BOTTOM half on
-	// vertical. Layout is stable — every item reserves its final space from
+	// vertical — unless the composition places the card itself
+	// (`surface.checklistCard`, per orientation; ADR-0039 §4), in which case it
+	// enters from the side of the frame it sits on. Layout is stable — every item reserves its final space from
 	// frame 0, so the red strike rules (drawn by the reused `strike` Annotation
 	// off each item's data-annotation-mark span) stay pinned to their phrases
 	// as check-offs land. The done-dim rides each item's strike progress
@@ -26,10 +29,6 @@
 	// Appearance resolves from the active Pack (SurfaceMount vars): --plate /
 	// --ink / --accent colors, --border / --radius / --shadow card form,
 	// --font / --fontLabel voices, --textShadow for the bare mode.
-	const CARD_WIDTH_RATIO_H = 0.38;
-	const CARD_LEFT_RATIO_H = 0.56;
-	const CARD_WIDTH_RATIO_V = 0.86;
-	const CARD_TOP_RATIO_V = 0.52;
 	// The block flies in FROM THE RIGHT (slides left to rest) — a horizontal
 	// travel as a fraction of frame WIDTH. settled-place keeps a small overshoot.
 	const ENTER_TRAVEL_RATIO = 0.06;
@@ -49,19 +48,24 @@
 	const isBare = $derived((engineState.surface.chrome ?? 'window') === 'none');
 	const p = $derived(Math.max(0, Math.min(1, animState.globalProgress)));
 
+	const card = $derived(
+		resolveChecklistCardLayout(engineState.surface, engineState.transport.orientation)
+	);
 	const layout = $derived.by(() => {
-		const width = frame.width * (isVertical ? CARD_WIDTH_RATIO_V : CARD_WIDTH_RATIO_H);
-		const x = isVertical
-			? Math.round((frame.width - width) / 2)
-			: Math.round(frame.width * CARD_LEFT_RATIO_H);
+		const width = frame.width * card.width;
+		const x = Math.round(frame.width * card.x);
 		// settled-place: the raw visibility OVERSHOOTS 1 on the `settled` ease,
 		// so the travel offset dips past rest then settles back — placed with
 		// intent. Opacity clamps to [0, 1]. Positive offset = to the RIGHT of
-		// rest, so the block enters from the right and slides left home.
+		// rest, so the block enters from the right and slides left home; a card
+		// placed on the left half mirrors it.
 		const raw = animState.paperVisibility;
 		const visibility = Math.max(0, Math.min(1, raw));
-		const enterOffsetPx = Math.round((1 - raw) * frame.width * ENTER_TRAVEL_RATIO);
-		return { x, width, enterOffsetPx, visibility };
+		const direction = card.enterFrom === 'left' ? -1 : 1;
+		const enterOffsetPx = Math.round(direction * (1 - raw) * frame.width * ENTER_TRAVEL_RATIO);
+		const top =
+			card.anchor === 'top' || card.authored ? `${Math.round(frame.height * card.y)}px` : '50%';
+		return { x, width, enterOffsetPx, visibility, top, direction };
 	});
 
 	const titleFontPx = $derived(Math.round(layout.width * (isVertical ? 0.06 : 0.068)));
@@ -92,18 +96,22 @@
 		// Opacity: easeOutQuad (quick to legible). Slide: easeOutBack (overshoot).
 		const revealOpacity = 1 - (1 - t) ** 2;
 		const doneDim = 1 - (1 - DONE_DIM_OPACITY) * strikeProgressAt(item, p);
-		return { opacity: revealOpacity * doneDim, slidePx: (1 - easeOutBack(t)) * itemSlidePx };
+		return {
+			opacity: revealOpacity * doneDim,
+			slidePx: layout.direction * (1 - easeOutBack(t)) * itemSlidePx
+		};
 	}
 </script>
 
 <article
 	bind:this={element}
 	class="checklist surface"
+	data-checklist-card
 	class:checklist--bare={isBare}
 	style:inline-size={`${layout.width}px`}
 	style:left={`${layout.x}px`}
-	style:top={isVertical ? `${Math.round(frame.height * CARD_TOP_RATIO_V)}px` : '50%'}
-	style:transform={isVertical
+	style:top={layout.top}
+	style:transform={card.anchor === 'top'
 		? `translateX(${layout.enterOffsetPx}px)`
 		: `translate(${layout.enterOffsetPx}px, -50%)`}
 	style:opacity={layout.visibility}

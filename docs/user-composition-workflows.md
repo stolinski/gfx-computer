@@ -155,11 +155,15 @@ Agents prepare the owning family and use `gfx_layer_add_kinetic_word` / `gfx_lay
 
 ### Customize horizontal / vertical
 
-Every value that can differ between the wide and tall frames uses one control: **Customize horizontal** or **Customize vertical**, for the orientation on screen, in the header of the section that holds the values. That covers Overlay position, Diagram geometry, Kinetic Word placement, the captions band, the chart frame, optical Effect regions (in the Effect row), the filmed page anchor (beside its fields), and the Stage camera (tall frame only). Turning it on copies what that orientation shows now into its own complete copy; edits then change only that orientation. Turning it off deletes the copy, and the orientation shows the shared values again. Each change is one undo step.
+Every value that can differ between the wide and tall frames uses one control: **Customize horizontal** or **Customize vertical**, for the orientation on screen, in the header of the section that holds the values. That covers Overlay position, Diagram geometry, Kinetic Word placement, the captions band, the chart frame, the checklist card, optical Effect regions (in the Effect row), the filmed page anchor (beside its fields), and the Stage camera (tall frame only). Turning it on copies what that orientation shows now into its own complete copy; edits then change only that orientation. Turning it off deletes the copy, and the orientation shows the shared values again. Each change is one undo step.
 
 ### Per-orientation motion
 
 An Overlay's inspector, and the inspector of a `node`, `label`, or `stat-callout` Diagram primitive, carries two keyframe sections: **Keyframes** for the shared channels, and the active orientation's **Reflow Motion** for a complete x/y/scale/rotation group that replaces the shared path in that orientation only ([ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) §4). The first key in Reflow Motion creates the group, seeded from the shared path and the orientation's own placement; opacity stays shared. The Timeline shows the active orientation's diamonds. Deleting the last key of any track in the group, or clearing one of its channels, removes the whole group and returns that orientation to the shared path. Agents pass `scope: 'horizontal' | 'vertical'` to `gfx_motion_set_keyframe_channel` and `gfx_motion_clear_keyframe_channel`, exactly as for a Kinetic Word. The fixture `diagram-orientation-motion-fixture` shows a diagram that slides along a row in the wide frame and rises into a column in the tall one.
+
+### Checklist card
+
+The checklist card sits on the right half of the wide frame and the bottom half of the tall one until you place it. Drag the card by its padding or title row to move it, or drag its right-edge handle to change its width; the Surface inspector's **Card** section has **Custom** for a shared placement, **Customize horizontal / vertical** for the orientation on screen, and X, Centre Y, and Width once a placement exists. The card enters from the side of the frame it sits on. Agents call `gfx_placement_set_checklist_card`. The fixture `checklist-card-orientation-fixture` puts the card on the left of the wide frame and in the upper band of the tall one.
 
 ### Chart frame
 

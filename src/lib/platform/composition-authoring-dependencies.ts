@@ -78,6 +78,8 @@ export function trackCompositionAuthoringDependencies(state: EngineState, packSl
 	void state.surface.pageAnchor?.y;
 	void state.surface.pageAnchorOrientationOverrides?.[activeOrientation]?.x;
 	void state.surface.pageAnchorOrientationOverrides?.[activeOrientation]?.y;
+	void JSON.stringify(state.surface.checklistCard);
+	void JSON.stringify(state.surface.checklistCardOrientationOverrides?.[activeOrientation]);
 	void state.typography.fontFamily;
 	void state.typography.paperColor;
 	void state.typography.inkColor;
