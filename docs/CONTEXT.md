@@ -195,7 +195,7 @@ The optional `surface.chart` declaration that carries one to four **Chart Blocks
 _Avoid_: chart layer, dashboard, data source, ingestion model, orientation-specific chart Preset.
 
 **Chart Block**:
-One factual statistical graphic rendered in the **Block Layer** with a stable Pipeline identity: `bar-chart`, `column-chart`, `unit-grid-chart`, or `dot-field-chart`. It owns explicit categories and series, factual domain or normalization, semantic targets for highlights and computed callouts, label visibility, a semantic fill role, and the five deterministic phases `entry`, `reveal`, `emphasis`, `annotation`, and `exit`. Shared layout reflows the same declaration at both native orientations; Packs own mark and chrome appearance but never values, geometry, or motion. Shipped in [ADR-0048](adr/0048-agent-authored-chart-domain.md).
+One factual statistical graphic rendered in the **Block Layer** with a stable Pipeline identity: `bar-chart`, `column-chart`, `unit-grid-chart`, or `dot-field-chart`. It owns explicit categories and series, factual domain or normalization, semantic targets for highlights and computed callouts, label visibility, a semantic fill role, and the five deterministic phases `entry`, `reveal`, `emphasis`, `annotation`, and `exit`. Shared layout reflows the same declaration at both native orientations, inside the title-safe area or the chart's authored frame (shared, or complete per orientation); Packs own mark and chrome appearance but never values, geometry, or motion. Shipped in [ADR-0048](adr/0048-agent-authored-chart-domain.md).
 _Avoid_: chart (when the group or Pipeline identity matters), graph, visualization widget, canvas chart, Pack-specific chart variant.
 
 **Type Field**:

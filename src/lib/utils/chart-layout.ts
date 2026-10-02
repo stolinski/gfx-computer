@@ -1,4 +1,4 @@
-import type { ChartBlock, ChartDatum } from '$lib/platform/engine-schema';
+import type { ChartBlock, ChartDatum, ChartFrameRect } from '$lib/platform/engine-schema';
 import {
 	createChartCategoricalScale,
 	createChartLinearScale,
@@ -265,6 +265,38 @@ function chartRectsIntersect(a: ChartPixelRect, b: ChartPixelRect): boolean {
 	return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
+/**
+ * The authored frame rect a chart lays itself out inside in `orientation`, in
+ * normalized frame fractions: that orientation's own frame, else the shared
+ * one, else null for the automatic title-safe layout (ADR-0048 amendment).
+ */
+export function resolveChartAuthoredFrame(
+	block: Pick<ChartBlock, 'frame' | 'frameOrientationOverrides'>,
+	orientation: VideoOrientation
+): ChartFrameRect | null {
+	return block.frameOrientationOverrides?.[orientation] ?? block.frame ?? null;
+}
+
+/**
+ * The bounds a chart lays out in, in native pixels: its authored frame when it
+ * has one, else the title-safe area. An authored frame is never clamped to the
+ * safe area; the rubric reports one that leaves it.
+ */
+export function resolveChartLayoutBounds(
+	block: Pick<ChartBlock, 'frame' | 'frameOrientationOverrides'>,
+	orientation: VideoOrientation
+): ChartPixelRect {
+	const authored = resolveChartAuthoredFrame(block, orientation);
+	if (!authored) return resolveChartSafeBounds(orientation);
+	const size = getVideoFrameSize(orientation);
+	return {
+		x: authored.x * size.width,
+		y: authored.y * size.height,
+		width: authored.width * size.width,
+		height: authored.height * size.height
+	};
+}
+
 export function resolveChartFrameLayout(input: {
 	block: ChartBlock;
 	orientation: VideoOrientation;
@@ -273,7 +305,7 @@ export function resolveChartFrameLayout(input: {
 	const { block, orientation, measureText } = input;
 	const size = getVideoFrameSize(orientation);
 	const frame = { x: 0, y: 0, width: size.width, height: size.height };
-	const safeBounds = resolveChartSafeBounds(orientation);
+	const safeBounds = resolveChartLayoutBounds(block, orientation);
 	const overflow: ChartLayoutOverflow[] = [];
 	const shortEdge = Math.min(size.width, size.height);
 	const gap = shortEdge * 0.018;

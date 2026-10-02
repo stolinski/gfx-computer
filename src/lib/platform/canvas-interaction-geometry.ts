@@ -72,6 +72,11 @@ export interface CanvasInteractionGeometryContract {
 		sourceScreenBounds: CanvasInteractionRect,
 		plane: StagePlane
 	): CanvasRenderedBounds | null;
+	/** The same bounds for a rect given directly in composition fractions. */
+	renderedBoundsForComposition(
+		normalized: CanvasInteractionRect,
+		plane: StagePlane
+	): CanvasRenderedBounds | null;
 	screenPointToComposition(
 		screenPoint: CanvasInteractionPoint,
 		plane: StagePlane
@@ -217,26 +222,34 @@ export function createCanvasInteractionGeometryContract(
 		return { normalized, native: normalizedToNativePoint(normalized) };
 	};
 
+	const renderedBoundsForComposition = (
+		normalized: CanvasInteractionRect,
+		plane: StagePlane
+	): CanvasRenderedBounds | null => {
+		if (!isFiniteRect(normalized)) return null;
+		const frameBounds = projectCompositionRect(normalized, plane, viewport.projector);
+		if (!frameBounds) return null;
+		const screenBounds = screenRectFromFrameRect(frameBounds, viewport.canvasBounds);
+		return {
+			compositionBounds: {
+				normalized,
+				native: nativeRectFromNormalizedRect(normalized, viewport.compositionSize)
+			},
+			frameBounds,
+			screenBounds,
+			editorBounds: editorRectFromScreenRect(screenBounds, viewport.editorBounds)
+		};
+	};
+
 	return {
 		renderedBoundsFor(sourceScreenBounds, plane) {
 			if (!isFiniteRect(sourceScreenBounds)) return null;
-			const normalized = compositionRectFromScreenRect(
-				sourceScreenBounds,
-				viewport.compositionDomBounds
+			return renderedBoundsForComposition(
+				compositionRectFromScreenRect(sourceScreenBounds, viewport.compositionDomBounds),
+				plane
 			);
-			const frameBounds = projectCompositionRect(normalized, plane, viewport.projector);
-			if (!frameBounds) return null;
-			const screenBounds = screenRectFromFrameRect(frameBounds, viewport.canvasBounds);
-			return {
-				compositionBounds: {
-					normalized,
-					native: nativeRectFromNormalizedRect(normalized, viewport.compositionSize)
-				},
-				frameBounds,
-				screenBounds,
-				editorBounds: editorRectFromScreenRect(screenBounds, viewport.editorBounds)
-			};
 		},
+		renderedBoundsForComposition,
 		screenPointToComposition,
 		compositionPointToScreen(normalizedPoint, plane) {
 			if (!isFinitePoint(normalizedPoint)) return null;
@@ -356,6 +369,12 @@ export const CANVAS_TEXT_INLINE_RESIZE_HANDLE_DESCRIPTORS = [
 	{ position: 'east', purpose: 'inline-resize' }
 ] as const satisfies readonly CanvasHandleDescriptor[];
 
+/** The corner handle that resizes an authored frame (a chart's) without scaling its type. */
+export const CANVAS_FRAME_RESIZE_HANDLE_DESCRIPTOR: CanvasHandleDescriptor = {
+	position: 'south-east',
+	purpose: 'block-resize'
+};
+
 function pinnedOverlayCorner(anchor: OverlayPlacement['anchor']): CanvasHandlePosition | undefined {
 	const pinned: Partial<Record<OverlayPlacement['anchor'], CanvasHandlePosition>> = {
 		'top-left': 'north-west',
@@ -442,11 +461,7 @@ export function createCanvasHandleGeometry(
 // projected box surrounds the glass, so a press on the picture reaches the
 // page and a press on the housing reaches the body.
 export type CanvasSelectionLayer =
-	| 'stage-body'
-	| 'surface-text'
-	| 'surface-content'
-	| 'block'
-	| 'overlay';
+	'stage-body' | 'surface-text' | 'surface-content' | 'block' | 'overlay';
 
 export interface CanvasSelectionOrder {
 	layer: CanvasSelectionLayer;

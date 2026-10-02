@@ -195,6 +195,67 @@ describe('preset rubric', () => {
 		assert.match(issues[0].message, /title-too-wide/);
 	});
 
+	it('reports an authored chart frame outside the safe zone without moving it', () => {
+		const preset = makePreset({
+			surface: {
+				chart: {
+					mode: 'single',
+					items: [
+						{
+							id: 'framed',
+							type: 'bar-chart',
+							title: 'Framed',
+							data: {
+								categories: [
+									{ id: 'a', label: 'A' },
+									{ id: 'b', label: 'B' }
+								],
+								series: [
+									{
+										id: 's',
+										label: 'S',
+										values: [
+											{ categoryId: 'a', value: 1 },
+											{ categoryId: 'b', value: 2 }
+										]
+									}
+								]
+							},
+							labels: { categories: true, values: true, legend: false },
+							fill: { role: 'default' },
+							layout: { mode: 'single' },
+							frame: { x: 0.36, y: 0.1, width: 0.59, height: 0.8 },
+							frameOrientationOverrides: {
+								vertical: { x: 0.05, y: 0.4, width: 0.86, height: 0.52 }
+							},
+							motion: {
+								entry: { start: 0.02, duration: 0.02 },
+								reveal: { start: 0.04, duration: 0.1 },
+								emphasis: { start: 0.15, duration: 0.03 },
+								annotation: { start: 0.19, duration: 0.04 },
+								exit: { start: 0.93, duration: 0.04 }
+							}
+						}
+					]
+				}
+			}
+		});
+
+		const issues = lintPreset(preset).filter(
+			(issue) => issue.rule === 'G2' && issue.path.includes('frame')
+		);
+
+		assert.deepEqual(
+			issues.map((issue) => issue.path),
+			['surface.chart.items[0].frameOrientationOverrides.vertical']
+		);
+		assert.equal(
+			preset.state.surface.chart?.items[0].frameOrientationOverrides?.vertical?.y,
+			0.4,
+			'validation never clamps an authored frame'
+		);
+	});
+
 	it('validates resolved Diagram geometry without clamping authored points', () => {
 		const preset = makePreset({
 			surface: {
@@ -216,10 +277,7 @@ describe('preset rubric', () => {
 		const issues = lintPreset(preset).filter((issue) => issue.rule === 'G2');
 
 		assert.equal(issues.length, 1);
-		assert.equal(
-			issues[0].path,
-			'surface.diagram[0].orientationOverrides.vertical.position'
-		);
+		assert.equal(issues[0].path, 'surface.diagram[0].orientationOverrides.vertical.position');
 		const label = preset.state.surface.diagram?.[0];
 		assert.equal(
 			label?.type === 'label' ? label.orientationOverrides?.vertical?.position.y : undefined,
@@ -525,9 +583,7 @@ describe('preset rubric', () => {
 		preset.state.typography.inkColor = '#0e0e0d';
 
 		assert.ok(
-			lintPreset(preset).some(
-				(issue) => issue.rule === 'G5' && issue.path === 'surface.diagram'
-			)
+			lintPreset(preset).some((issue) => issue.rule === 'G5' && issue.path === 'surface.diagram')
 		);
 	});
 });

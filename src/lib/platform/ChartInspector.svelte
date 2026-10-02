@@ -9,6 +9,7 @@
 	} from './chart-authoring';
 	import { engineState } from './engine-state.svelte';
 	import ChartDataSection from './ChartDataSection.svelte';
+	import ChartFrameSection from './ChartFrameSection.svelte';
 	import ChartMotionSection from './ChartMotionSection.svelte';
 	import ChartTargetsSection from './ChartTargetsSection.svelte';
 	import Field from './Field.svelte';
@@ -186,6 +187,8 @@
 	</InspectorSection>
 
 	<ChartDataSection {blockId} />
+
+	<ChartFrameSection {blockId} />
 
 	<InspectorSection label="Layout">
 		{#if block.type === 'bar-chart' || block.type === 'column-chart' || block.type === 'line-chart'}

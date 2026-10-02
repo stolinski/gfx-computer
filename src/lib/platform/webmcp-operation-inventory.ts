@@ -359,6 +359,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/overlays/*/pose', scope: 'value' },
 			{ pointer: '/state/surface/pageAnchor', scope: 'value' },
 			{ pointer: '/state/surface/pageAnchorOrientationOverrides', scope: 'value' },
+			{ pointer: '/state/surface/chart/items/*/frame', scope: 'value' },
+			{ pointer: '/state/surface/chart/items/*/frameOrientationOverrides', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/position', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/from', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/to', scope: 'value' },
@@ -1324,6 +1326,25 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['surface'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/WebsiteCaptureFields.svelte'
+	},
+	{
+		id: 'placement.set-chart-frame',
+		family: 'placement',
+		toolName: 'gfx_placement_set_chart_frame',
+		summary:
+			"Place and size one chart Block's frame, shared or per orientation, or return it to the automatic title-safe layout. The chart lays its own type and marks out inside the frame.",
+		effect: 'write',
+		writes: [
+			'/state/surface/chart/items/*/frame',
+			'/state/surface/chart/items/*/frameOrientationOverrides'
+		],
+		precondition: 'chart-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/ChartFrameSection.svelte'
 	},
 	{
 		id: 'placement.set-diagram-geometry',

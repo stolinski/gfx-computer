@@ -33,6 +33,7 @@
 		createCanvasHitRegionGeometry,
 		createCanvasInteractionGeometryContract,
 		resolveCanvasSelectionCandidateAtPoint,
+		CANVAS_FRAME_RESIZE_HANDLE_DESCRIPTOR,
 		type CanvasHitRegionGeometry,
 		type CanvasRenderedBounds,
 		type CanvasInteractionGeometryContract,
@@ -47,6 +48,8 @@
 		type CanvasElementSelectionKey
 	} from './canvas-element-selection';
 	import { compositionEditHistory } from './composition-edit-history';
+	import { runSetCompositionChartFrameOperation } from './composition-placement-operations';
+	import type { ChartBlock, ChartFrameRect } from './engine-schema';
 	import {
 		runSetCompositionKineticWordPlacementOperation,
 		runSetCompositionKineticWordPositionKeyframeOperation
@@ -106,7 +109,10 @@
 		STAGE_SCREEN_BODY_ID,
 		type TimelineTrackIdentity
 	} from './timeline-entity-identity';
+	import { resolveChartLayoutBounds } from '$lib/utils/chart-layout';
+	import { resolveVisibleChartBlock } from '$lib/utils/chart-visibility';
 	import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
+	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import {
 		cloneKineticWordGeometry,
 		resolveKineticWordGeometry
@@ -1135,6 +1141,205 @@
 		return blockRenderedBounds(primitive)?.editorBounds ?? null;
 	}
 
+	// ─── The authored chart frame (ADR-0048 amendment) ───────────────────────────
+	// The visible chart is selectable by its frame. Dragging the body moves the
+	// frame; the corner handle resizes it. Both preview on the live chart and
+	// commit one placement operation, into this orientation's frame when it has
+	// one and the shared frame otherwise.
+
+	const visibleChart = $derived(
+		resolveVisibleChartBlock(engineState.surface.chart, animState.globalProgress)
+	);
+
+	/** The frame the chart lays out in now, as composition fractions. */
+	function chartShownFrame(block: ChartBlock): ChartFrameRect {
+		const orientation = engineState.transport.orientation;
+		const bounds = resolveChartLayoutBounds(block, orientation);
+		const size = getVideoFrameSize(orientation);
+		return {
+			x: bounds.x / size.width,
+			y: bounds.y / size.height,
+			width: bounds.width / size.width,
+			height: bounds.height / size.height
+		};
+	}
+
+	function chartFrameRelRect(block: ChartBlock): CanvasInteractionRect | null {
+		void measureEpoch;
+		const frame = chartShownFrame(block);
+		return (
+			currentCanvasInteractionGeometry()?.renderedBoundsForComposition(
+				{ left: frame.x, top: frame.y, width: frame.width, height: frame.height },
+				'surface'
+			)?.editorBounds ?? null
+		);
+	}
+
+	function chartFrameTarget(block: ChartBlock): 'shared' | 'horizontal' | 'vertical' {
+		const orientation = engineState.transport.orientation;
+		return block.frameOrientationOverrides?.[orientation] ? orientation : 'shared';
+	}
+
+	interface ChartFrameDragState {
+		block: ChartBlock;
+		mode: 'move' | 'resize';
+		target: 'shared' | 'horizontal' | 'vertical';
+		expectedRevision: number;
+		startCompX: number;
+		startCompY: number;
+		origin: ChartFrameRect;
+		/** The authored values before the gesture, restored before the commit. */
+		priorShared: ChartFrameRect | undefined;
+		preview: ChartFrameRect;
+		snap: CanvasDragSnapGesture | null;
+	}
+
+	let chartFrameDrag: ChartFrameDragState | null = null;
+
+	function roundFraction(value: number): number {
+		return Math.round(value * 10000) / 10000;
+	}
+
+	function writeChartFramePreview(drag: ChartFrameDragState, frame: ChartFrameRect): void {
+		drag.preview = frame;
+		if (drag.target === 'shared') {
+			drag.block.frame = { ...frame };
+			return;
+		}
+		drag.block.frameOrientationOverrides = {
+			...drag.block.frameOrientationOverrides,
+			[drag.target]: { ...frame }
+		};
+	}
+
+	function restoreChartFrame(drag: ChartFrameDragState): void {
+		if (drag.target === 'shared') {
+			if (drag.priorShared) drag.block.frame = drag.priorShared;
+			else delete drag.block.frame;
+			return;
+		}
+		drag.block.frameOrientationOverrides = {
+			...drag.block.frameOrientationOverrides,
+			[drag.target]: drag.origin
+		};
+	}
+
+	function removeChartFrameDragListeners(): void {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onChartFramePointerMove);
+		window.removeEventListener('pointerup', commitChartFrameDrag);
+		window.removeEventListener('pointercancel', cancelChartFrameDrag);
+	}
+
+	function onChartFramePointerDown(
+		event: PointerEvent,
+		block: ChartBlock,
+		mode: 'move' | 'resize'
+	): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const start = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!start) return;
+		const origin = chartShownFrame(block);
+		chartFrameDrag = {
+			block,
+			mode,
+			target: chartFrameTarget(block),
+			expectedRevision: compositionEditHistory.revision,
+			startCompX: start.x,
+			startCompY: start.y,
+			origin,
+			priorShared: block.frame ? { ...block.frame } : undefined,
+			preview: origin,
+			snap: mode === 'move' ? createCanvasDragSnapGesture(`block:${block.id}`, 'surface') : null
+		};
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', onChartFramePointerMove);
+			window.addEventListener('pointerup', commitChartFrameDrag);
+			window.addEventListener('pointercancel', cancelChartFrameDrag);
+		}
+	}
+
+	function onChartFramePointerMove(event: PointerEvent): void {
+		const drag = chartFrameDrag;
+		if (!drag) return;
+		const current = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!current) return;
+		const proposed = { x: current.x - drag.startCompX, y: current.y - drag.startCompY };
+		if (Math.abs(proposed.x) < 0.0005 && Math.abs(proposed.y) < 0.0005) return;
+		const { origin } = drag;
+		if (drag.mode === 'move') {
+			const delta = resolveCanvasGestureDelta(event, drag.snap, proposed);
+			writeChartFramePreview(drag, {
+				...origin,
+				x: roundFraction(clampNumber(origin.x + delta.x, 0, 1 - origin.width)),
+				y: roundFraction(clampNumber(origin.y + delta.y, 0, 1 - origin.height))
+			});
+			return;
+		}
+		writeChartFramePreview(drag, {
+			...origin,
+			width: roundFraction(clampNumber(origin.width + proposed.x, 0.1, 1 - origin.x)),
+			height: roundFraction(clampNumber(origin.height + proposed.y, 0.1, 1 - origin.y))
+		});
+	}
+
+	async function commitChartFrameDrag(): Promise<void> {
+		const drag = chartFrameDrag;
+		chartFrameDrag = null;
+		activeCanvasSnapGuides = [];
+		removeChartFrameDragListeners();
+		if (!drag) return;
+		restoreChartFrame(drag);
+		const { preview, origin } = drag;
+		if (
+			preview.x === origin.x &&
+			preview.y === origin.y &&
+			preview.width === origin.width &&
+			preview.height === origin.height
+		) {
+			return;
+		}
+		await runSetCompositionChartFrameOperation({
+			expectedRevision: drag.expectedRevision,
+			blockId: drag.block.id,
+			target: drag.target,
+			frame: preview
+		});
+	}
+
+	function cancelChartFrameDrag(): void {
+		const drag = chartFrameDrag;
+		chartFrameDrag = null;
+		activeCanvasSnapGuides = [];
+		removeChartFrameDragListeners();
+		if (drag) restoreChartFrame(drag);
+	}
+
+	function nudgeChartFrame(block: ChartBlock, event: KeyboardEvent): void {
+		const nativePixels = event.shiftKey ? 10 : 1;
+		const frame = chartShownFrame(block);
+		const dx =
+			event.key === 'ArrowLeft' ? -nativePixels : event.key === 'ArrowRight' ? nativePixels : 0;
+		const dy =
+			event.key === 'ArrowUp' ? -nativePixels : event.key === 'ArrowDown' ? nativePixels : 0;
+		void runSetCompositionChartFrameOperation({
+			expectedRevision: compositionEditHistory.revision,
+			blockId: block.id,
+			target: chartFrameTarget(block),
+			frame: {
+				...frame,
+				x: roundFraction(
+					clampNumber(frame.x + dx / Math.max(1, compositionSize.width), 0, 1 - frame.width)
+				),
+				y: roundFraction(
+					clampNumber(frame.y + dy / Math.max(1, compositionSize.height), 0, 1 - frame.height)
+				)
+			}
+		});
+	}
+
 	interface BlockDragState {
 		blockId: string;
 		/** Drag origin in composition fractions (ray-cast onto the surface plane). */
@@ -1795,7 +2000,11 @@
 				return;
 			}
 			const primitive = diagramPrimitiveDraggables.find((candidate) => candidate.id === blockId);
-			if (primitive) onBlockPointerDown(event, primitive);
+			if (primitive) {
+				onBlockPointerDown(event, primitive);
+				return;
+			}
+			if (visibleChart?.id === blockId) onChartFramePointerDown(event, visibleChart, 'move');
 			return;
 		}
 		const messageIndex = canvasSelectionIndex(selectionKey, 'message:');
@@ -1861,6 +2070,14 @@
 			identity?.kind === 'block'
 				? kineticWordDraggables.find((word) => word.id === identity.id)
 				: undefined;
+		if (
+			identity?.kind === 'block' &&
+			visibleChart?.id === identity.id &&
+			canvasElementSelection.keys.length === 1
+		) {
+			nudgeChartFrame(visibleChart, event);
+			return true;
+		}
 		if (kineticWord && canvasElementSelection.keys.length === 1) {
 			const orientation = engineState.transport.orientation;
 			const geometry = cloneKineticWordGeometry(
@@ -2618,6 +2835,82 @@
 			</div>
 		{/if}
 	{/each}
+	{#if visibleChart}
+		{@const chart = visibleChart}
+		{@const rect = chartFrameRelRect(chart)}
+		{@const region = rect ? canvasHitRegion(rect) : null}
+		{@const selectionKey = `block:${chart.id}` as CanvasElementSelectionKey}
+		{@const selectionIdentity = { kind: 'block', blockId: chart.id } as const}
+		{#if region}
+			{@const isSelected = isCanvasElementSelected(selectionKey, selectionIdentity)}
+			{@const isPrimarySelected = isPrimaryCanvasElement(selectionKey, selectionIdentity)}
+			<div
+				class={[
+					'canvas-selection-target',
+					'overlay-hit',
+					'block-hit',
+					isSelected && 'canvas-selection-target--selected',
+					isPrimarySelected && 'canvas-selection-target--primary'
+				]}
+				data-canvas-selection-key={selectionKey}
+				data-canvas-selection-id={createTimelineTrackId(selectionIdentity)}
+				data-canvas-selection-layer="block"
+				data-canvas-paint-index={0}
+				data-canvas-stable-id={chart.id}
+				data-chart-frame-target={chart.id}
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
+				role="button"
+				tabindex="0"
+				aria-label={`Move ${chart.type}`}
+				aria-pressed={isSelected}
+				aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+				title={CANVAS_SELECTION_MODIFIER_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'block',
+					paintIndex: 0,
+					stableId: chart.id
+				})}
+			>
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
+				{#if isPrimarySelected}
+					{@const handle = createCanvasHandleGeometry(
+						{
+							left: region.visibleBounds.left - region.pointerBounds.left,
+							top: region.visibleBounds.top - region.pointerBounds.top,
+							width: region.visibleBounds.width,
+							height: region.visibleBounds.height
+						},
+						CANVAS_FRAME_RESIZE_HANDLE_DESCRIPTOR
+					)}
+					<button
+						class="overlay-hit__handle"
+						type="button"
+						data-handle-position={handle.position}
+						data-handle-purpose={handle.purpose}
+						aria-label="Resize chart frame"
+						onpointerdown={(event) => onChartFramePointerDown(event, chart, 'resize')}
+						style:left="{handle.pointerBounds.left}px"
+						style:top="{handle.pointerBounds.top}px"
+						style:width="{handle.pointerBounds.width}px"
+						style:height="{handle.pointerBounds.height}px"
+						style:cursor={handle.cursor}
+					></button>
+				{/if}
+			</div>
+		{/if}
+	{/if}
 	{#each kineticWordDraggables as word, wordIndex (word.id)}
 		{@const rect = kineticWordRelRect(word)}
 		{@const region = rect ? canvasHitRegion(rect) : null}

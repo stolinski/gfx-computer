@@ -8,7 +8,9 @@ import type {
 	UnitGridChartBlock
 } from '$lib/platform/engine-schema';
 import {
+	resolveChartAuthoredFrame,
 	resolveChartFrameLayout,
+	resolveChartLayoutBounds,
 	resolveChartSafeBounds,
 	type ChartTextMeasurer
 } from './chart-layout';
@@ -324,5 +326,47 @@ describe('resolveChartFrameLayout', () => {
 		const layout = resolveChartFrameLayout({ block, orientation: 'horizontal', measureText });
 		assert.equal(layout.axes.categoryLabels.length, 2);
 		assert.deepEqual(block, before);
+	});
+});
+
+describe('authored chart frame', () => {
+	it('keeps the automatic title-safe layout when no frame is authored', () => {
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			assert.equal(resolveChartAuthoredFrame(barChart(), orientation), null);
+			assert.deepEqual(
+				resolveChartLayoutBounds(barChart(), orientation),
+				resolveChartSafeBounds(orientation)
+			);
+		}
+	});
+
+	it('lays the chart out inside the frame its orientation resolves to', () => {
+		const block: BarChartBlock = {
+			...barChart(),
+			frame: { x: 0.4, y: 0.1, width: 0.55, height: 0.8 },
+			frameOrientationOverrides: { vertical: { x: 0.05, y: 0.1, width: 0.86, height: 0.5 } }
+		};
+		assert.deepEqual(resolveChartLayoutBounds(block, 'horizontal'), {
+			x: 0.4 * 3840,
+			y: 0.1 * 2160,
+			width: 0.55 * 3840,
+			height: 0.8 * 2160
+		});
+		assert.deepEqual(resolveChartLayoutBounds(block, 'vertical'), {
+			x: 0.05 * 2160,
+			y: 0.1 * 3840,
+			width: 0.86 * 2160,
+			height: 0.5 * 3840
+		});
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			const bounds = resolveChartLayoutBounds(block, orientation);
+			const layout = resolveChartFrameLayout({ block, orientation, measureText });
+			assert.deepEqual(layout.safeBounds, bounds);
+			assert.ok(layout.plotBounds.x >= bounds.x && layout.plotBounds.y >= bounds.y);
+			assert.ok(
+				layout.plotBounds.x + layout.plotBounds.width <= bounds.x + bounds.width + 1e-6 &&
+					layout.plotBounds.y + layout.plotBounds.height <= bounds.y + bounds.height + 1e-6
+			);
+		}
 	});
 });

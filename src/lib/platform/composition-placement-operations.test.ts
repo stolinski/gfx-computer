@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
+import chartPresetJson from '$lib/presets/bar-chart-apollo-sample-return.json';
 
 import { compositionMeta } from './composition-meta.svelte';
 import { runAddCompositionDiagramPrimitiveOperation } from './composition-block-layer-operations';
 import { runAddCompositionOverlayOperation } from './composition-layer-operations';
 import {
 	runClearCompositionOrientationOverrideOperation,
+	runSetCompositionChartFrameOperation,
 	runSetCompositionDiagramGeometryOperation,
 	runSetCompositionOverlayDepthOperation,
 	runSetCompositionOverlayPlacementOperation,
@@ -222,6 +224,78 @@ describe('Overlay placement', () => {
 			})
 		);
 		expect(engineState.overlays[0].pose).toBeUndefined();
+	});
+});
+
+describe('Chart frame', () => {
+	it('refuses an unknown chart and an out-of-frame rect', async () => {
+		applyPreset(parsePresetIngress(chartPresetJson));
+		compositionMeta.isUserComposition = true;
+		const unknown = expectFailed(
+			await runSetCompositionChartFrameOperation({
+				expectedRevision: 0,
+				blockId: 'missing',
+				target: 'shared',
+				frame: { x: 0.1, y: 0.1, width: 0.5, height: 0.5 }
+			})
+		);
+		expect(unknown.code).toBe('unknown_target');
+		expect(unknown.alternatives).toEqual(['apollo-returned-sample-mass']);
+		const outside = expectFailed(
+			await runSetCompositionChartFrameOperation({
+				expectedRevision: 0,
+				blockId: 'apollo-returned-sample-mass',
+				target: 'shared',
+				frame: { x: 0.6, y: 0.1, width: 0.5, height: 0.5 }
+			})
+		);
+		expect(outside.code).toBe('invalid_argument');
+	});
+
+	it('writes a shared frame, a complete orientation frame, and removes each', async () => {
+		applyPreset(parsePresetIngress(chartPresetJson));
+		compositionMeta.isUserComposition = true;
+		const chart = (): NonNullable<typeof engineState.surface.chart>['items'][number] =>
+			engineState.surface.chart!.items[0];
+		expectApplied(
+			await runSetCompositionChartFrameOperation({
+				expectedRevision: 0,
+				blockId: 'apollo-returned-sample-mass',
+				target: 'shared',
+				frame: { x: 0.36, y: 0.1, width: 0.59, height: 0.8 }
+			})
+		);
+		expect(chart().frame).toEqual({ x: 0.36, y: 0.1, width: 0.59, height: 0.8 });
+		expectApplied(
+			await runSetCompositionChartFrameOperation({
+				expectedRevision: 1,
+				blockId: 'apollo-returned-sample-mass',
+				target: 'vertical',
+				frame: { x: 0.05, y: 0.1, width: 0.86, height: 0.52 }
+			})
+		);
+		expect(chart().frameOrientationOverrides).toEqual({
+			vertical: { x: 0.05, y: 0.1, width: 0.86, height: 0.52 }
+		});
+		expectApplied(
+			await runSetCompositionChartFrameOperation({
+				expectedRevision: 2,
+				blockId: 'apollo-returned-sample-mass',
+				target: 'vertical',
+				frame: null
+			})
+		);
+		expect(chart().frameOrientationOverrides).toBeUndefined();
+		expect(chart().frame).toBeDefined();
+		expectApplied(
+			await runSetCompositionChartFrameOperation({
+				expectedRevision: 3,
+				blockId: 'apollo-returned-sample-mass',
+				target: 'shared',
+				frame: null
+			})
+		);
+		expect(chart().frame).toBeUndefined();
 	});
 });
 

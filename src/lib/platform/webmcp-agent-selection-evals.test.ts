@@ -412,6 +412,10 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 		toolName: 'gfx_placement_set_kinetic_word_placement'
 	},
 	{
+		prompt: 'In the tall frame, move the bar chart into the upper half and make it narrower.',
+		toolName: 'gfx_placement_set_chart_frame'
+	},
+	{
 		prompt: 'Dress this Kinetic Word as display hierarchy using the Pack accent ink role.',
 		toolName: 'gfx_appearance_set_kinetic_word_appearance'
 	},

@@ -31,7 +31,11 @@ import {
 	websiteScreenshotFraming
 } from '../utils/website-showcase.ts';
 import { resolveChartBarColumnGeometry } from '../utils/chart-bar-column-geometry.ts';
-import { resolveChartFrameLayout, type ChartLayoutOverflow } from '../utils/chart-layout.ts';
+import {
+	resolveChartAuthoredFrame,
+	resolveChartFrameLayout,
+	type ChartLayoutOverflow
+} from '../utils/chart-layout.ts';
 import { resolveChartLineGeometry } from '../utils/chart-line-geometry.ts';
 import { resolveChartNormalizedGeometry } from '../utils/chart-normalized-geometry.ts';
 import { createChartRenderTextMeasurer } from '../utils/chart-text-measurement.ts';
@@ -560,6 +564,25 @@ function resolveChartGeometryOverflow(
 function checkChartLayout(blocks: readonly ChartBlock[], issues: RubricIssue[]): void {
 	for (const [index, block] of blocks.entries()) {
 		for (const orientation of ['horizontal', 'vertical'] as const) {
+			// An authored frame is placed as written; leaving the safe area is
+			// reported here, never corrected by the renderer (ADR-0039 §4).
+			const frame = resolveChartAuthoredFrame(block, orientation);
+			const sa = getLayoutSafeArea(orientation);
+			const tolerance = 1e-6;
+			if (
+				frame &&
+				(frame.x < sa.left - tolerance ||
+					frame.y < sa.top - tolerance ||
+					frame.x + frame.width > 1 - sa.right + tolerance ||
+					frame.y + frame.height > 1 - sa.bottom + tolerance)
+			) {
+				issues.push({
+					rule: 'G2',
+					severity: 'error',
+					path: `surface.chart.items[${index}].${block.frameOrientationOverrides?.[orientation] ? `frameOrientationOverrides.${orientation}` : 'frame'}`,
+					message: `Chart frame extends outside the ${orientation} safe zone.`
+				});
+			}
 			try {
 				const overflow = resolveChartGeometryOverflow(block, orientation);
 				if (overflow.length === 0) continue;

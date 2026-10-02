@@ -69,6 +69,13 @@
 		"height": 360,
 		"contentFraction": 1
 	},
+	"chart-frame-orientation-fixture": {
+		"contentKey": "487b631eb2130269",
+		"timestampSeconds": 5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 1
+	},
 	"checklist-project-setup": {
 		"contentKey": "e4f08f4ec33487f7",
 		"timestampSeconds": 3,

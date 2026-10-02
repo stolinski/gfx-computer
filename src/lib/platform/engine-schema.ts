@@ -1129,6 +1129,25 @@ export const ChartMotionSchema = z.strictObject({
 });
 export type ChartMotion = z.infer<typeof ChartMotionSchema>;
 
+// The authored chart frame (ADR-0048 amendment, ADR-0039 §4): the normalized
+// frame rect the chart lays itself out inside, instead of the whole title-safe
+// area. Typography stays chart-owned; only where the chart sits and how much
+// room it takes become authored. Absent keeps the automatic layout.
+export const ChartFrameRectSchema = z
+	.strictObject({
+		x: ChartFiniteNumberSchema.min(0).max(1),
+		y: ChartFiniteNumberSchema.min(0).max(1),
+		width: ChartFiniteNumberSchema.min(0.1).max(1),
+		height: ChartFiniteNumberSchema.min(0.1).max(1)
+	})
+	.refine((rect) => rect.x + rect.width <= 1 + 1e-9, {
+		message: 'A chart frame must fit within the frame width.'
+	})
+	.refine((rect) => rect.y + rect.height <= 1 + 1e-9, {
+		message: 'A chart frame must fit within the frame height.'
+	});
+export type ChartFrameRect = z.infer<typeof ChartFrameRectSchema>;
+
 const chartBlockBase = {
 	id: ChartIdSchema,
 	title: z.string().min(1),
@@ -1140,7 +1159,15 @@ const chartBlockBase = {
 	sourceNote: z.string().min(1).optional(),
 	progressBar: z.boolean().optional(),
 	fill: ChartFillSchema,
-	motion: ChartMotionSchema
+	motion: ChartMotionSchema,
+	frame: ChartFrameRectSchema.optional(),
+	// One orientation's own complete frame, replacing `frame` there (ADR-0039 §4).
+	frameOrientationOverrides: z
+		.strictObject({
+			horizontal: ChartFrameRectSchema.optional(),
+			vertical: ChartFrameRectSchema.optional()
+		})
+		.optional()
 };
 
 const ChartBarColumnLayoutSchema = z.strictObject({

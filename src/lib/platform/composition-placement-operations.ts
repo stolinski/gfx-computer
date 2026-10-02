@@ -32,8 +32,10 @@ import {
 } from './composition-operation-preflight';
 import { COMPOSITION_ORIENTATIONS } from './composition-transport-operations';
 
-import { STAGE_CAMERA_POSE_LIMITS } from './engine-schema';
+import { ChartFrameRectSchema, STAGE_CAMERA_POSE_LIMITS } from './engine-schema';
+import { describeCompositionSchemaFindings } from './composition-validation-findings';
 import type {
+	ChartFrameRect,
 	DiagramEndpoint,
 	DiagramPoint,
 	DiagramPrimitive,
@@ -96,6 +98,19 @@ export interface SetCompositionSurfacePageAnchorRequest {
 	pageAnchor: { x: number; y: number } | null;
 	/** The shared point both orientations fall back to, or one orientation's own. Absent is shared. */
 	target?: CompositionPlacementTarget;
+}
+
+export interface SetCompositionChartFrameRequest {
+	expectedRevision: number;
+	blockId: string;
+	/** The shared frame both orientations fall back to, or one orientation's own. */
+	target: CompositionPlacementTarget;
+	/**
+	 * The normalized frame rect the chart lays itself out inside. `null` removes
+	 * it: the shared frame returns to the automatic title-safe layout, and an
+	 * orientation frame returns that orientation to the shared one.
+	 */
+	frame: ChartFrameRect | null;
 }
 
 /** The geometry fields a diagram primitive carries, in composition fractions. */
@@ -412,6 +427,73 @@ export async function runSetCompositionSurfacePageAnchorOperation(
 			if (point === undefined) delete overrides[target];
 			surface.pageAnchorOrientationOverrides =
 				overrides.horizontal || overrides.vertical ? overrides : undefined;
+		}
+	});
+}
+
+// ---- Chart frame ----
+
+/**
+ * Place and size one chart Block's frame (ADR-0048 amendment, ADR-0039 §4):
+ * shared, or one orientation's complete frame. Typography stays chart-owned.
+ */
+export async function runSetCompositionChartFrameOperation(
+	request: SetCompositionChartFrameRequest
+): Promise<CompositionOperationOutcome> {
+	const row = requireCompositionOperationRow('placement.set-chart-frame');
+	const refusal = refuseUnlessCompositionEditable(row);
+	if (refusal) return refusal;
+
+	const items = readOpenCompositionDocument().state.surface.chart?.items ?? [];
+	if (!items.some((item) => item.id === request.blockId)) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'unknown_target',
+			`This composition holds no chart Block "${request.blockId}".`,
+			{ rejected: request.blockId, alternatives: items.map((item) => item.id) }
+		);
+	}
+	if (!isPlacementTarget(request.target)) return refuseUnknownPlacementTarget(row, request.target);
+	let frame: ChartFrameRect | undefined;
+	if (request.frame !== null) {
+		const parsed = ChartFrameRectSchema.safeParse(request.frame);
+		if (!parsed.success) {
+			return refuseCompositionOperation(
+				row,
+				compositionEditHistory.revision,
+				'invalid_argument',
+				'A chart frame is a normalized rect that fits inside the frame, at least a tenth of it on each side.',
+				{ findings: describeCompositionSchemaFindings(parsed.error) }
+			);
+		}
+		frame = parsed.data;
+	}
+	const target = request.target;
+
+	return runCompositionEditTransaction({
+		operationId: row.id,
+		expectedRevision: request.expectedRevision,
+		undoLabel: target === 'shared' ? 'Set chart frame' : `Set ${target} chart frame`,
+		focus: { target: 'block', blockId: request.blockId },
+		mutate: (draft) => {
+			const item = draft.state.surface.chart?.items.find((entry) => entry.id === request.blockId);
+			if (!item) {
+				throw new CompositionOperationError(
+					'unknown_target',
+					`Chart Block "${request.blockId}" is no longer in the composition.`,
+					{ rejected: request.blockId }
+				);
+			}
+			if (target === 'shared') {
+				if (frame) item.frame = frame;
+				else delete item.frame;
+				return;
+			}
+			const overrides = { ...item.frameOrientationOverrides, [target]: frame };
+			if (!frame) delete overrides[target];
+			if (overrides.horizontal || overrides.vertical) item.frameOrientationOverrides = overrides;
+			else delete item.frameOrientationOverrides;
 		}
 	});
 }

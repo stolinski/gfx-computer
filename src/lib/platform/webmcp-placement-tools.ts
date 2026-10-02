@@ -25,6 +25,7 @@ import {
 	OVERLAY_PLACEMENT_ANCHORS,
 	STAGE_CAMERA_POSE_LIMITS,
 	type DiagramEndpoint,
+	type ChartFrameRect,
 	type DiagramPoint,
 	type KineticWordGeometry
 } from './engine-schema';
@@ -48,6 +49,7 @@ import {
 	runSetCompositionOverlayDepthOperation,
 	runSetCompositionOverlayPlacementOperation,
 	runSetCompositionOverlayPoseOperation,
+	runSetCompositionChartFrameOperation,
 	runSetCompositionSurfacePageAnchorOperation
 } from './composition-placement-operations';
 import { runSetCompositionKineticWordPlacementOperation } from './composition-kinetic-type-operations';
@@ -84,6 +86,17 @@ function readPageAnchor(args: unknown): { x: number; y: number } | null {
 	const record = readWebmcpClearableRecordArgument(args, 'pageAnchor');
 	if (record === null) return null;
 	return { x: readWebmcpNumberArgument(record, 'x'), y: readWebmcpNumberArgument(record, 'y') };
+}
+
+function readChartFrame(args: unknown): ChartFrameRect | null {
+	const record = readWebmcpClearableRecordArgument(args, 'frame');
+	if (record === null) return null;
+	return {
+		x: readWebmcpNumberArgument(record, 'x'),
+		y: readWebmcpNumberArgument(record, 'y'),
+		width: readWebmcpNumberArgument(record, 'width'),
+		height: readWebmcpNumberArgument(record, 'height')
+	};
 }
 
 function placementTargetProperty(): WebmcpSchemaProperty {
@@ -463,6 +476,41 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						pageAnchor: readPageAnchor(args),
 						target: readWebmcpOptionalLiteralArgument(args, 'target', COMPOSITION_PLACEMENT_TARGETS)
+					})
+				)
+		},
+		{
+			operationId: 'placement.set-chart-frame',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					blockId: webmcpEntityIdProperty('The chart Block to place.'),
+					target: placementTargetProperty(),
+					frame: {
+						description:
+							'The normalized frame rect the chart lays itself out inside; null removes it (shared returns to the automatic layout, an orientation to the shared frame).',
+						oneOf: [
+							completeObjectProperty('The frame rect, in frame fractions.', {
+								x: webmcpFractionProperty('Left edge, as a fraction of frame width.'),
+								y: webmcpFractionProperty('Top edge, as a fraction of frame height.'),
+								width: webmcpFractionProperty('Width, as a fraction of frame width.'),
+								height: webmcpFractionProperty('Height, as a fraction of frame height.')
+							}),
+							{ type: 'null', description: 'Remove this target frame.' }
+						]
+					}
+				},
+				required: ['expectedRevision', 'blockId', 'target', 'frame'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('placement.set-chart-frame', () =>
+					runSetCompositionChartFrameOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						blockId: readWebmcpStringArgument(args, 'blockId'),
+						target: readWebmcpLiteralArgument(args, 'target', COMPOSITION_PLACEMENT_TARGETS),
+						frame: readChartFrame(args)
 					})
 				)
 		},

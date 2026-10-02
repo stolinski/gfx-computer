@@ -3878,6 +3878,93 @@
 														"required": ["entry", "reveal", "emphasis", "annotation", "exit"],
 														"additionalProperties": false
 													},
+													"frame": {
+														"type": "object",
+														"properties": {
+															"x": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"y": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"width": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															},
+															"height": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															}
+														},
+														"required": ["x", "y", "width", "height"],
+														"additionalProperties": false
+													},
+													"frameOrientationOverrides": {
+														"type": "object",
+														"properties": {
+															"horizontal": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															},
+															"vertical": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															}
+														},
+														"additionalProperties": false
+													},
 													"type": {
 														"type": "string",
 														"const": "bar-chart"
@@ -4337,6 +4424,93 @@
 															}
 														},
 														"required": ["entry", "reveal", "emphasis", "annotation", "exit"],
+														"additionalProperties": false
+													},
+													"frame": {
+														"type": "object",
+														"properties": {
+															"x": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"y": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"width": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															},
+															"height": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															}
+														},
+														"required": ["x", "y", "width", "height"],
+														"additionalProperties": false
+													},
+													"frameOrientationOverrides": {
+														"type": "object",
+														"properties": {
+															"horizontal": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															},
+															"vertical": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															}
+														},
 														"additionalProperties": false
 													},
 													"type": {
@@ -4800,6 +4974,93 @@
 														"required": ["entry", "reveal", "emphasis", "annotation", "exit"],
 														"additionalProperties": false
 													},
+													"frame": {
+														"type": "object",
+														"properties": {
+															"x": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"y": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"width": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															},
+															"height": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															}
+														},
+														"required": ["x", "y", "width", "height"],
+														"additionalProperties": false
+													},
+													"frameOrientationOverrides": {
+														"type": "object",
+														"properties": {
+															"horizontal": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															},
+															"vertical": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															}
+														},
+														"additionalProperties": false
+													},
 													"type": {
 														"type": "string",
 														"const": "line-chart"
@@ -5239,6 +5500,93 @@
 															}
 														},
 														"required": ["entry", "reveal", "emphasis", "annotation", "exit"],
+														"additionalProperties": false
+													},
+													"frame": {
+														"type": "object",
+														"properties": {
+															"x": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"y": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"width": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															},
+															"height": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															}
+														},
+														"required": ["x", "y", "width", "height"],
+														"additionalProperties": false
+													},
+													"frameOrientationOverrides": {
+														"type": "object",
+														"properties": {
+															"horizontal": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															},
+															"vertical": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															}
+														},
 														"additionalProperties": false
 													},
 													"type": {
@@ -5705,6 +6053,93 @@
 															}
 														},
 														"required": ["entry", "reveal", "emphasis", "annotation", "exit"],
+														"additionalProperties": false
+													},
+													"frame": {
+														"type": "object",
+														"properties": {
+															"x": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"y": {
+																"type": "number",
+																"minimum": 0,
+																"maximum": 1
+															},
+															"width": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															},
+															"height": {
+																"type": "number",
+																"minimum": 0.1,
+																"maximum": 1
+															}
+														},
+														"required": ["x", "y", "width", "height"],
+														"additionalProperties": false
+													},
+													"frameOrientationOverrides": {
+														"type": "object",
+														"properties": {
+															"horizontal": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															},
+															"vertical": {
+																"type": "object",
+																"properties": {
+																	"x": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"y": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"width": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	},
+																	"height": {
+																		"type": "number",
+																		"minimum": 0.1,
+																		"maximum": 1
+																	}
+																},
+																"required": ["x", "y", "width", "height"],
+																"additionalProperties": false
+															}
+														},
 														"additionalProperties": false
 													},
 													"type": {
