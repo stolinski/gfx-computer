@@ -43,6 +43,7 @@ import {
 	type KineticWord,
 	type KineticWordAnimation,
 	type KineticWordSpatialChannelKeyframes,
+	type Overlay,
 	type OverlayAnimation,
 	type SurfaceAnimation
 } from './engine-schema';
@@ -59,10 +60,9 @@ import {
 	requireCompositionOperationRow,
 	type CompositionOperationFailure
 } from './composition-operation-preflight';
-import {
-	isKineticWordSpatialChannel,
-	resolveKineticWordGeometry
-} from '$lib/utils/kinetic-word-geometry';
+import { resolveKineticWordGeometry } from '$lib/utils/kinetic-word-geometry';
+import { isSpatialKeyframeChannel } from '$lib/utils/orientation-keyframe-channels';
+import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 
 import type { CompositionWorkspaceFocus } from './composition-workspace-focus';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
@@ -87,8 +87,7 @@ export type CompositionCascadeSubject =
  * welds except an Effect, which is a cascade subject only (ADR-0063 §6).
  */
 export type CompositionCascadeAnchorKind =
-	| 'surface'
-	| Exclude<CompositionCascadeSubject['kind'], 'effect'>;
+	'surface' | Exclude<CompositionCascadeSubject['kind'], 'effect'>;
 
 /** Every kind of element a motion edit can name, as subject or as anchor. */
 export type CompositionMotionElementKind = CompositionCascadeAnchorKind | 'effect';
@@ -178,6 +177,8 @@ interface CompositionKeyframeOwner {
 	channels: readonly string[];
 	motion: AuthoredElementMotion | undefined;
 	word?: KineticWord;
+	/** The Overlay, for the per-orientation placement its spatial group seeds from. */
+	overlay?: Overlay;
 }
 
 /** Which edge of the anchor's entrance a weld hangs from. */
@@ -260,7 +261,12 @@ function findKeyframeOwner(
 	if (subject.kind === 'overlay') {
 		const overlay = state.overlays.find((entry) => entry.id === subject.overlayId);
 		return overlay
-			? { kind: 'overlay', channels: OVERLAY_KEYFRAME_CHANNELS, motion: overlay.animation }
+			? {
+					kind: 'overlay',
+					channels: OVERLAY_KEYFRAME_CHANNELS,
+					motion: overlay.animation,
+					overlay
+				}
 			: null;
 	}
 	if (subject.kind === 'effect') {
@@ -354,7 +360,11 @@ function cloneSpatialKeyframeChannels(
 	const existing = owner.motion?.orientationOverrides?.[scope];
 	if (existing) return cloneKeyframeChannels(existing) as KineticWordSpatialChannelKeyframes;
 	const shared = owner.motion?.channels;
-	const geometry = owner.word ? resolveKineticWordGeometry(owner.word, scope) : null;
+	const geometry = owner.word
+		? resolveKineticWordGeometry(owner.word, scope)
+		: owner.overlay
+			? resolveOverlayPlacement(owner.overlay.position, scope)
+			: null;
 	return {
 		x: shared?.x?.map((frame) => ({ ...frame })) ?? [{ atMs: 0, value: 0 }],
 		y: shared?.y?.map((frame) => ({ ...frame })) ?? [{ atMs: 0, value: 0 }],
@@ -365,6 +375,14 @@ function cloneSpatialKeyframeChannels(
 			{ atMs: 0, value: geometry?.rotation ?? 0 }
 		]
 	};
+}
+
+/**
+ * Owners whose spatial group may be replaced per orientation (ADR-0039 §4):
+ * Kinetic Words (ADR-0064) and Overlays.
+ */
+function ownsOrientationSpatialGroups(owner: CompositionKeyframeOwner): boolean {
+	return owner.kind === 'kinetic-word' || owner.kind === 'overlay';
 }
 
 function cleanAuthoredElementMotion(
@@ -389,7 +407,7 @@ function withKeyframeChannel(
 		...owner.motion,
 		channels: cloneKeyframeChannels(owner.motion?.channels)
 	};
-	if (owner.kind === 'kinetic-word' && owner.motion?.orientationOverrides) {
+	if (ownsOrientationSpatialGroups(owner) && owner.motion?.orientationOverrides) {
 		motion.orientationOverrides = Object.fromEntries(
 			Object.entries(owner.motion.orientationOverrides).map(([orientation, channels]) => [
 				orientation,
@@ -554,12 +572,12 @@ function refuseInvalidKeyframeScope(
 		);
 	}
 	if (scope === 'shared') return null;
-	if (owner.kind !== 'kinetic-word' || !isKineticWordSpatialChannel(channel)) {
+	if (!ownsOrientationSpatialGroups(owner) || !isSpatialKeyframeChannel(channel)) {
 		return refuseCompositionOperation(
 			row,
 			compositionEditHistory.revision,
 			'unsupported_variant',
-			`${describeSubject(subject)} can author "${channel}" only in shared scope. Orientation scopes belong only to Kinetic Word spatial channels.`,
+			`${describeSubject(subject)} can author "${channel}" only in shared scope. Orientation scopes belong to the x, y, scale, and rotation channels of Overlays and Kinetic Words.`,
 			{ rejected: scope, alternatives: ['shared'] }
 		);
 	}
@@ -811,17 +829,16 @@ function writeSubjectCascade(
 	}
 	const owner = findKeyframeOwner(state, subject);
 	if (!owner) return false;
-	const channels = owner.motion?.channels;
-	const hasChannels = channels !== undefined && Object.keys(channels).length > 0;
-	const motion: AuthoredElementMotion | undefined =
-		cascade === undefined
-			? hasChannels
-				? { channels }
-				: undefined
-			: hasChannels
-				? { channels, cascade }
-				: { cascade };
-	return writeElementMotion(state, subject, motion);
+	// Every authored track survives a weld change, per-orientation groups included.
+	const motion: AuthoredElementMotion = { ...owner.motion, cascade };
+	if (cascade === undefined) delete motion.cascade;
+	const hasChannels = Object.keys(motion.channels ?? {}).length > 0;
+	const hasOverrides = Object.keys(motion.orientationOverrides ?? {}).length > 0;
+	return writeElementMotion(
+		state,
+		subject,
+		hasChannels || hasOverrides || motion.cascade ? motion : undefined
+	);
 }
 
 /** The refusal for a weld subject the composition does not hold. */

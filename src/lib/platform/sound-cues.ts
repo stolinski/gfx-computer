@@ -25,6 +25,7 @@ import {
 	type SoundOverride
 } from './engine-schema.ts';
 import { listSurfaceMarkInstances } from './surface-mark-instances.ts';
+import { resolveOrientationKeyframeChannels } from '../utils/orientation-keyframe-channels.ts';
 
 /** The Layer that emitted a cue — provenance for the rail and cue inspector. */
 export type SoundCueLayer =
@@ -437,13 +438,17 @@ function deriveChannelOverlayCue(
 
 function deriveOverlayTransitionCues(
 	overlays: EngineState['overlays'],
+	orientation: EngineState['transport']['orientation'],
 	cascadeWindows: CascadeWindowMap,
 	cues: DerivedSoundCue[]
 ): void {
 	for (const overlay of overlays) {
 		const layer: SoundCueLayer = { kind: 'overlay', overlayId: overlay.id };
 		const typeDefaults = OVERLAY_EVENT_DEFAULTS[overlay.type];
-		const channels = overlay.animation?.channels;
+		const channels: OverlayChannelKeyframes = resolveOrientationKeyframeChannels(
+			overlay.animation,
+			orientation
+		);
 
 		if (channels && hasChannelMotion(channels)) {
 			deriveChannelOverlayCue(overlay, typeDefaults, channels, cascadeWindows, cues);
@@ -767,7 +772,7 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 
 	deriveSurfaceTransitionCues(state.surface, cascadeWindows, cues);
 	deriveMarkCues(state, cascadeWindows, cues);
-	deriveOverlayTransitionCues(state.overlays, cascadeWindows, cues);
+	deriveOverlayTransitionCues(state.overlays, state.transport.orientation, cascadeWindows, cues);
 	deriveDiagramBlockCues(state.surface.diagram, cascadeWindows, cues);
 	derivePlatformPressCues(state.overlays, cues);
 	deriveAchievementBeatCues(state.overlays, state.transport.durationSeconds, cues);

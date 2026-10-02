@@ -3,14 +3,15 @@
  * manifest builder (Workspace) and the sound-cue deriver can share one
  * resolver and a node test can drive it directly.
  *
-	 * Every timed composition entity gets a window: `{ startFraction, durationFraction }` of
+ * Every timed composition entity gets a window: `{ startFraction, durationFraction }` of
  * the transport. Cascades topo-resolve to absolute starts BEFORE tween
-	 * emission: an entity with `cascade` starts at its anchor's enter start/end
+ * emission: an entity with `cascade` starts at its anchor's enter start/end
  * plus `offsetMs`, welded in milliseconds so a 120 ms stagger stays 120 ms
  * across a re-time. Cycles are rejected by the schema; the resolver still
  * asserts (fail fast, never a runtime guess).
  */
 import type { Cascade, EngineState, Keyframe, Transition } from './engine-schema';
+import { resolveOrientationKeyframeChannels } from '../utils/orientation-keyframe-channels.ts';
 
 /**
  * Fallback overlay enter when a preset declares none — durations sit inside
@@ -20,7 +21,7 @@ import type { Cascade, EngineState, Keyframe, Transition } from './engine-schema
 export const DEFAULT_OVERLAY_ENTER: Transition = { start: 0.04, duration: 0.05, ease: 'settled' };
 
 /**
-	 * Fallback Diagram primitive enter (ADR-0036). Starts after the default surface
+ * Fallback Diagram primitive enter (ADR-0036). Starts after the default surface
  * enter lands (0.05) plus the A1 settle buffer, inside the G6 duration band at
  * the default 6 s transport. Shared with the manifest builder and renderers.
  */
@@ -77,8 +78,8 @@ interface PendingWindow {
 }
 
 /**
-	 * Resolve every entity's window. Entities without a cascade keep their base
-	 * start (sugar / static timing); entities with one start at the resolved
+ * Resolve every entity's window. Entities without a cascade keep their base
+ * start (sugar / static timing); entities with one start at the resolved
  * anchor event + offset. Starts clamp to [0, 1 - duration] so a welded chain
  * can never push a tween past the clip and desync the timeline↔transport
  * mapping.
@@ -106,7 +107,11 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 	}
 
 	for (const overlay of state.overlays) {
-		const channels = overlay.animation?.channels;
+		// The active orientation's spatial group replaces the shared one (ADR-0039 §4).
+		const channels = resolveOrientationKeyframeChannels(
+			overlay.animation,
+			state.transport.orientation
+		);
 
 		if (channels && hasAnyTrack(channels)) {
 			// Channel-owned: the composition holds the pen. Clip start defaults to

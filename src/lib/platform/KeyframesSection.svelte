@@ -17,10 +17,9 @@
 	import InspectorSection from './InspectorSection.svelte';
 	import KeyframeChannelRow from './KeyframeChannelRow.svelte';
 	import type { KeyframeChannelBounds } from './keyframe-channel-row';
-	import {
-		isKineticWordSpatialChannel,
-		resolveKineticWordGeometry
-	} from '$lib/utils/kinetic-word-geometry';
+	import { resolveKineticWordGeometry } from '$lib/utils/kinetic-word-geometry';
+	import { isSpatialKeyframeChannel } from '$lib/utils/orientation-keyframe-channels';
+	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 
 	// DaVinci-style keyframe rows (ADR-0035 §7), one `KeyframeChannelRow` per
 	// property. Every mutation reaches the same revisioned Operation WebMCP
@@ -101,8 +100,9 @@
 	const playheadMs = $derived((timelineHandle.current?.time ?? 0) * 1000);
 	const localMs = $derived(playheadMs - clipStartMs);
 
+	// Kinetic Words and Overlays may replace their spatial group per orientation.
 	function channelScope(channel: string): CompositionKeyframeChannelScope {
-		return kineticWord && isKineticWordSpatialChannel(channel) ? scope : 'shared';
+		return (kineticWord || overlay) && isSpatialKeyframeChannel(channel) ? scope : 'shared';
 	}
 
 	function trackFor(channel: string): Keyframe[] | undefined {
@@ -115,13 +115,12 @@
 		return track && track.length > 0 ? track : undefined;
 	}
 
+	// Without its own group, an orientation row extends the shared track.
 	function effectiveTrack(channel: string): Keyframe[] | undefined {
 		const own = trackFor(channel);
-		if (own || !kineticWord || !isKineticWordSpatialChannel(channel) || scope === 'shared') {
-			return own;
-		}
-		const hasOrientationGroup = kineticWord.animation?.orientationOverrides?.[scope] !== undefined;
-		return hasOrientationGroup ? undefined : kineticWord.animation?.channels?.[channel];
+		if (own || channelScope(channel) === 'shared' || scope === 'shared') return own;
+		const hasOrientationGroup = owner?.animation?.orientationOverrides?.[scope] !== undefined;
+		return hasOrientationGroup ? undefined : owner?.animation?.channels?.[channel];
 	}
 
 	function staticValue(channel: string): number {
@@ -139,8 +138,13 @@
 			}
 			return channel === 'opacity' ? 1 : 0;
 		}
-		if (channel === 'scale') return overlay?.position.scale ?? 1;
-		if (channel === 'rotation') return overlay?.position.rotation ?? 0;
+		if (overlay && (channel === 'scale' || channel === 'rotation')) {
+			const placement = resolveOverlayPlacement(
+				overlay.position,
+				scope === 'shared' ? engineState.transport.orientation : scope
+			);
+			return channel === 'scale' ? (placement.scale ?? 1) : (placement.rotation ?? 0);
+		}
 		return channel === 'opacity' ? 1 : 0;
 	}
 

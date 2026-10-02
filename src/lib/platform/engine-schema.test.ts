@@ -1322,3 +1322,55 @@ describe('Effect animation block (ADR-0063)', () => {
 		);
 	});
 });
+
+describe('Overlay orientation spatial motion (ADR-0039 §4)', () => {
+	function overlayWithOverrides(overrides: unknown): Record<string, unknown> {
+		return {
+			...baseOverlay('title'),
+			animation: {
+				channels: {
+					opacity: [
+						{ atMs: 0, value: 0 },
+						{ atMs: 300, value: 1, ease: 'smooth' }
+					]
+				},
+				orientationOverrides: overrides
+			}
+		};
+	}
+	const track = (value: number): unknown[] => [{ atMs: 0, value }];
+
+	it('accepts a complete vertical spatial group beside shared opacity', () => {
+		const state = baseState();
+		state.overlays = [
+			overlayWithOverrides({
+				vertical: { x: track(0), y: track(0.1), scale: track(1.2), rotation: track(0) }
+			})
+		];
+		expectValid(state, 'complete vertical group');
+	});
+
+	it('rejects an incomplete group and a non-spatial channel in a group', () => {
+		const incomplete = baseState();
+		incomplete.overlays = [overlayWithOverrides({ vertical: { x: track(0), y: track(0.1) } })];
+		expectIssue(incomplete, 'one complete group', 'incomplete group');
+
+		const opacity = baseState();
+		opacity.overlays = [
+			overlayWithOverrides({
+				horizontal: {
+					x: track(0),
+					y: track(0),
+					scale: track(1),
+					rotation: track(0),
+					opacity: track(1)
+				}
+			})
+		];
+		assert.equal(
+			EngineStateSchema.safeParse(opacity).success,
+			false,
+			'opacity is never per orientation'
+		);
+	});
+});

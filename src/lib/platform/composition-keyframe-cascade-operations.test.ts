@@ -683,3 +683,114 @@ describe('Effect subjects (ADR-0063)', () => {
 		);
 	});
 });
+
+describe('Overlay orientation motion (ADR-0039 §4)', () => {
+	const shared = { kind: 'overlay' as const, overlayId: 'lower-third-1' };
+
+	async function addOverlayWithPath(): Promise<void> {
+		expectApplied(
+			await runAddCompositionOverlayOperation({ expectedRevision: 0, overlayType: 'lower-third' })
+		);
+		expectApplied(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 1,
+				subject: shared,
+				channel: 'y',
+				keyframes: [
+					{ atMs: 0, value: 0.08 },
+					{ atMs: 320, value: 0, ease: 'settled' }
+				]
+			})
+		);
+	}
+
+	it('seeds a complete vertical group from the shared path and clears it as one unit', async () => {
+		await addOverlayWithPath();
+		const receipt = expectApplied(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 2,
+				subject: shared,
+				channel: 'x',
+				scope: 'vertical',
+				keyframes: [
+					{ atMs: 0, value: -0.1 },
+					{ atMs: 400, value: 0, ease: 'smooth' }
+				]
+			})
+		);
+		expect(receipt.focus).toEqual({ target: 'overlay', overlayId: 'lower-third-1' });
+		const vertical = engineState.overlays[0].animation?.orientationOverrides?.vertical;
+		expect(vertical?.x).toHaveLength(2);
+		expect(vertical?.y).toEqual(engineState.overlays[0].animation?.channels?.y);
+		expect(vertical?.scale).toEqual([{ atMs: 0, value: 1 }]);
+		expect(vertical?.rotation).toEqual([{ atMs: 0, value: 0 }]);
+
+		expectApplied(
+			await runClearCompositionKeyframeChannelOperation({
+				expectedRevision: 3,
+				subject: shared,
+				channel: 'scale',
+				scope: 'vertical'
+			})
+		);
+		expect(engineState.overlays[0].animation?.orientationOverrides).toBeUndefined();
+		expect(engineState.overlays[0].animation?.channels?.y).toHaveLength(2);
+	});
+
+	it('refuses an orientation scope on opacity and a stale revision', async () => {
+		await addOverlayWithPath();
+		const opacity = expectFailed(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 2,
+				subject: shared,
+				channel: 'opacity',
+				scope: 'vertical',
+				keyframes: [{ atMs: 0, value: 1 }]
+			})
+		);
+		expect(opacity.code).toBe('unsupported_variant');
+		expect(opacity.alternatives).toEqual(['shared']);
+
+		const stale = expectFailed(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 1,
+				subject: shared,
+				channel: 'x',
+				scope: 'vertical',
+				keyframes: [{ atMs: 0, value: 0 }]
+			})
+		);
+		expect(stale.code).toBe('stale_revision');
+	});
+
+	it('keeps an orientation group when the Overlay is welded and unwelded', async () => {
+		await addOverlayWithPath();
+		expectApplied(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 2,
+				subject: shared,
+				channel: 'x',
+				scope: 'horizontal',
+				keyframes: [{ atMs: 0, value: 0.05 }]
+			})
+		);
+		expectApplied(
+			await runSetCompositionCascadeAnchorOperation({
+				expectedRevision: 3,
+				subject: { kind: 'overlay', overlayId: 'lower-third-1' },
+				anchor: 'surface',
+				event: 'end',
+				offsetMs: 100
+			})
+		);
+		expectApplied(
+			await runClearCompositionCascadeAnchorOperation({
+				expectedRevision: 4,
+				subject: { kind: 'overlay', overlayId: 'lower-third-1' }
+			})
+		);
+		expect(engineState.overlays[0].animation?.orientationOverrides?.horizontal?.x).toEqual([
+			{ atMs: 0, value: 0.05 }
+		]);
+	});
+});

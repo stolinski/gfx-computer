@@ -3,6 +3,7 @@
 	import { findPack } from './packs/registry';
 	import {
 		OVERLAY_KEYFRAME_CHANNELS,
+		SPATIAL_KEYFRAME_CHANNELS,
 		type Cascade,
 		type Overlay,
 		type Transition
@@ -86,7 +87,10 @@
 			ov.animation.cascade = undefined;
 			// Keep the serialized form clean: an animation block with nothing in
 			// it disappears entirely.
-			if (!ov.animation.channels || Object.keys(ov.animation.channels).length === 0) {
+			if (
+				(!ov.animation.channels || Object.keys(ov.animation.channels).length === 0) &&
+				!ov.animation.orientationOverrides
+			) {
 				ov.animation = undefined;
 			}
 			return;
@@ -154,6 +158,12 @@
 	/>
 
 	<KeyframesSection selfKey={`overlay:${ov.id}`} channelNames={OVERLAY_KEYFRAME_CHANNELS} />
+	<KeyframesSection
+		selfKey={`overlay:${ov.id}`}
+		channelNames={SPATIAL_KEYFRAME_CHANNELS}
+		scope={engineState.transport.orientation}
+		label={`${engineState.transport.orientation} Reflow Motion`}
+	/>
 
 	<CascadeSection
 		selfKey={`overlay:${ov.id}`}

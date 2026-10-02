@@ -227,6 +227,44 @@ const OverlayChannelKeyframesSchema = z.strictObject({
 	rotation: createKeyframeTrackSchema(z.number()).optional()
 });
 
+// The spatial group one delivery orientation may replace as a complete unit
+// (ADR-0039 §4 orientation art direction): an Overlay or a Diagram primitive
+// moving along a different path in the tall frame. Opacity and every other
+// non-spatial channel stay shared. Bounds match the shared spatial channels.
+const SpatialChannelKeyframesSchema = z.strictObject({
+	x: createKeyframeTrackSchema(z.number()).optional(),
+	y: createKeyframeTrackSchema(z.number()).optional(),
+	scale: createKeyframeTrackSchema(z.number().min(0.1).max(8)).optional(),
+	rotation: createKeyframeTrackSchema(z.number()).optional()
+});
+export type SpatialChannelKeyframes = z.infer<typeof SpatialChannelKeyframesSchema>;
+/** The channels an orientation spatial override must declare together. */
+export const SPATIAL_KEYFRAME_CHANNELS: readonly (keyof SpatialChannelKeyframes)[] = Object.keys(
+	SpatialChannelKeyframesSchema.shape
+) as (keyof SpatialChannelKeyframes)[];
+
+const OrientationSpatialChannelOverridesSchema = z
+	.strictObject({
+		horizontal: SpatialChannelKeyframesSchema.optional(),
+		vertical: SpatialChannelKeyframesSchema.optional()
+	})
+	.superRefine((overrides, ctx) => {
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			const channels = overrides[orientation];
+			if (!channels) continue;
+			if (SPATIAL_KEYFRAME_CHANNELS.some((channel) => channels[channel] === undefined)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [orientation],
+					message: `A ${orientation} spatial-track override must declare x, y, scale, and rotation as one complete group.`
+				});
+			}
+		}
+	});
+export type OrientationSpatialChannelOverrides = z.infer<
+	typeof OrientationSpatialChannelOverridesSchema
+>;
+
 // Surface gets `opacity` only — surface transforms are camera territory
 // (`stage.camera`, the depth stage); two systems must not fight over the same
 // pixels (ADR-0035 §3). Strict so a transform channel fails loudly instead of
@@ -261,6 +299,9 @@ export type Cascade = z.infer<typeof CascadeSchema>;
 
 const OverlayAnimationSchema = z.strictObject({
 	channels: OverlayChannelKeyframesSchema.optional(),
+	// A complete x/y/scale/rotation group that replaces the shared spatial
+	// tracks while that orientation is active (ADR-0039 §4).
+	orientationOverrides: OrientationSpatialChannelOverridesSchema.optional(),
 	cascade: CascadeSchema.optional()
 });
 

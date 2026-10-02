@@ -364,4 +364,56 @@ describe('composition animation manifest', () => {
 		// No melt block, so no melt sugar.
 		assert.deepEqual(runtime.effectChannels.frost, { growth: 0.4 });
 	});
+
+	it('drives an Overlay along its orientation spatial group and keeps opacity shared', () => {
+		const build = (orientation: 'horizontal' | 'vertical') => {
+			const runtime = makeRuntime();
+			const state = makeManifestState();
+			state.transport.orientation = orientation;
+			state.overlays[0].animation = {
+				channels: {
+					opacity: [
+						{ atMs: 0, value: 0 },
+						{ atMs: 300, value: 1, ease: 'smooth' }
+					],
+					y: [
+						{ atMs: 0, value: 0.1 },
+						{ atMs: 500, value: 0, ease: 'settled' }
+					]
+				},
+				orientationOverrides: {
+					vertical: {
+						x: [
+							{ atMs: 0, value: -0.2 },
+							{ atMs: 600, value: 0, ease: 'smooth' }
+						],
+						y: [{ atMs: 0, value: 0 }],
+						scale: [{ atMs: 0, value: 1.3 }],
+						rotation: [{ atMs: 0, value: 0 }]
+					}
+				}
+			};
+			const manifest = buildCompositionAnimationManifest({
+				state,
+				runtime,
+				textAnimationRoot: null,
+				textAnimationCompiler: { rebuild: () => [] },
+				resolveMarkColor: () => '#ffee00'
+			});
+			return { runtime, keys: manifest.tweens.map((tween) => tween.key) };
+		};
+
+		const horizontal = build('horizontal');
+		assert.ok(horizontal.keys.includes('overlay-motion-y-1'));
+		assert.ok(!horizontal.keys.some((key) => key.startsWith('overlay-motion-x')));
+		assert.equal(horizontal.runtime.overlayChannels[0]?.y, 0.1);
+		assert.equal(horizontal.runtime.overlayChannels[0]?.scale, 0.9);
+
+		const vertical = build('vertical');
+		assert.ok(vertical.keys.includes('overlay-motion-x-1'));
+		assert.ok(vertical.keys.includes('overlay-motion-opacity-1'), 'opacity stays shared');
+		assert.ok(!vertical.keys.includes('overlay-motion-y-1'), 'the shared y path is replaced');
+		assert.equal(vertical.runtime.overlayChannels[0]?.x, -0.2);
+		assert.equal(vertical.runtime.overlayChannels[0]?.scale, 1.3);
+	});
 });

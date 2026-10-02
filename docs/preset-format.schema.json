@@ -6400,6 +6400,212 @@
 										},
 										"additionalProperties": false
 									},
+									"orientationOverrides": {
+										"type": "object",
+										"properties": {
+											"horizontal": {
+												"type": "object",
+												"properties": {
+													"x": {
+														"minItems": 1,
+														"maxItems": 24,
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"atMs": {
+																	"type": "number",
+																	"minimum": 0
+																},
+																"value": {
+																	"type": "number"
+																},
+																"ease": {
+																	"type": "string",
+																	"enum": ["smooth", "settled", "sharp", "bouncy"]
+																}
+															},
+															"required": ["atMs", "value"],
+															"additionalProperties": false
+														}
+													},
+													"y": {
+														"minItems": 1,
+														"maxItems": 24,
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"atMs": {
+																	"type": "number",
+																	"minimum": 0
+																},
+																"value": {
+																	"type": "number"
+																},
+																"ease": {
+																	"type": "string",
+																	"enum": ["smooth", "settled", "sharp", "bouncy"]
+																}
+															},
+															"required": ["atMs", "value"],
+															"additionalProperties": false
+														}
+													},
+													"scale": {
+														"minItems": 1,
+														"maxItems": 24,
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"atMs": {
+																	"type": "number",
+																	"minimum": 0
+																},
+																"value": {
+																	"type": "number",
+																	"minimum": 0.1,
+																	"maximum": 8
+																},
+																"ease": {
+																	"type": "string",
+																	"enum": ["smooth", "settled", "sharp", "bouncy"]
+																}
+															},
+															"required": ["atMs", "value"],
+															"additionalProperties": false
+														}
+													},
+													"rotation": {
+														"minItems": 1,
+														"maxItems": 24,
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"atMs": {
+																	"type": "number",
+																	"minimum": 0
+																},
+																"value": {
+																	"type": "number"
+																},
+																"ease": {
+																	"type": "string",
+																	"enum": ["smooth", "settled", "sharp", "bouncy"]
+																}
+															},
+															"required": ["atMs", "value"],
+															"additionalProperties": false
+														}
+													}
+												},
+												"additionalProperties": false
+											},
+											"vertical": {
+												"type": "object",
+												"properties": {
+													"x": {
+														"minItems": 1,
+														"maxItems": 24,
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"atMs": {
+																	"type": "number",
+																	"minimum": 0
+																},
+																"value": {
+																	"type": "number"
+																},
+																"ease": {
+																	"type": "string",
+																	"enum": ["smooth", "settled", "sharp", "bouncy"]
+																}
+															},
+															"required": ["atMs", "value"],
+															"additionalProperties": false
+														}
+													},
+													"y": {
+														"minItems": 1,
+														"maxItems": 24,
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"atMs": {
+																	"type": "number",
+																	"minimum": 0
+																},
+																"value": {
+																	"type": "number"
+																},
+																"ease": {
+																	"type": "string",
+																	"enum": ["smooth", "settled", "sharp", "bouncy"]
+																}
+															},
+															"required": ["atMs", "value"],
+															"additionalProperties": false
+														}
+													},
+													"scale": {
+														"minItems": 1,
+														"maxItems": 24,
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"atMs": {
+																	"type": "number",
+																	"minimum": 0
+																},
+																"value": {
+																	"type": "number",
+																	"minimum": 0.1,
+																	"maximum": 8
+																},
+																"ease": {
+																	"type": "string",
+																	"enum": ["smooth", "settled", "sharp", "bouncy"]
+																}
+															},
+															"required": ["atMs", "value"],
+															"additionalProperties": false
+														}
+													},
+													"rotation": {
+														"minItems": 1,
+														"maxItems": 24,
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"atMs": {
+																	"type": "number",
+																	"minimum": 0
+																},
+																"value": {
+																	"type": "number"
+																},
+																"ease": {
+																	"type": "string",
+																	"enum": ["smooth", "settled", "sharp", "bouncy"]
+																}
+															},
+															"required": ["atMs", "value"],
+															"additionalProperties": false
+														}
+													}
+												},
+												"additionalProperties": false
+											}
+										},
+										"additionalProperties": false
+									},
 									"cascade": {
 										"type": "object",
 										"properties": {

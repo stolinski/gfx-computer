@@ -33,6 +33,7 @@ import {
 	resolveKineticWordGeometry
 } from '$lib/utils/kinetic-word-geometry';
 import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
+import { resolveOrientationKeyframeChannels } from '$lib/utils/orientation-keyframe-channels';
 
 const COMPOSITION_CHANNEL_KEYS = ['opacity', 'x', 'y', 'scale', 'rotation'] as const;
 type CompositionChannelKey = (typeof COMPOSITION_CHANNEL_KEYS)[number];
@@ -253,7 +254,10 @@ function appendElementChannelTweens(options: {
 /** Initial per-overlay channel values (null for overlays without declared channels). */
 function resolveOverlayChannelValues(state: EngineState): (OverlayChannelValues | null)[] {
 	return state.overlays.map((overlay) => {
-		const channels = overlay.animation?.channels;
+		const channels = resolveOrientationKeyframeChannels(
+			overlay.animation,
+			state.transport.orientation
+		);
 		if (!channels || !COMPOSITION_CHANNEL_KEYS.some((key) => (channels[key]?.length ?? 0) > 0)) {
 			return null;
 		}
@@ -281,7 +285,10 @@ function appendOverlayTweens(
 			appendElementChannelTweens({
 				tweens,
 				keyPrefix: `overlay-${overlay.id}`,
-				channels: overlay.animation?.channels,
+				channels: resolveOrientationKeyframeChannels(
+					overlay.animation,
+					state.transport.orientation
+				),
 				clipStartFraction: window?.startFraction ?? overlay.enter?.start ?? 0,
 				durationMs,
 				readSlot: () => runtime.overlayChannels[index]

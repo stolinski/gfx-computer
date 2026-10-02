@@ -65,10 +65,16 @@ function cloneChannelKeyframes<T extends Record<string, Keyframe[] | undefined>>
 }
 
 function cloneOverlayAnimation(animation: OverlayAnimation): OverlayAnimation {
-	return {
+	const next: OverlayAnimation = {
 		channels: animation.channels ? cloneChannelKeyframes(animation.channels) : undefined,
 		cascade: animation.cascade ? cloneCascade(animation.cascade) : undefined
 	};
+	// Per-orientation spatial groups (ADR-0039 §4); absent stays absent so an
+	// unchanged Preset serializes byte-identical.
+	if (animation.orientationOverrides) {
+		next.orientationOverrides = cloneJsonValue(animation.orientationOverrides);
+	}
+	return next;
 }
 
 function cloneSurfaceAnimation(animation: SurfaceAnimation): SurfaceAnimation {

@@ -451,6 +451,11 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 		toolName: 'gfx_motion_set_keyframe_channel'
 	},
 	{
+		prompt:
+			'Give this Overlay its own vertical motion path: animate its x and y over time in the vertical orientation.',
+		toolName: 'gfx_motion_set_keyframe_channel'
+	},
+	{
 		prompt: 'Add a sound cue naming a bundled audio asset and its window.',
 		toolName: 'gfx_sound_set_cue'
 	},

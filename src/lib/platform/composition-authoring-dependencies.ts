@@ -101,6 +101,8 @@ export function trackCompositionAuthoringDependencies(state: EngineState, packSl
 		void overlay.exit?.duration;
 		void overlay.exit?.ease;
 		trackKeyframeChannels(overlay.animation?.channels);
+		trackKeyframeChannels(overlay.animation?.orientationOverrides?.horizontal);
+		trackKeyframeChannels(overlay.animation?.orientationOverrides?.vertical);
 		trackCascade(overlay.animation?.cascade);
 	}
 

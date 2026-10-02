@@ -1,4 +1,8 @@
 import { getEffectDefinition } from './pipelines/definition-registry';
+import {
+	deleteOrientationKeyframe,
+	resolveOrientationKeyframeChannels
+} from '$lib/utils/orientation-keyframe-channels';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 import type { AchievementContent } from '$lib/pipelines/overlays/achievement/achievement-content';
@@ -663,12 +667,14 @@ function appendOverlayTracks(
 ): void {
 	state.overlays.forEach((overlay) => {
 		const trackId = createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id });
-		const channels = overlay.animation?.channels;
-		const cascade = overlay.animation?.cascade;
+		// The active orientation's tracks: its spatial group when it has one (ADR-0039 §4).
+		const animation = overlay.animation;
+		const channels = resolveOrientationKeyframeChannels(animation, state.transport.orientation);
+		const cascade = animation?.cascade;
 		const window = windows.get(`overlay:${overlay.id}`);
 		const link = cascadeLinkFor(cascade, windows);
 
-		if (channels && clipKeyframes(state, channels, 0).length > 0) {
+		if (animation && clipKeyframes(state, channels, 0).length > 0) {
 			const clipStart = window?.startFraction ?? 0;
 			const transition: TimelineTransition = {
 				id: 'clip',
@@ -678,7 +684,9 @@ function appendOverlayTracks(
 				duration: Math.max(window?.durationFraction ?? 0, 0.02),
 				keyframes: clipKeyframes(state, channels, clipStart),
 				onKeyframeRetime: makeKeyframeRetimer(state, channels, clipStart),
-				onKeyframeDelete: makeKeyframeDeleter(channels),
+				onKeyframeDelete: (channel, index) => {
+					deleteOrientationKeyframe(animation, state.transport.orientation, channel, index);
+				},
 				cascade: link
 			};
 			if (cascade) {

@@ -559,7 +559,7 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 					scope: {
 						type: 'string',
 						description:
-							'Shared by default. Horizontal or vertical is valid only for a Kinetic Word spatial channel and replaces that orientation spatial group.',
+							'Shared by default. Horizontal or vertical gives an Overlay or Kinetic Word its own x, y, scale, and rotation path in that orientation, replacing the shared spatial group there.',
 						enum: COMPOSITION_KEYFRAME_CHANNEL_SCOPES
 					}
 				},
@@ -687,7 +687,7 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 					scope: {
 						type: 'string',
 						description:
-							'Shared by default. Horizontal or vertical is valid only for a Kinetic Word spatial channel.',
+							'Shared by default. Horizontal or vertical removes that orientation spatial group of an Overlay or Kinetic Word.',
 						enum: COMPOSITION_KEYFRAME_CHANNEL_SCOPES
 					}
 				},

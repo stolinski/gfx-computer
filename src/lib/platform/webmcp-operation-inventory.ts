@@ -1666,7 +1666,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'motion',
 		toolName: 'gfx_motion_set_keyframe_channel',
 		summary:
-			'Animate one property channel over time on the Surface, an Overlay, a diagram primitive, a Kinetic Word, or an Effect param, as ordered keyframes with per-segment eases.',
+			'Animate one property channel over time on the Surface, an Overlay, a diagram primitive, a Kinetic Word, or an Effect param, as ordered keyframes with per-segment eases. An Overlay or Kinetic Word motion path may differ per orientation.',
 		effect: 'write',
 		writes: [
 			'/state/surface/animation',
@@ -1720,7 +1720,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'motion',
 		toolName: 'gfx_motion_clear_keyframe_channel',
 		summary:
-			"Remove one authored property channel so the element's intrinsic motion form runs again; clearing an orientation-scoped Kinetic Word spatial channel removes that complete replacement group.",
+			"Remove one authored property channel so the element's intrinsic motion form runs again; clearing an orientation-scoped Overlay or Kinetic Word spatial channel removes that complete replacement group.",
 		effect: 'write',
 		writes: [
 			'/state/surface/animation',
