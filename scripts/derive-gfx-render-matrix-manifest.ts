@@ -6,7 +6,6 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import type { Preset } from '../src/lib/platform/engine-schema.ts';
-import { listSurfaceMarkInstances } from '../src/lib/platform/surface-mark-instances.ts';
 import type { DeterministicRenderSamplePlanEntry } from '../src/lib/platform/deterministic-render-sample-plan.ts';
 import { selectAffectedStaticPresetPackAxes } from './preset-validation-scope.ts';
 
@@ -61,8 +60,14 @@ registerHooks({
 		return nextLoad(url, context);
 	}
 });
+
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = <T>(value: T): T =>
 	value;
+
+// Dynamic import on purpose: a static one is hoisted above `registerHooks`, and
+// surface-mark-instances reaches source modules that import without a `.ts`
+// extension, which only the hook above resolves.
+const { listSurfaceMarkInstances } = await import('../src/lib/platform/surface-mark-instances.ts');
 
 export const SUPER_RENDER_REQUIRED_CHECK_CODES = [
 	'target-resolution-mismatch',

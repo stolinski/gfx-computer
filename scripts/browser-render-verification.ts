@@ -187,6 +187,13 @@ export const BROWSER_RENDER_MATRIX_COORDINATES: readonly BrowserRenderMatrixCoor
 		branchIds: ['depth-effects']
 	},
 	{
+		coordinateId: 'sentry-pack-transparent-overlay-vertical',
+		presetSlug: 'lower-third',
+		packId: 'sentry',
+		orientation: 'vertical',
+		branchIds: ['html-text', 'overlay-layer', 'transparent-output']
+	},
+	{
 		coordinateId: 'effect-chain-overlay',
 		presetSlug: 'title-card-newspaper',
 		packId: 'clean-light',

@@ -49,8 +49,8 @@ assert.equal(
 );
 assert.match(
 	renderer,
-	/function captureSurfaceDom\([\s\S]*?pipeline\.uploadDom\(\);[\s\S]*?hasCapturedPaintRecord\(capture\.surface\)[\s\S]*?pipeline\.uploadDom\(\);[\s\S]*?\n\}/,
-	'both Surface DOM uploads must live in captureSurfaceDom, the second behind the paint-record gate'
+	/function captureSurfaceDom\([\s\S]*?pipeline\.uploadDom\(\);[\s\S]*?hasCapturedPaintRecord\(capture\.surface\)[\s\S]*?uploadDomIfPainted\(\(\) => pipeline\.uploadDom\(\)\)[\s\S]*?\n\}/,
+	'both Surface DOM uploads must live in captureSurfaceDom, the second behind the paint-record gate and the painted-upload guard'
 );
 assert.doesNotMatch(
 	source,
