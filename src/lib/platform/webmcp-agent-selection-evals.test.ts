@@ -119,6 +119,8 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'diagram-present': false,
 	'kinetic-word-addable': false,
 	'kinetic-word-present': false,
+	'motion-beat-addable': false,
+	'motion-beat-present': false,
 	'chart-present': false,
 	'captions-present': false,
 	'chat-surface-active': false,
@@ -410,6 +412,18 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 	{
 		prompt: 'Place this Kinetic Word at an exact centre, scale, and rotation for vertical.',
 		toolName: 'gfx_placement_set_kinetic_word_placement'
+	},
+	{
+		prompt: 'Add a new Motion Beat at 1200 ms.',
+		toolName: 'gfx_motion_add_motion_beat'
+	},
+	{
+		prompt: 'Make the word BECOME rise into place on the become beat with the weight strike.',
+		toolName: 'gfx_motion_land_kinetic_word_on_beat'
+	},
+	{
+		prompt: 'Move the composition Motion Beat 200 ms later.',
+		toolName: 'gfx_motion_set_motion_beat'
 	},
 	{
 		prompt: 'Move the checklist card to the left side of the wide frame so it clears the host.',

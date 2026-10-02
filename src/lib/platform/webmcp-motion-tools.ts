@@ -56,8 +56,18 @@ import {
 	runSetCompositionTransitionOperation
 } from './composition-transition-operations';
 import {
+	runAddCompositionMotionBeatOperation,
+	runLandCompositionKineticWordOnBeatOperation,
+	runRemoveCompositionMotionBeatOperation,
+	runSetCompositionMotionBeatOperation
+} from './composition-motion-beat-operations';
+import { KINETIC_WORD_BEAT_MOVES } from './kinetic-word-beat-choreography';
+import { isRecord } from '../utils/object';
+import {
 	CHART_MOTION_EASES,
 	COMPOSITION_KEYFRAME_LIMIT,
+	SOUND_EVENTS,
+	type SoundOverride,
 	KINETIC_WORD_GLYPH_STAGGER_LIMIT_MS,
 	KINETIC_WORD_GLYPH_STAGGER_ORDERS,
 	TEXT_ANIMATION_PARAM_NAMES
@@ -69,8 +79,11 @@ import {
 	readWebmcpLiteralArgument,
 	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
+	readWebmcpOptionalBooleanArgument,
+	readWebmcpOptionalNumberArgument,
 	readWebmcpOptionalLiteralArgument,
 	readWebmcpOptionalRecordArgument,
+	readWebmcpOptionalStringArgument,
 	readWebmcpOptionalRuntimeJsonArgument,
 	readWebmcpRecordArgument,
 	readWebmcpRecordArrayArgument,
@@ -97,14 +110,10 @@ import type { CompositionMotionWindow } from './composition-motion-timing-operat
 import type {
 	CompositionMotionElementKind,
 	CompositionCascadeSubject,
-	CompositionKeyframeSubject
+	CompositionKeyframeSubject,
+	KeyframeChannelInput
 } from './composition-keyframe-cascade-operations';
-import type {
-	CascadeAnchor,
-	Keyframe,
-	KineticWordGlyphStagger,
-	TextAnimationParams
-} from './engine-schema';
+import type { CascadeAnchor, KineticWordGlyphStagger, TextAnimationParams } from './engine-schema';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
 
@@ -271,7 +280,7 @@ function keyframeTrackProperty(): WebmcpSchemaProperty {
 	return {
 		type: 'array',
 		description:
-			'The ordered keyframes, by strictly ascending atMs. At least one; clear the channel instead of sending none.',
+			'The ordered keyframes, by strictly ascending time. At least one; clear the channel instead of sending none. A Kinetic Word key may bind to a Motion Beat with atBeat and offsetMs instead of atMs; it then moves when the beat moves.',
 		minItems: 1,
 		maxItems: COMPOSITION_KEYFRAME_LIMIT,
 		items: {
@@ -280,8 +289,19 @@ function keyframeTrackProperty(): WebmcpSchemaProperty {
 			properties: {
 				atMs: {
 					type: 'number',
-					description: "Milliseconds from the element's resolved clip start.",
+					description:
+						"Milliseconds from the element's resolved clip start. Required unless atBeat names a Motion Beat.",
 					minimum: 0
+				},
+				atBeat: {
+					type: 'string',
+					description: 'Kinetic Words only: the Motion Beat this key is bound to.',
+					minLength: 1
+				},
+				offsetMs: {
+					type: 'integer',
+					description:
+						'With atBeat: signed milliseconds from the beat (negative leads it). Default 0.'
 				},
 				value: { type: 'number', description: 'The channel value at this keyframe.' },
 				ease: webmcpDerivedEnumProperty(
@@ -289,18 +309,46 @@ function keyframeTrackProperty(): WebmcpSchemaProperty {
 					'The curve into this keyframe. The first keyframe carries none.'
 				)
 			},
-			required: ['atMs', 'value'],
+			required: ['value'],
 			additionalProperties: false
 		}
 	};
 }
 
-function readKeyframes(args: unknown): readonly Keyframe[] {
-	return readWebmcpRecordArrayArgument(args, 'keyframes').map((frame) => ({
-		atMs: readWebmcpNumberArgument(frame, 'atMs'),
-		value: readWebmcpNumberArgument(frame, 'value'),
-		ease: readWebmcpOptionalLiteralArgument(frame, 'ease', COMPOSITION_MOTION_EASES)
-	}));
+function readKeyframes(args: unknown): readonly KeyframeChannelInput[] {
+	return readWebmcpRecordArrayArgument(args, 'keyframes').map((frame) => {
+		const input: KeyframeChannelInput = {
+			atMs: readWebmcpOptionalNumberArgument(frame, 'atMs'),
+			value: readWebmcpNumberArgument(frame, 'value'),
+			ease: readWebmcpOptionalLiteralArgument(frame, 'ease', COMPOSITION_MOTION_EASES)
+		};
+		const atBeat = readWebmcpOptionalStringArgument(frame, 'atBeat');
+		if (atBeat !== undefined) {
+			input.atBeat = atBeat;
+			input.offsetMs = readWebmcpOptionalNumberArgument(frame, 'offsetMs') ?? 0;
+		}
+		return input;
+	});
+}
+
+function motionBeatTimeProperty(subject: string): WebmcpSchemaProperty {
+	return {
+		type: 'integer',
+		description: `${subject}, in whole milliseconds from the composition start.`,
+		minimum: 0
+	};
+}
+
+function readMotionBeatSound(args: unknown): SoundOverride | null | undefined {
+	if (!isRecord(args) || !('sound' in args)) return undefined;
+	const record = readWebmcpClearableRecordArgument(args, 'sound');
+	if (record === null) return null;
+	const sound: SoundOverride = {
+		event: readWebmcpLiteralArgument(record, 'event', SOUND_EVENTS)
+	};
+	const sample = readWebmcpOptionalStringArgument(record, 'sample');
+	if (sample !== undefined) sound.sample = sample;
+	return sound;
 }
 
 /** A glyph stagger, or `null` to return the word to one text run. */
@@ -625,6 +673,129 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 						x: readWebmcpNumberArgument(args, 'x'),
 						y: readWebmcpNumberArgument(args, 'y'),
 						ease: readWebmcpOptionalLiteralArgument(args, 'ease', COMPOSITION_MOTION_EASES)
+					})
+				)
+		},
+		{
+			operationId: 'motion.add-motion-beat',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					atMs: motionBeatTimeProperty('Where the beat sits'),
+					beatId: {
+						type: 'string',
+						description:
+							'A lowercase id (letters, digits, hyphens) unique in the composition; omit for the next beat-N.',
+						minLength: 1,
+						maxLength: 40
+					}
+				},
+				required: ['expectedRevision', 'atMs'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.add-motion-beat', () =>
+					runAddCompositionMotionBeatOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						atMs: readWebmcpNumberArgument(args, 'atMs'),
+						beatId: readWebmcpOptionalStringArgument(args, 'beatId')
+					})
+				)
+		},
+		{
+			operationId: 'motion.set-motion-beat',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					beatId: webmcpEntityIdProperty('The Motion Beat to change.'),
+					atMs: motionBeatTimeProperty('Where the beat moves to; omit to keep its time'),
+					sound: {
+						description:
+							'The cue the beat emits, or null for a silent beat; omit to keep its sound.',
+						oneOf: [
+							{
+								type: 'object',
+								description: 'One sound event, optionally locked to a bundled sample.',
+								properties: {
+									event: webmcpDerivedEnumProperty(
+										'sound-event',
+										'The sound event the beat emits.'
+									),
+									sample: webmcpDerivedEnumProperty(
+										'sound-asset',
+										'A bundled audio asset to play in place of the event default.'
+									)
+								},
+								required: ['event'],
+								additionalProperties: false
+							},
+							{ type: 'null', description: 'Make the beat silent.' }
+						]
+					}
+				},
+				required: ['expectedRevision', 'beatId'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.set-motion-beat', () =>
+					runSetCompositionMotionBeatOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						beatId: readWebmcpStringArgument(args, 'beatId'),
+						atMs: readWebmcpOptionalNumberArgument(args, 'atMs'),
+						sound: readMotionBeatSound(args)
+					})
+				)
+		},
+		{
+			operationId: 'motion.remove-motion-beat',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					beatId: webmcpEntityIdProperty('The Motion Beat to remove.'),
+					releaseKeyframes: {
+						type: 'boolean',
+						description:
+							'Keep keys bound to this beat at their current times as absolute keys. Without it, a beat that holds keys is refused.'
+					}
+				},
+				required: ['expectedRevision', 'beatId'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.remove-motion-beat', () =>
+					runRemoveCompositionMotionBeatOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						beatId: readWebmcpStringArgument(args, 'beatId'),
+						releaseKeyframes: readWebmcpOptionalBooleanArgument(args, 'releaseKeyframes')
+					})
+				)
+		},
+		{
+			operationId: 'motion.land-kinetic-word-on-beat',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					wordId: webmcpEntityIdProperty('The Kinetic Word Block that moves.'),
+					beatId: webmcpEntityIdProperty('The Motion Beat it moves on.'),
+					move: webmcpDerivedEnumProperty(
+						'kinetic-word-beat-move',
+						'arrive rises into the mask and lands on the beat with a weight strike; leave exits up through the mask from the beat; strike pulses weight on the beat.'
+					)
+				},
+				required: ['expectedRevision', 'wordId', 'beatId', 'move'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.land-kinetic-word-on-beat', () =>
+					runLandCompositionKineticWordOnBeatOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						wordId: readWebmcpStringArgument(args, 'wordId'),
+						beatId: readWebmcpStringArgument(args, 'beatId'),
+						move: readWebmcpLiteralArgument(args, 'move', KINETIC_WORD_BEAT_MOVES)
 					})
 				)
 		},

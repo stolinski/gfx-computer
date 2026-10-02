@@ -15,6 +15,7 @@
  * leaves the digest still is a copy somewhere; `findWebmcpHandwrittenEnums`
  * reads a source file and names the enum it duplicated.
  */
+import { KINETIC_WORD_BEAT_MOVES } from './kinetic-word-beat-choreography';
 import { hashObject } from '../utils/object';
 import { NTSC_FRACTIONAL_FPS } from '../utils/composition-timing';
 import { TEXT_EFFECT_IDS } from '../text-animations/catalog';
@@ -117,6 +118,7 @@ export type WebmcpDerivedEnumName =
 	| 'kinetic-word-horizontal-anchor'
 	| 'kinetic-word-ink-role'
 	| 'kinetic-word-glyph-stagger-order'
+	| 'kinetic-word-beat-move'
 	| 'chat-message-side'
 	| 'chat-message-tapback'
 	| 'chat-message-receipt'
@@ -251,6 +253,7 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'kinetic-word-horizontal-anchor': KINETIC_WORD_HORIZONTAL_ANCHORS,
 		'kinetic-word-ink-role': KINETIC_WORD_INK_ROLES,
 		'kinetic-word-glyph-stagger-order': KINETIC_WORD_GLYPH_STAGGER_ORDERS,
+		'kinetic-word-beat-move': KINETIC_WORD_BEAT_MOVES,
 		'chat-message-side': CHAT_MESSAGE_SIDES,
 		'chat-message-tapback': CHAT_MESSAGE_TAPBACKS,
 		'chat-message-receipt': CHAT_MESSAGE_RECEIPTS,

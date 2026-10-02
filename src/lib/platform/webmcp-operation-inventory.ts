@@ -68,6 +68,8 @@ export type WebmcpOperationPrecondition =
 	| 'diagram-present'
 	| 'kinetic-word-addable'
 	| 'kinetic-word-present'
+	| 'motion-beat-addable'
+	| 'motion-beat-present'
 	| 'chart-present'
 	| 'captions-present'
 	| 'chat-surface-active'
@@ -414,6 +416,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/effects/*/animation', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/animation', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/glyphStagger', scope: 'value' },
+			{ pointer: '/state/motionBeats', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*/motion', scope: 'value' },
 			{ pointer: '/transition', scope: 'value' }
 		]
@@ -1738,6 +1741,70 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['block'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CanvasEditingOverlay.svelte'
+	},
+	{
+		id: 'motion.add-motion-beat',
+		family: 'motion',
+		toolName: 'gfx_motion_add_motion_beat',
+		summary:
+			'Add one named Motion Beat at an exact millisecond: a time anchor Kinetic Word keys bind to and phrases read at.',
+		effect: 'write',
+		writes: ['/state/motionBeats'],
+		precondition: 'motion-beat-addable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/MotionBeatsSection.svelte'
+	},
+	{
+		id: 'motion.set-motion-beat',
+		family: 'motion',
+		toolName: 'gfx_motion_set_motion_beat',
+		summary:
+			'Move one Motion Beat earlier or later (every Kinetic Word key bound to it moves the same amount), set the sound it emits, or both.',
+		effect: 'write',
+		writes: ['/state/motionBeats', '/state/surface/typeField/words/*/animation'],
+		precondition: 'motion-beat-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/MotionBeatsSection.svelte'
+	},
+	{
+		id: 'motion.remove-motion-beat',
+		family: 'motion',
+		toolName: 'gfx_motion_remove_motion_beat',
+		summary:
+			'Remove one Motion Beat. Refused while a phrase reads at it; keys bound to it are kept as absolute keys only when releaseKeyframes is set.',
+		effect: 'write',
+		writes: ['/state/motionBeats', '/state/surface/typeField/words/*/animation'],
+		precondition: 'motion-beat-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/MotionBeatsSection.svelte'
+	},
+	{
+		id: 'motion.land-kinetic-word-on-beat',
+		family: 'motion',
+		toolName: 'gfx_motion_land_kinetic_word_on_beat',
+		summary:
+			'Copy the dual-speed editorial keys onto one Kinetic Word at a Motion Beat: arrive (masked rise settling on the beat, weight strike, tracking release), leave (exit through the mask), or strike (weight pulse). Keys stay bound and editable.',
+		effect: 'write',
+		writes: ['/state/surface/typeField/words/*/animation'],
+		precondition: 'motion-beat-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/KineticWordInspector.svelte'
 	},
 	{
 		id: 'motion.set-kinetic-word-glyph-stagger',

@@ -19,6 +19,7 @@
 	import InterchangeSection from './InterchangeSection.svelte';
 	import Field from './Field.svelte';
 	import MarkDefaultsSection from './MarkDefaultsSection.svelte';
+	import MotionBeatsSection from './MotionBeatsSection.svelte';
 	import PackSection from './PackSection.svelte';
 	import TransitionRecipeSection from './TransitionRecipeSection.svelte';
 	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
@@ -229,6 +230,8 @@
 	<DepthStageSection />
 
 	<MarkDefaultsSection />
+
+	<MotionBeatsSection />
 
 	<AudioCueSection />
 

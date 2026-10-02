@@ -29,6 +29,15 @@
 		type TimelineTransition
 	} from './timeline-track';
 	import CascadeTethers from './CascadeTethers.svelte';
+	import { compositionEditHistory } from './composition-edit-history';
+	import { runSetCompositionMotionBeatOperation } from './composition-motion-beat-operations';
+	import { engineState } from './engine-state.svelte';
+	import {
+		findMotionBeatSnap,
+		motionBeatAtMsForFrame,
+		moveMotionBeat
+	} from '$lib/utils/motion-beats';
+	import { resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
 	import TimelineAddMenu from './TimelineAddMenu.svelte';
 	import TimelineClipBar, {
 		type TimelineClipDragMode,
@@ -92,7 +101,46 @@
 		document: Preset | null;
 	}
 
-	type DragState = TransitionDragState | SeekDragState | KeyframeDragState;
+	// A Motion Beat flag drag (ADR-0064): previews the move live on the beat and
+	// its bound keys, frame-snapped, then commits one motion operation on
+	// release. A press without a move seeks to the beat.
+	interface BeatDragState {
+		kind: 'beat';
+		beatId: string;
+		originAtMs: number;
+		pointerStartX: number;
+		containerWidth: number;
+		moved: boolean;
+	}
+
+	type DragState = TransitionDragState | SeekDragState | KeyframeDragState | BeatDragState;
+
+	const motionBeats = $derived(engineState.motionBeats ?? []);
+	// Drags snap to a beat within this many pixels.
+	const BEAT_SNAP_PX = 8;
+
+	function beatSnapThresholdMs(containerWidth: number): number {
+		return containerWidth > 0
+			? (BEAT_SNAP_PX / containerWidth) * timeline.durationSeconds * 1000
+			: 0;
+	}
+
+	/** A fraction snapped to the nearest beat within reach, and that beat. */
+	function snapFractionToBeat(
+		fraction: number,
+		containerWidth: number
+	): { fraction: number; beatId: string | null } {
+		const durationMs = timeline.durationSeconds * 1000;
+		if (durationMs <= 0) return { fraction, beatId: null };
+		const beat = findMotionBeatSnap(
+			fraction * durationMs,
+			motionBeats,
+			beatSnapThresholdMs(containerWidth)
+		);
+		return beat
+			? { fraction: beat.atMs / durationMs, beatId: beat.id }
+			: { fraction, beatId: null };
+	}
 
 	// DOM references for the two scroll-synced row areas. The track column itself
 	// remains the seek surface and playhead positioning context.
@@ -319,7 +367,9 @@
 			0,
 			1
 		);
-		timeline.seek(fraction * timeline.durationSeconds);
+		timeline.seek(
+			snapFractionToBeat(fraction, state.containerWidth).fraction * timeline.durationSeconds
+		);
 	}
 
 	function applyKeyframeDrag(state: KeyframeDragState, event: PointerEvent): void {
@@ -330,7 +380,55 @@
 		// Sub-pixel jitter is a click, not a retime.
 		if (!state.moved && Math.abs(delta) < 0.0005) return;
 		state.moved = true;
-		transition.onKeyframeRetime(state.channel, state.index, state.originFraction + delta);
+		const snapped = snapFractionToBeat(state.originFraction + delta, state.containerWidth);
+		transition.onKeyframeRetime(state.channel, state.index, snapped.fraction, snapped.beatId);
+	}
+
+	function beatAtMsForPointer(state: BeatDragState, event: PointerEvent): number {
+		const durationMs = timeline.durationSeconds * 1000;
+		const deltaMs = ((event.clientX - state.pointerStartX) / state.containerWidth) * durationMs;
+		const rate = resolveFrameRate(engineState.transport.fps);
+		const atMs = clampFraction(state.originAtMs + deltaMs, 0, durationMs);
+		return motionBeatAtMsForFrame(secondsToFrames(atMs / 1000, rate), rate);
+	}
+
+	function applyBeatDrag(state: BeatDragState, event: PointerEvent): void {
+		if (!state.moved && Math.abs(event.clientX - state.pointerStartX) < 2) return;
+		state.moved = true;
+		// A position that would reorder a bound key is skipped; the beat holds
+		// its last valid place.
+		moveMotionBeat(engineState, state.beatId, beatAtMsForPointer(state, event));
+	}
+
+	async function commitBeatDrag(state: BeatDragState): Promise<void> {
+		const beat = motionBeats.find((entry) => entry.id === state.beatId);
+		if (!beat) return;
+		const target = beat.atMs;
+		moveMotionBeat(engineState, state.beatId, state.originAtMs);
+		if (target === state.originAtMs) return;
+		await runSetCompositionMotionBeatOperation({
+			expectedRevision: compositionEditHistory.revision,
+			beatId: state.beatId,
+			atMs: target
+		});
+	}
+
+	function startBeatDrag(event: PointerEvent, beatId: string, atMs: number): void {
+		if (event.button !== 0) return;
+		const rect = getTrackAreaRect();
+		if (!rect) return;
+		event.preventDefault();
+		event.stopPropagation();
+		dragState = {
+			kind: 'beat',
+			beatId,
+			originAtMs: atMs,
+			pointerStartX: event.clientX,
+			containerWidth: rect.width,
+			moved: false
+		};
+		window.addEventListener('pointermove', handlePointerMove);
+		window.addEventListener('pointerup', handlePointerUp);
 	}
 
 	function handlePointerMove(event: PointerEvent): void {
@@ -339,6 +437,8 @@
 			applyTransitionDrag(dragState, event);
 		} else if (dragState.kind === 'keyframe') {
 			applyKeyframeDrag(dragState, event);
+		} else if (dragState.kind === 'beat') {
+			applyBeatDrag(dragState, event);
 		} else {
 			applySeekDrag(dragState, event);
 		}
@@ -355,6 +455,9 @@
 			recordCompositionGestureEdit(`Retime ${dragState.label}`, dragState.document);
 		} else if (dragState?.kind === 'keyframe' && dragState.moved) {
 			recordCompositionGestureEdit('Move keyframe', dragState.document);
+		} else if (dragState?.kind === 'beat') {
+			if (dragState.moved) void commitBeatDrag(dragState);
+			else timeline.seek(dragState.originAtMs / 1000);
 		}
 		dragState = null;
 		window.removeEventListener('pointermove', handlePointerMove);
@@ -529,10 +632,7 @@
 	<div class="outline__track-col" onpointerdown={startSeekDrag} role="presentation">
 		<div class="track-ruler" aria-hidden="true" style:--tick-step="{rulerTickPercent}%">
 			{#each rulerSeconds as second (second)}
-				<span
-					class="track-ruler__label"
-					style:left="{(second / timeline.durationSeconds) * 100}%"
-				>
+				<span class="track-ruler__label" style:left="{(second / timeline.durationSeconds) * 100}%">
 					{formatRulerSecond(second)}
 				</span>
 			{/each}
@@ -544,7 +644,11 @@
 			onscroll={onTrackScroll}
 			role="presentation"
 		>
-			<CascadeTethers {tracks} rowCenterY={rowCenterYByTrackId} contentBlockSize={rowsContentHeight} />
+			<CascadeTethers
+				{tracks}
+				rowCenterY={rowCenterYByTrackId}
+				contentBlockSize={rowsContentHeight}
+			/>
 			{#each outlineRows as row (row.rowKey)}
 				{#if row.kind === 'track'}
 					{#if isVideoTimelineTrack(row.track)}
@@ -595,6 +699,24 @@
 				{/if}
 			{/each}
 		</div>
+
+		{#if timeline.durationSeconds > 0}
+			{#each motionBeats as beat (beat.id)}
+				<div
+					class="track-beat"
+					style:left="{(beat.atMs / (timeline.durationSeconds * 1000)) * 100}%"
+				>
+					<button
+						class="track-beat__flag"
+						type="button"
+						data-motion-beat={beat.id}
+						aria-label="Motion Beat {beat.id} at {beat.atMs} ms"
+						title="{beat.id} · {beat.atMs} ms"
+						onpointerdown={(event) => startBeatDrag(event, beat.id, beat.atMs)}>{beat.id}</button
+					>
+				</div>
+			{/each}
+		{/if}
 
 		<div class="track-playhead" style:left="{playheadFraction * 100}%">
 			<span class="track-playhead__flag">{formatClockTime(timeline.time)}</span>
@@ -765,6 +887,35 @@
 		block-size: var(--lane-row-h);
 		border-block-end: 1px solid var(--lane-hairline);
 		position: relative;
+	}
+
+	/* A Motion Beat: a dotted guide through every lane and a draggable flag in
+	   the ruler strip, in the warm marker tone so it never reads as the
+	   playhead. */
+	.track-beat {
+		block-size: 100%;
+		border-inline-start: 1px dashed color-mix(in srgb, #f2b33d 55%, transparent);
+		inline-size: 0;
+		inset-block: 0;
+		pointer-events: none;
+		position: absolute;
+	}
+
+	.track-beat__flag {
+		background: #f2b33d;
+		border: 0;
+		border-radius: 0 3px 3px 0;
+		color: #2a1c02;
+		cursor: ew-resize;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.5rem;
+		font-weight: 700;
+		inset-block-start: 15px;
+		line-height: 1;
+		padding: 2px 4px;
+		pointer-events: auto;
+		position: absolute;
+		white-space: nowrap;
 	}
 
 	.track-playhead {

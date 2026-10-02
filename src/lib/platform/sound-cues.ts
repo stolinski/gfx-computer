@@ -33,7 +33,8 @@ export type SoundCueLayer =
 	| { kind: 'surface' }
 	| { kind: 'marks' }
 	| { kind: 'overlay'; overlayId: string }
-	| { kind: 'block'; blockId: string };
+	| { kind: 'block'; blockId: string }
+	| { kind: 'motion-beat'; beatId: string };
 
 export type DerivedSoundCueEditTarget =
 	| { kind: 'surface-transition'; phase: 'enter' | 'exit' }
@@ -51,7 +52,8 @@ export type DerivedSoundCueEditTarget =
 export type DerivedSoundCueSource =
 	| DerivedSoundCueEditTarget
 	| { kind: 'surface-message-tapback'; messageIndex: number }
-	| { kind: 'overlay-beat'; overlayId: string; beat: 'press' | 'achievement' };
+	| { kind: 'overlay-beat'; overlayId: string; beat: 'press' | 'achievement' }
+	| { kind: 'motion-beat'; beatId: string };
 
 export interface DerivedSoundCue {
 	/** Stable per-motion-beat id, e.g. `surface:enter`, `overlay:badge:exit`, `mark:2`. */
@@ -615,6 +617,29 @@ function derivePlatformPressCues(overlays: EngineState['overlays'], cues: Derive
 // Achievement focal events are intrinsic to each data variant and keyed to
 // the same authored beat as the pixels and timeline clip. Checklist draws,
 // then lands with a restrained click; unlocked emits one compact pop.
+// Motion Beats (ADR-0064) are silent unless the beat asks for a sound: a beat
+// with an event emits one cue at its exact time, welded to the beat through
+// every move.
+function deriveMotionBeatCues(state: EngineState, cues: DerivedSoundCue[]): void {
+	const durationMs = state.transport.durationSeconds * 1000;
+	if (durationMs <= 0) return;
+	for (const beat of state.motionBeats ?? []) {
+		if (!beat.sound?.event) continue;
+		const layer: SoundCueLayer = { kind: 'motion-beat', beatId: beat.id };
+		const cue: DerivedSoundCue = {
+			id: `beat:${beat.id}`,
+			layer,
+			source: { kind: 'motion-beat', beatId: beat.id },
+			editTarget: null,
+			event: beat.sound.event,
+			start: Math.max(0, Math.min(1, beat.atMs / durationMs)),
+			muted: beat.sound.mute === true
+		};
+		if (beat.sound.sample !== undefined) cue.sample = beat.sound.sample;
+		cues.push(cue);
+	}
+}
+
 function deriveAchievementBeatCues(
 	overlays: EngineState['overlays'],
 	durationSeconds: number,
@@ -780,6 +805,7 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	deriveAchievementBeatCues(state.overlays, state.transport.durationSeconds, cues);
 	deriveTextAnimationCues(state.textAnimations, cascadeWindows, cues);
 	deriveChatMessageCues(state.surface, cues);
+	deriveMotionBeatCues(state, cues);
 
 	return cues.sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
 }

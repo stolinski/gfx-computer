@@ -72,6 +72,8 @@
 				return 'Tapback';
 			case 'overlay-beat':
 				return source.beat === 'press' ? 'Press beat' : 'Achievement beat';
+			case 'motion-beat':
+				return `Motion Beat ${source.beatId}`;
 		}
 	}
 

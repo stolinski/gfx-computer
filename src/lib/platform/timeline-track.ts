@@ -91,9 +91,16 @@ export interface TimelineTransition {
 	/**
 	 * Retime one keyframe: the view hands back the marker's dragged ABSOLUTE
 	 * timeline fraction; the writer converts to atMs and clamps between its
-	 * neighbours (strictly ascending stays true through any drag).
+	 * neighbours (strictly ascending stays true through any drag). `beatId`
+	 * names the Motion Beat the drag snapped to, so a Kinetic Word key binds to
+	 * it (ADR-0064); other keys only take its exact time.
 	 */
-	onKeyframeRetime?: (channel: string, index: number, fraction: number) => void;
+	onKeyframeRetime?: (
+		channel: string,
+		index: number,
+		fraction: number,
+		beatId?: string | null
+	) => void;
 	/** Delete one keyframe (Delete/Backspace on the selected diamond). Empties
 	 *  clean up: a drained track is removed, a new first keyframe drops its ease. */
 	onKeyframeDelete?: (channel: string, index: number) => void;

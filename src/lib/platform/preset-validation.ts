@@ -234,7 +234,8 @@ function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[])
 	for (const issue of validateKineticTypeFieldSemantics(
 		preset.state.surface.typeField,
 		preset.state.surface,
-		preset.state.stage !== undefined
+		preset.state.stage !== undefined,
+		preset.state.motionBeats
 	)) {
 		issues.push({
 			path: ['state', 'surface', 'typeField', ...issue.path],

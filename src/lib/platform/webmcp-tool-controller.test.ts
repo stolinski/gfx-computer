@@ -157,6 +157,8 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'diagram-present': false,
 	'kinetic-word-addable': false,
 	'kinetic-word-present': false,
+	'motion-beat-addable': false,
+	'motion-beat-present': false,
 	'chart-present': false,
 	'captions-present': false,
 	'chat-surface-active': false,

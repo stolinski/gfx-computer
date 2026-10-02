@@ -28,7 +28,12 @@ import { parseCompositionSessionStoreConfig } from './public-runtime-contract';
 import { userCompositionStore } from './user-composition-store';
 import { userPackStore } from './user-pack-store';
 
-import { KINETIC_TYPE_WORD_LIMIT, type EngineState, type Preset } from './engine-schema';
+import {
+	KINETIC_TYPE_WORD_LIMIT,
+	MOTION_BEAT_LIMIT,
+	type EngineState,
+	type Preset
+} from './engine-schema';
 import { env } from '$env/dynamic/public';
 
 import type { WebmcpOperationPrecondition } from './webmcp-operation-inventory';
@@ -112,6 +117,8 @@ function closedCompositionPreconditions(): WebmcpCompositionPreconditions {
 		'diagram-present': false,
 		'kinetic-word-addable': false,
 		'kinetic-word-present': false,
+		'motion-beat-addable': false,
+		'motion-beat-present': false,
 		'chart-present': false,
 		'captions-present': false,
 		'chat-surface-active': false,
@@ -159,6 +166,8 @@ export function readWebmcpCompositionPreconditions(): WebmcpCompositionPrecondit
 			state.stage === undefined &&
 			(state.surface.typeField?.words.length ?? 0) < KINETIC_TYPE_WORD_LIMIT,
 		'kinetic-word-present': editable && (state.surface.typeField?.words ?? []).length > 0,
+		'motion-beat-addable': editable && (state.motionBeats?.length ?? 0) < MOTION_BEAT_LIMIT,
+		'motion-beat-present': editable && (state.motionBeats?.length ?? 0) > 0,
 		'chart-present': editable && (state.surface.chart?.items ?? []).length > 0,
 		'captions-present': editable && state.captions !== undefined,
 		'chat-surface-active': editable && surface?.controls.messages === true,

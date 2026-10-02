@@ -32,6 +32,11 @@
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import KeyframesSection from './KeyframesSection.svelte';
+	import { runLandCompositionKineticWordOnBeatOperation } from './composition-motion-beat-operations';
+	import {
+		KINETIC_WORD_BEAT_MOVES,
+		type KineticWordBeatMove
+	} from './kinetic-word-beat-choreography';
 	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 	import { layerSelection } from './selection.svelte';
 	import { parseTimelineTrackId } from './timeline-entity-identity';
@@ -44,6 +49,12 @@
 		engineState.surface.typeField?.words.find((word) => word.id === selectedWordId) ?? null
 	);
 	const typeField = $derived(engineState.surface.typeField ?? null);
+	const beats = $derived(engineState.motionBeats ?? []);
+	let chosenBeatId = $state<string | null>(null);
+	// The chosen beat while it still exists, else the first one.
+	const moveBeatId = $derived(
+		beats.find((beat) => beat.id === chosenBeatId)?.id ?? beats[0]?.id ?? ''
+	);
 	const orientation = $derived(engineState.transport.orientation);
 	// Placement edits land on the active orientation's own placement when it has
 	// one, else on the shared placement (ADR-0039 §4).
@@ -166,6 +177,30 @@
 			typeField.phrases.map((phrase) =>
 				phrase.id === phraseId ? update($state.snapshot(phrase)) : $state.snapshot(phrase)
 			)
+		);
+	}
+
+	// Which beat a phrase reads at is phrase content; none clears it.
+	function setPhraseBeat(phraseId: string, beatId: string): void {
+		updatePhrase(phraseId, (draft) => {
+			const next = { ...draft };
+			if (beatId) next.beatId = beatId;
+			else delete next.beatId;
+			return next;
+		});
+	}
+
+	// The On Beat section copies the dual-speed defaults onto this word as keys
+	// bound to the chosen beat; they stay editable as ordinary keys.
+	function landOnBeat(move: KineticWordBeatMove): void {
+		if (!selectedWord || !moveBeatId) return;
+		void applyOperation(
+			runLandCompositionKineticWordOnBeatOperation({
+				expectedRevision: compositionEditHistory.revision,
+				wordId: selectedWord.id,
+				beatId: moveBeatId,
+				move
+			})
 		);
 	}
 
@@ -343,6 +378,21 @@
 						onchange={(event) => setPhraseWords(phrase, event.currentTarget.value)}
 					/>
 				</Field>
+				{#if beats.length > 0}
+					<Field label="Beat">
+						<select
+							aria-label={`${phrase.id} beat`}
+							value={phrase.beatId ?? ''}
+							disabled={busy}
+							onchange={(event) => setPhraseBeat(phrase.id, event.currentTarget.value)}
+						>
+							<option value="">None</option>
+							{#each beats as beat (beat.id)}
+								<option value={beat.id}>{beat.id} · {beat.atMs} ms</option>
+							{/each}
+						</select>
+					</Field>
+				{/if}
 				<Field label="Focal">
 					<select
 						value={phrase.focalWordId}
@@ -419,6 +469,33 @@
 			</select>
 		</Field>
 	</InspectorSection>
+
+	{#if beats.length > 0}
+		<InspectorSection label="On Beat">
+			<Field label="Beat">
+				<select
+					aria-label="Beat to move on"
+					value={moveBeatId}
+					disabled={busy}
+					onchange={(event) => (chosenBeatId = event.currentTarget.value)}
+				>
+					{#each beats as beat (beat.id)}
+						<option value={beat.id}>{beat.id} · {beat.atMs} ms</option>
+					{/each}
+				</select>
+			</Field>
+			<Field label="Move">
+				{#each KINETIC_WORD_BEAT_MOVES as move (move)}
+					<button
+						class="quiet-action"
+						type="button"
+						disabled={busy}
+						onclick={() => landOnBeat(move)}>{move}</button
+					>
+				{/each}
+			</Field>
+		</InspectorSection>
+	{/if}
 
 	<KeyframesSection
 		selfKey={`block:${selectedWord.id}`}

@@ -187,8 +187,42 @@ export interface Keyframe {
 export const COMPOSITION_KEYFRAME_LIMIT = 24;
 
 function createKeyframeTrackSchema(value: z.ZodType<number>) {
+	return createKeyframeTrackSchemaFor(
+		z.strictObject({ atMs: z.number().min(0), value, ease: EaseSchema.optional() })
+	);
+}
+
+/**
+ * A Kinetic Word key may be bound to a Motion Beat (ADR-0064): `atBeat` names
+ * the beat and `offsetMs` its signed distance from it. The key still carries
+ * its resolved `atMs` (the beat's time plus the offset), so every time
+ * consumer reads one field; validation keeps the three consistent, and moving
+ * a beat moves its bound keys in the same operation.
+ */
+export interface KineticWordKeyframe extends Keyframe {
+	atBeat?: string;
+	offsetMs?: number;
+}
+
+function createKineticWordKeyframeTrackSchema(value: z.ZodType<number>) {
+	return createKeyframeTrackSchemaFor(
+		z
+			.strictObject({
+				atMs: z.number().min(0),
+				value,
+				ease: EaseSchema.optional(),
+				atBeat: z.string().min(1).optional(),
+				offsetMs: z.number().int().optional()
+			})
+			.refine((frame) => (frame.atBeat === undefined) === (frame.offsetMs === undefined), {
+				message: 'A beat-bound keyframe names both atBeat and offsetMs.'
+			})
+	);
+}
+
+function createKeyframeTrackSchemaFor<Frame extends Keyframe>(frame: z.ZodType<Frame>) {
 	return z
-		.array(z.strictObject({ atMs: z.number().min(0), value, ease: EaseSchema.optional() }))
+		.array(frame)
 		.min(1, 'A declared channel needs at least one keyframe.')
 		.max(
 			COMPOSITION_KEYFRAME_LIMIT,
@@ -841,20 +875,20 @@ export const KineticWordGeometrySchema = z.strictObject({
 // weight survive both targets; one complete orientation group may replace the
 // shared spatial path when a tall-frame recomposition needs different motion.
 const KineticWordSpatialChannelKeyframesSchema = z.strictObject({
-	x: createKeyframeTrackSchema(z.number()).optional(),
-	y: createKeyframeTrackSchema(z.number()).optional(),
-	scale: createKeyframeTrackSchema(z.number().min(0.25).max(4)).optional(),
-	rotation: createKeyframeTrackSchema(z.number().min(-180).max(180)).optional()
+	x: createKineticWordKeyframeTrackSchema(z.number()).optional(),
+	y: createKineticWordKeyframeTrackSchema(z.number()).optional(),
+	scale: createKineticWordKeyframeTrackSchema(z.number().min(0.25).max(4)).optional(),
+	rotation: createKineticWordKeyframeTrackSchema(z.number().min(-180).max(180)).optional()
 });
 
 const KineticWordChannelKeyframesSchema = z.strictObject({
-	opacity: createKeyframeTrackSchema(FractionSchema).optional(),
-	reveal: createKeyframeTrackSchema(
+	opacity: createKineticWordKeyframeTrackSchema(FractionSchema).optional(),
+	reveal: createKineticWordKeyframeTrackSchema(
 		z.number().min(-KINETIC_WORD_REVEAL_LIMIT).max(KINETIC_WORD_REVEAL_LIMIT)
 	).optional(),
 	...KineticWordSpatialChannelKeyframesSchema.shape,
-	weight: createKeyframeTrackSchema(FractionSchema).optional(),
-	tracking: createKeyframeTrackSchema(
+	weight: createKineticWordKeyframeTrackSchema(FractionSchema).optional(),
+	tracking: createKineticWordKeyframeTrackSchema(
 		z.number().min(KINETIC_WORD_TRACKING_RANGE.min).max(KINETIC_WORD_TRACKING_RANGE.max)
 	).optional()
 });
@@ -909,8 +943,50 @@ export const KineticWordSchema = z.strictObject({
 const KineticPhraseSchema = z.strictObject({
 	id: z.string().min(1),
 	wordIds: z.array(z.string().min(1)).min(1).max(KINETIC_TYPE_PHRASE_WORD_LIMIT),
-	focalWordId: z.string().min(1)
+	focalWordId: z.string().min(1),
+	// The Motion Beat at which this phrase must read (ADR-0064). Optional so a
+	// field can be authored before its rhythm exists.
+	beatId: z.string().min(1).optional()
 });
+
+// ---- Motion Beats (ADR-0064) ----
+// Named time anchors at exact milliseconds from composition start. They own
+// no animation: Kinetic Word keys may bind to them, phrases read at them, and
+// a beat that asks for a sound emits one cue.
+export const MOTION_BEAT_LIMIT = 8;
+export const MotionBeatIdSchema = z
+	.string()
+	.regex(/^[a-z0-9][a-z0-9-]*$/, 'A Motion Beat id is lowercase letters, digits, and hyphens.')
+	.max(40);
+export const MotionBeatSchema = z.strictObject({
+	id: MotionBeatIdSchema,
+	atMs: z.number().int().min(0),
+	sound: SoundOverrideSchema.optional()
+});
+export type MotionBeat = z.infer<typeof MotionBeatSchema>;
+export const MotionBeatsSchema = z
+	.array(MotionBeatSchema)
+	.max(MOTION_BEAT_LIMIT, `A composition holds at most ${MOTION_BEAT_LIMIT} Motion Beats.`)
+	.superRefine((beats, ctx) => {
+		const ids = new Set<string>();
+		for (const [index, beat] of beats.entries()) {
+			if (ids.has(beat.id)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [index, 'id'],
+					message: `Duplicate Motion Beat id "${beat.id}".`
+				});
+			}
+			ids.add(beat.id);
+			if (index > 0 && beat.atMs <= beats[index - 1].atMs) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [index, 'atMs'],
+					message: `Motion Beats are ordered by strictly ascending atMs (${beat.atMs} follows ${beats[index - 1].atMs}).`
+				});
+			}
+		}
+	});
 
 export const KineticTypeFieldSchema = z
 	.strictObject({
@@ -987,6 +1063,22 @@ export const KINETIC_WORD_SPATIAL_KEYFRAME_CHANNELS: readonly (keyof KineticWord
 export const KINETIC_WORD_KEYFRAME_CHANNELS: readonly (keyof KineticWordChannelKeyframes)[] =
 	Object.keys(KineticWordChannelKeyframesSchema.shape) as (keyof KineticWordChannelKeyframes)[];
 export type KineticWord = z.infer<typeof KineticWordSchema>;
+
+/** Every keyframe track a Kinetic Word carries, with its path under `animation`. */
+export function listKineticWordKeyframeTracks(
+	word: KineticWord
+): { path: (string | number)[]; frames: readonly KineticWordKeyframe[] }[] {
+	const tracks: { path: (string | number)[]; frames: readonly KineticWordKeyframe[] }[] = [];
+	for (const [channel, frames] of Object.entries(word.animation?.channels ?? {})) {
+		if (frames) tracks.push({ path: ['channels', channel], frames });
+	}
+	for (const [orientation, group] of Object.entries(word.animation?.orientationOverrides ?? {})) {
+		for (const [channel, frames] of Object.entries(group ?? {})) {
+			if (frames) tracks.push({ path: ['orientationOverrides', orientation, channel], frames });
+		}
+	}
+	return tracks;
+}
 export type KineticPhrase = z.infer<typeof KineticPhraseSchema>;
 export type KineticTypeField = z.infer<typeof KineticTypeFieldSchema>;
 
@@ -2021,7 +2113,70 @@ export const EngineStateSchema = z
 		// full-frame piece never restates one brand's field hex.
 		backgroundFill: z.union([HexColorSchema, z.literal('pack')]).optional(),
 		stage: StageSchema.optional(),
-		captions: CaptionsSchema.optional()
+		captions: CaptionsSchema.optional(),
+		motionBeats: MotionBeatsSchema.optional()
+	})
+	.superRefine((state, ctx) => {
+		// Motion Beat references (ADR-0064): a phrase reads at a beat that
+		// exists, no two phrases share a beat, and every beat-bound key sits
+		// exactly at its beat plus its offset. Never a dangling reference.
+		const field = state.surface.typeField;
+		if (!field) return;
+		const beats = new Map((state.motionBeats ?? []).map((beat) => [beat.id, beat]));
+		const phraseByBeat = new Map<string, string>();
+		for (const [phraseIndex, phrase] of field.phrases.entries()) {
+			if (phrase.beatId === undefined) continue;
+			const path = ['surface', 'typeField', 'phrases', phraseIndex, 'beatId'];
+			if (!beats.has(phrase.beatId)) {
+				ctx.addIssue({
+					code: 'custom',
+					path,
+					message: `Phrase "${phrase.id}" reads at missing Motion Beat "${phrase.beatId}".`
+				});
+				continue;
+			}
+			const other = phraseByBeat.get(phrase.beatId);
+			if (other) {
+				ctx.addIssue({
+					code: 'custom',
+					path,
+					message: `Phrases "${other}" and "${phrase.id}" both read at Motion Beat "${phrase.beatId}"; one phrase reads per beat.`
+				});
+			}
+			phraseByBeat.set(phrase.beatId, phrase.id);
+		}
+		for (const [wordIndex, word] of field.words.entries()) {
+			for (const { path, frames } of listKineticWordKeyframeTracks(word)) {
+				for (const [frameIndex, frame] of frames.entries()) {
+					if (frame.atBeat === undefined || frame.offsetMs === undefined) continue;
+					const framePath = [
+						'surface',
+						'typeField',
+						'words',
+						wordIndex,
+						'animation',
+						...path,
+						frameIndex
+					];
+					const beat = beats.get(frame.atBeat);
+					if (!beat) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [...framePath, 'atBeat'],
+							message: `Kinetic Word "${word.id}" keyframe is bound to missing Motion Beat "${frame.atBeat}".`
+						});
+						continue;
+					}
+					if (frame.atMs !== beat.atMs + frame.offsetMs) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [...framePath, 'atMs'],
+							message: `Kinetic Word "${word.id}" keyframe bound to Motion Beat "${beat.id}" must sit at ${beat.atMs + frame.offsetMs} ms (beat ${beat.atMs} ms ${frame.offsetMs < 0 ? '−' : '+'} ${Math.abs(frame.offsetMs)} ms), not ${frame.atMs} ms.`
+						});
+					}
+				}
+			}
+		}
 	})
 	.superRefine((state, ctx) => {
 		if (state.media.videoTrack.clips.length === 0) return;

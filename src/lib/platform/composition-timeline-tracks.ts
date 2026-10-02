@@ -19,6 +19,7 @@ import { clampNumber } from '$lib/utils/math';
 import { CHART_MOTION_PHASE_NAMES, CHART_TIMING_EPSILON } from '$lib/utils/chart-motion';
 import { isDarkSurfaceColor } from '$lib/utils/color';
 import { truncateMiddle } from '$lib/utils/string';
+import { setKineticWordKeyframeBeat } from '$lib/utils/motion-beats';
 import {
 	isKineticWordSpatialChannel,
 	resolveKineticWordChannelKeyframes
@@ -41,7 +42,8 @@ import {
 	type DiagramEndpoint,
 	type DiagramPrimitive,
 	type EngineState,
-	type Keyframe
+	type Keyframe,
+	type KineticWordKeyframe
 } from './engine-schema';
 import { resolveStageCameraForOrientation } from './pipelines/depth-stage-camera';
 import { listSurfaceMarkInstances } from './surface-mark-instances';
@@ -266,6 +268,32 @@ function makeKeyframeRetimer(
 	};
 }
 
+/**
+ * The Kinetic Word retimer (ADR-0064): whole milliseconds, and beat-aware. A
+ * key dropped on a Motion Beat binds to it at offset 0; a bound key dragged
+ * elsewhere keeps its beat and takes the new offset.
+ */
+function makeKineticWordKeyframeRetimer(state: EngineState, channels: ChannelTrackMap) {
+	return (channel: string, index: number, fraction: number, beatId?: string | null): void => {
+		const frames = channels[channel] as KineticWordKeyframe[] | undefined;
+		const frame = frames?.[index];
+		if (!frames || !frame) return;
+		const durationMs = state.transport.durationSeconds * 1000;
+		const min = index > 0 ? frames[index - 1].atMs + 1 : 0;
+		const max = index < frames.length - 1 ? frames[index + 1].atMs - 1 : durationMs;
+		frame.atMs = Math.round(clampNumber(fraction * durationMs, min, Math.max(min, max)));
+		const beats = state.motionBeats ?? [];
+		const snapped = beatId ? beats.find((beat) => beat.id === beatId) : undefined;
+		if (snapped && snapped.atMs === frame.atMs) {
+			setKineticWordKeyframeBeat(frame, snapped, 0);
+			return;
+		}
+		const bound = frame.atBeat ? beats.find((beat) => beat.id === frame.atBeat) : undefined;
+		if (bound) frame.offsetMs = frame.atMs - bound.atMs;
+		else setKineticWordKeyframeBeat(frame, null);
+	};
+}
+
 function diagramEndpointName(endpoint: DiagramEndpoint): string {
 	return 'node' in endpoint ? endpoint.node : '•';
 }
@@ -472,7 +500,7 @@ function appendBlockTracks(
 					...(keyframes.length > 0
 						? {
 								keyframes,
-								onKeyframeRetime: makeKeyframeRetimer(state, channels, 0),
+								onKeyframeRetime: makeKineticWordKeyframeRetimer(state, channels),
 								onKeyframeDelete: (channel: string, index: number): void => {
 									const track = channels[channel];
 									if (!track?.[index]) return;

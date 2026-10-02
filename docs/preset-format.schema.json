@@ -6438,6 +6438,15 @@
 																		"ease": {
 																			"type": "string",
 																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		},
+																		"atBeat": {
+																			"type": "string",
+																			"minLength": 1
+																		},
+																		"offsetMs": {
+																			"type": "integer",
+																			"minimum": -9007199254740991,
+																			"maximum": 9007199254740991
 																		}
 																	},
 																	"required": ["atMs", "value"],
@@ -6463,6 +6472,15 @@
 																		"ease": {
 																			"type": "string",
 																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		},
+																		"atBeat": {
+																			"type": "string",
+																			"minLength": 1
+																		},
+																		"offsetMs": {
+																			"type": "integer",
+																			"minimum": -9007199254740991,
+																			"maximum": 9007199254740991
 																		}
 																	},
 																	"required": ["atMs", "value"],
@@ -6486,6 +6504,15 @@
 																		"ease": {
 																			"type": "string",
 																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		},
+																		"atBeat": {
+																			"type": "string",
+																			"minLength": 1
+																		},
+																		"offsetMs": {
+																			"type": "integer",
+																			"minimum": -9007199254740991,
+																			"maximum": 9007199254740991
 																		}
 																	},
 																	"required": ["atMs", "value"],
@@ -6509,6 +6536,15 @@
 																		"ease": {
 																			"type": "string",
 																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		},
+																		"atBeat": {
+																			"type": "string",
+																			"minLength": 1
+																		},
+																		"offsetMs": {
+																			"type": "integer",
+																			"minimum": -9007199254740991,
+																			"maximum": 9007199254740991
 																		}
 																	},
 																	"required": ["atMs", "value"],
@@ -6534,6 +6570,15 @@
 																		"ease": {
 																			"type": "string",
 																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		},
+																		"atBeat": {
+																			"type": "string",
+																			"minLength": 1
+																		},
+																		"offsetMs": {
+																			"type": "integer",
+																			"minimum": -9007199254740991,
+																			"maximum": 9007199254740991
 																		}
 																	},
 																	"required": ["atMs", "value"],
@@ -6559,6 +6604,15 @@
 																		"ease": {
 																			"type": "string",
 																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		},
+																		"atBeat": {
+																			"type": "string",
+																			"minLength": 1
+																		},
+																		"offsetMs": {
+																			"type": "integer",
+																			"minimum": -9007199254740991,
+																			"maximum": 9007199254740991
 																		}
 																	},
 																	"required": ["atMs", "value"],
@@ -6584,6 +6638,15 @@
 																		"ease": {
 																			"type": "string",
 																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		},
+																		"atBeat": {
+																			"type": "string",
+																			"minLength": 1
+																		},
+																		"offsetMs": {
+																			"type": "integer",
+																			"minimum": -9007199254740991,
+																			"maximum": 9007199254740991
 																		}
 																	},
 																	"required": ["atMs", "value"],
@@ -6609,6 +6672,15 @@
 																		"ease": {
 																			"type": "string",
 																			"enum": ["smooth", "settled", "sharp", "bouncy"]
+																		},
+																		"atBeat": {
+																			"type": "string",
+																			"minLength": 1
+																		},
+																		"offsetMs": {
+																			"type": "integer",
+																			"minimum": -9007199254740991,
+																			"maximum": 9007199254740991
 																		}
 																	},
 																	"required": ["atMs", "value"],
@@ -6641,6 +6713,15 @@
 																				"ease": {
 																					"type": "string",
 																					"enum": ["smooth", "settled", "sharp", "bouncy"]
+																				},
+																				"atBeat": {
+																					"type": "string",
+																					"minLength": 1
+																				},
+																				"offsetMs": {
+																					"type": "integer",
+																					"minimum": -9007199254740991,
+																					"maximum": 9007199254740991
 																				}
 																			},
 																			"required": ["atMs", "value"],
@@ -6664,6 +6745,15 @@
 																				"ease": {
 																					"type": "string",
 																					"enum": ["smooth", "settled", "sharp", "bouncy"]
+																				},
+																				"atBeat": {
+																					"type": "string",
+																					"minLength": 1
+																				},
+																				"offsetMs": {
+																					"type": "integer",
+																					"minimum": -9007199254740991,
+																					"maximum": 9007199254740991
 																				}
 																			},
 																			"required": ["atMs", "value"],
@@ -6689,6 +6779,15 @@
 																				"ease": {
 																					"type": "string",
 																					"enum": ["smooth", "settled", "sharp", "bouncy"]
+																				},
+																				"atBeat": {
+																					"type": "string",
+																					"minLength": 1
+																				},
+																				"offsetMs": {
+																					"type": "integer",
+																					"minimum": -9007199254740991,
+																					"maximum": 9007199254740991
 																				}
 																			},
 																			"required": ["atMs", "value"],
@@ -6714,6 +6813,15 @@
 																				"ease": {
 																					"type": "string",
 																					"enum": ["smooth", "settled", "sharp", "bouncy"]
+																				},
+																				"atBeat": {
+																					"type": "string",
+																					"minLength": 1
+																				},
+																				"offsetMs": {
+																					"type": "integer",
+																					"minimum": -9007199254740991,
+																					"maximum": 9007199254740991
 																				}
 																			},
 																			"required": ["atMs", "value"],
@@ -6743,6 +6851,15 @@
 																				"ease": {
 																					"type": "string",
 																					"enum": ["smooth", "settled", "sharp", "bouncy"]
+																				},
+																				"atBeat": {
+																					"type": "string",
+																					"minLength": 1
+																				},
+																				"offsetMs": {
+																					"type": "integer",
+																					"minimum": -9007199254740991,
+																					"maximum": 9007199254740991
 																				}
 																			},
 																			"required": ["atMs", "value"],
@@ -6766,6 +6883,15 @@
 																				"ease": {
 																					"type": "string",
 																					"enum": ["smooth", "settled", "sharp", "bouncy"]
+																				},
+																				"atBeat": {
+																					"type": "string",
+																					"minLength": 1
+																				},
+																				"offsetMs": {
+																					"type": "integer",
+																					"minimum": -9007199254740991,
+																					"maximum": 9007199254740991
 																				}
 																			},
 																			"required": ["atMs", "value"],
@@ -6791,6 +6917,15 @@
 																				"ease": {
 																					"type": "string",
 																					"enum": ["smooth", "settled", "sharp", "bouncy"]
+																				},
+																				"atBeat": {
+																					"type": "string",
+																					"minLength": 1
+																				},
+																				"offsetMs": {
+																					"type": "integer",
+																					"minimum": -9007199254740991,
+																					"maximum": 9007199254740991
 																				}
 																			},
 																			"required": ["atMs", "value"],
@@ -6816,6 +6951,15 @@
 																				"ease": {
 																					"type": "string",
 																					"enum": ["smooth", "settled", "sharp", "bouncy"]
+																				},
+																				"atBeat": {
+																					"type": "string",
+																					"minLength": 1
+																				},
+																				"offsetMs": {
+																					"type": "integer",
+																					"minimum": -9007199254740991,
+																					"maximum": 9007199254740991
 																				}
 																			},
 																			"required": ["atMs", "value"],
@@ -6866,6 +7010,10 @@
 												}
 											},
 											"focalWordId": {
+												"type": "string",
+												"minLength": 1
+											},
+											"beatId": {
 												"type": "string",
 												"minLength": 1
 											}
@@ -8571,6 +8719,56 @@
 					},
 					"required": ["style", "cues"],
 					"additionalProperties": false
+				},
+				"motionBeats": {
+					"maxItems": 8,
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"maxLength": 40,
+								"pattern": "^[a-z0-9][a-z0-9-]*$"
+							},
+							"atMs": {
+								"type": "integer",
+								"minimum": 0,
+								"maximum": 9007199254740991
+							},
+							"sound": {
+								"type": "object",
+								"properties": {
+									"mute": {
+										"type": "boolean"
+									},
+									"event": {
+										"type": "string",
+										"enum": [
+											"whoosh-in",
+											"whoosh-out",
+											"impact",
+											"tick",
+											"click",
+											"pop",
+											"send",
+											"swipe",
+											"scratch",
+											"draw",
+											"sub-drop",
+											"sting"
+										]
+									},
+									"sample": {
+										"type": "string",
+										"minLength": 1
+									}
+								}
+							}
+						},
+						"required": ["id", "atMs"],
+						"additionalProperties": false
+					}
 				}
 			},
 			"required": ["transport", "typography", "marks", "surface"],

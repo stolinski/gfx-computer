@@ -42,6 +42,7 @@ import {
 	type Keyframe,
 	type KineticWord,
 	type KineticWordAnimation,
+	type KineticWordKeyframe,
 	type KineticWordSpatialChannelKeyframes,
 	type Overlay,
 	type OverlayAnimation,
@@ -135,8 +136,24 @@ export interface SetCompositionKeyframeChannelRequest {
 	channel: string;
 	/** Kinetic Word spatial tracks may replace the shared group per orientation. */
 	scope?: CompositionKeyframeChannelScope;
-	/** Ordered keyframes, in ms from the element's resolved clip start. */
-	keyframes: readonly Keyframe[];
+	/**
+	 * Ordered keyframes, in ms from the element's resolved clip start. A Kinetic
+	 * Word key may name `atBeat` (with `offsetMs`) instead of `atMs`.
+	 */
+	keyframes: readonly KeyframeChannelInput[];
+}
+
+/**
+ * One requested keyframe. `atMs` is required unless `atBeat` binds the key to a
+ * Motion Beat (Kinetic Words only), in which case it resolves to the beat's
+ * time plus `offsetMs`.
+ */
+export interface KeyframeChannelInput {
+	atMs?: number;
+	value: number;
+	ease?: Keyframe['ease'];
+	atBeat?: string;
+	offsetMs?: number;
 }
 
 export interface ClearCompositionKeyframeChannelRequest {
@@ -460,6 +477,87 @@ function scopedKeyframeTrack(
 	return channels?.[channel];
 }
 
+/**
+ * Turn requested keys into stored keys (ADR-0064). Beat-bound keys resolve
+ * their time from the beat. A Kinetic Word key sent without a beat keeps the
+ * beat the existing key at the same time was bound to, so editing a value
+ * never silently unbinds it.
+ */
+function resolveKeyframeChannelInput(
+	row: WebmcpOperationRow,
+	state: EngineState,
+	owner: CompositionKeyframeOwner,
+	existing: readonly KineticWordKeyframe[] | undefined,
+	inputs: readonly KeyframeChannelInput[]
+): { frames: KineticWordKeyframe[] } | CompositionOperationFailure {
+	const beats = new Map((state.motionBeats ?? []).map((beat) => [beat.id, beat]));
+	const frames: KineticWordKeyframe[] = [];
+	for (const input of inputs) {
+		if (input.atBeat !== undefined) {
+			if (owner.kind !== 'kinetic-word') {
+				return refuseCompositionOperation(
+					row,
+					compositionEditHistory.revision,
+					'invalid_argument',
+					'Only Kinetic Word keyframes bind to Motion Beats; send atMs for this element.',
+					{ rejected: input.atBeat }
+				);
+			}
+			const beat = beats.get(input.atBeat);
+			if (!beat) {
+				return refuseCompositionOperation(
+					row,
+					compositionEditHistory.revision,
+					'unknown_target',
+					`This composition has no Motion Beat "${input.atBeat}".`,
+					{ rejected: input.atBeat, alternatives: [...beats.keys()] }
+				);
+			}
+			const offsetMs = input.offsetMs ?? 0;
+			if (input.atMs !== undefined && input.atMs !== beat.atMs + offsetMs) {
+				return refuseCompositionOperation(
+					row,
+					compositionEditHistory.revision,
+					'invalid_argument',
+					`A key bound to Motion Beat "${beat.id}" at offset ${offsetMs} ms sits at ${beat.atMs + offsetMs} ms, not ${input.atMs} ms; send atBeat and offsetMs alone.`,
+					{ rejected: String(input.atMs) }
+				);
+			}
+			frames.push({
+				atMs: beat.atMs + offsetMs,
+				value: input.value,
+				...(input.ease ? { ease: input.ease } : {}),
+				atBeat: beat.id,
+				offsetMs
+			});
+			continue;
+		}
+		if (input.atMs === undefined) {
+			return refuseCompositionOperation(
+				row,
+				compositionEditHistory.revision,
+				'invalid_argument',
+				'Every keyframe needs atMs, or atBeat for a Kinetic Word key bound to a Motion Beat.'
+			);
+		}
+		const frame: KineticWordKeyframe = {
+			atMs: input.atMs,
+			value: input.value,
+			...(input.ease ? { ease: input.ease } : {})
+		};
+		const bound =
+			owner.kind === 'kinetic-word'
+				? existing?.find((candidate) => candidate.atMs === input.atMs && candidate.atBeat)
+				: undefined;
+		if (bound?.atBeat !== undefined && beats.has(bound.atBeat)) {
+			frame.atBeat = bound.atBeat;
+			frame.offsetMs = bound.offsetMs;
+		}
+		frames.push(frame);
+	}
+	return { frames };
+}
+
 /** The refusal for a channel subject the composition does not hold. */
 function refuseMissingKeyframeSubject(
 	row: WebmcpOperationRow,
@@ -634,6 +732,14 @@ export async function runSetCompositionKeyframeChannelOperation(
 			{ rejected: request.channel, alternatives: ['motion.clear-keyframe-channel'] }
 		);
 	}
+	const resolved = resolveKeyframeChannelInput(
+		row,
+		state,
+		owner,
+		scopedKeyframeTrack(owner, request.channel, scope),
+		request.keyframes
+	);
+	if ('status' in resolved) return resolved;
 
 	return runCompositionEditTransaction({
 		operationId: row.id,
@@ -647,7 +753,7 @@ export async function runSetCompositionKeyframeChannelOperation(
 				!writeElementMotion(
 					draft.state,
 					request.subject,
-					withKeyframeChannel(current, request.channel, scope, request.keyframes)
+					withKeyframeChannel(current, request.channel, scope, resolved.frames)
 				)
 			) {
 				throw new CompositionOperationError(

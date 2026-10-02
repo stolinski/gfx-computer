@@ -1,153 +1,145 @@
 {
-  "schemaVersion": 1,
-  "generatedAt": "2026-10-01T22:16:21.367Z",
-  "probe": "webmcp-agent-eval",
-  "origin": "http://localhost:7366",
-  "release": "gfx@effect-rows-eval",
-  "harness": {
-    "browser": "Chrome/154.0.8037.58",
-    "protocolVersion": "1.3",
-    "modelContext": true,
-    "modelContextMembers": [
-      "constructor",
-      "executeTool",
-      "getTools",
-      "ontoolchange",
-      "registerTool"
-    ],
-    "secureContext": true,
-    "canvasDrawElement": true,
-    "exposureRefusal": null
-  },
-  "toolSchemaDigest": "ed3885fd12e2b0666406e41029a73076886461c9d1bfc78f187ac56c36fa374d",
-  "inventory": {
-    "rows": 96,
-    "agentTools": 94,
-    "agentContext": ["capability.prepare-authoring-family"],
-    "internalOnly": [
-      "verification.render-frame",
-      "verification.inspect-readable-text"
-    ]
-  },
-  "coldPage": {
-    "registered": [
-      "gfx_capability_inspect_limits",
-      "gfx_capability_inspect_vocabulary",
-      "gfx_composition_create_blank",
-      "gfx_composition_create_from_starter",
-      "gfx_composition_import_json",
-      "gfx_composition_open",
-      "gfx_session_clear",
-      "gfx_session_delete_composition",
-      "gfx_session_inspect"
-    ],
-    "ceiling": 9
-  },
-  "openComposition": {
-    "slug": "untitled-2",
-    "coreRegistered": [
-      "gfx_capability_inspect_limits",
-      "gfx_capability_inspect_vocabulary",
-      "gfx_capability_prepare_family",
-      "gfx_composition_create_blank",
-      "gfx_composition_create_from_starter",
-      "gfx_composition_export_json",
-      "gfx_composition_import_json",
-      "gfx_composition_inspect",
-      "gfx_composition_open",
-      "gfx_composition_set_identity",
-      "gfx_playhead_inspect",
-      "gfx_playhead_seek_frame",
-      "gfx_session_clear",
-      "gfx_session_delete_composition",
-      "gfx_session_inspect"
-    ],
-    "coreCeiling": 20,
-    "disclosedCeiling": 35,
-    "familyRegisteredCounts": {
-      "transport": 19,
-      "layer": 24,
-      "content": 19,
-      "transportAgain": 20
-    },
-    "verificationToolsRegistered": []
-  },
-  "calls": {
-    "vocabularyMembers": [
-      "lower-third",
-      "washi-tape",
-      "watermark",
-      "shader-fill",
-      "cursor-trail",
-      "counter",
-      "dimensional-type",
-      "instance-stack",
-      "text-3d",
-      "tweet-stack",
-      "youtube-subscribe",
-      "instagram-follow",
-      "achievement",
-      "source-url"
-    ],
-    "staleWriteCode": "stale_revision",
-    "appliedRevision": 1,
-    "nestedContentRevision": 3,
-    "reversibleFamilyRegistration": true,
-    "exportedCharacterCount": 1017,
-    "contentTrust": { "inspect": "untrusted", "exportJson": "untrusted" }
-  },
-  "framedDocument": {
-    "frameRefusedByPolicy": false,
-    "framedContextExposed": true,
-    "toolsOwnedByFrame": [],
-    "toolsOwnedByTopDocument": 20
-  },
-  "renderlessBrowser": {
-    "harness": {
-      "browser": "Chrome/154.0.8037.58",
-      "protocolVersion": "1.3",
-      "modelContext": true,
-      "modelContextMembers": [
-        "constructor",
-        "executeTool",
-        "getTools",
-        "ontoolchange",
-        "registerTool"
-      ],
-      "secureContext": true,
-      "canvasDrawElement": false,
-      "exposureRefusal": null
-    },
-    "capabilityGateShown": true,
-    "coldPageRegistered": [
-      "gfx_capability_inspect_limits",
-      "gfx_capability_inspect_vocabulary",
-      "gfx_composition_create_blank",
-      "gfx_composition_create_from_starter",
-      "gfx_composition_import_json",
-      "gfx_composition_open",
-      "gfx_session_clear",
-      "gfx_session_delete_composition",
-      "gfx_session_inspect"
-    ],
-    "openCoreRegistered": [
-      "gfx_capability_inspect_limits",
-      "gfx_capability_inspect_vocabulary",
-      "gfx_capability_prepare_family",
-      "gfx_composition_create_blank",
-      "gfx_composition_create_from_starter",
-      "gfx_composition_export_json",
-      "gfx_composition_import_json",
-      "gfx_composition_inspect",
-      "gfx_composition_open",
-      "gfx_composition_set_identity",
-      "gfx_playhead_inspect",
-      "gfx_playhead_seek_frame",
-      "gfx_session_clear",
-      "gfx_session_delete_composition",
-      "gfx_session_inspect"
-    ],
-    "inspectRevision": 0
-  },
-  "failures": []
+	"schemaVersion": 1,
+	"generatedAt": "2026-10-02T18:24:44.475Z",
+	"probe": "webmcp-agent-eval",
+	"origin": "http://localhost:7263",
+	"release": "gfx@4c364a47e799516e61881f5c09fffab6d8d67966",
+	"harness": {
+		"browser": "Chrome/154.0.8037.58",
+		"protocolVersion": "1.3",
+		"modelContext": true,
+		"modelContextMembers": [
+			"constructor",
+			"executeTool",
+			"getTools",
+			"ontoolchange",
+			"registerTool"
+		],
+		"secureContext": true,
+		"canvasDrawElement": true,
+		"exposureRefusal": null
+	},
+	"toolSchemaDigest": "3419c67f2fe0f1c6b8bd1a44ba8d2b5e2a29d61d2c28b472672925308a6f2375",
+	"inventory": {
+		"rows": 102,
+		"agentTools": 100,
+		"agentContext": ["capability.prepare-authoring-family"],
+		"internalOnly": ["verification.render-frame", "verification.inspect-readable-text"]
+	},
+	"coldPage": {
+		"registered": [
+			"gfx_capability_inspect_limits",
+			"gfx_capability_inspect_vocabulary",
+			"gfx_composition_create_blank",
+			"gfx_composition_create_from_starter",
+			"gfx_composition_import_json",
+			"gfx_composition_open",
+			"gfx_session_clear",
+			"gfx_session_delete_composition",
+			"gfx_session_inspect"
+		],
+		"ceiling": 9
+	},
+	"openComposition": {
+		"slug": "untitled-3",
+		"coreRegistered": [
+			"gfx_capability_inspect_limits",
+			"gfx_capability_inspect_vocabulary",
+			"gfx_capability_prepare_family",
+			"gfx_composition_create_blank",
+			"gfx_composition_create_from_starter",
+			"gfx_composition_export_json",
+			"gfx_composition_import_json",
+			"gfx_composition_inspect",
+			"gfx_composition_open",
+			"gfx_composition_set_identity",
+			"gfx_playhead_inspect",
+			"gfx_playhead_seek_frame",
+			"gfx_session_clear",
+			"gfx_session_delete_composition",
+			"gfx_session_inspect"
+		],
+		"coreCeiling": 20,
+		"disclosedCeiling": 35,
+		"familyRegisteredCounts": { "transport": 19, "layer": 24, "content": 19, "transportAgain": 20 },
+		"verificationToolsRegistered": []
+	},
+	"calls": {
+		"vocabularyMembers": [
+			"lower-third",
+			"washi-tape",
+			"watermark",
+			"shader-fill",
+			"cursor-trail",
+			"counter",
+			"dimensional-type",
+			"instance-stack",
+			"text-3d",
+			"tweet-stack",
+			"youtube-subscribe",
+			"instagram-follow",
+			"achievement",
+			"source-url"
+		],
+		"staleWriteCode": "stale_revision",
+		"appliedRevision": 1,
+		"nestedContentRevision": 3,
+		"reversibleFamilyRegistration": true,
+		"exportedCharacterCount": 1017,
+		"contentTrust": { "inspect": "untrusted", "exportJson": "untrusted" }
+	},
+	"framedDocument": {
+		"frameRefusedByPolicy": false,
+		"framedContextExposed": true,
+		"toolsOwnedByFrame": [],
+		"toolsOwnedByTopDocument": 20
+	},
+	"renderlessBrowser": {
+		"harness": {
+			"browser": "Chrome/154.0.8037.93",
+			"protocolVersion": "1.3",
+			"modelContext": true,
+			"modelContextMembers": [
+				"constructor",
+				"executeTool",
+				"getTools",
+				"ontoolchange",
+				"registerTool"
+			],
+			"secureContext": true,
+			"canvasDrawElement": false,
+			"exposureRefusal": null
+		},
+		"capabilityGateShown": true,
+		"coldPageRegistered": [
+			"gfx_capability_inspect_limits",
+			"gfx_capability_inspect_vocabulary",
+			"gfx_composition_create_blank",
+			"gfx_composition_create_from_starter",
+			"gfx_composition_import_json",
+			"gfx_composition_open",
+			"gfx_session_clear",
+			"gfx_session_delete_composition",
+			"gfx_session_inspect"
+		],
+		"openCoreRegistered": [
+			"gfx_capability_inspect_limits",
+			"gfx_capability_inspect_vocabulary",
+			"gfx_capability_prepare_family",
+			"gfx_composition_create_blank",
+			"gfx_composition_create_from_starter",
+			"gfx_composition_export_json",
+			"gfx_composition_import_json",
+			"gfx_composition_inspect",
+			"gfx_composition_open",
+			"gfx_composition_set_identity",
+			"gfx_playhead_inspect",
+			"gfx_playhead_seek_frame",
+			"gfx_session_clear",
+			"gfx_session_delete_composition",
+			"gfx_session_inspect"
+		],
+		"inspectRevision": 0
+	},
+	"failures": []
 }

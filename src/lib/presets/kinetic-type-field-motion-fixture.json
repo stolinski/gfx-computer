@@ -70,12 +70,16 @@
 									{
 										"atMs": 5600,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "out",
+										"offsetMs": 100
 									},
 									{
 										"atMs": 5860,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "out",
+										"offsetMs": 360
 									}
 								],
 								"weight": [
@@ -86,57 +90,79 @@
 									{
 										"atMs": 560,
 										"value": 0.15,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": -140
 									},
 									{
 										"atMs": 700,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "open",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 820,
 										"value": 1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": 120
 									},
 									{
 										"atMs": 1200,
 										"value": 0.62,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": 500
 									},
 									{
 										"atMs": 1940,
 										"value": 0.62,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "swap",
+										"offsetMs": -60
 									},
 									{
 										"atMs": 2000,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "swap",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 2400,
 										"value": 0.62,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "swap",
+										"offsetMs": 400
 									},
 									{
 										"atMs": 3190,
 										"value": 0.62,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": -60
 									},
 									{
 										"atMs": 3250,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 3350,
 										"value": 1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 100
 									},
 									{
 										"atMs": 3900,
 										"value": 0.15,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -60
 									}
 								],
 								"tracking": [
@@ -152,7 +178,9 @@
 									{
 										"atMs": 700,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": 0
 									}
 								]
 							}
@@ -196,12 +224,16 @@
 									{
 										"atMs": 3520,
 										"value": 1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 270
 									},
 									{
 										"atMs": 3540,
 										"value": 0,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 290
 									}
 								],
 								"reveal": [
@@ -212,22 +244,30 @@
 									{
 										"atMs": 700,
 										"value": -1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 920,
 										"value": 0,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "open",
+										"offsetMs": 220
 									},
 									{
 										"atMs": 3250,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 3450,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 200
 									}
 								],
 								"weight": [
@@ -277,12 +317,16 @@
 									{
 										"atMs": 2380,
 										"value": 1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "swap",
+										"offsetMs": 380
 									},
 									{
 										"atMs": 2400,
 										"value": 0,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "swap",
+										"offsetMs": 400
 									}
 								],
 								"reveal": [
@@ -293,22 +337,30 @@
 									{
 										"atMs": 760,
 										"value": -1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": -440
 									},
 									{
 										"atMs": 1200,
 										"value": 0,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "move",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 2000,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "swap",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 2260,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "swap",
+										"offsetMs": 260
 									}
 								],
 								"weight": [
@@ -319,17 +371,23 @@
 									{
 										"atMs": 1100,
 										"value": 0.4,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": -100
 									},
 									{
 										"atMs": 1200,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "move",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 1600,
 										"value": 0.72,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": 400
 									}
 								],
 								"tracking": [
@@ -340,12 +398,16 @@
 									{
 										"atMs": 760,
 										"value": 0.12,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": -440
 									},
 									{
 										"atMs": 1300,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": 100
 									}
 								]
 							}
@@ -389,22 +451,30 @@
 									{
 										"atMs": 2080,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": -460
 									},
 									{
 										"atMs": 2100,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "become",
+										"offsetMs": -440
 									},
 									{
 										"atMs": 3680,
 										"value": 1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 430
 									},
 									{
 										"atMs": 3700,
 										"value": 0,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 450
 									}
 								],
 								"reveal": [
@@ -415,22 +485,30 @@
 									{
 										"atMs": 2100,
 										"value": -1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": -440
 									},
 									{
 										"atMs": 2540,
 										"value": 0,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "become",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 3250,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 3510,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 260
 									}
 								],
 								"weight": [
@@ -441,17 +519,23 @@
 									{
 										"atMs": 2440,
 										"value": 0.4,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": -100
 									},
 									{
 										"atMs": 2540,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "become",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 2940,
 										"value": 0.72,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": 400
 									}
 								],
 								"tracking": [
@@ -462,12 +546,16 @@
 									{
 										"atMs": 2100,
 										"value": 0.12,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": -440
 									},
 									{
 										"atMs": 2640,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": 100
 									}
 								]
 							}
@@ -511,12 +599,16 @@
 									{
 										"atMs": 3340,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -620
 									},
 									{
 										"atMs": 3360,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -600
 									}
 								],
 								"reveal": [
@@ -527,22 +619,30 @@
 									{
 										"atMs": 3360,
 										"value": -1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -600
 									},
 									{
 										"atMs": 3560,
 										"value": 0,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -400
 									},
 									{
 										"atMs": 5520,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "out",
+										"offsetMs": 20
 									},
 									{
 										"atMs": 5700,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "out",
+										"offsetMs": 200
 									}
 								],
 								"weight": [
@@ -592,12 +692,16 @@
 									{
 										"atMs": 3400,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -560
 									},
 									{
 										"atMs": 3420,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -540
 									}
 								],
 								"reveal": [
@@ -608,22 +712,30 @@
 									{
 										"atMs": 3420,
 										"value": -1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -540
 									},
 									{
 										"atMs": 3620,
 										"value": 0,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -340
 									},
 									{
 										"atMs": 5520,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "out",
+										"offsetMs": 20
 									},
 									{
 										"atMs": 5700,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "out",
+										"offsetMs": 200
 									}
 								],
 								"weight": [
@@ -673,12 +785,16 @@
 									{
 										"atMs": 3440,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -520
 									},
 									{
 										"atMs": 3460,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -500
 									}
 								],
 								"reveal": [
@@ -689,22 +805,30 @@
 									{
 										"atMs": 3460,
 										"value": -1,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -500
 									},
 									{
 										"atMs": 3960,
 										"value": 0,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 5500,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "out",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 5760,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "out",
+										"offsetMs": 260
 									}
 								],
 								"weight": [
@@ -715,17 +839,23 @@
 									{
 										"atMs": 3860,
 										"value": 0.4,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -100
 									},
 									{
 										"atMs": 3960,
 										"value": 1,
-										"ease": "sharp"
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": 0
 									},
 									{
 										"atMs": 4460,
 										"value": 0.85,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": 500
 									}
 								],
 								"tracking": [
@@ -736,12 +866,16 @@
 									{
 										"atMs": 3460,
 										"value": 0.05,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -500
 									},
 									{
 										"atMs": 4260,
 										"value": 0,
-										"ease": "smooth"
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": 300
 									}
 								]
 							}
@@ -756,17 +890,20 @@
 					{
 						"id": "type-can-move",
 						"wordIds": ["type", "can", "move"],
-						"focalWordId": "move"
+						"focalWordId": "move",
+						"beatId": "move"
 					},
 					{
 						"id": "type-can-become",
 						"wordIds": ["type", "can", "become"],
-						"focalWordId": "become"
+						"focalWordId": "become",
+						"beatId": "become"
 					},
 					{
 						"id": "type-is-the-composition",
 						"wordIds": ["type", "is", "the", "composition"],
-						"focalWordId": "composition"
+						"focalWordId": "composition",
+						"beatId": "composition"
 					}
 				]
 			}
@@ -774,6 +911,36 @@
 		"textAnimations": [],
 		"overlays": [],
 		"effects": [],
-		"audioCues": []
+		"audioCues": [],
+		"motionBeats": [
+			{
+				"id": "open",
+				"atMs": 700
+			},
+			{
+				"id": "move",
+				"atMs": 1200
+			},
+			{
+				"id": "swap",
+				"atMs": 2000
+			},
+			{
+				"id": "become",
+				"atMs": 2540
+			},
+			{
+				"id": "turn",
+				"atMs": 3250
+			},
+			{
+				"id": "composition",
+				"atMs": 3960
+			},
+			{
+				"id": "out",
+				"atMs": 5500
+			}
+		]
 	}
 }

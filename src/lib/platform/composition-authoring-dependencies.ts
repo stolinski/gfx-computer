@@ -144,6 +144,7 @@ export function trackCompositionAuthoringDependencies(state: EngineState, packSl
 	void state.backgroundFill;
 	void JSON.stringify(state.media);
 	if (state.captions) void JSON.stringify(state.captions);
+	if (state.motionBeats) void JSON.stringify(state.motionBeats);
 
 	// Stage camera, focus, pull, backdrop asset, and contrast all affect a live frame.
 	// Deep-reading also makes future registered Stage fields reactive by default.

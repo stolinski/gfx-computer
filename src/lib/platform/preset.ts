@@ -291,6 +291,8 @@ export function applyCompositionState(preset: Preset): void {
 	// Captions track (creator blocks): pure JSON (style knobs + ms cues), so
 	// structuredClone deep-copies every field without the hand-enumeration trap.
 	engineState.captions = next.captions ? cloneJsonValue(next.captions) : undefined;
+	// Motion Beats (ADR-0064): pure JSON time anchors.
+	engineState.motionBeats = next.motionBeats ? cloneJsonValue(next.motionBeats) : undefined;
 }
 
 /**

@@ -213,7 +213,7 @@ One per-glyph delay and one order (`forward`, `reverse`, `center`) on a Kinetic 
 _Avoid_: SplitText span, glyph node, text particle, animated label.
 
 **Motion Beat**:
-A named, bounded composition-time anchor at an exact millisecond. Tracks may address it with an offset and phrases may claim it as their readable moment, but the Beat owns no motion and does not replace authored keyframes.
+A named, bounded composition-time anchor at an exact millisecond (`state.motionBeats`, at most 8). Kinetic Word keys may bind to it with an offset and move when it moves, one phrase may claim it as its readable moment, and it may ask for one sound cue; the Beat owns no motion and does not replace authored keyframes.
 _Avoid_: marker (reserved for Resolve edit markers), cue (reserved for audio), scene, automatic timing.
 
 ### Pack model
