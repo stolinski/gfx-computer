@@ -560,11 +560,16 @@ A time-coded caption track (creator blocks, 2026-07-09). Cues carry **absolute m
                          // 0.8 horizontal, 0.75 vertical (C5's vertical band —
                          // clear of the platform expanded-description occlusion)
   "scale": 0.25..4,      // optional size multiplier; absent → 1
+  "orientationOverrides": {             // optional, ADR-0039 §4
+    "vertical": { "y": 0.66, "scale": 1.2 }  // a complete band for that orientation
+  },
   "cues": [
     { "id": "cue-1", "startMs": 400, "endMs": 1900, "text": "Here's the thing" }
   ]
 }
 ```
+
+An orientation snapshot carries both `y` and `scale` and replaces the shared band as one unit while that orientation is active, so the band can sit low in the wide frame and above platform chrome in the tall one. The Captions inspector's Position section authors it through **Customize horizontal / vertical**: turning it on copies the band that orientation shows now, and turning it off deletes the snapshot.
 
 Parse-time rules: cue ids unique; every cue must end after it starts. Cue enter/exit are hard cuts (broadcast-faithful); there are no per-cue transitions. The timeline shows one **Captions rail** — each cue is a draggable clip (move retimes, trim adjusts start/end in ms).
 

@@ -1,4 +1,8 @@
 <script lang="ts">
+	import {
+		DEFAULT_CAPTIONS_BAND_Y,
+		resolveCaptionsBandPlacement
+	} from '$lib/utils/captions-band-placement';
 	import { animState } from './anim-state.svelte';
 	import { engineState, packState } from './engine-state.svelte';
 	import { getPack } from './packs/registry';
@@ -36,14 +40,15 @@
 	const readable = $derived(resolveCaptionReadableText(captions, currentMs));
 
 	const accent = $derived(captions?.accent ?? '#ffd608');
-	// Orientation-aware band default: vertical platforms occlude the bottom
-	// ~21% (expanded-description state), so the C5 vertical position band is
-	// 22–34% from the bottom — 0.8 would sit under it. Horizontal keeps 0.8
-	// (inside C5's horizontal 15–25% band).
-	const bandY = $derived(
-		captions?.y ?? (engineState.transport.orientation === 'vertical' ? 0.75 : 0.8)
+	// The band for the active orientation: its snapshot, else the shared values,
+	// else the orientation-aware default. Vertical platforms occlude the bottom
+	// ~21% (expanded-description state), so the C5 vertical band is 22–34% from
+	// the bottom and 0.8 would sit under it; horizontal keeps 0.8.
+	const band = $derived(
+		captions ? resolveCaptionsBandPlacement(captions, engineState.transport.orientation) : null
 	);
-	const scale = $derived(captions?.scale ?? 1);
+	const bandY = $derived(band?.y ?? DEFAULT_CAPTIONS_BAND_Y[engineState.transport.orientation]);
+	const scale = $derived(band?.scale ?? 1);
 
 	// Word-pop entrance: the word lands with a fast eased pop over its first
 	// 120 ms — derived from the clock, resting at exactly 1 (capture-safe: the

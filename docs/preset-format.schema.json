@@ -7955,6 +7955,46 @@
 							"minimum": 0.25,
 							"maximum": 4
 						},
+						"orientationOverrides": {
+							"type": "object",
+							"properties": {
+								"horizontal": {
+									"type": "object",
+									"properties": {
+										"y": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										},
+										"scale": {
+											"type": "number",
+											"minimum": 0.25,
+											"maximum": 4
+										}
+									},
+									"required": ["y", "scale"],
+									"additionalProperties": false
+								},
+								"vertical": {
+									"type": "object",
+									"properties": {
+										"y": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										},
+										"scale": {
+											"type": "number",
+											"minimum": 0.25,
+											"maximum": 4
+										}
+									},
+									"required": ["y", "scale"],
+									"additionalProperties": false
+								}
+							},
+							"additionalProperties": false
+						},
 						"cues": {
 							"type": "array",
 							"items": {

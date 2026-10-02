@@ -57,7 +57,7 @@ export const captionsIdentity: IdentitySpec = {
 			definition:
 				'A centred caption band whose vertical position and scale are composition data; the band clears platform-UI safe zones in both orientations.',
 			implementation:
-				'src/lib/platform/CaptionsMount.svelte — band centre from captions.y (fraction), scale multiplier, max-inline-size 78%; topmost (above overlays) in flat and split render paths.',
+				'src/lib/platform/CaptionsMount.svelte — band centre and scale from the active orientation snapshot, else captions.y / captions.scale (resolveCaptionsBandPlacement), max-inline-size 78%; topmost (above overlays) in flat and split render paths.',
 			probe: {
 				kind: 'named-observation',
 				region: 'the caption band in horizontal and vertical demos',

@@ -35,7 +35,9 @@ import {
 	DIAGRAM_NODE_FORMS,
 	DIAGRAM_STAT_FORMATS,
 	SOUND_EVENTS,
+	CAPTIONS_BAND_PLACEMENT_FIELDS,
 	type Captions,
+	type CaptionsBandPlacement,
 	type CaptionCue,
 	type KineticPhrase,
 	type Ease,
@@ -290,6 +292,39 @@ function readChecklistEntries(args: unknown): readonly ChecklistContentEntry[] {
 	}));
 }
 
+function captionsBandPlacementProperty(description: string): WebmcpSchemaProperty {
+	return {
+		type: 'object',
+		description,
+		properties: {
+			y: {
+				type: 'number',
+				description: 'The band centre as a fraction of frame height.',
+				minimum: 0,
+				maximum: 1
+			},
+			scale: {
+				type: 'number',
+				description: 'A size multiplier on the style natural scale.',
+				minimum: 0.25,
+				maximum: 4
+			}
+		},
+		required: CAPTIONS_BAND_PLACEMENT_FIELDS,
+		additionalProperties: false
+	};
+}
+
+function readCaptionsBandPlacement(
+	overrides: Record<string, unknown> | undefined,
+	orientation: 'horizontal' | 'vertical'
+): CaptionsBandPlacement | undefined {
+	const band = overrides ? readWebmcpOptionalRecordArgument(overrides, orientation) : undefined;
+	return band
+		? { y: readWebmcpNumberArgument(band, 'y'), scale: readWebmcpNumberArgument(band, 'scale') }
+		: undefined;
+}
+
 function captionsProperty(): WebmcpSchemaProperty {
 	return {
 		type: 'object',
@@ -313,6 +348,16 @@ function captionsProperty(): WebmcpSchemaProperty {
 				description: 'A size multiplier on the style natural scale.',
 				minimum: 0.25,
 				maximum: 4
+			},
+			orientationOverrides: {
+				type: 'object',
+				description:
+					'A complete band per orientation that replaces the shared y and scale while that orientation is active.',
+				properties: {
+					horizontal: captionsBandPlacementProperty('The band in the wide frame.'),
+					vertical: captionsBandPlacementProperty('The band in the tall frame.')
+				},
+				additionalProperties: false
 			},
 			cues: {
 				type: 'array',
@@ -344,13 +389,18 @@ function readCaptions(args: unknown): Captions {
 		endMs: readWebmcpNumberArgument(cue, 'endMs'),
 		text: readWebmcpStringArgument(cue, 'text')
 	}));
-	return {
+	const read: Captions = {
 		style: readWebmcpLiteralArgument(captions, 'style', CAPTION_STYLES),
 		accent: readWebmcpOptionalStringArgument(captions, 'accent'),
 		y: readWebmcpOptionalNumberArgument(captions, 'y'),
 		scale: readWebmcpOptionalNumberArgument(captions, 'scale'),
 		cues
 	};
+	const overrides = readWebmcpOptionalRecordArgument(captions, 'orientationOverrides');
+	const horizontal = readCaptionsBandPlacement(overrides, 'horizontal');
+	const vertical = readCaptionsBandPlacement(overrides, 'vertical');
+	if (horizontal || vertical) read.orientationOverrides = { horizontal, vertical };
+	return read;
 }
 
 /**

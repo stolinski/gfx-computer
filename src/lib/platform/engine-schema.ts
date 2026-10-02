@@ -1885,6 +1885,19 @@ const CaptionCueSchema = z.strictObject({
 });
 export type CaptionCue = z.infer<typeof CaptionCueSchema>;
 
+// One orientation's caption band (ADR-0039 §4): a complete snapshot that
+// replaces the shared `y` / `scale` while that orientation is active, so the
+// band can sit low in the wide frame and above platform chrome in the tall one.
+const CaptionsBandPlacementSchema = z.strictObject({
+	y: FractionSchema,
+	scale: z.number().min(0.25).max(4)
+});
+export type CaptionsBandPlacement = z.infer<typeof CaptionsBandPlacementSchema>;
+/** The fields an orientation caption band declares together, read off its schema. */
+export const CAPTIONS_BAND_PLACEMENT_FIELDS: readonly (keyof CaptionsBandPlacement)[] = Object.keys(
+	CaptionsBandPlacementSchema.shape
+) as (keyof CaptionsBandPlacement)[];
+
 const CaptionsSchema = z.strictObject({
 	style: z.enum(['karaoke', 'word-pop', 'pack']),
 	// Active-word accent (karaoke pill / word-pop ink). Absent → the style's
@@ -1896,6 +1909,12 @@ const CaptionsSchema = z.strictObject({
 	y: FractionSchema.optional(),
 	// Size multiplier on the style's natural scale. Absent → 1.
 	scale: z.number().min(0.25).max(4).optional(),
+	orientationOverrides: z
+		.strictObject({
+			horizontal: CaptionsBandPlacementSchema.optional(),
+			vertical: CaptionsBandPlacementSchema.optional()
+		})
+		.optional(),
 	cues: z.array(CaptionCueSchema).superRefine((cues, ctx) => {
 		const ids = new Set<string>();
 		for (let i = 0; i < cues.length; i += 1) {

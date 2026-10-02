@@ -2,6 +2,8 @@
 	import { engineState } from './engine-state.svelte';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
+	import { resolveCaptionsBandPlacement } from '$lib/utils/captions-band-placement';
 	import { cuesToSrt, parseSrt } from '$lib/utils/srt';
 
 	// Captions inspector: the style knobs plus the SRT editor — the GUI lane
@@ -12,6 +14,9 @@
 	// (draggable clips); this panel owns text and style.
 
 	const captions = $derived(engineState.captions ?? null);
+	const orientation = $derived(engineState.transport.orientation);
+	const band = $derived(captions ? resolveCaptionsBandPlacement(captions, orientation) : null);
+	const customized = $derived(captions?.orientationOverrides?.[orientation] !== undefined);
 
 	let srtError = $state<string | null>(null);
 
@@ -35,11 +40,31 @@
 		captions.accent = value;
 	}
 
+	// Edits land on the active orientation's snapshot when it has one, else on
+	// the shared band.
 	function setFraction(key: 'y' | 'scale', raw: string, min: number, max: number): void {
 		if (!captions) return;
 		const n = Number(raw);
 		if (!Number.isFinite(n)) return;
-		captions[key] = Math.max(min, Math.min(max, n));
+		const target = captions.orientationOverrides?.[orientation] ?? captions;
+		target[key] = Math.max(min, Math.min(max, n));
+	}
+
+	// Customizing copies the band this orientation resolves to; un-customizing
+	// deletes the snapshot and returns the orientation to the shared band.
+	function toggleOrientationCustomization(checked: boolean): void {
+		if (!captions || !band) return;
+		if (checked) {
+			captions.orientationOverrides = {
+				...captions.orientationOverrides,
+				[orientation]: { y: band.y, scale: band.scale }
+			};
+			return;
+		}
+		const overrides = captions.orientationOverrides;
+		if (!overrides) return;
+		delete overrides[orientation];
+		if (!overrides.horizontal && !overrides.vertical) captions.orientationOverrides = undefined;
 	}
 </script>
 
@@ -61,13 +86,23 @@
 				/>
 			</Field>
 		{/if}
+	</InspectorSection>
+
+	<InspectorSection label="Position">
+		{#snippet action()}
+			<InspectorToggle
+				checked={customized}
+				label={`Customize ${orientation}`}
+				onchange={toggleOrientationCustomization}
+			/>
+		{/snippet}
 		<Field label="Band Y">
 			<input
 				type="number"
 				min="0"
 				max="1"
 				step="any"
-				value={captions.y ?? 0.8}
+				value={band?.y}
 				oninput={(e) => setFraction('y', (e.currentTarget as HTMLInputElement).value, 0, 1)}
 			/>
 		</Field>
@@ -77,7 +112,7 @@
 				min="0.25"
 				max="4"
 				step="any"
-				value={captions.scale ?? 1}
+				value={band?.scale}
 				oninput={(e) => setFraction('scale', (e.currentTarget as HTMLInputElement).value, 0.25, 4)}
 			/>
 		</Field>
@@ -89,8 +124,7 @@
 			rows="12"
 			spellcheck="false"
 			value={cuesToSrt(captions.cues)}
-			onchange={(e) => applySrt((e.currentTarget as HTMLTextAreaElement).value)}
-		></textarea>
+			onchange={(e) => applySrt((e.currentTarget as HTMLTextAreaElement).value)}></textarea>
 		{#if srtError}
 			<p class="captions-srt__error">{srtError}</p>
 		{/if}

@@ -1216,7 +1216,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'content',
 		toolName: 'gfx_content_set_captions',
 		summary:
-			'Write the caption track: its style, accent, band position, scale, and the timed cues themselves.',
+			'Write the caption track: its style, accent, band position and scale (shared or per orientation), and the timed cues themselves.',
 		effect: 'write',
 		writes: ['/state/captions'],
 		precondition: 'composition-editable',

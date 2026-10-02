@@ -398,6 +398,34 @@ describe('captions', () => {
 		expect(failure.alternatives).toEqual(['karaoke', 'word-pop', 'pack']);
 	});
 
+	it('writes a per-orientation band and refuses an incomplete one', async () => {
+		expectApplied(
+			await runSetCompositionCaptionsOperation({
+				expectedRevision: 0,
+				captions: {
+					style: 'karaoke',
+					y: 0.82,
+					orientationOverrides: { vertical: { y: 0.66, scale: 1.3 } },
+					cues: [{ id: 'cue-1', startMs: 400, endMs: 1800, text: 'the first line' }]
+				}
+			})
+		);
+		expect(engineState.captions?.orientationOverrides?.vertical).toEqual({ y: 0.66, scale: 1.3 });
+
+		const incomplete = expectFailed(
+			await runSetCompositionCaptionsOperation({
+				expectedRevision: 1,
+				captions: {
+					style: 'karaoke',
+					orientationOverrides: { vertical: { y: 0.66 } as { y: number; scale: number } },
+					cues: []
+				}
+			})
+		);
+		expect(incomplete.code).toBe('schema_invalid');
+		expect(engineState.captions?.orientationOverrides?.vertical?.scale).toBe(1.3);
+	});
+
 	it('refuses clearing a caption track the composition never had', async () => {
 		const failure = expectFailed(
 			await runClearCompositionCaptionsOperation({ expectedRevision: 0 })
