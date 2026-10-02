@@ -4,6 +4,11 @@ import { describe, it } from 'vitest';
 import { z } from 'zod';
 
 import { listNumericLeafPaths } from '$lib/utils/zod-numeric-leaves';
+import {
+	DEFAULT_REFRACTIVE_LENS_REGION,
+	packAspectPreservingOpticalRegion,
+	type NormalizedOpticalRegion
+} from '$lib/utils/optical-geometry';
 
 import {
 	listEffectKeyframeChannels,
@@ -22,7 +27,9 @@ function numericParamPaths(schema: unknown): string[] {
 	assert.ok(schema instanceof z.ZodType);
 	return listNumericLeafPaths(schema)
 		.map((leaf) => leaf.path)
-		.filter((path) => path.startsWith('params.'))
+		.filter(
+			(path) => path.startsWith('params.') && !path.startsWith('params.orientationOverrides.')
+		)
 		.map((path) => path.slice('params.'.length));
 }
 
@@ -169,9 +176,12 @@ describe('resolveEffectParamsWithChannelValues', () => {
 	it('fills schema defaults, sets driven paths, and rounds integer channels', () => {
 		const pixelation = PIPELINE_DEFINITION_REGISTRY.effects.pixelation;
 		assert.deepEqual(
-			resolveEffectParamsWithChannelValues(effectEntry('pixelation', {}, undefined), pixelation, {
-				pixelSize: 31.6
-			}),
+			resolveEffectParamsWithChannelValues(
+				effectEntry('pixelation', {}, undefined),
+				pixelation,
+				{ pixelSize: 31.6 },
+				'horizontal'
+			),
 			{ pixelSize: 32 }
 		);
 
@@ -180,7 +190,8 @@ describe('resolveEffectParamsWithChannelValues', () => {
 		const resolved = resolveEffectParamsWithChannelValues(
 			effectEntry('frosted-glass', authored, undefined),
 			frost,
-			{ 'region.x': 0.35, seed: 9 }
+			{ 'region.x': 0.35, seed: 9 },
+			'horizontal'
 		) as { coverage: number; region: { x: number; y: number }; seed: number };
 		assert.equal(resolved.region.x, 0.35);
 		assert.equal(resolved.region.y, 0.2);
@@ -188,5 +199,59 @@ describe('resolveEffectParamsWithChannelValues', () => {
 		// A frozen param is never driven, even if a value arrives for it.
 		assert.equal(resolved.seed, 4107);
 		assert.equal(authored.region.x, 0.1, 'the authored params are not mutated');
+	});
+});
+
+describe('per-orientation optical params (ADR-0039 §4, ADR-0063 §11)', () => {
+	const lens = PIPELINE_DEFINITION_REGISTRY.effects.refractiveLens;
+	const params = {
+		region: { x: 0.1, y: 0.3, width: 0.28, height: 0.4 },
+		orientationOverrides: { vertical: { region: { x: 0.2, y: 0.5, width: 0.6, height: 0.3 } } }
+	};
+
+	it('never lists snapshot leaves as keyframe channels', () => {
+		const channels = listEffectKeyframeChannels(lens).map((channel) => channel.path);
+		assert.ok(channels.includes('region.x'));
+		assert.ok(!channels.some((path) => path.startsWith('orientationOverrides')));
+	});
+
+	it('replaces the region as one static unit in its orientation and keeps region channels shared', () => {
+		const effect = effectEntry('refractive-lens', params, undefined);
+		const vertical = resolveEffectParamsWithChannelValues(
+			effect,
+			lens,
+			{ 'region.x': 0.36, magnification: 1.5 },
+			'vertical'
+		) as { region: NormalizedOpticalRegion; magnification: number };
+		// Authored in the tall frame's own fractions, it lands there after the
+		// renderer's canonical conversion.
+		const packed = packAspectPreservingOpticalRegion(
+			vertical.region as NormalizedOpticalRegion,
+			DEFAULT_REFRACTIVE_LENS_REGION,
+			{ width: 2160, height: 3840 }
+		);
+		const authored = params.orientationOverrides.vertical.region;
+		[authored.x, authored.y, authored.width, authored.height].forEach((value, index) =>
+			assert.ok(Math.abs(packed[index] - value) < 1e-9, `component ${index}`)
+		);
+		assert.equal(vertical.magnification, 1.5, 'channels outside the snapshot still drive');
+
+		const horizontal = resolveEffectParamsWithChannelValues(
+			effect,
+			lens,
+			{ 'region.x': 0.36 },
+			'horizontal'
+		) as { region: { x: number; y: number } };
+		assert.equal(horizontal.region.x, 0.36);
+		assert.equal(horizontal.region.y, 0.3);
+	});
+
+	it('rejects an incomplete snapshot region', () => {
+		const result = lens.schema.safeParse({
+			type: 'refractive-lens',
+			id: 'lens',
+			params: { orientationOverrides: { vertical: { region: { x: 0.2, y: 0.5 } } } }
+		});
+		assert.equal(result.success, false);
 	});
 });

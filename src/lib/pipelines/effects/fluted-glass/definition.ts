@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { EffectPipelineDefinition } from '$lib/platform/pipelines/definition-types';
+import { createOrientationParamOverridesSchema } from '$lib/utils/optical-geometry';
 
 // Ported to WGSL from @paper-design/shaders `fluted-glass`
 // (https://github.com/paper-design/shaders, Apache-2.0, © Lost Coast Labs, Inc.).
@@ -46,6 +47,15 @@ const FlutedGlassParamsSchema = z.object({
 	marginRight: z.number().min(0).max(1).default(0),
 	marginTop: z.number().min(0).max(1).default(0),
 	marginBottom: z.number().min(0).max(1).default(0),
+	// The four margins scoping the pane, set anew for one orientation (ADR-0039 §4).
+	orientationOverrides: createOrientationParamOverridesSchema(
+		z.strictObject({
+			marginLeft: z.number().min(0).max(1),
+			marginRight: z.number().min(0).max(1),
+			marginTop: z.number().min(0).max(1),
+			marginBottom: z.number().min(0).max(1)
+		})
+	),
 	colorShadow: z.string().regex(HEX_COLOR_PATTERN).default('#1a1a1a'),
 	colorHighlight: z.string().regex(HEX_COLOR_PATTERN).default('#ffffff')
 });
@@ -62,6 +72,7 @@ export const flutedGlassEffectDefinition = {
 	type: 'fluted-glass',
 	label: 'Fluted glass',
 	schema: FlutedGlassEffectSchema,
+	orientationParams: ['marginLeft', 'marginRight', 'marginTop', 'marginBottom'],
 	defaults: () => ({
 		params: {
 			shape: 'lines',

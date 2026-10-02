@@ -21,7 +21,10 @@ import {
 	type ResolvedMaterialTreatment
 } from './packs/resolve';
 import { getEffectDefinition, getSurfaceDefinition } from './pipelines/definition-registry';
-import { resolveEffectParamsWithChannelValues } from './effect-keyframe-channels';
+import {
+	readEffectOrientationSnapshot,
+	resolveEffectParamsWithChannelValues
+} from './effect-keyframe-channels';
 import type { OverlayChannelValues } from './anim-state.svelte';
 import { resolveOverlayStageBodies } from './stage-body-overlays';
 import type { StageTypefaceData } from './stage-glyph-format';
@@ -400,14 +403,20 @@ export function resolveFrameEffectChannelState(
 	state: EngineState,
 	effectChannels: CompositionFrameRenderRequest['effectChannels']
 ): EngineState {
-	if (!effectChannels || Object.keys(effectChannels).length === 0) return state;
+	const orientation = state.transport.orientation;
 	let changed = false;
 	const effects = state.effects.map((effect) => {
-		const values = effectChannels[effect.id];
-		const definition = values ? getEffectDefinition(effect.type) : null;
-		if (!values || !definition) return effect;
+		const values = effectChannels?.[effect.id];
+		const definition = getEffectDefinition(effect.type);
+		if (!definition) return effect;
+		// An orientation snapshot (ADR-0039 §4) resolves even when nothing is keyframed.
+		const snapshot = readEffectOrientationSnapshot(effect.params, definition, orientation);
+		if (!values && !snapshot) return effect;
 		changed = true;
-		return { ...effect, params: resolveEffectParamsWithChannelValues(effect, definition, values) };
+		return {
+			...effect,
+			params: resolveEffectParamsWithChannelValues(effect, definition, values ?? {}, orientation)
+		};
 	});
 	return changed ? { ...state, effects } : state;
 }

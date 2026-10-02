@@ -16,6 +16,7 @@
 	} from './composition-keyframe-cascade-operations';
 	import {
 		describeEffectNumericParam,
+		readEffectOrientationSnapshot,
 		resolveEffectParamsWithDefaults
 	} from './effect-keyframe-channels';
 	import type { Effect, Keyframe } from './engine-schema';
@@ -43,7 +44,20 @@
 	const definition = $derived(getEffectDefinition(effect.type));
 	const param = $derived(definition ? describeEffectNumericParam(definition, path) : null);
 	const authored = $derived(engineState.effects.find((entry) => entry.id === effect.id) ?? null);
-	const keyframeable = $derived(authored !== null && param !== null && !param.frozen);
+	const orientation = $derived(engineState.transport.orientation);
+	// The active orientation's snapshot (ADR-0039 §4), when it replaces this
+	// param: a static value there, so the row edits it and offers no ◆.
+	const snapshot = $derived(
+		authored && definition
+			? readEffectOrientationSnapshot(authored.params, definition, orientation)
+			: null
+	);
+	const snapshotOwned = $derived(
+		snapshot !== null && (definition?.orientationParams ?? []).includes(path.split('.')[0])
+	);
+	const keyframeable = $derived(
+		authored !== null && param !== null && !param.frozen && !snapshotOwned
+	);
 	const track = $derived.by((): Keyframe[] | undefined => {
 		const frames = keyframeable ? authored?.animation?.channels?.[path] : undefined;
 		return frames && frames.length > 0 ? frames : undefined;
@@ -67,7 +81,11 @@
 	}
 
 	const staticValue = $derived(
-		readNumber(effect.params) ?? readNumber(definition?.defaults().params) ?? param?.min ?? 0
+		(snapshotOwned ? readNumber(snapshot) : undefined) ??
+			readNumber(effect.params) ??
+			readNumber(definition?.defaults().params) ??
+			param?.min ??
+			0
 	);
 	// The manifest's value at the playhead: a declared track, or sugar the
 	// Effect's own timing fields expand into (frosted glass's grow and melt).
@@ -123,6 +141,22 @@
 	}
 
 	function writeStatic(next: number): void {
+		if (authored && snapshotOwned && snapshot) {
+			const params = $state.snapshot(authored.params) as Record<string, unknown>;
+			const overrides = params.orientationOverrides as Record<string, unknown>;
+			overrides[orientation] = withDottedPathNumbers(
+				$state.snapshot(snapshot) as Record<string, unknown>,
+				{ [path]: next }
+			);
+			void runOperation(() =>
+				runSetCompositionEffectParamsOperation({
+					expectedRevision: compositionEditHistory.revision,
+					effectId: authored.id,
+					params
+				})
+			);
+			return;
+		}
 		if (authored) {
 			const params = withDottedPathNumbers(
 				paramsForWrite($state.snapshot(authored.params) as Record<string, unknown>),

@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { packState, removeEffect } from './engine-state.svelte';
+	import { engineState, packState, removeEffect } from './engine-state.svelte';
+	import { runSetCompositionEffectParamsOperation } from './composition-appearance-operations';
+	import { compositionEditHistory } from './composition-edit-history';
+	import { resolveEffectParamsWithDefaults } from './effect-keyframe-channels';
+	import InspectorToggle from './InspectorToggle.svelte';
+	import { cloneJsonValue } from '$lib/utils/json-clone';
+	import { isRecord } from '$lib/utils/object';
 	import type { Effect } from './engine-schema';
 	import { getPack } from './packs/registry';
 	import { getEffectDefinition } from './pipelines/definition-registry';
@@ -16,6 +22,38 @@
 	const definition = $derived(getEffectDefinition(effect.type));
 	const renderer = $derived(pipelineRendererRuntime.current().effects.get(effect.type) ?? null);
 	const packInert = $derived(definition?.isPackInert?.(getPack(packState.slug)) ?? false);
+	const orientation = $derived(engineState.transport.orientation);
+	const orientationOverrides = $derived(
+		isRecord(effect.params) && isRecord(effect.params.orientationOverrides)
+			? effect.params.orientationOverrides
+			: undefined
+	);
+	const customized = $derived(orientationOverrides?.[orientation] !== undefined);
+
+	// Customizing copies the params this orientation renders with now (ADR-0039
+	// §4); un-customizing deletes the snapshot and returns to the shared params.
+	function toggleOrientationCustomization(checked: boolean): void {
+		if (!definition?.orientationParams?.length) return;
+		const params = { ...($state.snapshot(effect.params) as Record<string, unknown>) };
+		const overrides: Record<string, unknown> = { ...orientationOverrides };
+		if (checked) {
+			const defaulted = resolveEffectParamsWithDefaults(effect, definition);
+			const snapshot: Record<string, unknown> = {};
+			for (const key of definition.orientationParams) {
+				snapshot[key] = isRecord(defaulted) ? cloneJsonValue(defaulted[key]) : undefined;
+			}
+			overrides[orientation] = snapshot;
+		} else {
+			delete overrides[orientation];
+		}
+		if (Object.keys(overrides).length > 0) params.orientationOverrides = overrides;
+		else delete params.orientationOverrides;
+		void runSetCompositionEffectParamsOperation({
+			expectedRevision: compositionEditHistory.revision,
+			effectId: effect.id,
+			params
+		});
+	}
 </script>
 
 {#if renderer && definition}
@@ -28,6 +66,13 @@
 		<span class="layer-row__label">{definition.label}</span>
 		{#if packInert}
 			<span class="layer-row__pack-tag">pack · off</span>
+		{/if}
+		{#if definition.orientationParams?.length && !packInert}
+			<InspectorToggle
+				checked={customized}
+				label={`Customize ${orientation}`}
+				onchange={toggleOrientationCustomization}
+			/>
 		{/if}
 		<button
 			type="button"

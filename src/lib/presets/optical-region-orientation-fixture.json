@@ -1,0 +1,130 @@
+{
+	"schema": "supers@1",
+	"kind": "fixture",
+	"name": "Optical regions per orientation — engine fixture",
+	"description": "ADR-0039 §4 verification fixture. The clear lens and the frost pane sit side by side across the quote in the wide frame and stack over its upper and lower lines in the tall one: each Effect's params carry a complete vertical region in the tall frame's own fractions. The shared regions, the melt, and the grow ramp are unchanged, so the only difference between orientations is where each pane sits.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#0a0807",
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#2a2018",
+			"inkColor": "#fdf6ec"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "pullquote-on-photo",
+			"content": {
+				"title": "The image stays present while the material changes how it can be seen.",
+				"author": "OPTICAL STUDY — CLEAR / FROST",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.95,
+				"duration": 0.04,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			}
+		},
+		"overlays": [],
+		"effects": [
+			{
+				"type": "refractive-lens",
+				"id": "clear-photo-lens",
+				"params": {
+					"shape": "rounded-rect",
+					"region": {
+						"x": 0.14,
+						"y": 0.2,
+						"width": 0.3,
+						"height": 0.58
+					},
+					"magnification": 1.18,
+					"thickness": 0.5,
+					"refraction": 0.34,
+					"roughness": 0.05,
+					"dispersion": 0.08,
+					"reflection": 0.2,
+					"rimLight": 0.32,
+					"tint": "#dbeafe",
+					"tintStrength": 0.04,
+					"edgeFlatness": 0.52,
+					"bevel": 0.28,
+					"orientationOverrides": {
+						"vertical": {
+							"region": {
+								"x": 0.08,
+								"y": 0.33,
+								"width": 0.84,
+								"height": 0.13
+							}
+						}
+					}
+				}
+			},
+			{
+				"type": "frosted-glass",
+				"id": "frost-photo-pane",
+				"params": {
+					"region": {
+						"x": 0.56,
+						"y": 0.2,
+						"width": 0.3,
+						"height": 0.58
+					},
+					"coverage": 0.92,
+					"contrast": 0.16,
+					"roughness": 0.76,
+					"haze": 0.72,
+					"refraction": 0.14,
+					"detailScale": 0.9,
+					"tint": "#e8f1f5",
+					"tintStrength": 0.24,
+					"highlight": 0.08,
+					"seed": 4107,
+					"growFrom": 0.18,
+					"growTo": 0.3,
+					"melt": {
+						"center": {
+							"x": 0.5,
+							"y": 0.52
+						},
+						"radius": 0.3,
+						"softness": 0.07,
+						"from": 0.52,
+						"to": 0.74
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"region": {
+								"x": 0.08,
+								"y": 0.47,
+								"width": 0.84,
+								"height": 0.13
+							}
+						}
+					}
+				}
+			}
+		]
+	}
+}

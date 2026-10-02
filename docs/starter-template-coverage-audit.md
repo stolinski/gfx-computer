@@ -6,7 +6,7 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **109 Presets** — **45 listed** and **64 fixtures**.
+- Corpus: **110 Presets** — **45 listed** and **65 fixtures**.
 - Structurally distinct Starter candidates: **45**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
@@ -111,6 +111,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `ntsc-signal-demo`                              | Effect proof         | NTSC signal                        | Keep fixture | Isolated Effect proof.                                                |
 | `optical-glass-photo-fixture`                   | Effect proof         | Optical glass over photo           | Keep fixture | Isolated Effect proof.                                                |
 | `optical-lens-showcase`                         | Effect proof         | Refractive-lens composition        | Keep fixture | Effect study, not a durable creator job.                              |
+| `optical-region-orientation-fixture`            | Effect proof         | Optical regions per orientation    | Keep fixture | Engine contract proof (ADR-0039 §4).                                  |
 | `pixelation-demo`                               | Effect proof         | Clean pixelation                   | Keep fixture | Isolated Effect proof.                                                |
 | `quote-vertical`                                | Reflow proof         | Vertical paper quote               | Keep fixture | Historical orientation proof, not a sibling Starter.                  |
 | `shader-fill-demo`                              | Overlay proof        | Shader fill                        | Keep fixture | Isolated Overlay proof.                                               |

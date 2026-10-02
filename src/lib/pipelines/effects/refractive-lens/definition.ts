@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import {
+	CompleteOpticalRegionSchema,
+	createOrientationParamOverridesSchema,
+	resolveOpticalRegionSnapshot,
 	DEFAULT_REFRACTIVE_LENS_REGION,
 	NormalizedOpticalRegionSchema,
 	OpticalShapeSchema
@@ -21,7 +24,11 @@ const RefractiveLensParamsSchema = z.object({
 	tint: z.string().regex(HEX_COLOR_PATTERN).default('#dbeafe'),
 	tintStrength: z.number().min(0).max(1).default(0.08),
 	edgeFlatness: z.number().min(0).max(1).default(0.45),
-	bevel: z.number().min(0.02).max(1).default(0.28)
+	bevel: z.number().min(0.02).max(1).default(0.28),
+	// The lens placed anew for one orientation (ADR-0039 §4).
+	orientationOverrides: createOrientationParamOverridesSchema(
+		z.strictObject({ region: CompleteOpticalRegionSchema })
+	)
 });
 
 export type RefractiveLensParams = z.infer<typeof RefractiveLensParamsSchema>;
@@ -36,6 +43,8 @@ export const refractiveLensEffectDefinition = {
 	type: 'refractive-lens',
 	label: 'Refractive lens',
 	schema: RefractiveLensEffectSchema,
+	orientationParams: ['region'],
+	resolveOrientationSnapshot: resolveOpticalRegionSnapshot,
 	defaults: () => ({
 		params: {
 			shape: 'rounded-rect',

@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import {
+	CompleteOpticalRegionSchema,
+	createOrientationParamOverridesSchema,
+	resolveOpticalRegionSnapshot,
 	DEFAULT_FROSTED_GLASS_REGION,
 	NormalizedOpticalRegionSchema
 } from '$lib/utils/optical-geometry';
@@ -44,7 +47,11 @@ const FrostedGlassParamsSchema = z
 		growTo: z.number().min(0).max(1).default(0.08),
 		/** How far the frost has grown across the pane, 0..1. `growFrom` / `growTo` drive it unless a channel takes the pen. */
 		growth: z.number().min(0).max(1).default(1),
-		melt: FrostMeltSchema.optional()
+		melt: FrostMeltSchema.optional(),
+		// The pane placed anew for one orientation (ADR-0039 §4).
+		orientationOverrides: createOrientationParamOverridesSchema(
+			z.strictObject({ region: CompleteOpticalRegionSchema })
+		)
 	})
 	.refine((params) => params.growTo > params.growFrom, {
 		message: 'Frost growth `growTo` must be greater than `growFrom`.'
@@ -70,6 +77,8 @@ export const frostedGlassEffectDefinition = {
 	type: 'frosted-glass',
 	label: 'Frosted glass',
 	schema: FrostedGlassEffectSchema,
+	orientationParams: ['region'],
+	resolveOrientationSnapshot: resolveOpticalRegionSnapshot,
 	// The seed offsets the frost noise hash (ADR-0063 §3).
 	frozenParams: ['seed'],
 	// The grow and melt ramps are sugar over the `growth` and `melt.progress`

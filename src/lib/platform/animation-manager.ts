@@ -41,6 +41,11 @@ export class AnimationManager {
 
 		if (nextFingerprint === this.#fingerprint && this.#timeline) {
 			this.#liveTweens = manifest.tweens.slice();
+			// The manifest re-seeds every live slot (first keyframe values) on each
+			// build, and a later `progress()` to the same position renders nothing.
+			// Force a render at the current position so the slots hold the values
+			// the playhead shows, not the seeds.
+			this.#timeline.render(this.#timeline.totalTime(), false, true);
 			return;
 		}
 

@@ -384,6 +384,13 @@
 		"height": 360,
 		"contentFraction": 0.472
 	},
+	"optical-region-orientation-fixture": {
+		"contentKey": "9d1ef4760c35f790",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.8773
+	},
 	"outro-watch-next": {
 		"contentKey": "4293753ce916157a",
 		"timestampSeconds": 4,

@@ -8,6 +8,7 @@
 import { z } from 'zod';
 
 import { isRecord, withDottedPathNumbers } from '$lib/utils/object';
+import { getVideoFrameSize } from '$lib/utils/video-frame';
 import { listNumericLeafPaths, type ZodNumericLeaf } from '$lib/utils/zod-numeric-leaves';
 
 import type { Effect, Keyframe } from './engine-schema';
@@ -43,6 +44,8 @@ export interface EffectNumericParamDescription extends EffectKeyframeChannel {
 // An Effect Pipeline declares the schema of its whole entry (`{ type, id,
 // params }`), so the params leaves are the ones under this prefix.
 const EFFECT_PARAMS_PATH_PREFIX = 'params.';
+// Per-orientation snapshots (ADR-0039 §4) are static params, never channels.
+const ORIENTATION_OVERRIDES_PARAM = 'orientationOverrides';
 
 const effectParamLeavesByDefinition = new WeakMap<EffectPipelineDefinition, EffectParamLeaves>();
 
@@ -61,6 +64,7 @@ function readEffectParamLeaves(definition: EffectPipelineDefinition): EffectPara
 	for (const leaf of listNumericLeafPaths(definition.schema)) {
 		if (!leaf.path.startsWith(EFFECT_PARAMS_PATH_PREFIX)) continue;
 		const path = leaf.path.slice(EFFECT_PARAMS_PATH_PREFIX.length);
+		if (path.split('.')[0] === ORIENTATION_OVERRIDES_PARAM) continue;
 		numeric.set(path, { ...leaf, path });
 		if (!frozen.has(path)) channels.set(path, { ...leaf, path });
 	}
@@ -136,24 +140,47 @@ function findMissingParamParent(params: unknown, channelPath: string): string | 
 	return null;
 }
 
+/** The active orientation's complete snapshot of the Effect's `orientationParams`, if it has one. */
+export function readEffectOrientationSnapshot(
+	params: unknown,
+	definition: EffectPipelineDefinition,
+	orientation: 'horizontal' | 'vertical'
+): Record<string, unknown> | null {
+	if (!definition.orientationParams?.length || !isRecord(params)) return null;
+	const overrides = params[ORIENTATION_OVERRIDES_PARAM];
+	const snapshot = isRecord(overrides) ? overrides[orientation] : undefined;
+	return isRecord(snapshot) ? snapshot : null;
+}
+
 /**
- * The params one frame renders with (ADR-0063 §5): the authored params with
- * schema defaults filled in, and each driven channel set at its dotted path.
- * Integer channels round here, at sample time. `values` comes from the
- * animation manifest; this function never samples a track itself.
+ * The params one frame renders with (ADR-0063 §5, §11): the authored params
+ * with schema defaults filled in, the active orientation's snapshot replacing
+ * its `orientationParams` as one unit, and each driven channel set at its
+ * dotted path. A snapshot is static, so channels on the params it replaces do
+ * not apply in that orientation. Integer channels round here, at sample time.
+ * `values` comes from the animation manifest; this function never samples a
+ * track itself.
  */
 export function resolveEffectParamsWithChannelValues(
 	effect: Pick<Effect, 'type' | 'id' | 'params'>,
 	definition: EffectPipelineDefinition,
-	values: Readonly<Record<string, number>>
+	values: Readonly<Record<string, number>>,
+	orientation: 'horizontal' | 'vertical'
 ): unknown {
-	const base = resolveEffectParamsWithDefaults(effect, definition);
-	if (!isRecord(base)) return effect.params;
+	const defaulted = resolveEffectParamsWithDefaults(effect, definition);
+	if (!isRecord(defaulted)) return effect.params;
+	const snapshot = readEffectOrientationSnapshot(defaulted, definition, orientation);
+	const applied =
+		snapshot && definition.resolveOrientationSnapshot
+			? definition.resolveOrientationSnapshot(snapshot, getVideoFrameSize(orientation))
+			: snapshot;
+	const base = applied ? { ...defaulted, ...applied } : defaulted;
+	const replaced = new Set(snapshot ? Object.keys(snapshot) : []);
 	const { channels } = readEffectParamLeaves(definition);
 	const driven: Record<string, number> = {};
 	for (const [path, value] of Object.entries(values)) {
 		const leaf = channels.get(path);
-		if (!leaf) continue;
+		if (!leaf || replaced.has(path.split('.')[0])) continue;
 		driven[path] = leaf.isInteger ? Math.round(value) : value;
 	}
 	return withDottedPathNumbers(base, driven);

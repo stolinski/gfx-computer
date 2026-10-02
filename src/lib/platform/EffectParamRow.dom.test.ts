@@ -95,4 +95,37 @@ describe('EffectParamRow', () => {
 
 		expect(screen.getByRole('button', { name: 'Add Radius keyframe at playhead' })).toBeTruthy();
 	});
+
+	it('edits the active orientation snapshot as a plain row, leaving the shared region alone', async () => {
+		openWithEffects([
+			{
+				type: 'refractive-lens',
+				id: 'lens',
+				params: {
+					region: { x: 0.1, y: 0.3, width: 0.28, height: 0.4 },
+					orientationOverrides: {
+						vertical: { region: { x: 0.2, y: 0.5, width: 0.6, height: 0.3 } }
+					}
+				}
+			}
+		]);
+		engineState.transport.orientation = 'vertical';
+		render(EffectParamRow, { effect: engineState.effects[0], path: 'region.x', label: 'Region x' });
+
+		const input = screen.getByRole('spinbutton', { name: 'Region x value at playhead' });
+		expect((input as HTMLInputElement).value).toBe('0.2');
+		expect(screen.queryByRole('button', { name: 'Add Region x keyframe at playhead' })).toBeNull();
+
+		await fireEvent.change(input, { target: { value: '0.25' } });
+		await waitFor(() =>
+			expect(
+				(
+					engineState.effects[0].params as {
+						orientationOverrides: { vertical: { region: { x: number } } };
+					}
+				).orientationOverrides.vertical.region.x
+			).toBe(0.25)
+		);
+		expect((engineState.effects[0].params as { region: { x: number } }).region.x).toBe(0.1);
+	});
 });

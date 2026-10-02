@@ -98,6 +98,23 @@ export interface EffectPipelineDefinition<TParams = unknown> {
 	 */
 	frozenParams?: readonly string[];
 	/**
+	 * Top-level params one delivery orientation may replace as a complete
+	 * snapshot in `params.orientationOverrides` (ADR-0039 §4): an optical
+	 * Effect's `region`, fluted glass's four margins. A snapshot is static in
+	 * its orientation: it wins over keyframe channels on those params, which
+	 * drive the shared values (ADR-0063 §11).
+	 */
+	orientationParams?: readonly string[];
+	/**
+	 * Converts an orientation snapshot, authored in its own frame's fractions,
+	 * into the units the renderer reads (an optical region's canonical 16:9
+	 * form). Absent means the snapshot is used as authored.
+	 */
+	resolveOrientationSnapshot?(
+		snapshot: Record<string, unknown>,
+		frame: { width: number; height: number }
+	): Record<string, unknown>;
+	/**
 	 * Keyframe tracks this Effect's own timing fields expand into when the
 	 * animation manifest is built (ADR-0063 §8), the way `enter` / `exit` sugar
 	 * expands for an Overlay. Keyed by channel path; `atMs` counts from

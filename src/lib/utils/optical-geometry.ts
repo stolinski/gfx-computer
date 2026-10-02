@@ -20,6 +20,38 @@ export const NormalizedOpticalRegionSchema = z
 
 export type NormalizedOpticalRegion = z.infer<typeof NormalizedOpticalRegionSchema>;
 
+/**
+ * An optical region with every field authored, for an orientation snapshot
+ * (ADR-0039 §4): the snapshot replaces the shared region as one unit, so it
+ * never inherits a field from it.
+ */
+export const CompleteOpticalRegionSchema = z
+	.strictObject({
+		x: z.number().min(0).max(1),
+		y: z.number().min(0).max(1),
+		width: z.number().min(0.02).max(1),
+		height: z.number().min(0.02).max(1)
+	})
+	.refine((region) => region.x + region.width <= 1, {
+		message: 'Optical region must fit within the frame width.'
+	})
+	.refine((region) => region.y + region.height <= 1, {
+		message: 'Optical region must fit within the frame height.'
+	});
+
+/**
+ * An Effect's per-orientation params (ADR-0039 §4): `{ horizontal?, vertical? }`,
+ * each a complete snapshot of the params the Effect lets an orientation
+ * replace (its definition's `orientationParams`).
+ */
+export function createOrientationParamOverridesSchema<TSnapshot extends z.ZodType>(
+	snapshot: TSnapshot
+) {
+	return z
+		.strictObject({ horizontal: snapshot.optional(), vertical: snapshot.optional() })
+		.optional();
+}
+
 export const DEFAULT_REFRACTIVE_LENS_REGION: NormalizedOpticalRegion = {
 	x: 0.25,
 	y: 0.25,
@@ -82,4 +114,37 @@ export function packAspectPreservingOpticalRegion(
 
 export function getOpticalShapeCode(shape: OpticalShape | undefined): number {
 	return shape === 'circle' ? 0 : 1;
+}
+
+/**
+ * The canonical-16:9 region that `packAspectPreservingOpticalRegion` turns into
+ * `region` on `frame`. An orientation snapshot (ADR-0039 §4) is authored in its
+ * own frame's fractions, so the effect chain converts it back before the
+ * renderer applies the canonical conversion every shared region gets.
+ */
+export function canonicalOpticalRegionFromFrameRegion(
+	region: NormalizedOpticalRegion,
+	frame: OpticalFrameSize
+): NormalizedOpticalRegion {
+	if (region.width === 1 && region.height === 1) return region;
+	if (frame.width === OPTICAL_AUTHORING_WIDTH && frame.height === OPTICAL_AUTHORING_HEIGHT) {
+		return region;
+	}
+	const width = (region.width * frame.width) / OPTICAL_AUTHORING_WIDTH;
+	const height = (region.height * frame.height) / OPTICAL_AUTHORING_HEIGHT;
+	return {
+		x: region.x + region.width / 2 - width / 2,
+		y: region.y + region.height / 2 - height / 2,
+		width,
+		height
+	};
+}
+
+/** The `resolveOrientationSnapshot` hook for an Effect whose snapshot is `{ region }`. */
+export function resolveOpticalRegionSnapshot(
+	snapshot: Record<string, unknown>,
+	frame: OpticalFrameSize
+): Record<string, unknown> {
+	const region = snapshot.region as NormalizedOpticalRegion;
+	return { ...snapshot, region: canonicalOpticalRegionFromFrameRegion(region, frame) };
 }
