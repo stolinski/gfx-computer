@@ -73,7 +73,12 @@ export interface SetCompositionKineticWordPlacementRequest {
 	expectedRevision: number;
 	wordId: string;
 	scope: KineticWordPlacementScope;
-	geometry: KineticWordGeometry;
+	/**
+	 * The complete placement to write. `null` removes an orientation's own
+	 * placement so it returns to the shared one; the shared placement cannot be
+	 * removed.
+	 */
+	geometry: KineticWordGeometry | null;
 }
 
 export interface SetCompositionKineticWordAppearanceRequest {
@@ -375,6 +380,34 @@ export async function runSetCompositionKineticWordPlacementOperation(
 			request.wordId,
 			words.map((word) => word.id)
 		);
+	}
+	if (request.geometry === null) {
+		const scope = request.scope;
+		if (scope === 'shared') {
+			return refuseCompositionOperation(
+				row,
+				compositionEditHistory.revision,
+				'invalid_argument',
+				'Every Kinetic Word keeps a shared placement; only an orientation placement can be removed.',
+				{ rejected: 'shared' }
+			);
+		}
+		return runCompositionEditTransaction({
+			operationId: row.id,
+			expectedRevision: request.expectedRevision,
+			undoLabel: `Use shared Kinetic Word placement in ${scope}`,
+			focus: { target: 'block', blockId: request.wordId },
+			mutate: (draft) => {
+				const draftWords = draft.state.surface.typeField?.words;
+				if (!draftWords)
+					throw new CompositionOperationError('unknown_target', 'The Type Field is gone.');
+				const word = requireDraftKineticWord(draftWords, request.wordId);
+				if (!word.orientationOverrides) return;
+				delete word.orientationOverrides[scope];
+				if (!word.orientationOverrides.horizontal && !word.orientationOverrides.vertical)
+					delete word.orientationOverrides;
+			}
+		});
 	}
 	const parsed = KineticWordGeometrySchema.safeParse(request.geometry);
 	if (!parsed.success) {

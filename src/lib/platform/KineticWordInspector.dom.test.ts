@@ -61,3 +61,39 @@ describe('KineticWordInspector phrase edits', () => {
 		expect(phraseIds()).not.toContain(first);
 	});
 });
+
+describe('KineticWordInspector orientation placement', () => {
+	beforeEach(() => {
+		transitionState.capturing = false;
+		applyPreset(parsePresetIngress(kineticFixtureJson));
+		compositionMeta.isUserComposition = true;
+		compositionMeta.userCompositionSlug = 'untitled';
+		compositionMeta.forkedFrom = null;
+		engineState.transport.orientation = 'vertical';
+		const firstWord = engineState.surface.typeField?.words[0];
+		if (!firstWord) throw new Error('The kinetic fixture has no words.');
+		delete firstWord.orientationOverrides;
+		layerSelection.id = createTimelineTrackId({ kind: 'block', blockId: firstWord.id });
+	});
+
+	it('copies the shown placement into the orientation and removes it again', async () => {
+		const word = (): NonNullable<typeof engineState.surface.typeField>['words'][number] => {
+			const first = engineState.surface.typeField?.words[0];
+			if (!first) throw new Error('The kinetic fixture lost its first word.');
+			return first;
+		};
+		const shared = { position: { ...word().position }, scale: word().scale };
+		render(KineticWordInspector);
+
+		await fireEvent.click(screen.getByRole('switch', { name: 'Customize vertical' }));
+		await waitFor(() =>
+			expect(word().orientationOverrides?.vertical).toMatchObject({
+				position: shared.position,
+				scale: shared.scale
+			})
+		);
+
+		await fireEvent.click(screen.getByRole('switch', { name: 'Customize vertical' }));
+		await waitFor(() => expect(word().orientationOverrides).toBeUndefined());
+	});
+});

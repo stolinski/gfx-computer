@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { createCompositionEntityId } from '$lib/utils/composition-entity-id';
-	import { cloneKineticWordGeometry } from '$lib/utils/kinetic-word-geometry';
+	import {
+		cloneKineticWordGeometry,
+		resolveKineticWordGeometry
+	} from '$lib/utils/kinetic-word-geometry';
 	import { compositionEditHistory } from './composition-edit-history';
 	import {
 		runRemoveCompositionKineticWordOperation,
@@ -8,8 +11,7 @@
 		runSetCompositionKineticWordAppearanceOperation,
 		runSetCompositionKineticWordGlyphStaggerOperation,
 		runSetCompositionKineticWordPlacementOperation,
-		runSetCompositionKineticWordTextOperation,
-		type KineticWordPlacementScope
+		runSetCompositionKineticWordTextOperation
 	} from './composition-kinetic-type-operations';
 	import type { CompositionOperationOutcome } from './composition-edit-transaction';
 	import {
@@ -30,6 +32,7 @@
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import KeyframesSection from './KeyframesSection.svelte';
+	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 	import { layerSelection } from './selection.svelte';
 	import { parseTimelineTrackId } from './timeline-entity-identity';
 
@@ -41,28 +44,31 @@
 		engineState.surface.typeField?.words.find((word) => word.id === selectedWordId) ?? null
 	);
 	const typeField = $derived(engineState.surface.typeField ?? null);
-	let placementScope = $state<KineticWordPlacementScope>('shared');
+	const orientation = $derived(engineState.transport.orientation);
+	// Placement edits land on the active orientation's own placement when it has
+	// one, else on the shared placement (ADR-0039 §4).
+	const customized = $derived(selectedWord?.orientationOverrides?.[orientation] !== undefined);
+	const placementScope = $derived(customized ? orientation : 'shared');
 	let operationMessage = $state<string | null>(null);
 	let busy = $state(false);
 
-	const selectedGeometry = $derived.by((): KineticWordGeometry | null => {
-		if (!selectedWord) return null;
-		if (placementScope === 'shared') {
-			return {
-				position: selectedWord.position,
-				horizontalAnchor: selectedWord.horizontalAnchor,
-				scale: selectedWord.scale,
-				rotation: selectedWord.rotation
-			};
-		}
-		return (
-			selectedWord.orientationOverrides?.[placementScope] ?? {
-				position: selectedWord.position,
-				scale: selectedWord.scale,
-				rotation: selectedWord.rotation
-			}
+	const selectedGeometry = $derived(
+		selectedWord ? resolveKineticWordGeometry(selectedWord, orientation) : null
+	);
+
+	// Customizing copies the placement this orientation shows now; turning it
+	// off removes that placement, returning the orientation to the shared one.
+	function toggleOrientationCustomization(checked: boolean): void {
+		if (!selectedWord || !selectedGeometry) return;
+		void applyOperation(
+			runSetCompositionKineticWordPlacementOperation({
+				expectedRevision: compositionEditHistory.revision,
+				wordId: selectedWord.id,
+				scope: orientation,
+				geometry: checked ? cloneKineticWordGeometry(selectedGeometry) : null
+			})
 		);
-	});
+	}
 
 	async function applyOperation(operation: Promise<CompositionOperationOutcome>): Promise<void> {
 		busy = true;
@@ -251,19 +257,13 @@
 	</InspectorSection>
 
 	<InspectorSection label="Placement" summary={placementScope}>
-		<Field label="Scope">
-			<select
-				value={placementScope}
+		{#snippet action()}
+			<OrientationCustomizeToggle
+				{customized}
 				disabled={busy}
-				onchange={(event) => {
-					placementScope = event.currentTarget.value as KineticWordPlacementScope;
-				}}
-			>
-				<option value="shared">shared</option>
-				<option value="horizontal">horizontal</option>
-				<option value="vertical">vertical</option>
-			</select>
-		</Field>
+				onchange={toggleOrientationCustomization}
+			/>
+		{/snippet}
 		{#if selectedGeometry}
 			<Field label="Anchor">
 				<select

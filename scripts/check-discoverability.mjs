@@ -7,7 +7,9 @@ import ts from 'typescript';
 import { readPackRegistrySlugsFromSource } from '../src/lib/utils/pack-registry-source.mjs';
 
 const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs', '.svelte'];
-const TEST_FILE_PATTERN = /\.(?:(?:integration\.)?(?:test|spec))\.[cm]?[jt]sx?$/;
+// `.dom.test.ts` is the rendered-component test project (vite.config.ts), so it
+// pairs with its source like any other test.
+const TEST_FILE_PATTERN = /\.(?:(?:integration\.|dom\.)?(?:test|spec))\.[cm]?[jt]sx?$/;
 
 // These are exact public names, not substrings. Framework route exports are outside
 // domainExportRoots, while canonical short domain nouns such as Block and Effect are
@@ -110,16 +112,13 @@ export const DISCOVERABILITY_CONFIG = Object.freeze({
 			rule: 'complete-pack-immunity-guidance',
 			pattern:
 				/\b(?:Pack-immun(?:e|ity)|PACK_IMMUNE_PIPELINE_KEYS)\b.*`(?:surface|overlay):[a-z0-9-]+`/i,
-			message: 'Active guidance copies a concrete Pack-immunity list that can drift from Identity Specs.',
+			message:
+				'Active guidance copies a concrete Pack-immunity list that can drift from Identity Specs.',
 			remediation:
 				'Derive the complete set from PACK_IMMUNE_PIPELINE_KEYS instead of copying Pipeline keys into prose.'
 		}
 	],
-	currentStatusGuidanceFiles: [
-		'docs/CONTEXT.md',
-		'docs/engine-architecture.md',
-		'docs/roadmap.md'
-	],
+	currentStatusGuidanceFiles: ['docs/CONTEXT.md', 'docs/engine-architecture.md', 'docs/roadmap.md'],
 	staleCurrentStatusClaims: [
 		{
 			pattern: /or,\s+later,\s+from a blank composition/i,
@@ -128,7 +127,8 @@ export const DISCOVERABILITY_CONFIG = Object.freeze({
 				'Document the shipped homepage New composition action, which forks the blank Preset into the user store.'
 		},
 		{
-			pattern: /\b(?:create[- ]from[- ]blank|blank-composition authoring entry point)\b.*\b(?:deferred|not built|later)\b/i,
+			pattern:
+				/\b(?:create[- ]from[- ]blank|blank-composition authoring entry point)\b.*\b(?:deferred|not built|later)\b/i,
 			message: 'Current guidance marks shipped create-from-blank authoring as deferred.',
 			remediation:
 				'Mark create-from-blank shipped and point to the homepage New composition implementation.'
@@ -646,7 +646,12 @@ function auditMarkdownLinks(root, files, violations, rule, subject) {
 		const lines = readFileSync(filePath, 'utf8').split(/\r?\n/);
 		const referenceDefinitions = new Set(
 			lines
-				.map((line) => line.match(/^\s*\[([^\]]+)\]:\s*\S+/)?.[1]?.trim().toLowerCase())
+				.map((line) =>
+					line
+						.match(/^\s*\[([^\]]+)\]:\s*\S+/)?.[1]
+						?.trim()
+						.toLowerCase()
+				)
 				.filter((reference) => typeof reference === 'string')
 		);
 		for (const [index, line] of lines.entries()) {
@@ -836,7 +841,10 @@ function auditBriefAcceptance(root, files, violations) {
 				'Add **Pack:** with a slug from PACK_REGISTRY; there is no implicit default.'
 			);
 		} else if (relativeFile !== 'docs/briefs/README.md') {
-			const pack = lines[packLineIndex].trim().replace(/^\*\*Pack:\*\*\s+/, '').trim();
+			const pack = lines[packLineIndex]
+				.trim()
+				.replace(/^\*\*Pack:\*\*\s+/, '')
+				.trim();
 			if (!registeredPackSlugs.has(pack)) {
 				addViolation(
 					violations,
@@ -864,9 +872,7 @@ function auditBriefAcceptance(root, files, violations) {
 		if (hasHorizontalRequirement && hasVerticalRequirement) continue;
 
 		const firstRequirementOffset = sectionLines.findIndex((line) =>
-			/\b(?:horizontal|vertical)\b|(?:3840\s*[x×]\s*2160)|(?:2160\s*[x×]\s*3840)/i.test(
-				line
-			)
+			/\b(?:horizontal|vertical)\b|(?:3840\s*[x×]\s*2160)|(?:2160\s*[x×]\s*3840)/i.test(line)
 		);
 		const missing = [
 			!hasHorizontalRequirement ? 'horizontal' : null,
@@ -937,7 +943,8 @@ function auditPresetListingHygiene(root, files, violations) {
 				new RegExp(
 					`\\b(?:(?:authored|published)\\s+(?:specifically\\s+)?(?:for|under)|re-?dress(?:ed)?\\s+under)\\s+(?:the\\s+)?${term}\\b`,
 					'i'
-				).test(description) || new RegExp(`\\b${term}\\b[^.]{0,60}\\bpalette\\b`, 'i').test(description)
+				).test(description) ||
+				new RegExp(`\\b${term}\\b[^.]{0,60}\\bpalette\\b`, 'i').test(description)
 		);
 		if (hasPackFilename || hasPackSpecificDescription) {
 			addViolation(
@@ -1053,10 +1060,7 @@ export function auditDiscoverability({
 		absoluteRoot,
 		config
 	);
-	const currentStatusFiles = collectExistingFiles(
-		absoluteRoot,
-		config.currentStatusGuidanceFiles
-	);
+	const currentStatusFiles = collectExistingFiles(absoluteRoot, config.currentStatusGuidanceFiles);
 	const violations = [];
 
 	for (const filePath of files) {

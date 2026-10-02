@@ -17,12 +17,15 @@
 	} from './stage-camera-editing';
 	import InspectorSection from './InspectorSection.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
+	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 	import Field from './Field.svelte';
 
 	// The Camera inspector (ADR-0060 §2): what the Camera row opens. The legacy
 	// move, the rest pose, its one travel, and the vertical camera — the fields
 	// the stage camera has (ADR-0057, ADR-0059), edited where the entity is
-	// selected. Reachable only while the stage is on, so `stage` is never absent
+	// selected. Only the tall frame can carry its own camera, so the shared
+	// Customize control appears there; while it is on, the pose and travel
+	// fields edit the vertical camera. Reachable only while the stage is on, so `stage` is never absent
 	// in practice; the guard keeps the component honest if the row outlives it.
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
 
@@ -32,26 +35,46 @@
 		{ key: 'roll', label: 'Roll°', limit: STAGE_CAMERA_POSE_LIMITS.rollDegrees }
 	] as const;
 
+	const verticalFrame = $derived(engineState.transport.orientation === 'vertical');
+	// The pose and travel the fields edit: the vertical camera's while the tall
+	// frame is customized, else the shared camera's. An absent vertical field
+	// keeps the shared one, so its fields start from the shared values.
+	const cameraOwner = $derived.by(() => {
+		const camera = engineState.stage?.camera;
+		if (!camera) return null;
+		return verticalFrame && camera.vertical ? camera.vertical : camera;
+	});
+
 	function togglePose(): void {
 		const stage = engineState.stage;
-		if (!stage) return;
-		stage.camera.pose = stage.camera.pose ? undefined : restStageCameraPose();
+		const owner = cameraOwner;
+		if (!stage || !owner) return;
+		if (owner.pose) {
+			owner.pose = undefined;
+			return;
+		}
+		const shared = stage.camera.pose;
+		owner.pose =
+			owner !== stage.camera && shared
+				? { ...shared, aim: { ...shared.aim } }
+				: restStageCameraPose();
 	}
 
 	function toggleTravel(): void {
 		const stage = engineState.stage;
-		if (!stage) return;
-		stage.camera.travel = stage.camera.travel
+		const owner = cameraOwner;
+		if (!stage || !owner) return;
+		owner.travel = owner.travel
 			? undefined
-			: stageCameraTravelFrom(stage.camera.pose ?? restStageCameraPose());
+			: stageCameraTravelFrom(owner.pose ?? stage.camera.pose ?? restStageCameraPose());
 	}
 
 	// The vertical camera starts as a copy of the horizontal pose and travel,
 	// so turning it on changes nothing until a field moves.
-	function toggleVertical(): void {
+	function toggleVertical(checked: boolean): void {
 		const stage = engineState.stage;
 		if (!stage) return;
-		if (stage.camera.vertical) {
+		if (!checked) {
 			stage.camera.vertical = undefined;
 			return;
 		}
@@ -63,14 +86,6 @@
 				? { ...travel, to: { ...travel.to, aim: travel.to.aim ? { ...travel.to.aim } : undefined } }
 				: undefined
 		};
-	}
-
-	function toggleVerticalTravel(): void {
-		const vertical = engineState.stage?.camera.vertical;
-		if (!vertical) return;
-		vertical.travel = vertical.travel
-			? undefined
-			: stageCameraTravelFrom(vertical.pose ?? restStageCameraPose());
 	}
 </script>
 
@@ -128,7 +143,11 @@
 	</Field>
 {/snippet}
 
-{#snippet travelFields(travel: StageCameraTravel, pose: StageCameraPose | undefined, prefix: string)}
+{#snippet travelFields(
+	travel: StageCameraTravel,
+	pose: StageCameraPose | undefined,
+	prefix: string
+)}
 	{#each POSE_ANGLE_FIELDS as field (field.key)}
 		<Field label={`${prefix}To ${field.label}`}>
 			<input
@@ -223,14 +242,20 @@
 {#if engineState.stage}
 	{@const stage = engineState.stage}
 	<InspectorSection label="Camera">
+		{#snippet action()}
+			{#if verticalFrame}
+				<OrientationCustomizeToggle
+					customized={!!stage.camera.vertical}
+					onchange={toggleVertical}
+				/>
+			{/if}
+		{/snippet}
 		<Field label="Move">
 			<select
 				value={stage.camera.move}
 				onchange={(e) => {
 					stage.camera.move = (e.currentTarget as HTMLSelectElement).value as
-						| 'static'
-						| 'push'
-						| 'drift';
+						'static' | 'push' | 'drift';
 				}}
 			>
 				<option value="static">Static</option>
@@ -264,41 +289,19 @@
 				</select>
 			</Field>
 		{/if}
-		<Field label="Pose">
-			<InspectorToggle checked={!!stage.camera.pose} label="Camera pose" onchange={togglePose} />
-		</Field>
-		{#if stage.camera.pose}
-			{@render poseFields(stage.camera.pose, '')}
-		{/if}
-		<Field label="Travel">
-			<InspectorToggle
-				checked={!!stage.camera.travel}
-				label="Camera travel"
-				onchange={toggleTravel}
-			/>
-		</Field>
-		{#if stage.camera.travel}
-			{@render travelFields(stage.camera.travel, stage.camera.pose, '')}
-		{/if}
-		<Field label="Vertical">
-			<InspectorToggle
-				checked={!!stage.camera.vertical}
-				label="Vertical camera"
-				onchange={toggleVertical}
-			/>
-		</Field>
-		{#if stage.camera.vertical?.pose}
-			{@const vertical = stage.camera.vertical}
-			{@render poseFields(stage.camera.vertical.pose, 'Vertical ')}
-			<Field label="Vertical travel">
-				<InspectorToggle
-					checked={!!vertical.travel}
-					label="Vertical camera travel"
-					onchange={toggleVerticalTravel}
-				/>
+		{#if cameraOwner}
+			{@const owner = cameraOwner}
+			<Field label="Pose">
+				<InspectorToggle checked={!!owner.pose} label="Camera pose" onchange={togglePose} />
 			</Field>
-			{#if vertical.travel}
-				{@render travelFields(vertical.travel, vertical.pose, 'Vertical ')}
+			{#if owner.pose}
+				{@render poseFields(owner.pose, '')}
+			{/if}
+			<Field label="Travel">
+				<InspectorToggle checked={!!owner.travel} label="Camera travel" onchange={toggleTravel} />
+			</Field>
+			{#if owner.travel}
+				{@render travelFields(owner.travel, owner.pose ?? stage.camera.pose, '')}
 			{/if}
 		{/if}
 	</InspectorSection>

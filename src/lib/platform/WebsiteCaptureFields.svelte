@@ -8,7 +8,7 @@
 		resolveSurfacePageAnchor
 	} from '$lib/utils/website-showcase';
 	import Field from './Field.svelte';
-	import InspectorToggle from './InspectorToggle.svelte';
+	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 
 	// website-screenshot capture: the source URL input (Enter/blur commits a
 	// capture), the screenshot picker / preview, the bundled-capture pick
@@ -171,9 +171,8 @@
 			value={pageAnchor.y}
 			oninput={(e) => setPageAnchor('y', (e.currentTarget as HTMLInputElement).value)}
 		/>
-		<InspectorToggle
-			checked={pageAnchorCustomized}
-			label={`Customize ${orientation}`}
+		<OrientationCustomizeToggle
+			customized={pageAnchorCustomized}
 			onchange={togglePageAnchorCustomization}
 		/>
 	</Field>

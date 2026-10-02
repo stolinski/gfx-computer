@@ -3,7 +3,7 @@
 	import { runSetCompositionEffectParamsOperation } from './composition-appearance-operations';
 	import { compositionEditHistory } from './composition-edit-history';
 	import { resolveEffectParamsWithDefaults } from './effect-keyframe-channels';
-	import InspectorToggle from './InspectorToggle.svelte';
+	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 	import { cloneJsonValue } from '$lib/utils/json-clone';
 	import { isRecord } from '$lib/utils/object';
 	import type { Effect } from './engine-schema';
@@ -68,11 +68,7 @@
 			<span class="layer-row__pack-tag">pack · off</span>
 		{/if}
 		{#if definition.orientationParams?.length && !packInert}
-			<InspectorToggle
-				checked={customized}
-				label={`Customize ${orientation}`}
-				onchange={toggleOrientationCustomization}
-			/>
+			<OrientationCustomizeToggle {customized} onchange={toggleOrientationCustomization} />
 		{/if}
 		<button
 			type="button"

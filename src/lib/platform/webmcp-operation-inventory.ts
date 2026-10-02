@@ -1375,7 +1375,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'placement',
 		toolName: 'gfx_placement_set_kinetic_word_placement',
 		summary:
-			"Set one Kinetic Word's complete centre, scale, and rotation for shared placement or one orientation snapshot.",
+			"Set one Kinetic Word's complete centre, scale, and rotation for shared placement or one orientation snapshot, or remove an orientation snapshot.",
 		effect: 'write',
 		writes: [
 			'/state/surface/typeField/words/*/position',

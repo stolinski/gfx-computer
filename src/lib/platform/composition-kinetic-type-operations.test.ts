@@ -314,6 +314,36 @@ describe('Kinetic Word static decisions', () => {
 		});
 	});
 
+	it('removes an orientation placement and refuses to remove the shared one', async () => {
+		expectApplied(
+			await runSetCompositionKineticWordPlacementOperation({
+				expectedRevision: 1,
+				wordId: 'kinetic-word-1',
+				scope: 'vertical',
+				geometry: { position: { x: 0.45, y: 0.62 }, scale: 1.4, rotation: -8 }
+			})
+		);
+		const shared = expectFailed(
+			await runSetCompositionKineticWordPlacementOperation({
+				expectedRevision: 2,
+				wordId: 'kinetic-word-1',
+				scope: 'shared',
+				geometry: null
+			})
+		);
+		expect(shared.code).toBe('invalid_argument');
+
+		expectApplied(
+			await runSetCompositionKineticWordPlacementOperation({
+				expectedRevision: 2,
+				wordId: 'kinetic-word-1',
+				scope: 'vertical',
+				geometry: null
+			})
+		);
+		expect(engineState.surface.typeField?.words[0].orientationOverrides).toBeUndefined();
+	});
+
 	it('refuses to demote a phrase focal word from display hierarchy', async () => {
 		const failure = expectFailed(
 			await runSetCompositionKineticWordAppearanceOperation({

@@ -10,6 +10,7 @@
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
+	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 	import { resolveChartAuthoredFrame, resolveChartSafeBounds } from '$lib/utils/chart-layout';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
@@ -86,11 +87,7 @@
 {#if block && shown}
 	<InspectorSection label="Frame">
 		{#snippet action()}
-			<InspectorToggle
-				checked={customized}
-				label={`Customize ${orientation}`}
-				onchange={toggleOrientationCustomization}
-			/>
+			<OrientationCustomizeToggle {customized} onchange={toggleOrientationCustomization} />
 		{/snippet}
 		<Field label="Custom">
 			<InspectorToggle

@@ -15,6 +15,7 @@
 	} from '$lib/utils/diagram-geometry';
 	import Field from './Field.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
+	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 
 	// The Block's explicit placement (ADR-0036 §7): every positional number is
@@ -138,9 +139,8 @@
 
 <InspectorSection label="Geometry">
 	{#snippet action()}
-		<InspectorToggle
-			checked={el.orientationOverrides?.[engineState.transport.orientation] !== undefined}
-			label={`Customize ${engineState.transport.orientation}`}
+		<OrientationCustomizeToggle
+			customized={el.orientationOverrides?.[engineState.transport.orientation] !== undefined}
 			onchange={toggleOrientationCustomization}
 		/>
 	{/snippet}

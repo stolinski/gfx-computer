@@ -4,7 +4,7 @@
 	import { cloneOverlayPlacement, resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 	import { isStageBodyOverlay } from './pipelines/depth-stage-planes';
 	import InspectorSection from './InspectorSection.svelte';
-	import InspectorToggle from './InspectorToggle.svelte';
+	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 	import Field from './Field.svelte';
 
 	// The overlay's placement editor: anchor, offsets / normalized rect, scale,
@@ -137,9 +137,9 @@
 
 <InspectorSection label="Position">
 	{#snippet action()}
-		<InspectorToggle
-			checked={ov.position.orientationOverrides?.[engineState.transport.orientation] !== undefined}
-			label={`Customize ${engineState.transport.orientation}`}
+		<OrientationCustomizeToggle
+			customized={ov.position.orientationOverrides?.[engineState.transport.orientation] !==
+				undefined}
 			onchange={toggleOrientationCustomization}
 		/>
 	{/snippet}

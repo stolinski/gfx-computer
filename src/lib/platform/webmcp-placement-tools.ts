@@ -522,7 +522,14 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 					expectedRevision: webmcpObservedRevisionProperty(),
 					wordId: webmcpEntityIdProperty('The Kinetic Word Block to place.'),
 					target: placementTargetProperty(),
-					geometry: kineticWordGeometryProperty()
+					geometry: {
+						description:
+							'The complete placement to write, or null to remove an orientation placement so that orientation returns to the shared one.',
+						oneOf: [
+							kineticWordGeometryProperty(),
+							{ type: 'null', description: 'Remove this orientation placement.' }
+						]
+					}
 				},
 				required: ['expectedRevision', 'wordId', 'target', 'geometry'],
 				additionalProperties: false
@@ -533,7 +540,10 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						wordId: readWebmcpStringArgument(args, 'wordId'),
 						scope: readWebmcpLiteralArgument(args, 'target', COMPOSITION_PLACEMENT_TARGETS),
-						geometry: readKineticWordGeometry(args)
+						geometry:
+							readWebmcpClearableRecordArgument(args, 'geometry') === null
+								? null
+								: readKineticWordGeometry(args)
 					})
 				)
 		},

@@ -2,7 +2,7 @@
 	import { engineState } from './engine-state.svelte';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
-	import InspectorToggle from './InspectorToggle.svelte';
+	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 	import { resolveCaptionsBandPlacement } from '$lib/utils/captions-band-placement';
 	import { cuesToSrt, parseSrt } from '$lib/utils/srt';
 
@@ -90,11 +90,7 @@
 
 	<InspectorSection label="Position">
 		{#snippet action()}
-			<InspectorToggle
-				checked={customized}
-				label={`Customize ${orientation}`}
-				onchange={toggleOrientationCustomization}
-			/>
+			<OrientationCustomizeToggle {customized} onchange={toggleOrientationCustomization} />
 		{/snippet}
 		<Field label="Band Y">
 			<input
