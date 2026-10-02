@@ -512,12 +512,14 @@ function appendBlockTracks(
 	for (const primitive of state.surface.diagram ?? []) {
 		const trackId = createTimelineTrackId({ kind: 'block', blockId: primitive.id });
 		const label = diagramTrackLabel(primitive);
-		const channels = primitive.animation?.channels as ChannelTrackMap | undefined;
-		const cascade = primitive.animation?.cascade;
+		// The active orientation's tracks: its spatial group when it has one (ADR-0039 §4).
+		const animation = primitive.animation;
+		const channels = resolveOrientationKeyframeChannels(animation, state.transport.orientation);
+		const cascade = animation?.cascade;
 		const window = windows.get(`block:${primitive.id}`);
 		const link = cascadeLinkFor(cascade, windows);
 
-		if (channels && clipKeyframes(state, channels, 0).length > 0) {
+		if (animation && clipKeyframes(state, channels, 0).length > 0) {
 			const clipStart = window?.startFraction ?? 0;
 			const transition: TimelineTransition = {
 				id: 'clip',
@@ -527,7 +529,9 @@ function appendBlockTracks(
 				duration: Math.max(window?.durationFraction ?? 0, 0.02),
 				keyframes: clipKeyframes(state, channels, clipStart),
 				onKeyframeRetime: makeKeyframeRetimer(state, channels, clipStart),
-				onKeyframeDelete: makeKeyframeDeleter(channels),
+				onKeyframeDelete: (channel, index) => {
+					deleteOrientationKeyframe(animation, state.transport.orientation, channel, index);
+				},
 				cascade: link
 			};
 			if (cascade) {

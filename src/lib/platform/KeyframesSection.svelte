@@ -20,6 +20,7 @@
 	import { resolveKineticWordGeometry } from '$lib/utils/kinetic-word-geometry';
 	import { isSpatialKeyframeChannel } from '$lib/utils/orientation-keyframe-channels';
 	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
+	import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 
 	// DaVinci-style keyframe rows (ADR-0035 §7), one `KeyframeChannelRow` per
 	// property. Every mutation reaches the same revisioned Operation WebMCP
@@ -102,7 +103,8 @@
 
 	// Kinetic Words and Overlays may replace their spatial group per orientation.
 	function channelScope(channel: string): CompositionKeyframeChannelScope {
-		return (kineticWord || overlay) && isSpatialKeyframeChannel(channel) ? scope : 'shared';
+		const ownsGroups = kineticWord || overlay || (blockPrimitive && 'position' in blockPrimitive);
+		return ownsGroups && isSpatialKeyframeChannel(channel) ? scope : 'shared';
 	}
 
 	function trackFor(channel: string): Keyframe[] | undefined {
@@ -134,7 +136,12 @@
 		}
 		if (blockId) {
 			if (channel === 'scale') {
-				return blockPrimitive && 'scale' in blockPrimitive ? (blockPrimitive.scale ?? 1) : 1;
+				if (!blockPrimitive || !('position' in blockPrimitive)) return 1;
+				const geometry = resolveDiagramPrimitiveGeometry(
+					blockPrimitive,
+					scope === 'shared' ? engineState.transport.orientation : scope
+				);
+				return geometry.scale ?? 1;
 			}
 			return channel === 'opacity' ? 1 : 0;
 		}

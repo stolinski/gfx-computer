@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import type { RenderAnimState } from './anim-state.svelte.ts';
+import diagramOrientationFixtureJson from '$lib/presets/diagram-orientation-motion-fixture.json';
+
 import { buildCompositionAnimationManifest } from './composition-animation-manifest.ts';
+import { parsePresetIngress } from './preset-ingress.ts';
 import type { AnimationTweenSpec } from './animation-manager.ts';
 import { getEaseGsap, type EngineState, type TextAnimation } from './engine-schema.ts';
 
@@ -415,5 +418,45 @@ describe('composition animation manifest', () => {
 		assert.ok(!vertical.keys.includes('overlay-motion-y-1'), 'the shared y path is replaced');
 		assert.equal(vertical.runtime.overlayChannels[0]?.x, -0.2);
 		assert.equal(vertical.runtime.overlayChannels[0]?.scale, 1.3);
+	});
+
+	it('resolves the diagram fixture to a different, repeatable path per orientation', () => {
+		const tweenSignature = (orientation: 'horizontal' | 'vertical') => {
+			const state = structuredClone(
+				parsePresetIngress(diagramOrientationFixtureJson).state
+			) as EngineState;
+			state.transport.orientation = orientation;
+			const runtime = makeRuntime();
+			const manifest = buildCompositionAnimationManifest({
+				state,
+				runtime,
+				textAnimationRoot: null,
+				textAnimationCompiler: { rebuild: () => [] },
+				resolveMarkColor: () => '#ffee00'
+			});
+			return {
+				keys: manifest.tweens.map((tween) => tween.key).filter((key) => key.startsWith('block-n-')),
+				specs: manifest.tweens.map(({ key, start, duration, ease, from, to }) => ({
+					key,
+					start,
+					duration,
+					ease,
+					from,
+					to
+				})),
+				draft: runtime.blockChannels['n-draft']
+			};
+		};
+
+		const horizontal = tweenSignature('horizontal');
+		const vertical = tweenSignature('vertical');
+		assert.ok(horizontal.keys.includes('block-n-draft-x-1'));
+		assert.ok(!horizontal.keys.some((key) => key.startsWith('block-n-draft-y')));
+		assert.ok(vertical.keys.includes('block-n-draft-y-1'));
+		assert.ok(vertical.keys.includes('block-n-draft-scale-1'));
+		assert.ok(!vertical.keys.includes('block-n-draft-x-1'), 'the shared x path is replaced');
+		assert.equal(horizontal.draft?.x, -0.06);
+		assert.equal(vertical.draft?.scale, 1.4);
+		assert.deepEqual(tweenSignature('vertical').specs, vertical.specs, 'repeatable');
 	});
 });

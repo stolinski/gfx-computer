@@ -794,3 +794,77 @@ describe('Overlay orientation motion (ADR-0039 §4)', () => {
 		]);
 	});
 });
+
+describe('Diagram orientation motion (ADR-0039 §4)', () => {
+	it('authors a vertical spatial group on a node and keeps it through a weld', async () => {
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 0,
+				primitiveType: 'node'
+			})
+		);
+		const node = { kind: 'block' as const, blockId: 'node-1' };
+		const receipt = expectApplied(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 1,
+				subject: node,
+				channel: 'y',
+				scope: 'vertical',
+				keyframes: [
+					{ atMs: 0, value: 0.05 },
+					{ atMs: 450, value: 0, ease: 'settled' }
+				]
+			})
+		);
+		expect(receipt.focus).toEqual({ target: 'block', blockId: 'node-1' });
+		const primitive = engineState.surface.diagram?.[0];
+		const vertical =
+			primitive && primitive.type === 'node'
+				? primitive.animation?.orientationOverrides?.vertical
+				: undefined;
+		expect(vertical?.y).toHaveLength(2);
+		expect(vertical?.x).toEqual([{ atMs: 0, value: 0 }]);
+		expect(vertical?.scale).toHaveLength(1);
+
+		expectApplied(
+			await runSetCompositionCascadeAnchorOperation({
+				expectedRevision: 2,
+				subject: node,
+				anchor: 'surface',
+				event: 'end',
+				offsetMs: 0
+			})
+		);
+		const welded = engineState.surface.diagram?.[0];
+		expect(
+			welded && welded.type === 'node'
+				? welded.animation?.orientationOverrides?.vertical?.y
+				: undefined
+		).toHaveLength(2);
+	});
+
+	it('refuses an orientation scope on a stroke-drawn primitive', async () => {
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 0,
+				primitiveType: 'node'
+			})
+		);
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 1,
+				primitiveType: 'edge-arrow'
+			})
+		);
+		const failure = expectFailed(
+			await runSetCompositionKeyframeChannelOperation({
+				expectedRevision: 2,
+				subject: { kind: 'block', blockId: 'edge-arrow-1' },
+				channel: 'opacity',
+				scope: 'vertical',
+				keyframes: [{ atMs: 0, value: 1 }]
+			})
+		);
+		expect(failure.code).toBe('unsupported_variant');
+	});
+});

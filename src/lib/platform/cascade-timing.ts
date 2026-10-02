@@ -152,7 +152,10 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 	// channel-owned primitives weld dependants to their authored envelope, sugar
 	// primitives to their enter window.
 	for (const primitive of state.surface.diagram ?? []) {
-		const channels = primitive.animation?.channels;
+		const channels = resolveOrientationKeyframeChannels(
+			primitive.animation,
+			state.transport.orientation
+		);
 
 		if (channels && hasAnyTrack(channels)) {
 			pending.set(`block:${primitive.id}`, {

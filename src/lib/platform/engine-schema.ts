@@ -539,6 +539,10 @@ const DiagramStrokeChannelKeyframesSchema = z.strictObject({
 
 const DiagramAnimationSchema = z.strictObject({
 	channels: DiagramChannelKeyframesSchema.optional(),
+	// A complete x/y/scale/rotation group that replaces the shared spatial
+	// tracks while that orientation is active (ADR-0039 §4). Stroke-drawn
+	// primitives carry opacity only, so they have no such group.
+	orientationOverrides: OrientationSpatialChannelOverridesSchema.optional(),
 	cascade: CascadeSchema.optional()
 });
 

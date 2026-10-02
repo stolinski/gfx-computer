@@ -63,6 +63,7 @@ import {
 import { resolveKineticWordGeometry } from '$lib/utils/kinetic-word-geometry';
 import { isSpatialKeyframeChannel } from '$lib/utils/orientation-keyframe-channels';
 import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
+import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 
 import type { CompositionWorkspaceFocus } from './composition-workspace-focus';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
@@ -179,6 +180,8 @@ interface CompositionKeyframeOwner {
 	word?: KineticWord;
 	/** The Overlay, for the per-orientation placement its spatial group seeds from. */
 	overlay?: Overlay;
+	/** The Diagram primitive, for the per-orientation geometry its spatial group seeds from. */
+	primitive?: DiagramPrimitive;
 }
 
 /** Which edge of the anchor's entrance a weld hangs from. */
@@ -287,7 +290,8 @@ function findKeyframeOwner(
 		return {
 			kind: 'diagram',
 			channels: diagramPrimitiveChannels(primitive),
-			motion: primitive.animation
+			motion: primitive.animation,
+			primitive
 		};
 	}
 	const word = (state.surface.typeField?.words ?? []).find((entry) => entry.id === subject.blockId);
@@ -364,7 +368,9 @@ function cloneSpatialKeyframeChannels(
 		? resolveKineticWordGeometry(owner.word, scope)
 		: owner.overlay
 			? resolveOverlayPlacement(owner.overlay.position, scope)
-			: null;
+			: owner.primitive && 'position' in owner.primitive
+				? resolveDiagramPrimitiveGeometry(owner.primitive, scope)
+				: null;
 	return {
 		x: shared?.x?.map((frame) => ({ ...frame })) ?? [{ atMs: 0, value: 0 }],
 		y: shared?.y?.map((frame) => ({ ...frame })) ?? [{ atMs: 0, value: 0 }],
@@ -372,17 +378,22 @@ function cloneSpatialKeyframeChannels(
 			{ atMs: 0, value: geometry?.scale ?? 1 }
 		],
 		rotation: shared?.rotation?.map((frame) => ({ ...frame })) ?? [
-			{ atMs: 0, value: geometry?.rotation ?? 0 }
+			{ atMs: 0, value: geometry && 'rotation' in geometry ? (geometry.rotation ?? 0) : 0 }
 		]
 	};
 }
 
 /**
  * Owners whose spatial group may be replaced per orientation (ADR-0039 §4):
- * Kinetic Words (ADR-0064) and Overlays.
+ * Kinetic Words (ADR-0064), Overlays, and the DOM-rendered Diagram primitives
+ * (a stroke-drawn primitive carries opacity only).
  */
 function ownsOrientationSpatialGroups(owner: CompositionKeyframeOwner): boolean {
-	return owner.kind === 'kinetic-word' || owner.kind === 'overlay';
+	return (
+		owner.kind === 'kinetic-word' ||
+		owner.kind === 'overlay' ||
+		(owner.kind === 'diagram' && owner.channels.includes('x'))
+	);
 }
 
 function cleanAuthoredElementMotion(
@@ -577,7 +588,7 @@ function refuseInvalidKeyframeScope(
 			row,
 			compositionEditHistory.revision,
 			'unsupported_variant',
-			`${describeSubject(subject)} can author "${channel}" only in shared scope. Orientation scopes belong to the x, y, scale, and rotation channels of Overlays and Kinetic Words.`,
+			`${describeSubject(subject)} can author "${channel}" only in shared scope. Orientation scopes belong to the x, y, scale, and rotation channels of Overlays, Diagram primitives, and Kinetic Words.`,
 			{ rejected: scope, alternatives: ['shared'] }
 		);
 	}

@@ -515,8 +515,8 @@ function appendDiagramBlockTweens(
 		diagramPrimitives.map((primitive) => primitive.id)
 	);
 	for (const primitive of diagramPrimitives) {
-		const channels = primitive.animation?.channels as
-			Partial<Record<CompositionChannelKey, Keyframe[]>> | undefined;
+		const channels: Partial<Record<CompositionChannelKey, Keyframe[]>> =
+			resolveOrientationKeyframeChannels(primitive.animation, state.transport.orientation);
 		const window = cascadeWindows.get(`block:${primitive.id}`);
 		const hasChannels =
 			channels !== undefined &&

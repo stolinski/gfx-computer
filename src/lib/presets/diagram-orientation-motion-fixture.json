@@ -1,0 +1,455 @@
+{
+	"schema": "gfx@1",
+	"name": "Diagram orientation motion — engine fixture",
+	"description": "ADR-0039 §4 verification fixture. Each node is channel-owned: a shared opacity fade, a shared x path that slides it in from the left in the wide frame, and a complete vertical spatial group that instead rises it into a vertical stack and settles its scale. The edges are stroke-drawn and stay shared. The same Preset renders a different, deterministic motion path per orientation.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#14121a",
+			"inkColor": "#f2ede3"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.94,
+				"duration": 0.04,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"diagram": [
+				{
+					"type": "label",
+					"id": "l-headline",
+					"position": {
+						"x": 0.5,
+						"y": 0.26
+					},
+					"text": "ONE DIAGRAM, TWO PATHS",
+					"role": "headline",
+					"scale": 0.95,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.16
+							},
+							"scale": 1.15
+						}
+					},
+					"enter": {
+						"start": 0.06,
+						"duration": 0.055,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.9,
+						"duration": 0.04,
+						"ease": "smooth"
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-draft",
+					"position": {
+						"x": 0.22,
+						"y": 0.56
+					},
+					"form": "box",
+					"text": "Draft",
+					"scale": 1,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.34
+							},
+							"scale": 1.6
+						}
+					},
+					"exit": {
+						"start": 0.9,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"channels": {
+							"opacity": [
+								{
+									"atMs": 0,
+									"value": 0
+								},
+								{
+									"atMs": 300,
+									"value": 1,
+									"ease": "smooth"
+								}
+							],
+							"x": [
+								{
+									"atMs": 0,
+									"value": -0.06
+								},
+								{
+									"atMs": 450,
+									"value": 0,
+									"ease": "settled"
+								}
+							]
+						},
+						"orientationOverrides": {
+							"vertical": {
+								"x": [
+									{
+										"atMs": 0,
+										"value": 0
+									}
+								],
+								"y": [
+									{
+										"atMs": 0,
+										"value": 0.05
+									},
+									{
+										"atMs": 450,
+										"value": 0,
+										"ease": "settled"
+									}
+								],
+								"scale": [
+									{
+										"atMs": 0,
+										"value": 1.4
+									},
+									{
+										"atMs": 450,
+										"value": 1.6,
+										"ease": "settled"
+									}
+								],
+								"rotation": [
+									{
+										"atMs": 0,
+										"value": 0
+									}
+								]
+							}
+						},
+						"cascade": {
+							"anchor": {
+								"block": "l-headline"
+							},
+							"event": "end",
+							"offsetMs": 120
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-draft-review",
+					"from": {
+						"node": "n-draft"
+					},
+					"to": {
+						"node": "n-review"
+					},
+					"route": "straight",
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "n-draft"
+							},
+							"to": {
+								"node": "n-review"
+							},
+							"route": "straight"
+						}
+					},
+					"direction": "forward",
+					"enter": {
+						"start": 0.3,
+						"duration": 0.06,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.9,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "n-draft"
+							},
+							"event": "end",
+							"offsetMs": 60
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-review",
+					"position": {
+						"x": 0.5,
+						"y": 0.56
+					},
+					"form": "box",
+					"text": "Review",
+					"scale": 1,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.55
+							},
+							"scale": 1.6
+						}
+					},
+					"exit": {
+						"start": 0.9,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"channels": {
+							"opacity": [
+								{
+									"atMs": 0,
+									"value": 0
+								},
+								{
+									"atMs": 300,
+									"value": 1,
+									"ease": "smooth"
+								}
+							],
+							"x": [
+								{
+									"atMs": 0,
+									"value": -0.06
+								},
+								{
+									"atMs": 450,
+									"value": 0,
+									"ease": "settled"
+								}
+							]
+						},
+						"orientationOverrides": {
+							"vertical": {
+								"x": [
+									{
+										"atMs": 0,
+										"value": 0
+									}
+								],
+								"y": [
+									{
+										"atMs": 0,
+										"value": 0.05
+									},
+									{
+										"atMs": 450,
+										"value": 0,
+										"ease": "settled"
+									}
+								],
+								"scale": [
+									{
+										"atMs": 0,
+										"value": 1.4
+									},
+									{
+										"atMs": 450,
+										"value": 1.6,
+										"ease": "settled"
+									}
+								],
+								"rotation": [
+									{
+										"atMs": 0,
+										"value": 0
+									}
+								]
+							}
+						},
+						"cascade": {
+							"anchor": {
+								"block": "e-draft-review"
+							},
+							"event": "end",
+							"offsetMs": 60
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-review-ship",
+					"from": {
+						"node": "n-review"
+					},
+					"to": {
+						"node": "n-ship"
+					},
+					"route": "straight",
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "n-review"
+							},
+							"to": {
+								"node": "n-ship"
+							},
+							"route": "straight"
+						}
+					},
+					"direction": "forward",
+					"enter": {
+						"start": 0.3,
+						"duration": 0.06,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.9,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "n-review"
+							},
+							"event": "end",
+							"offsetMs": 60
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-ship",
+					"position": {
+						"x": 0.78,
+						"y": 0.56
+					},
+					"form": "box",
+					"text": "Ship",
+					"scale": 1,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.76
+							},
+							"scale": 1.6
+						}
+					},
+					"exit": {
+						"start": 0.9,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"channels": {
+							"opacity": [
+								{
+									"atMs": 0,
+									"value": 0
+								},
+								{
+									"atMs": 300,
+									"value": 1,
+									"ease": "smooth"
+								}
+							],
+							"x": [
+								{
+									"atMs": 0,
+									"value": -0.06
+								},
+								{
+									"atMs": 450,
+									"value": 0,
+									"ease": "settled"
+								}
+							]
+						},
+						"orientationOverrides": {
+							"vertical": {
+								"x": [
+									{
+										"atMs": 0,
+										"value": 0
+									}
+								],
+								"y": [
+									{
+										"atMs": 0,
+										"value": 0.05
+									},
+									{
+										"atMs": 450,
+										"value": 0,
+										"ease": "settled"
+									}
+								],
+								"scale": [
+									{
+										"atMs": 0,
+										"value": 1.4
+									},
+									{
+										"atMs": 450,
+										"value": 1.6,
+										"ease": "settled"
+									}
+								],
+								"rotation": [
+									{
+										"atMs": 0,
+										"value": 0
+									}
+								]
+							}
+						},
+						"cascade": {
+							"anchor": {
+								"block": "e-review-ship"
+							},
+							"event": "end",
+							"offsetMs": 60
+						}
+					}
+				}
+			]
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

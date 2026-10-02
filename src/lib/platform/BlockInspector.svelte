@@ -4,6 +4,7 @@
 	import CascadeSection from './CascadeSection.svelte';
 	import {
 		DIAGRAM_KEYFRAME_CHANNELS,
+		SPATIAL_KEYFRAME_CHANNELS,
 		DIAGRAM_STROKE_KEYFRAME_CHANNELS,
 		type Cascade,
 		type Transition
@@ -48,7 +49,12 @@
 		if (next === undefined) {
 			if (!el.animation) return;
 			el.animation.cascade = undefined;
-			if (!el.animation.channels || Object.keys(el.animation.channels).length === 0) {
+			const hasOverrides =
+				'orientationOverrides' in el.animation && el.animation.orientationOverrides !== undefined;
+			if (
+				(!el.animation.channels || Object.keys(el.animation.channels).length === 0) &&
+				!hasOverrides
+			) {
 				el.animation = undefined;
 			}
 			return;
@@ -99,6 +105,14 @@
 	/>
 
 	<KeyframesSection selfKey={`block:${el.id}`} {channelNames} />
+	{#if channelNames.includes('x')}
+		<KeyframesSection
+			selfKey={`block:${el.id}`}
+			channelNames={SPATIAL_KEYFRAME_CHANNELS}
+			scope={engineState.transport.orientation}
+			label={`${engineState.transport.orientation} Reflow Motion`}
+		/>
+	{/if}
 
 	<CascadeSection
 		selfKey={`block:${el.id}`}

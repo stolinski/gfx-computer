@@ -188,6 +188,13 @@
 		"height": 360,
 		"contentFraction": 0.1075
 	},
+	"diagram-orientation-motion-fixture": {
+		"contentKey": "67b2b7f7ea6e757c",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0679
+	},
 	"diagram-schema-fixture": {
 		"contentKey": "3fdedb52d24ab494",
 		"timestampSeconds": 3,

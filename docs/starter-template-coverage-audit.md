@@ -6,7 +6,7 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **107 Presets** — **45 listed** and **62 fixtures**.
+- Corpus: **108 Presets** — **45 listed** and **63 fixtures**.
 - Structurally distinct Starter candidates: **45**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
@@ -92,6 +92,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `diagram-schema-fixture`                        | Diagram proof        | Every primitive contract           | Keep fixture | Schema and renderer coverage.                                         |
 | `dithering-demo`                                | Effect proof         | Dithering                          | Keep fixture | Isolated Effect proof.                                                |
 | `docu-timeline-build-clean-light`               | Pack calibration     | Clean Light timeline re-dress      | Keep fixture | Calibration evidence, never a listing entry.                          |
+| `diagram-orientation-motion-fixture`            | Animation proof      | Per-orientation Diagram motion     | Keep fixture | Engine contract proof (ADR-0039 §4).                                  |
 | `dof-multiplane-check`                          | Depth proof          | Multiplane capture                 | Keep fixture | Regression check.                                                     |
 | `effect-keyframes-demo`                         | Animation proof      | Keyframed Effect params            | Keep fixture | Engine contract proof (ADR-0063).                                     |
 | `fluid-ripple-demo`                             | Simulation proof     | Fluid ripple                       | Keep fixture | Isolated simulation proof.                                            |

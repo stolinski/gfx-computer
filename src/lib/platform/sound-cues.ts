@@ -19,6 +19,7 @@ import {
 	resolveMarkForIndex,
 	type ChatMessage,
 	type EngineState,
+	type Keyframe,
 	type MarkInstance,
 	type OverlayChannelKeyframes,
 	type SoundEvent,
@@ -525,15 +526,14 @@ function pushDiagramBlockCue(
 // travel.
 function deriveChannelBlockCue(
 	primitive: DiagramPrimitive,
+	channels: Partial<Record<string, Keyframe[]>>,
 	enterDefault: SoundEvent | null,
 	cascadeWindows: CascadeWindowMap,
 	cues: DerivedSoundCue[]
 ): void {
-	const channels = primitive.animation?.channels;
-	const characterDefault =
-		channels && channelsTravel(channels as OverlayChannelKeyframes)
-			? (enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter)
-			: null;
+	const characterDefault = channelsTravel(channels as OverlayChannelKeyframes)
+		? (enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter)
+		: null;
 	if (characterDefault === null && !hasSoundOptIn(primitive.enter?.sound)) {
 		return;
 	}
@@ -558,13 +558,15 @@ function deriveChannelBlockCue(
 // the channels travel.
 function deriveDiagramBlockCues(
 	diagram: EngineState['surface']['diagram'],
+	orientation: EngineState['transport']['orientation'],
 	cascadeWindows: CascadeWindowMap,
 	cues: DerivedSoundCue[]
 ): void {
 	for (const primitive of diagram ?? []) {
 		const enterDefault = diagramBlockEnterDefault(primitive.type);
-		if (hasChannelMotion(primitive.animation?.channels)) {
-			deriveChannelBlockCue(primitive, enterDefault, cascadeWindows, cues);
+		const channels = resolveOrientationKeyframeChannels(primitive.animation, orientation);
+		if (hasChannelMotion(channels)) {
+			deriveChannelBlockCue(primitive, channels, enterDefault, cascadeWindows, cues);
 			continue;
 		}
 
@@ -773,7 +775,7 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	deriveSurfaceTransitionCues(state.surface, cascadeWindows, cues);
 	deriveMarkCues(state, cascadeWindows, cues);
 	deriveOverlayTransitionCues(state.overlays, state.transport.orientation, cascadeWindows, cues);
-	deriveDiagramBlockCues(state.surface.diagram, cascadeWindows, cues);
+	deriveDiagramBlockCues(state.surface.diagram, state.transport.orientation, cascadeWindows, cues);
 	derivePlatformPressCues(state.overlays, cues);
 	deriveAchievementBeatCues(state.overlays, state.transport.durationSeconds, cues);
 	deriveTextAnimationCues(state.textAnimations, cascadeWindows, cues);
