@@ -1,0 +1,48 @@
+{
+	"schema": "gfx@1",
+	"name": "Filmed page anchor per orientation — engine fixture",
+	"description": "ADR-0039 §4 verification fixture. The website-screenshot Surface is framed filmed over the bundled Syntax YouTube capture. The shared page anchor centres the video grid in the wide frame; the vertical point keeps the channel header and first column in shot in the tall frame, where the same shared point would crop to the middle of the grid.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 4,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#14121a",
+			"inkColor": "#f2ede3"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "website-screenshot",
+			"variant": "filmed",
+			"content": {
+				"body": "",
+				"sourceUrl": "https://www.youtube.com/@syntaxfm/videos",
+				"captureAsset": "syntax-youtube-videos"
+			},
+			"pageAnchor": {
+				"x": 0.54,
+				"y": 0.5
+			},
+			"pageAnchorOrientationOverrides": {
+				"vertical": {
+					"x": 0.34,
+					"y": 0.3
+				}
+			}
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

@@ -74,6 +74,10 @@ export function trackCompositionAuthoringDependencies(state: EngineState, packSl
 	for (const item of state.surface.content.items ?? []) void JSON.stringify(item);
 	for (const message of state.surface.content.messages ?? []) void JSON.stringify(message);
 	void state.surface.variant;
+	void state.surface.pageAnchor?.x;
+	void state.surface.pageAnchor?.y;
+	void state.surface.pageAnchorOrientationOverrides?.[activeOrientation]?.x;
+	void state.surface.pageAnchorOrientationOverrides?.[activeOrientation]?.y;
 	void state.typography.fontFamily;
 	void state.typography.paperColor;
 	void state.typography.inkColor;

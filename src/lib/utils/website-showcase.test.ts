@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import {
+	resolveSurfacePageAnchor,
 	calculateFilmedPageLayout,
 	calculateWebsiteShowcaseLayout,
 	createEnterBlurCommitDeduper,
@@ -109,5 +110,17 @@ describe('filmed page layout (ADR-0057)', () => {
 	it('refuses empty frames or captures', () => {
 		assert.throws(() => calculateFilmedPageLayout(0, 2160, 2880, 5120), /positive/);
 		assert.throws(() => calculateFilmedPageLayout(3840, 2160, 0, 5120), /positive/);
+	});
+});
+
+describe('resolveSurfacePageAnchor', () => {
+	it('takes the orientation point, else the shared point, else the page centre', () => {
+		const surface = {
+			pageAnchor: { x: 0.54, y: 0.5 },
+			pageAnchorOrientationOverrides: { vertical: { x: 0.3, y: 0.2 } }
+		};
+		assert.deepEqual(resolveSurfacePageAnchor(surface, 'vertical'), { x: 0.3, y: 0.2 });
+		assert.deepEqual(resolveSurfacePageAnchor(surface, 'horizontal'), { x: 0.54, y: 0.5 });
+		assert.deepEqual(resolveSurfacePageAnchor({}, 'vertical'), { x: 0.5, y: 0.5 });
 	});
 });

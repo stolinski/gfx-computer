@@ -713,6 +713,13 @@
 		"height": 360,
 		"contentFraction": 0.9997
 	},
+	"website-filmed-orientation-fixture": {
+		"contentKey": "18e871d245066634",
+		"timestampSeconds": 2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.5254
+	},
 	"website-showcase": {
 		"contentKey": "cd810f659c8916e1",
 		"timestampSeconds": 3,

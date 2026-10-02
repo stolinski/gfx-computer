@@ -88,8 +88,14 @@ export interface SetCompositionOverlayPoseRequest {
 
 export interface SetCompositionSurfacePageAnchorRequest {
 	expectedRevision: number;
-	/** The page point (capture fractions) at frame centre in the filmed framing. `null` returns the page centre. */
+	/**
+	 * The page point (capture fractions) at frame centre in the filmed framing.
+	 * `null` removes it: the shared point returns to the page centre, and an
+	 * orientation point returns that orientation to the shared one.
+	 */
 	pageAnchor: { x: number; y: number } | null;
+	/** The shared point both orientations fall back to, or one orientation's own. Absent is shared. */
+	target?: CompositionPlacementTarget;
 }
 
 /** The geometry fields a diagram primitive carries, in composition fractions. */
@@ -367,6 +373,8 @@ export async function runSetCompositionSurfacePageAnchorOperation(
 			{ rejected: surface.type, alternatives: ['website-screenshot'] }
 		);
 	}
+	const target = request.target ?? 'shared';
+	if (!isPlacementTarget(target)) return refuseUnknownPlacementTarget(row, target);
 	const anchor = request.pageAnchor;
 	if (
 		anchor !== null &&
@@ -391,10 +399,19 @@ export async function runSetCompositionSurfacePageAnchorOperation(
 	return runCompositionEditTransaction({
 		operationId: row.id,
 		expectedRevision: request.expectedRevision,
-		undoLabel: 'Set page anchor',
+		undoLabel: target === 'shared' ? 'Set page anchor' : `Set ${target} page anchor`,
 		focus: { target: 'surface' },
 		mutate: (draft) => {
-			draft.state.surface.pageAnchor = anchor === null ? undefined : { x: anchor.x, y: anchor.y };
+			const surface = draft.state.surface;
+			const point = anchor === null ? undefined : { x: anchor.x, y: anchor.y };
+			if (target === 'shared') {
+				surface.pageAnchor = point;
+				return;
+			}
+			const overrides = { ...surface.pageAnchorOrientationOverrides, [target]: point };
+			if (point === undefined) delete overrides[target];
+			surface.pageAnchorOrientationOverrides =
+				overrides.horizontal || overrides.vertical ? overrides : undefined;
 		}
 	});
 }

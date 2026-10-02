@@ -1313,6 +1313,15 @@ const SurfaceSchema = z.object({
 	// chooses which part of the page is in shot. Ignored by every other framing
 	// and Surface. Absent means the page centre.
 	pageAnchor: z.object({ x: FractionSchema, y: FractionSchema }).optional(),
+	// One page point per orientation (ADR-0039 §4) that replaces `pageAnchor`
+	// while that orientation is active, so the tall frame can keep a different
+	// part of the page in shot. Each is a complete point.
+	pageAnchorOrientationOverrides: z
+		.strictObject({
+			horizontal: z.strictObject({ x: FractionSchema, y: FractionSchema }).optional(),
+			vertical: z.strictObject({ x: FractionSchema, y: FractionSchema }).optional()
+		})
+		.optional(),
 	enter: TransitionSchema.optional(),
 	exit: TransitionSchema.optional(),
 	// Composition-owned motion channels (ADR-0035). When `animation.channels`

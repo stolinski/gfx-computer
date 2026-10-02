@@ -3,8 +3,12 @@
 	import { engineState } from './engine-state.svelte';
 	import { uploadUserImage } from '$lib/platform/user-image-upload-transport';
 	import { requestWebsiteCapture } from '$lib/platform/website-capture';
-	import { createEnterBlurCommitDeduper } from '$lib/utils/website-showcase';
+	import {
+		createEnterBlurCommitDeduper,
+		resolveSurfacePageAnchor
+	} from '$lib/utils/website-showcase';
 	import Field from './Field.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
 
 	// website-screenshot capture: the source URL input (Enter/blur commits a
 	// capture), the screenshot picker / preview, the bundled-capture pick
@@ -21,14 +25,40 @@
 		if (slug) engineState.surface.content.imageUrl = undefined;
 	}
 
-	function pageAnchor(): { x: number; y: number } {
-		return engineState.surface.pageAnchor ?? { x: 0.5, y: 0.5 };
-	}
+	const orientation = $derived(engineState.transport.orientation);
+	const pageAnchor = $derived(resolveSurfacePageAnchor(engineState.surface, orientation));
+	const pageAnchorCustomized = $derived(
+		engineState.surface.pageAnchorOrientationOverrides?.[orientation] !== undefined
+	);
 
+	// Edits land on the active orientation's point when it has one, else on the
+	// shared point (ADR-0039 §4).
 	function setPageAnchor(axis: 'x' | 'y', value: string): void {
 		const parsed = Number(value);
 		if (!Number.isFinite(parsed)) return;
-		engineState.surface.pageAnchor = { ...pageAnchor(), [axis]: Math.max(0, Math.min(1, parsed)) };
+		const next = { ...pageAnchor, [axis]: Math.max(0, Math.min(1, parsed)) };
+		const overrides = engineState.surface.pageAnchorOrientationOverrides;
+		if (overrides?.[orientation]) overrides[orientation] = next;
+		else engineState.surface.pageAnchor = next;
+	}
+
+	// Customizing copies the point this orientation films now; un-customizing
+	// deletes it and returns the orientation to the shared point.
+	function togglePageAnchorCustomization(checked: boolean): void {
+		const surface = engineState.surface;
+		if (checked) {
+			surface.pageAnchorOrientationOverrides = {
+				...surface.pageAnchorOrientationOverrides,
+				[orientation]: { ...pageAnchor }
+			};
+			return;
+		}
+		const overrides = surface.pageAnchorOrientationOverrides;
+		if (!overrides) return;
+		delete overrides[orientation];
+		if (!overrides.horizontal && !overrides.vertical) {
+			surface.pageAnchorOrientationOverrides = undefined;
+		}
 	}
 	let websiteCaptureSequence = 0;
 	const websiteCaptureDeduper = createEnterBlurCommitDeduper();
@@ -129,7 +159,7 @@
 			min="0"
 			step="0.01"
 			type="number"
-			value={pageAnchor().x}
+			value={pageAnchor.x}
 			oninput={(e) => setPageAnchor('x', (e.currentTarget as HTMLInputElement).value)}
 		/>
 		<input
@@ -138,8 +168,13 @@
 			min="0"
 			step="0.01"
 			type="number"
-			value={pageAnchor().y}
+			value={pageAnchor.y}
 			oninput={(e) => setPageAnchor('y', (e.currentTarget as HTMLInputElement).value)}
+		/>
+		<InspectorToggle
+			checked={pageAnchorCustomized}
+			label={`Customize ${orientation}`}
+			onchange={togglePageAnchorCustomization}
 		/>
 	</Field>
 {/if}

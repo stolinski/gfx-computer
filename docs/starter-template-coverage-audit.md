@@ -6,7 +6,7 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **108 Presets** — **45 listed** and **63 fixtures**.
+- Corpus: **109 Presets** — **45 listed** and **64 fixtures**.
 - Structurally distinct Starter candidates: **45**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
@@ -132,6 +132,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `tweet-stack-reaction-flood`                    | Overlay proof        | Tweet-stack pile                   | Keep fixture | Feature proof pending a durable creator-job composition.              |
 | `type-hero-vantage-clean-light`                 | Pack calibration     | Clean Light type hero              | Keep fixture | Calibration evidence, never a listing entry.                          |
 | `washi-tape-corner-accent`                      | Overlay proof        | Washi edge and placement           | Keep fixture | Dressing proof, not channel chrome or a creator job.                  |
+| `website-filmed-orientation-fixture`            | Surface proof        | Filmed page anchor per orientation | Keep fixture | Engine contract proof (ADR-0039 §4).                                  |
 | `water-demo`                                    | Effect proof         | Water refraction                   | Keep fixture | Isolated Effect proof.                                                |
 | `watermark-channel-sig`                         | Overlay proof        | Watermark over type hero           | Keep fixture | Feature proof; the library still needs a true corner-bug job.         |
 | `watermark-demo`                                | Overlay proof        | Watermark                          | Keep fixture | Isolated Overlay proof.                                               |

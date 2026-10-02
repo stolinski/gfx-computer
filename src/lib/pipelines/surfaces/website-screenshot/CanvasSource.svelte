@@ -6,6 +6,7 @@
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import {
 		calculateFilmedPageLayout,
+		resolveSurfacePageAnchor,
 		calculateWebsiteShowcaseLayout,
 		WEBSITE_CAPTURE_HEIGHT,
 		WEBSITE_CAPTURE_WIDTH,
@@ -48,7 +49,7 @@
 			frame.height,
 			captureSize.width,
 			captureSize.height,
-			engineState.surface.pageAnchor
+			resolveSurfacePageAnchor(engineState.surface, engineState.transport.orientation)
 		)
 	);
 	// The browser framing rises into place; the filmed page has no entrance of

@@ -147,6 +147,30 @@ export interface FilmedPageLayout {
  * the page under the frontal camera. The frame is a crop into the page, the
  * way ADR-0056 crops into the newspaper.
  */
+/** A page point in capture fractions (x right, y down). */
+export interface WebsitePageAnchor {
+	x: number;
+	y: number;
+}
+
+/**
+ * The page point the filmed framing centres in `orientation` (ADR-0039 §4):
+ * that orientation's own point, else the shared `pageAnchor`, else the page
+ * centre.
+ */
+export function resolveSurfacePageAnchor(
+	surface: {
+		pageAnchor?: WebsitePageAnchor;
+		pageAnchorOrientationOverrides?: Partial<Record<'horizontal' | 'vertical', WebsitePageAnchor>>;
+	},
+	orientation: 'horizontal' | 'vertical'
+): WebsitePageAnchor {
+	return (
+		surface.pageAnchorOrientationOverrides?.[orientation] ??
+		surface.pageAnchor ?? { x: 0.5, y: 0.5 }
+	);
+}
+
 export function calculateFilmedPageLayout(
 	frameWidth: number,
 	frameHeight: number,

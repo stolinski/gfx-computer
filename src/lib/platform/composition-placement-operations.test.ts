@@ -262,6 +262,50 @@ describe('Surface page anchor', () => {
 		);
 		expect(engineState.surface.pageAnchor).toBeUndefined();
 	});
+
+	it('anchors the page per orientation and returns an orientation to the shared point', async () => {
+		engineState.surface.type = 'website-screenshot';
+		engineState.surface.variant = 'filmed';
+		engineState.surface.content.captureAsset = 'syntax-youtube-videos';
+		engineState.surface.content.sourceUrl = 'https://www.youtube.com/@syntaxfm/videos';
+		expectApplied(
+			await runSetCompositionSurfacePageAnchorOperation({
+				expectedRevision: 0,
+				pageAnchor: { x: 0.54, y: 0.5 }
+			})
+		);
+		const changed = expectApplied(
+			await runSetCompositionSurfacePageAnchorOperation({
+				expectedRevision: 1,
+				target: 'vertical',
+				pageAnchor: { x: 0.3, y: 0.2 }
+			})
+		);
+		expect(changed).toEqual(['/state/surface/pageAnchorOrientationOverrides']);
+		expect(engineState.surface.pageAnchor).toEqual({ x: 0.54, y: 0.5 });
+		expect(engineState.surface.pageAnchorOrientationOverrides).toEqual({
+			vertical: { x: 0.3, y: 0.2 }
+		});
+
+		const unknown = expectFailed(
+			await runSetCompositionSurfacePageAnchorOperation({
+				expectedRevision: 2,
+				target: 'square' as 'shared',
+				pageAnchor: { x: 0.3, y: 0.2 }
+			})
+		);
+		expect(unknown.alternatives).toEqual(['shared', 'horizontal', 'vertical']);
+
+		expectApplied(
+			await runSetCompositionSurfacePageAnchorOperation({
+				expectedRevision: 2,
+				target: 'vertical',
+				pageAnchor: null
+			})
+		);
+		expect(engineState.surface.pageAnchorOrientationOverrides).toBeUndefined();
+		expect(engineState.surface.pageAnchor).toEqual({ x: 0.54, y: 0.5 });
+	});
 });
 
 describe('diagram geometry', () => {

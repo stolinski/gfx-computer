@@ -445,9 +445,14 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 								},
 								additionalProperties: false
 							},
-							{ type: 'null', description: 'Return to the page centre.' }
+							{
+								type: 'null',
+								description:
+									'Remove it: the shared point returns to the page centre, an orientation point to the shared one.'
+							}
 						]
-					}
+					},
+					target: placementTargetProperty()
 				},
 				required: ['expectedRevision', 'pageAnchor'],
 				additionalProperties: false
@@ -456,7 +461,8 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 				runWebmcpToolOperation('placement.set-surface-page-anchor', () =>
 					runSetCompositionSurfacePageAnchorOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
-						pageAnchor: readPageAnchor(args)
+						pageAnchor: readPageAnchor(args),
+						target: readWebmcpOptionalLiteralArgument(args, 'target', COMPOSITION_PLACEMENT_TARGETS)
 					})
 				)
 		},

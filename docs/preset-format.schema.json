@@ -521,6 +521,46 @@
 							},
 							"required": ["x", "y"]
 						},
+						"pageAnchorOrientationOverrides": {
+							"type": "object",
+							"properties": {
+								"horizontal": {
+									"type": "object",
+									"properties": {
+										"x": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										},
+										"y": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										}
+									},
+									"required": ["x", "y"],
+									"additionalProperties": false
+								},
+								"vertical": {
+									"type": "object",
+									"properties": {
+										"x": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										},
+										"y": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1
+										}
+									},
+									"required": ["x", "y"],
+									"additionalProperties": false
+								}
+							},
+							"additionalProperties": false
+						},
 						"enter": {
 							"type": "object",
 							"properties": {

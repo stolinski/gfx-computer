@@ -137,6 +137,9 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		chrome: surface.chrome,
 		// The filmed framing's page anchor (ADR-0057): the same top-level trap.
 		pageAnchor: surface.pageAnchor ? { ...surface.pageAnchor } : undefined,
+		pageAnchorOrientationOverrides: surface.pageAnchorOrientationOverrides
+			? cloneJsonValue(surface.pageAnchorOrientationOverrides)
+			: undefined,
 		enter: surface.enter ? cloneTransition(surface.enter) : undefined,
 		exit: surface.exit ? cloneTransition(surface.exit) : undefined,
 		animation: surface.animation ? cloneSurfaceAnimation(surface.animation) : undefined,
