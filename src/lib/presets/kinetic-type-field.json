@@ -42,7 +42,7 @@
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.05,
+									"x": 0.0505,
 									"y": 0.4137
 								},
 								"horizontalAnchor": "start",
@@ -206,7 +206,7 @@
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.05,
+									"x": 0.0505,
 									"y": 0.5348
 								},
 								"horizontalAnchor": "start",
@@ -299,7 +299,7 @@
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.05,
+									"x": 0.0505,
 									"y": 0.6145
 								},
 								"horizontalAnchor": "start",
@@ -433,7 +433,7 @@
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.05,
+									"x": 0.0505,
 									"y": 0.6145
 								},
 								"horizontalAnchor": "start",
@@ -581,7 +581,7 @@
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.05,
+									"x": 0.0505,
 									"y": 0.5348
 								},
 								"horizontalAnchor": "start",
@@ -674,7 +674,7 @@
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.1634,
+									"x": 0.1639,
 									"y": 0.5348
 								},
 								"horizontalAnchor": "start",
@@ -762,12 +762,12 @@
 							"y": 0.8296
 						},
 						"horizontalAnchor": "start",
-						"scale": 1.54,
+						"scale": 1.52,
 						"rotation": 0,
 						"orientationOverrides": {
 							"vertical": {
 								"position": {
-									"x": 0.05,
+									"x": 0.0505,
 									"y": 0.5969
 								},
 								"horizontalAnchor": "start",
