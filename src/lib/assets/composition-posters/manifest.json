@@ -349,6 +349,13 @@
 		"height": 360,
 		"contentFraction": 0.2981
 	},
+	"kinetic-type-field": {
+		"contentKey": "71f1bc699f8d746b",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.3969
+	},
 	"lower-third": {
 		"contentKey": "b968136b2af5eeb3",
 		"timestampSeconds": 3.35,

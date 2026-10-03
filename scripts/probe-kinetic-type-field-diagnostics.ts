@@ -6,7 +6,8 @@
  * word's keyframe envelope.
  *
  * Each cell proves, as numbers:
- * - native target size, real variable face loaded, no font synthesis;
+ * - native target size, real variable face loaded, no font synthesis, no
+ *   word cut off by its own mask;
  * - repeated-frame identity: an envelope's middle frame renders the same
  *   canonical pixels and word geometry after seeking away and back;
  * - cap height: every shown word clears the cap-height floor;
@@ -73,6 +74,8 @@ interface WordProbe {
 	fontFamily: string;
 	fontWeight: number;
 	fontSynthesis: string;
+	/** Text wider than the word's own box: its mask would cut glyphs off. */
+	clipped: boolean;
 	capHeight: number;
 	bounds: { left: number; top: number; right: number; bottom: number };
 	glyphTops: number[];
@@ -264,6 +267,7 @@ try {
 							fontFamily: style.fontFamily,
 							fontWeight: Number(style.fontWeight),
 							fontSynthesis: style.fontSynthesis,
+							clipped: text.scrollWidth > text.clientWidth + 1,
 							capHeight: capRatio * parseFloat(style.fontSize) * transformScale * toCanvas,
 							bounds: {
 								left: (rect.left - fieldRect.left) * toCanvas,
@@ -484,6 +488,7 @@ try {
 							`${cell} ${word.id} left the Pack's variable face at ${atMs} ms`
 						);
 						assert.equal(word.fontSynthesis, 'none', `${cell} ${word.id} synthesizes a face`);
+						assert.ok(!word.clipped, `${cell} ${word.id} is cut off by its own mask at ${atMs} ms`);
 						assert.ok(
 							word.capHeight >= CAP_HEIGHT_FLOOR[orientation],
 							`${cell} ${word.id} cap height ${word.capHeight.toFixed(1)} px is under the ${CAP_HEIGHT_FLOOR[orientation]} px floor at ${atMs} ms`

@@ -149,9 +149,12 @@
 	}
 
 	/* Grid so the word box is exactly its line box: no strut, no baseline drift
-	   when the renderer clips to its mask. */
+	   when the renderer clips to its mask. max-content because an absolute box
+	   otherwise shrinks to the room right of its left edge before its scale
+	   applies, and a long word set small would clip at its own mask. */
 	.kinetic-type-field__word {
 		display: grid;
+		inline-size: max-content;
 		position: absolute;
 		transform-origin: center;
 		translate: -50% -50%;

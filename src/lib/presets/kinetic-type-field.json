@@ -1,0 +1,946 @@
+{
+	"schema": "supers@1",
+	"name": "Type Is the Composition",
+	"description": "A full-frame kinetic type bumper: TYPE persists while CAN MOVE turns over to CAN BECOME and resolves to IS THE COMPOSITION, every word rising through its own mask and striking weight on the beat.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"typeField": {
+				"words": [
+					{
+						"type": "kinetic-word",
+						"id": "type",
+						"text": "TYPE",
+						"hierarchy": "display",
+						"ink": "ink",
+						"position": {
+							"x": 0.05,
+							"y": 0.2917
+						},
+						"horizontalAnchor": "start",
+						"scale": 4,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": {
+									"x": 0.05,
+									"y": 0.4137
+								},
+								"horizontalAnchor": "start",
+								"scale": 2.5,
+								"rotation": 0
+							}
+						},
+						"animation": {
+							"channels": {
+								"reveal": [
+									{
+										"atMs": 0,
+										"value": -1
+									},
+									{
+										"atMs": 60,
+										"value": -1,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 520,
+										"value": 0,
+										"ease": "sharp"
+									},
+									{
+										"atMs": 5700,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "out",
+										"offsetMs": 100
+									},
+									{
+										"atMs": 5960,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "out",
+										"offsetMs": 360
+									}
+								],
+								"weight": [
+									{
+										"atMs": 0,
+										"value": 0.15
+									},
+									{
+										"atMs": 360,
+										"value": 0.15,
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": -140
+									},
+									{
+										"atMs": 500,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "open",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 620,
+										"value": 1,
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": 120
+									},
+									{
+										"atMs": 1000,
+										"value": 0.62,
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": 500
+									},
+									{
+										"atMs": 1940,
+										"value": 0.62,
+										"ease": "smooth",
+										"atBeat": "swap",
+										"offsetMs": -60
+									},
+									{
+										"atMs": 2000,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "swap",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 2400,
+										"value": 0.62,
+										"ease": "smooth",
+										"atBeat": "swap",
+										"offsetMs": 400
+									},
+									{
+										"atMs": 3290,
+										"value": 0.62,
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": -60
+									},
+									{
+										"atMs": 3350,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 3450,
+										"value": 1,
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 100
+									},
+									{
+										"atMs": 3940,
+										"value": 0.15,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -60
+									}
+								],
+								"tracking": [
+									{
+										"atMs": 0,
+										"value": 0.08
+									},
+									{
+										"atMs": 60,
+										"value": 0.08,
+										"ease": "smooth"
+									},
+									{
+										"atMs": 500,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": 0
+									}
+								]
+							}
+						},
+						"glyphStagger": {
+							"offsetMs": 40,
+							"order": "forward"
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "can",
+						"text": "CAN",
+						"hierarchy": "support",
+						"ink": "accent",
+						"position": {
+							"x": 0.05,
+							"y": 0.5951
+						},
+						"horizontalAnchor": "start",
+						"scale": 1.5,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": {
+									"x": 0.05,
+									"y": 0.5348
+								},
+								"horizontalAnchor": "start",
+								"scale": 1.417,
+								"rotation": 0
+							}
+						},
+						"animation": {
+							"channels": {
+								"opacity": [
+									{
+										"atMs": 0,
+										"value": 1
+									},
+									{
+										"atMs": 3620,
+										"value": 1,
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 270
+									},
+									{
+										"atMs": 3640,
+										"value": 0,
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 290
+									}
+								],
+								"reveal": [
+									{
+										"atMs": 0,
+										"value": -1
+									},
+									{
+										"atMs": 500,
+										"value": -1,
+										"ease": "smooth",
+										"atBeat": "open",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 720,
+										"value": 0,
+										"ease": "sharp",
+										"atBeat": "open",
+										"offsetMs": 220
+									},
+									{
+										"atMs": 3350,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 3550,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 200
+									}
+								],
+								"weight": [
+									{
+										"atMs": 0,
+										"value": 0.55
+									}
+								]
+							}
+						},
+						"glyphStagger": {
+							"offsetMs": 25,
+							"order": "forward"
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "move",
+						"text": "MOVE",
+						"hierarchy": "display",
+						"ink": "accent",
+						"position": {
+							"x": 0.05,
+							"y": 0.7873
+						},
+						"horizontalAnchor": "start",
+						"scale": 2.4,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": {
+									"x": 0.05,
+									"y": 0.6145
+								},
+								"horizontalAnchor": "start",
+								"scale": 1.342,
+								"rotation": 0
+							}
+						},
+						"animation": {
+							"channels": {
+								"opacity": [
+									{
+										"atMs": 0,
+										"value": 1
+									},
+									{
+										"atMs": 2380,
+										"value": 1,
+										"ease": "smooth",
+										"atBeat": "swap",
+										"offsetMs": 380
+									},
+									{
+										"atMs": 2400,
+										"value": 0,
+										"ease": "sharp",
+										"atBeat": "swap",
+										"offsetMs": 400
+									}
+								],
+								"reveal": [
+									{
+										"atMs": 0,
+										"value": -1
+									},
+									{
+										"atMs": 560,
+										"value": -1,
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": -440
+									},
+									{
+										"atMs": 1000,
+										"value": 0,
+										"ease": "sharp",
+										"atBeat": "move",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 2000,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "swap",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 2260,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "swap",
+										"offsetMs": 260
+									}
+								],
+								"weight": [
+									{
+										"atMs": 0,
+										"value": 0.4
+									},
+									{
+										"atMs": 900,
+										"value": 0.4,
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": -100
+									},
+									{
+										"atMs": 1000,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "move",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 1400,
+										"value": 0.72,
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": 400
+									}
+								],
+								"tracking": [
+									{
+										"atMs": 0,
+										"value": 0.12
+									},
+									{
+										"atMs": 560,
+										"value": 0.12,
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": -440
+									},
+									{
+										"atMs": 1100,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "move",
+										"offsetMs": 100
+									}
+								]
+							}
+						},
+						"glyphStagger": {
+							"offsetMs": 35,
+							"order": "forward"
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "become",
+						"text": "BECOME",
+						"hierarchy": "display",
+						"ink": "accent",
+						"position": {
+							"x": 0.05,
+							"y": 0.7873
+						},
+						"horizontalAnchor": "start",
+						"scale": 2.4,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": {
+									"x": 0.05,
+									"y": 0.6145
+								},
+								"horizontalAnchor": "start",
+								"scale": 1.342,
+								"rotation": 0
+							}
+						},
+						"animation": {
+							"channels": {
+								"opacity": [
+									{
+										"atMs": 0,
+										"value": 0
+									},
+									{
+										"atMs": 2040,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": -460
+									},
+									{
+										"atMs": 2060,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "become",
+										"offsetMs": -440
+									},
+									{
+										"atMs": 3780,
+										"value": 1,
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 430
+									},
+									{
+										"atMs": 3800,
+										"value": 0,
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 450
+									}
+								],
+								"reveal": [
+									{
+										"atMs": 0,
+										"value": -1
+									},
+									{
+										"atMs": 2060,
+										"value": -1,
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": -440
+									},
+									{
+										"atMs": 2500,
+										"value": 0,
+										"ease": "sharp",
+										"atBeat": "become",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 3350,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "turn",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 3610,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "turn",
+										"offsetMs": 260
+									}
+								],
+								"weight": [
+									{
+										"atMs": 0,
+										"value": 0.4
+									},
+									{
+										"atMs": 2400,
+										"value": 0.4,
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": -100
+									},
+									{
+										"atMs": 2500,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "become",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 2900,
+										"value": 0.72,
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": 400
+									}
+								],
+								"tracking": [
+									{
+										"atMs": 0,
+										"value": 0.12
+									},
+									{
+										"atMs": 2060,
+										"value": 0.12,
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": -440
+									},
+									{
+										"atMs": 2600,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "become",
+										"offsetMs": 100
+									}
+								]
+							}
+						},
+						"glyphStagger": {
+							"offsetMs": 30,
+							"order": "forward"
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "is",
+						"text": "IS",
+						"hierarchy": "support",
+						"ink": "accent",
+						"position": {
+							"x": 0.05,
+							"y": 0.6796
+						},
+						"horizontalAnchor": "start",
+						"scale": 1.5,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": {
+									"x": 0.05,
+									"y": 0.5348
+								},
+								"horizontalAnchor": "start",
+								"scale": 1.417,
+								"rotation": 0
+							}
+						},
+						"animation": {
+							"channels": {
+								"opacity": [
+									{
+										"atMs": 0,
+										"value": 0
+									},
+									{
+										"atMs": 3380,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -620
+									},
+									{
+										"atMs": 3400,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -600
+									}
+								],
+								"reveal": [
+									{
+										"atMs": 0,
+										"value": -1
+									},
+									{
+										"atMs": 3400,
+										"value": -1,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -600
+									},
+									{
+										"atMs": 3600,
+										"value": 0,
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -400
+									},
+									{
+										"atMs": 5620,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "out",
+										"offsetMs": 20
+									},
+									{
+										"atMs": 5800,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "out",
+										"offsetMs": 200
+									}
+								],
+								"weight": [
+									{
+										"atMs": 0,
+										"value": 0.55
+									}
+								]
+							}
+						},
+						"glyphStagger": {
+							"offsetMs": 25,
+							"order": "forward"
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "the",
+						"text": "THE",
+						"hierarchy": "support",
+						"ink": "accent",
+						"position": {
+							"x": 0.116,
+							"y": 0.6796
+						},
+						"horizontalAnchor": "start",
+						"scale": 1.5,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": {
+									"x": 0.1634,
+									"y": 0.5348
+								},
+								"horizontalAnchor": "start",
+								"scale": 1.417,
+								"rotation": 0
+							}
+						},
+						"animation": {
+							"channels": {
+								"opacity": [
+									{
+										"atMs": 0,
+										"value": 0
+									},
+									{
+										"atMs": 3440,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -560
+									},
+									{
+										"atMs": 3460,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -540
+									}
+								],
+								"reveal": [
+									{
+										"atMs": 0,
+										"value": -1
+									},
+									{
+										"atMs": 3460,
+										"value": -1,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -540
+									},
+									{
+										"atMs": 3660,
+										"value": 0,
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -340
+									},
+									{
+										"atMs": 5620,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "out",
+										"offsetMs": 20
+									},
+									{
+										"atMs": 5800,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "out",
+										"offsetMs": 200
+									}
+								],
+								"weight": [
+									{
+										"atMs": 0,
+										"value": 0.55
+									}
+								]
+							}
+						},
+						"glyphStagger": {
+							"offsetMs": 25,
+							"order": "forward"
+						}
+					},
+					{
+						"type": "kinetic-word",
+						"id": "composition",
+						"text": "COMPOSITION",
+						"hierarchy": "display",
+						"ink": "ink",
+						"position": {
+							"x": 0.05,
+							"y": 0.8296
+						},
+						"horizontalAnchor": "start",
+						"scale": 1.54,
+						"rotation": 0,
+						"orientationOverrides": {
+							"vertical": {
+								"position": {
+									"x": 0.05,
+									"y": 0.5969
+								},
+								"horizontalAnchor": "start",
+								"scale": 0.74,
+								"rotation": 0
+							}
+						},
+						"animation": {
+							"channels": {
+								"opacity": [
+									{
+										"atMs": 0,
+										"value": 0
+									},
+									{
+										"atMs": 3480,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -520
+									},
+									{
+										"atMs": 3500,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": -500
+									}
+								],
+								"reveal": [
+									{
+										"atMs": 0,
+										"value": -1
+									},
+									{
+										"atMs": 3500,
+										"value": -1,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -500
+									},
+									{
+										"atMs": 4000,
+										"value": 0,
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 5600,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "out",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 5860,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "out",
+										"offsetMs": 260
+									}
+								],
+								"weight": [
+									{
+										"atMs": 0,
+										"value": 0.4
+									},
+									{
+										"atMs": 3900,
+										"value": 0.4,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -100
+									},
+									{
+										"atMs": 4000,
+										"value": 1,
+										"ease": "sharp",
+										"atBeat": "composition",
+										"offsetMs": 0
+									},
+									{
+										"atMs": 4500,
+										"value": 0.85,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": 500
+									}
+								],
+								"tracking": [
+									{
+										"atMs": 0,
+										"value": 0.05
+									},
+									{
+										"atMs": 3500,
+										"value": 0.05,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": -500
+									},
+									{
+										"atMs": 4300,
+										"value": 0,
+										"ease": "smooth",
+										"atBeat": "composition",
+										"offsetMs": 300
+									}
+								]
+							}
+						},
+						"glyphStagger": {
+							"offsetMs": 20,
+							"order": "forward"
+						}
+					}
+				],
+				"phrases": [
+					{
+						"id": "type-can-move",
+						"wordIds": ["type", "can", "move"],
+						"focalWordId": "move",
+						"beatId": "move"
+					},
+					{
+						"id": "type-can-become",
+						"wordIds": ["type", "can", "become"],
+						"focalWordId": "become",
+						"beatId": "become"
+					},
+					{
+						"id": "type-is-the-composition",
+						"wordIds": ["type", "is", "the", "composition"],
+						"focalWordId": "composition",
+						"beatId": "composition"
+					}
+				]
+			}
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": [],
+		"motionBeats": [
+			{
+				"id": "open",
+				"atMs": 500
+			},
+			{
+				"id": "move",
+				"atMs": 1000
+			},
+			{
+				"id": "swap",
+				"atMs": 2000
+			},
+			{
+				"id": "become",
+				"atMs": 2500
+			},
+			{
+				"id": "turn",
+				"atMs": 3350
+			},
+			{
+				"id": "composition",
+				"atMs": 4000
+			},
+			{
+				"id": "out",
+				"atMs": 5600
+			}
+		]
+	}
+}

@@ -6,65 +6,66 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **112 Presets** — **45 listed** and **67 fixtures**.
-- Structurally distinct Starter candidates: **45**.
+- Corpus: **113 Presets** — **46 listed** and **67 fixtures**.
+- Structurally distinct Starter candidates: **46**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
-- The **45 listed Starters are admitted cumulatively**, without another redundant corpus-wide capture: the retained corpus was ratified through the completed quality arc and honest-listing pass; `source-bug-nasa-archive` and `outro-watch-next` passed an exact 80/80 affected browser matrix and human-approved bundle under Dex `8zy3t3du`; the two title cards passed their affected all-Pack/orientation checks and exact human review under Dex `75u4vxtf`; `website-filmed` and `headline-hands-on` were admitted through the completed 3D Canvas Upgrade.
-- Current static validation covers all **225 Preset × Pack axes in both orientations**. It reports **26 non-blocking G12 warnings** on 13 direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `headline-hands-on`, `outro-watch-next`, `plastic-msw-destinations`, `title-card-brand-mark`, `title-card-chapter-heading`, `wake-conversation-flow`, and `website-filmed`. Each warning appears once per orientation.
+- The **46 listed Starters are admitted cumulatively**, without another redundant corpus-wide capture: the retained corpus was ratified through the completed quality arc and honest-listing pass; `source-bug-nasa-archive` and `outro-watch-next` passed an exact 80/80 affected browser matrix and human-approved bundle under Dex `8zy3t3du`; the two title cards passed their affected all-Pack/orientation checks and exact human review under Dex `75u4vxtf`; `website-filmed` and `headline-hands-on` were admitted through the completed 3D Canvas Upgrade.
+- Current static validation covers all **230 Preset × Pack axes in both orientations**. It reports **28 non-blocking G12 warnings** on 14 direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `headline-hands-on`, `kinetic-type-field`, `outro-watch-next`, `plastic-msw-destinations`, `title-card-brand-mark`, `title-card-chapter-heading`, `wake-conversation-flow`, and `website-filmed`. Each warning appears once per orientation.
 - Dex `viga7o0n` was retired because it asked for another full pass over evidence already established by the baseline, affected matrices, and exact human decisions; no new creator capability or unresolved acceptance gap remained.
 
 A **Count** disposition means the Preset expresses a materially different register, composition language, creator job, or content domain. It does not mean a similarly named Pipeline variant automatically earns another listing. **Fold** means one Starter must represent the job. **Demote** means the composition is useful proof corpus but not a creator-facing starting point.
 
 ## Listed Preset dispositions
 
-| Preset                             | Picker family      | Creator job                                   | Disposition | Reason                                                                        |
-| ---------------------------------- | ------------------ | --------------------------------------------- | ----------- | ----------------------------------------------------------------------------- |
-| `achievement-complete`             | Plain              | Celebrate completed work                      | Count       | Checklist-completion beat has its own authored form and timing.               |
-| `achievement-unlocked`             | Plain              | Announce an unlocked milestone                | Count       | Unlock beat is materially different from checklist completion.                |
-| `apollo-lunar-travelers`           | Charts             | Explain a part-to-whole fact with dots        | Count       | Distinct dot-field chart language.                                            |
-| `bar-chart-apollo-sample-return`   | Charts             | Compare categories horizontally               | Count       | Distinct bar-chart creator job.                                               |
-| `captions-karaoke`                 | Captions           | Caption speech with active-word context       | Count       | Full-line karaoke register.                                                   |
-| `captions-word-pop`                | Captions           | Caption fast social speech one word at a time | Count       | Word-pop register is materially different.                                    |
-| `chapter-card-descent`             | Chapter card       | Introduce a chapter                           | Count       | Dedicated chapter transition with depth staging.                              |
-| `checklist-project-setup`          | Checklist          | Show progress through a task list             | Count       | Persistent checked/unchecked progress state.                                  |
-| `checklist-show-rundown`           | Checklist          | Reveal an ordered rundown                     | Count       | Sequential build-in differs materially from progress state.                   |
-| `column-us-population-1950-2020`   | Charts             | Show change across ordered periods            | Count       | Distinct column-chart temporal comparison.                                    |
-| `counter-milestone`                | Plain              | Land on a single milestone number             | Count       | Usable counter outcome, not the counter Pipeline proof.                       |
-| `docu-flowchart`                   | Flowcharts         | Explain a short linear process                | Count       | Compact process diagram.                                                      |
-| `docu-map-journey`                 | Docu               | Explain a geographic journey                  | Count       | Distinct map composition and content domain.                                  |
-| `docu-stat-build`                  | Docu               | Build one documentary stat                    | Count       | Documentary stat-callout language.                                            |
-| `docu-timeline-build`              | Docu               | Explain a dated sequence                      | Count       | Timeline creator job and geometry.                                            |
-| `headline-hands-on`                | Type hero          | Open with dimensional type                    | Count       | Stage-body type is a distinct spatial title language.                         |
-| `imessage-friday-deploy`           | iMessage           | Recreate a short text conversation            | Count       | Canonical choreographed conversation Starter.                                 |
-| `instagram-follow`                 | Social beats       | Ask viewers to follow on Instagram            | Count       | Platform-specific creator CTA.                                                |
-| `lower-third`                      | Lower thirds       | Identify a speaker                            | Count       | Canonical identifier overlay.                                                 |
-| `outro-watch-next`                 | Type hero          | Close a video and direct viewers onward       | Count       | Full-frame closing job with a dedicated next-action hold.                     |
-| `plastic-msw-destinations`         | Charts             | Explain a normalized part-to-whole fact       | Count       | Distinct unit-grid chart language.                                            |
-| `pullquote-on-photo`               | Pullquote on photo | Feature a quote over photography              | Count       | Canonical photographic pullquote with real depth staging.                     |
-| `quote-lift-out`                   | Paper              | Pull one phrase out of a document             | Count       | Distinct focal Annotation language.                                           |
-| `quote-magnify`                    | Paper              | Magnify and annotate one phrase               | Count       | Distinct optical focal treatment and side note.                               |
-| `quote-tear-out`                   | Paper              | Tear one quote away from its context          | Count       | Distinct physical-document callout language.                                  |
-| `research-paper-attention`         | Paper              | Explain a research paper passage              | Count       | Citation-bearing paper explainer with guided marks.                           |
-| `research-paper-critique`          | Paper              | Critique a research method                    | Count       | Different creator job and annotation sequence from explanation.               |
-| `source-bug-nasa-archive`          | Plain              | Keep an archival source visible over footage  | Count       | Persistent compact source identifier, not a speaker card or Pipeline proof.   |
-| `title-card-brand-mark`            | Title cards        | Open or divide with a brand mark              | Count       | Brand-led card keeps one centered focal mark and a clean hold.                |
-| `title-card-chapter-heading`       | Title cards        | Introduce a chapter with text                 | Count       | Text-led chapter label and title hierarchy based on a proven production card. |
-| `title-card-newspaper`             | Title cards        | Introduce a story as a newspaper artifact     | Count       | Distinct faithful-document title register.                                    |
-| `title-sequence-signal`            | Title sequence     | Open a titled segment                         | Count       | Full-frame title-sequence language.                                           |
-| `type-hero-vantage`                | Type hero          | Open on a large episode title                 | Count       | Canonical flat type-hero Starter.                                             |
-| `wake-conversation-flow`           | Flowcharts         | Explain a branching conversation              | Count       | Branching, annotation-heavy flow differs from the short linear flowchart.     |
-| `web-document-github`              | Web document       | Quote a GitHub artifact                       | Count       | Distinct faithful web content domain.                                         |
-| `web-document-hackernews`          | Web document       | Quote a Hacker News discussion                | Count       | Distinct faithful web content domain.                                         |
-| `web-document-news`                | Web document       | Quote a news article                          | Count       | Distinct faithful web content domain.                                         |
-| `web-document-pubmed-somatization` | Web document       | Quote a PubMed paper page                     | Count       | Distinct faithful web content domain.                                         |
-| `web-document-reddit`              | Web document       | Quote a Reddit thread                         | Count       | Distinct faithful web content domain.                                         |
-| `web-document-twitter`             | Web document       | Quote a public X/Twitter post                 | Count       | Canonical Twitter content domain.                                             |
-| `web-document-wikipedia`           | Web document       | Quote a Wikipedia article                     | Count       | Distinct faithful web content domain.                                         |
-| `web-document-youtube`             | Web document       | Quote a YouTube page                          | Count       | Distinct faithful web content domain.                                         |
-| `website-filmed`                   | Website screenshot | Film a captured site through a 3D camera      | Count       | Filmed-canvas staging is distinct from a browser showcase.                    |
-| `website-showcase`                 | Website screenshot | Present a creator-supplied website capture    | Count       | Stored-capture job differs from structured site mocks.                        |
-| `youtube-subscribe`                | Social beats       | Ask viewers to subscribe on YouTube           | Count       | Platform-specific creator CTA.                                                |
+| Preset                             | Picker family      | Creator job                                        | Disposition | Reason                                                                                |
+| ---------------------------------- | ------------------ | -------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------- |
+| `achievement-complete`             | Plain              | Celebrate completed work                           | Count       | Checklist-completion beat has its own authored form and timing.                       |
+| `achievement-unlocked`             | Plain              | Announce an unlocked milestone                     | Count       | Unlock beat is materially different from checklist completion.                        |
+| `apollo-lunar-travelers`           | Charts             | Explain a part-to-whole fact with dots             | Count       | Distinct dot-field chart language.                                                    |
+| `bar-chart-apollo-sample-return`   | Charts             | Compare categories horizontally                    | Count       | Distinct bar-chart creator job.                                                       |
+| `captions-karaoke`                 | Captions           | Caption speech with active-word context            | Count       | Full-line karaoke register.                                                           |
+| `captions-word-pop`                | Captions           | Caption fast social speech one word at a time      | Count       | Word-pop register is materially different.                                            |
+| `chapter-card-descent`             | Chapter card       | Introduce a chapter                                | Count       | Dedicated chapter transition with depth staging.                                      |
+| `checklist-project-setup`          | Checklist          | Show progress through a task list                  | Count       | Persistent checked/unchecked progress state.                                          |
+| `checklist-show-rundown`           | Checklist          | Reveal an ordered rundown                          | Count       | Sequential build-in differs materially from progress state.                           |
+| `column-us-population-1950-2020`   | Charts             | Show change across ordered periods                 | Count       | Distinct column-chart temporal comparison.                                            |
+| `counter-milestone`                | Plain              | Land on a single milestone number                  | Count       | Usable counter outcome, not the counter Pipeline proof.                               |
+| `docu-flowchart`                   | Flowcharts         | Explain a short linear process                     | Count       | Compact process diagram.                                                              |
+| `docu-map-journey`                 | Docu               | Explain a geographic journey                       | Count       | Distinct map composition and content domain.                                          |
+| `docu-stat-build`                  | Docu               | Build one documentary stat                         | Count       | Documentary stat-callout language.                                                    |
+| `docu-timeline-build`              | Docu               | Explain a dated sequence                           | Count       | Timeline creator job and geometry.                                                    |
+| `headline-hands-on`                | Type hero          | Open with dimensional type                         | Count       | Stage-body type is a distinct spatial title language.                                 |
+| `imessage-friday-deploy`           | iMessage           | Recreate a short text conversation                 | Count       | Canonical choreographed conversation Starter.                                         |
+| `instagram-follow`                 | Social beats       | Ask viewers to follow on Instagram                 | Count       | Platform-specific creator CTA.                                                        |
+| `kinetic-type-field`               | Kinetic type       | Open or punctuate with authored kinetic typography | Count       | Persistent-word kinetic type on Motion Beats is a distinct title language (ADR-0064). |
+| `lower-third`                      | Lower thirds       | Identify a speaker                                 | Count       | Canonical identifier overlay.                                                         |
+| `outro-watch-next`                 | Type hero          | Close a video and direct viewers onward            | Count       | Full-frame closing job with a dedicated next-action hold.                             |
+| `plastic-msw-destinations`         | Charts             | Explain a normalized part-to-whole fact            | Count       | Distinct unit-grid chart language.                                                    |
+| `pullquote-on-photo`               | Pullquote on photo | Feature a quote over photography                   | Count       | Canonical photographic pullquote with real depth staging.                             |
+| `quote-lift-out`                   | Paper              | Pull one phrase out of a document                  | Count       | Distinct focal Annotation language.                                                   |
+| `quote-magnify`                    | Paper              | Magnify and annotate one phrase                    | Count       | Distinct optical focal treatment and side note.                                       |
+| `quote-tear-out`                   | Paper              | Tear one quote away from its context               | Count       | Distinct physical-document callout language.                                          |
+| `research-paper-attention`         | Paper              | Explain a research paper passage                   | Count       | Citation-bearing paper explainer with guided marks.                                   |
+| `research-paper-critique`          | Paper              | Critique a research method                         | Count       | Different creator job and annotation sequence from explanation.                       |
+| `source-bug-nasa-archive`          | Plain              | Keep an archival source visible over footage       | Count       | Persistent compact source identifier, not a speaker card or Pipeline proof.           |
+| `title-card-brand-mark`            | Title cards        | Open or divide with a brand mark                   | Count       | Brand-led card keeps one centered focal mark and a clean hold.                        |
+| `title-card-chapter-heading`       | Title cards        | Introduce a chapter with text                      | Count       | Text-led chapter label and title hierarchy based on a proven production card.         |
+| `title-card-newspaper`             | Title cards        | Introduce a story as a newspaper artifact          | Count       | Distinct faithful-document title register.                                            |
+| `title-sequence-signal`            | Title sequence     | Open a titled segment                              | Count       | Full-frame title-sequence language.                                                   |
+| `type-hero-vantage`                | Type hero          | Open on a large episode title                      | Count       | Canonical flat type-hero Starter.                                                     |
+| `wake-conversation-flow`           | Flowcharts         | Explain a branching conversation                   | Count       | Branching, annotation-heavy flow differs from the short linear flowchart.             |
+| `web-document-github`              | Web document       | Quote a GitHub artifact                            | Count       | Distinct faithful web content domain.                                                 |
+| `web-document-hackernews`          | Web document       | Quote a Hacker News discussion                     | Count       | Distinct faithful web content domain.                                                 |
+| `web-document-news`                | Web document       | Quote a news article                               | Count       | Distinct faithful web content domain.                                                 |
+| `web-document-pubmed-somatization` | Web document       | Quote a PubMed paper page                          | Count       | Distinct faithful web content domain.                                                 |
+| `web-document-reddit`              | Web document       | Quote a Reddit thread                              | Count       | Distinct faithful web content domain.                                                 |
+| `web-document-twitter`             | Web document       | Quote a public X/Twitter post                      | Count       | Canonical Twitter content domain.                                                     |
+| `web-document-wikipedia`           | Web document       | Quote a Wikipedia article                          | Count       | Distinct faithful web content domain.                                                 |
+| `web-document-youtube`             | Web document       | Quote a YouTube page                               | Count       | Distinct faithful web content domain.                                                 |
+| `website-filmed`                   | Website screenshot | Film a captured site through a 3D camera           | Count       | Filmed-canvas staging is distinct from a browser showcase.                            |
+| `website-showcase`                 | Website screenshot | Present a creator-supplied website capture         | Count       | Stored-capture job differs from structured site mocks.                                |
+| `youtube-subscribe`                | Social beats       | Ask viewers to subscribe on YouTube                | Count       | Platform-specific creator CTA.                                                        |
 
 ## Fixture inventory
 
@@ -146,9 +147,9 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 
 The homepage exposes implementation-shaped families alongside creator-shaped families. `Charts`, `Captions`, `Flowcharts`, `Lower thirds`, and `Social beats` are useful. `Plain`, `Paper`, and `Type hero` still mix unrelated jobs because grouping falls back to Surface type. The audit does not change that mechanism; the listing-reconciliation task must use the current visible families and plain labels rather than hidden metadata.
 
-The 45 structurally honest candidates cover:
+The 46 structurally honest candidates cover:
 
-- title, chapter, and closing work: text-led and brand-led title cards, chapter card, title sequence, type hero, newspaper title, and a full-frame outro;
+- title, chapter, and closing work: text-led and brand-led title cards, chapter card, title sequence, type hero, kinetic type, newspaper title, and a full-frame outro;
 - identification and progress: lower third, persistent archival source bug, counter, checklists, and achievements;
 - quotations and evidence: photographic pullquote, paper callouts, research-paper treatments;
 - factual explanation: four chart languages, map, stat, timeline, and two flowchart registers;
@@ -169,6 +170,7 @@ Transitions are editing decisions handled in DaVinci Resolve, not missing Starte
 3. **Replace the rejected opening candidate — Dex `75u4vxtf`.** `show-open-in-focus` was removed; one text-led title card based on `chapter-card-1-burnout` and one brand-led title card based on `chapter-card-syntax-logo` were admitted without their authored CRT filters. Transitions remain in the DaVinci Resolve edit.
 4. **Close cumulative admission — Dex `qfxr9r0n`.** The honest count reached **43**. Existing baseline ratification plus exact affected evidence for the four added Starters closed that library state without rerunning unchanged Presets solely to restate their acceptance.
 5. **Add the 3D Canvas jobs.** The completed 3D Canvas Upgrade admitted `website-filmed` and `headline-hands-on` as distinct creator jobs, raising the honest count to **45**; `crt-filmed` and `stage-oblique-fixture` remain supporting fixtures.
+6. **Add kinetic type — Dex `fbutl1u4`.** `kinetic-type-field` (TYPE CAN MOVE → TYPE CAN BECOME → TYPE IS THE COMPOSITION on seven Motion Beats) raises the honest count to **46**; `kinetic-type-field-motion-fixture` and `kinetic-type-field-static-fixture` remain engine proofs. Admission requires Scott's aesthetic approval of its exact evidence.
 
 ## Mechanical check
 
