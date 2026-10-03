@@ -2,6 +2,7 @@ import { resolveMarkForIndex, type Preset } from './engine-schema';
 import { listSurfaceMarkInstances } from './surface-mark-instances';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { deterministicFrameAddressFor } from '../utils/deterministic-render-measurements';
+import { listKineticTypeCriticalMoments } from '../utils/kinetic-type-critical-moments';
 
 export interface DeterministicRenderCheckpointSample {
 	kind: 'checkpoint';
@@ -102,6 +103,36 @@ export function deriveDeterministicRenderSamplePlan(preset: Preset): Determinist
 			...address,
 			auxiliaryFrameIndices,
 			stableGeometryCandidateIds: stableGeometryCandidates(preset, transitionId)
+		});
+	}
+
+	// Kinetic Type (ADR-0064): every Motion Beat, and each word's keyframe
+	// envelopes at start, middle, and end. The first frame at or after a
+	// millisecond is the frame on which that value has been reached.
+	const frameAtOrAfter = (atMs: number): number =>
+		Math.max(0, Math.ceil((atMs / 1000) * (frameRate.num / frameRate.den) - 1e-6));
+	for (const moment of listKineticTypeCriticalMoments(
+		preset.state.surface.typeField,
+		preset.state.motionBeats
+	)) {
+		const startFrame = frameAtOrAfter(moment.startMs);
+		const endFrame = frameAtOrAfter(moment.endMs);
+		const auxiliaryFrameIndices = uniqueOrderedFrames(
+			moment.kind === 'beat'
+				? [startFrame]
+				: [startFrame, Math.round((startFrame + endFrame) / 2), endFrame],
+			maximumFrame
+		);
+		const frameIndex =
+			auxiliaryFrameIndices[Math.floor(auxiliaryFrameIndices.length / 2)] ?? startFrame;
+		const address = deterministicFrameAddressFor(frameIndex, frameRate);
+		samples.push({
+			kind: 'transition-window',
+			sampleId: `transition:${moment.id}`,
+			transitionId: moment.id,
+			...address,
+			auxiliaryFrameIndices,
+			stableGeometryCandidateIds: stableGeometryCandidates(preset)
 		});
 	}
 

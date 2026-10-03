@@ -2382,7 +2382,8 @@
 	function allCanvasAlignableElements(): CanvasAlignableElement[] {
 		const selectionKeys: CanvasElementSelectionKey[] = [
 			...engineState.overlays.map(({ id }) => `overlay:${id}` as CanvasElementSelectionKey),
-			...diagramPrimitiveDraggables.map(({ id }) => `block:${id}` as CanvasElementSelectionKey)
+			...diagramPrimitiveDraggables.map(({ id }) => `block:${id}` as CanvasElementSelectionKey),
+			...kineticWordDraggables.map(({ id }) => `block:${id}` as CanvasElementSelectionKey)
 		];
 		return selectionKeys
 			.map((selectionKey) => canvasAlignableElement(selectionKey))
@@ -2404,7 +2405,8 @@
 	function canvasAlignmentSnapshotKey(
 		snapshot: CanvasAlignmentGeometrySnapshot
 	): CanvasElementSelectionKey {
-		return `${snapshot.kind}:${snapshot.id}`;
+		// Kinetic Words share the Block selection namespace.
+		return snapshot.kind === 'overlay' ? `overlay:${snapshot.id}` : `block:${snapshot.id}`;
 	}
 
 	function recordCanvasAlignmentChange(label: string, change: CanvasAlignmentGeometryChange): void {

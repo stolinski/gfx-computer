@@ -619,6 +619,85 @@ describe('WebMCP authoring without an interface', () => {
 		expect(delivered).toMatchObject({ status: 'delivered', videoFilename: 'gfx-overlay.webm' });
 	});
 
+	it('creates and revises a kinetic word field through Operations alone', async () => {
+		expect(typeof document).toBe('undefined');
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/');
+		expect(
+			readPayload(await host.call(rowFor('composition.create-blank').toolName, {}))
+		).toMatchObject({
+			status: 'applied'
+		});
+		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+
+		const call = async (
+			operationId: string,
+			args: Record<string, unknown> = {}
+		): Promise<Record<string, unknown>> => {
+			const row = rowFor(operationId);
+			await prepareAuthoringFamily(host, row.family);
+			const payload = readPayload(
+				await host.call(row.toolName, {
+					expectedRevision: compositionEditHistory.revision,
+					...args
+				})
+			);
+			expect(payload.status, `${operationId}: ${JSON.stringify(payload)}`).toBe('applied');
+			await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+			return payload;
+		};
+
+		await call('layer.add-kinetic-word');
+		await call('layer.add-kinetic-word');
+		const [first, second] = engineState.surface.typeField?.words ?? [];
+		expect(first && second).toBeTruthy();
+		await call('content.set-kinetic-word-text', { wordId: first.id, text: 'TYPE' });
+		await call('content.set-kinetic-word-text', { wordId: second.id, text: 'MOVES' });
+		await call('motion.add-motion-beat', { atMs: 1200, beatId: 'land' });
+		await call('motion.land-kinetic-word-on-beat', {
+			wordId: second.id,
+			beatId: 'land',
+			move: 'arrive'
+		});
+		await call('content.set-kinetic-phrases', {
+			phrases: [
+				{ id: 'type-moves', wordIds: [first.id, second.id], focalWordId: first.id, beatId: 'land' }
+			]
+		});
+		// Revise: the beat moves later and the bound keys follow it.
+		await call('motion.set-motion-beat', { beatId: 'land', atMs: 1500 });
+
+		const words = engineState.surface.typeField?.words ?? [];
+		expect(words.map((word) => word.text)).toEqual(['TYPE', 'MOVES']);
+		expect(engineState.surface.typeField?.phrases[0].beatId).toBe('land');
+		const reveal = words[1].animation?.channels?.reveal ?? [];
+		expect(reveal.map((frame) => [frame.atMs, frame.atBeat])).toEqual([
+			[1140, 'land'],
+			[1500, 'land']
+		]);
+		// A phrase that would not read at its beat is refused, and nothing changes.
+		await call('motion.add-motion-beat', { atMs: 200, beatId: 'early' });
+		const before = JSON.stringify(engineState.surface.typeField);
+		const row = rowFor('content.set-kinetic-phrases');
+		await prepareAuthoringFamily(host, row.family);
+		const refused = readPayload(
+			await host.call(row.toolName, {
+				expectedRevision: compositionEditHistory.revision,
+				phrases: [
+					{
+						id: 'type-moves',
+						wordIds: [first.id, second.id],
+						focalWordId: first.id,
+						beatId: 'early'
+					}
+				]
+			})
+		);
+		expect(refused.status).toBe('failed');
+		expect(JSON.stringify(engineState.surface.typeField)).toBe(before);
+	});
+
 	it('reports a focus its own inventory row declares on every edit it applied', async () => {
 		openEditableComposition();
 		const host = new FakeModelContext();

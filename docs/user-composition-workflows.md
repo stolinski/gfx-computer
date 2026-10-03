@@ -159,6 +159,8 @@ Beats are named moments the kinetic type is timed to. Add one at the playhead wi
 
 In a Kinetic Word's inspector, each phrase's **Beat** sets the moment that phrase must be readable, and **On Beat** copies a ready-made move onto the word at the chosen beat: **arrive** (rises into its mask and lands with a weight hit), **leave** (exits up through its mask), or **strike** (a weight pulse). The keys are ordinary keys bound to the beat and stay editable. Removing a beat a phrase reads at is refused until the phrase is set to another beat; bound keys stay at their times. Agents use `gfx_motion_add_motion_beat`, `gfx_motion_set_motion_beat`, `gfx_motion_remove_motion_beat`, and `gfx_motion_land_kinetic_word_on_beat`.
 
+Kinetic Word rows sit under one **Type Field** header on the Timeline; click it to collapse the words into one row of keyframe ticks, and selecting a word opens the group again. Shift-click several words on the canvas to align or distribute them with the alignment toolbar, in the orientation on screen.
+
 ### Customize horizontal / vertical
 
 Every value that can differ between the wide and tall frames uses one control: **Customize horizontal** or **Customize vertical**, for the orientation on screen, in the header of the section that holds the values. That covers Overlay position, Diagram geometry, Kinetic Word placement, the captions band, the chart frame, the checklist card, optical Effect regions (in the Effect row), the filmed page anchor (beside its fields), and the Stage camera (tall frame only). Turning it on copies what that orientation shows now into its own complete copy; edits then change only that orientation. Turning it off deletes the copy, and the orientation shows the shared values again. Each change is one undo step.

@@ -1,4 +1,13 @@
-import type { KineticTypeField, MotionBeat, SurfaceState } from './engine-schema';
+import {
+	KINETIC_TYPE_CRITICAL_MOMENT_LIMIT,
+	listKineticTypeCriticalMoments
+} from '$lib/utils/kinetic-type-critical-moments';
+import {
+	listKineticWordKeyframeTracks,
+	type KineticTypeField,
+	type MotionBeat,
+	type SurfaceState
+} from './engine-schema';
 import { evaluateKeyframeTrackAtMs } from './keyframe-track-evaluation';
 
 /** Semantic finding inside `surface.typeField`. Structural ceilings live in Zod. */
@@ -12,6 +21,15 @@ export const KINETIC_TYPE_FIELD_SURFACE_TYPE = 'plain' as const;
 /** At its beat, a phrase word reads only when it is this opaque and this settled. */
 export const KINETIC_PHRASE_READABLE_OPACITY = 0.98;
 export const KINETIC_PHRASE_READABLE_REVEAL = 0.02;
+
+/**
+ * Field-wide resource ceilings (ADR-0064). Per-word and per-channel ceilings
+ * live in the schema; these bound what one field costs to play and to verify:
+ * keyframes across every word and track, and glyph spans (a word with a
+ * `reveal` track renders one span per grapheme).
+ */
+export const KINETIC_TYPE_FIELD_KEYFRAME_LIMIT = 320;
+export const KINETIC_TYPE_FIELD_GLYPH_SPAN_LIMIT = 192;
 
 /**
  * Validate meaning the structural schema cannot see: Surface and Stage support,
@@ -61,6 +79,36 @@ export function validateKineticTypeFieldSemantics(
 				message: `Phrase "${phrase.id}" focal Kinetic Word "${phrase.focalWordId}" must use display hierarchy.`
 			});
 		}
+	}
+
+	let keyframeCount = 0;
+	let glyphSpanCount = 0;
+	for (const word of field.words) {
+		for (const { frames } of listKineticWordKeyframeTracks(word)) keyframeCount += frames.length;
+		if (word.animation?.channels?.reveal) {
+			glyphSpanCount += [
+				...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word.text)
+			].length;
+		}
+	}
+	if (keyframeCount > KINETIC_TYPE_FIELD_KEYFRAME_LIMIT) {
+		issues.push({
+			path: ['words'],
+			message: `The Type Field holds ${keyframeCount} keyframes across its words; one field plays at most ${KINETIC_TYPE_FIELD_KEYFRAME_LIMIT}. Clear channels that hold still or remove redundant keys.`
+		});
+	}
+	if (glyphSpanCount > KINETIC_TYPE_FIELD_GLYPH_SPAN_LIMIT) {
+		issues.push({
+			path: ['words'],
+			message: `Masked words split into ${glyphSpanCount} glyph spans; one field renders at most ${KINETIC_TYPE_FIELD_GLYPH_SPAN_LIMIT}. Clear the reveal track on words that do not need a masked entrance.`
+		});
+	}
+	const momentCount = listKineticTypeCriticalMoments(field, motionBeats).length;
+	if (momentCount > KINETIC_TYPE_CRITICAL_MOMENT_LIMIT) {
+		issues.push({
+			path: ['words'],
+			message: `The Type Field asks verification to sample ${momentCount} critical moments (Motion Beats plus each word's keyframe envelopes); at most ${KINETIC_TYPE_CRITICAL_MOMENT_LIMIT} are checked. Merge word moves onto shared beats or remove envelopes that change nothing visible.`
+		});
 	}
 
 	// One readable phrase per beat (ADR-0064): every word of a beat-bound phrase

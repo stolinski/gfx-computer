@@ -1,11 +1,11 @@
 {
 	"schemaVersion": 1,
-	"generatedAt": "2026-10-02T18:24:44.475Z",
+	"generatedAt": "2026-10-03T16:50:24.805Z",
 	"probe": "webmcp-agent-eval",
 	"origin": "http://localhost:7263",
-	"release": "gfx@4c364a47e799516e61881f5c09fffab6d8d67966",
+	"release": "gfx@2a0a9c80d452190897afdef67fd29e4cd623988b",
 	"harness": {
-		"browser": "Chrome/154.0.8037.58",
+		"browser": "Chrome/154.0.8037.93",
 		"protocolVersion": "1.3",
 		"modelContext": true,
 		"modelContextMembers": [
@@ -19,7 +19,7 @@
 		"canvasDrawElement": true,
 		"exposureRefusal": null
 	},
-	"toolSchemaDigest": "3419c67f2fe0f1c6b8bd1a44ba8d2b5e2a29d61d2c28b472672925308a6f2375",
+	"toolSchemaDigest": "09cd492312bdfbd903c8391c571a7520aaaab591ac780d9550df3cc94aca833c",
 	"inventory": {
 		"rows": 102,
 		"agentTools": 100,

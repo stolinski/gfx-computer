@@ -303,7 +303,7 @@
 									"y": 0.6145
 								},
 								"horizontalAnchor": "start",
-								"scale": 1.5,
+								"scale": 1.42,
 								"rotation": 0
 							}
 						},
@@ -437,7 +437,7 @@
 									"y": 0.6145
 								},
 								"horizontalAnchor": "start",
-								"scale": 1.5,
+								"scale": 1.42,
 								"rotation": 0
 							}
 						},
@@ -771,7 +771,7 @@
 									"y": 0.5969
 								},
 								"horizontalAnchor": "start",
-								"scale": 0.91,
+								"scale": 0.87,
 								"rotation": 0
 							}
 						},

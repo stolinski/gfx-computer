@@ -74,4 +74,53 @@ describe('validateKineticTypeFieldSemantics', () => {
 		assert.deepEqual(issues[0]?.path, ['phrases', 0, 'focalWordId']);
 		assert.match(issues[0]?.message ?? '', /must use display hierarchy/);
 	});
+
+	it('refuses a field past its keyframe, glyph-span, and critical-moment ceilings', () => {
+		const words = Array.from({ length: 14 }, (_, index) => ({
+			...field().words[0],
+			id: `word-${index}`,
+			text: 'COMPOSITIONALLY',
+			animation: {
+				channels: {
+					reveal: Array.from({ length: 24 }, (_, frame) => ({
+						atMs: frame * 100,
+						value: Math.floor((frame + 1) / 2) % 2 === 0 ? -1 : 0
+					}))
+				}
+			}
+		}));
+		const crowded: KineticTypeField = {
+			words,
+			phrases: [{ id: 'opening', wordIds: ['word-0'], focalWordId: 'word-0' }]
+		};
+		const messages = validateKineticTypeFieldSemantics(crowded, surface(crowded)).map(
+			(issue) => issue.message
+		);
+		assert.ok(messages.some((message) => /336 keyframes/.test(message)));
+		assert.ok(messages.some((message) => /210 glyph spans/.test(message)));
+		assert.ok(messages.some((message) => /critical moments/.test(message)));
+	});
+
+	it('requires every word of a beat-bound phrase to read at its beat', () => {
+		const hidden = field();
+		hidden.words[0].animation = {
+			channels: {
+				reveal: [
+					{ atMs: 0, value: -1 },
+					{ atMs: 1000, value: 0, ease: 'sharp' }
+				]
+			}
+		};
+		hidden.phrases[0].beatId = 'early';
+		const issues = validateKineticTypeFieldSemantics(hidden, surface(hidden), false, [
+			{ id: 'early', atMs: 500 }
+		]);
+		assert.match(issues[0]?.message ?? '', /must read at Motion Beat "early"/);
+		assert.deepEqual(
+			validateKineticTypeFieldSemantics(hidden, surface(hidden), false, [
+				{ id: 'early', atMs: 1000 }
+			]),
+			[]
+		);
+	});
 });

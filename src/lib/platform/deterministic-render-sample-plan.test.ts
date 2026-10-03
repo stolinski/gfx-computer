@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import isolateFixture from '../presets/isolate-demo.json';
 import lowerThirdPreset from '../presets/lower-third.json';
+import kineticMotionFixture from '../presets/kinetic-type-field-motion-fixture.json';
 import { parsePresetIngress } from './preset-ingress';
 import { deriveDeterministicRenderSamplePlan } from './deterministic-render-sample-plan';
 
@@ -41,5 +42,17 @@ describe('deriveDeterministicRenderSamplePlan', () => {
 			[...(transition?.auxiliaryFrameIndices ?? [])].sort((left, right) => left - right)
 		);
 		expect(transition?.stableGeometryCandidateIds).toContain('composition-root');
+	});
+
+	it('samples Kinetic Type at every beat and across each word envelope', () => {
+		const plan = deriveDeterministicRenderSamplePlan(parsePresetIngress(kineticMotionFixture));
+		const beat = plan.samples.find((sample) => sample.sampleId === 'transition:beat:move');
+		expect(beat?.frameIndex).toBe(36);
+		expect(beat?.auxiliaryFrameIndices).toEqual([36]);
+		const envelope = plan.samples.find(
+			(sample) => sample.sampleId === 'transition:envelope:move:1'
+		);
+		expect(envelope?.auxiliaryFrameIndices).toEqual([23, 36, 48]);
+		expect(envelope?.frameIndex).toBe(36);
 	});
 });

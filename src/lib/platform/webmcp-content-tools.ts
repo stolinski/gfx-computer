@@ -480,7 +480,10 @@ function kineticPhraseProperty(): WebmcpSchemaProperty {
 				minItems: 1,
 				maxItems: 8
 			},
-			focalWordId: webmcpEntityIdProperty('The display-hierarchy word with focal authority.')
+			focalWordId: webmcpEntityIdProperty('The display-hierarchy word with focal authority.'),
+			beatId: webmcpEntityIdProperty(
+				'Optional: the Motion Beat at which every word of this phrase must be readable. One phrase per beat.'
+			)
 		},
 		required: ['id', 'wordIds', 'focalWordId'],
 		additionalProperties: false
@@ -497,10 +500,12 @@ function readKineticPhrases(args: unknown): readonly KineticPhrase[] {
 				{ rejected: JSON.stringify(rawWordIds) }
 			);
 		}
+		const beatId = readWebmcpOptionalStringArgument(phrase, 'beatId');
 		return {
 			id: readWebmcpStringArgument(phrase, 'id'),
 			wordIds: rawWordIds,
-			focalWordId: readWebmcpStringArgument(phrase, 'focalWordId')
+			focalWordId: readWebmcpStringArgument(phrase, 'focalWordId'),
+			...(beatId === undefined ? {} : { beatId })
 		};
 	});
 }

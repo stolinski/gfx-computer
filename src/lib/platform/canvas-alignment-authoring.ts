@@ -4,6 +4,10 @@ import {
 	resolveDiagramPrimitiveGeometry,
 	type DiagramPrimitiveGeometry
 } from '$lib/utils/diagram-geometry';
+import {
+	cloneKineticWordGeometry,
+	resolveKineticWordGeometry
+} from '$lib/utils/kinetic-word-geometry';
 import { clampNumber } from '$lib/utils/math';
 import { cloneOverlayPlacement, resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 
@@ -15,6 +19,8 @@ import type {
 	DiagramPositionGeometry,
 	DiagramTimelineGeometry,
 	EngineState,
+	KineticWord,
+	KineticWordGeometry,
 	Overlay,
 	OverlayPlacement
 } from './engine-schema';
@@ -37,6 +43,13 @@ export type CanvasAlignmentGeometrySnapshot =
 			orientation: VideoOrientation;
 			source: CanvasAlignmentGeometrySource;
 			geometry: DiagramPrimitiveGeometry;
+	  }
+	| {
+			kind: 'kinetic-word';
+			id: string;
+			orientation: VideoOrientation;
+			source: CanvasAlignmentGeometrySource;
+			geometry: KineticWordGeometry;
 	  };
 
 export interface CanvasAlignmentGeometryChange {
@@ -103,6 +116,16 @@ function captureCanvasAlignmentGeometry(
 			geometry: cloneOverlayPlacement(resolveOverlayPlacement(overlay.position, orientation))
 		};
 	}
+	const word = findKineticWord(state, identity.id);
+	if (word) {
+		return {
+			kind: 'kinetic-word',
+			id: word.id,
+			orientation,
+			source: word.orientationOverrides?.[orientation] ? 'orientation-override' : 'base',
+			geometry: cloneKineticWordGeometry(resolveKineticWordGeometry(word, orientation))
+		};
+	}
 	const primitive = state.surface.diagram?.find(({ id }) => id === identity.id);
 	if (!primitive) return null;
 	const geometry = cloneResolvedDiagramGeometry(primitive, orientation);
@@ -114,6 +137,27 @@ function captureCanvasAlignmentGeometry(
 		source: blockGeometrySource(primitive, orientation),
 		geometry
 	};
+}
+
+// Kinetic Words share the Block selection namespace with Diagram primitives
+// (ADR-0064); alignment moves a word's resting position in the active
+// orientation, keeping its anchor, scale, and rotation.
+function findKineticWord(state: CanvasAlignmentAuthoringState, id: string): KineticWord | null {
+	return state.surface.typeField?.words.find((word) => word.id === id) ?? null;
+}
+
+function copyKineticWordGeometry(
+	word: KineticWord,
+	snapshot: Extract<CanvasAlignmentGeometrySnapshot, { kind: 'kinetic-word' }>
+): boolean {
+	const target =
+		snapshot.source === 'base' ? word : (word.orientationOverrides?.[snapshot.orientation] ?? null);
+	if (!target) return false;
+	target.position = { ...snapshot.geometry.position };
+	target.horizontalAnchor = snapshot.geometry.horizontalAnchor;
+	target.scale = snapshot.geometry.scale;
+	target.rotation = snapshot.geometry.rotation;
+	return true;
 }
 
 function copyOverlayPlacement(target: OverlayPlacement, source: OverlayPlacement): void {
@@ -201,6 +245,11 @@ export function restoreCanvasAlignmentGeometry(
 				continue;
 			}
 			copyOverlayPlacement(target, snapshot.geometry);
+			continue;
+		}
+		if (snapshot.kind === 'kinetic-word') {
+			const word = findKineticWord(state, snapshot.id);
+			if (!word || !copyKineticWordGeometry(word, snapshot)) restoredAll = false;
 			continue;
 		}
 		const primitive = state.surface.diagram?.find(({ id }) => id === snapshot.id);
@@ -330,6 +379,13 @@ export function applyCanvasAlignmentTranslations(
 		if (identity.kind === 'overlay') {
 			const overlay = state.overlays.find(({ id }) => id === identity.id);
 			if (overlay) translateOverlay(overlay, element.bounds, translation, orientation);
+			continue;
+		}
+		const word = findKineticWord(state, identity.id);
+		if (word) {
+			const geometry = resolveKineticWordGeometry(word, orientation);
+			geometry.position.x = boundedCanvasAuthoringValue(geometry.position.x + translation.delta.x);
+			geometry.position.y = boundedCanvasAuthoringValue(geometry.position.y + translation.delta.y);
 			continue;
 		}
 		const primitive = state.surface.diagram?.find(({ id }) => id === identity.id);

@@ -490,6 +490,7 @@ function appendBlockTracks(
 			id: createTimelineTrackId({ kind: 'block', blockId: word.id }),
 			label,
 			color: BLOCK_COLOR,
+			group: { id: 'type-field', label: 'Type Field' },
 			transitions: [
 				{
 					id: 'clip',

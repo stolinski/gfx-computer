@@ -58,6 +58,61 @@ describe('canvas alignment authoring', () => {
 		expect(state.surface.diagram[0]).toMatchObject({ position: { x: 0.4, y: 0.25 } });
 	});
 
+	it('aligns Kinetic Words in the active orientation and restores them exactly', () => {
+		const state = createDefaultEngineState();
+		state.transport.orientation = 'vertical';
+		state.surface.type = 'plain';
+		const word = (
+			id: string,
+			x: number
+		): NonNullable<typeof state.surface.typeField>['words'][number] => ({
+			type: 'kinetic-word',
+			id,
+			text: id.toUpperCase(),
+			hierarchy: 'display',
+			ink: 'ink',
+			position: { x, y: 0.5 },
+			horizontalAnchor: 'start',
+			scale: 1,
+			rotation: 0
+		});
+		state.surface.typeField = {
+			words: [
+				word('type', 0.1),
+				{
+					...word('can', 0.3),
+					orientationOverrides: {
+						vertical: {
+							position: { x: 0.2, y: 0.6 },
+							horizontalAnchor: 'start',
+							scale: 1.4,
+							rotation: 0
+						}
+					}
+				}
+			],
+			phrases: [{ id: 'one', wordIds: ['type', 'can'], focalWordId: 'type' }]
+		};
+		const change = applyCanvasAlignmentTranslations(
+			state,
+			[element('block:type', 0.1, 0.45), element('block:can', 0.2, 0.55)],
+			[translation('block:type', 0.05, 0), translation('block:can', -0.1, 0)]
+		);
+		expect(change).not.toBeNull();
+		expect(state.surface.typeField.words[0].position).toEqual({ x: 0.15, y: 0.5 });
+		expect(state.surface.typeField.words[1].position).toEqual({ x: 0.3, y: 0.5 });
+		expect(state.surface.typeField.words[1].orientationOverrides?.vertical?.position).toEqual({
+			x: 0.1,
+			y: 0.6
+		});
+		expect(restoreCanvasAlignmentGeometry(state, change!.before)).toBe(true);
+		expect(state.surface.typeField.words[0].position).toEqual({ x: 0.1, y: 0.5 });
+		expect(state.surface.typeField.words[1].orientationOverrides?.vertical?.position).toEqual({
+			x: 0.2,
+			y: 0.6
+		});
+	});
+
 	it('writes only the active vertical orientation override', () => {
 		const state = createDefaultEngineState();
 		state.transport.orientation = 'vertical';

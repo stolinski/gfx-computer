@@ -118,6 +118,11 @@ export interface TimelineTrack {
 	color?: string;
 	transitions: TimelineTransition[];
 	onTrackMove?: (delta: number) => void;
+	/**
+	 * Rows that belong together (a Type Field's words) share a group: the
+	 * Timeline draws one collapsible header above them.
+	 */
+	group?: { id: string; label: string };
 }
 
 /** One canonical Media clip represented on the fixed frame-valued Video row. */

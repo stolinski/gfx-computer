@@ -40,6 +40,7 @@
 	import OrientationCustomizeToggle from './OrientationCustomizeToggle.svelte';
 	import { layerSelection } from './selection.svelte';
 	import { parseTimelineTrackId } from './timeline-entity-identity';
+	import { timelineHandle } from './timeline-handle.svelte';
 
 	const selectedWordId = $derived.by(() => {
 		const identity = layerSelection.id ? parseTimelineTrackId(layerSelection.id) : null;
@@ -51,10 +52,20 @@
 	const typeField = $derived(engineState.surface.typeField ?? null);
 	const beats = $derived(engineState.motionBeats ?? []);
 	let chosenBeatId = $state<string | null>(null);
-	// The chosen beat while it still exists, else the first one.
-	const moveBeatId = $derived(
-		beats.find((beat) => beat.id === chosenBeatId)?.id ?? beats[0]?.id ?? ''
-	);
+	// The chosen beat while it still exists, else the beat nearest the playhead
+	// — the one an author landing a word right now most likely means.
+	const moveBeatId = $derived.by(() => {
+		const chosen = beats.find((beat) => beat.id === chosenBeatId);
+		if (chosen) return chosen.id;
+		const playheadMs = (timelineHandle.current?.time ?? 0) * 1000;
+		let nearest = beats[0];
+		for (const beat of beats) {
+			if (Math.abs(beat.atMs - playheadMs) < Math.abs((nearest?.atMs ?? 0) - playheadMs)) {
+				nearest = beat;
+			}
+		}
+		return nearest?.id ?? '';
+	});
 	const orientation = $derived(engineState.transport.orientation);
 	// Placement edits land on the active orientation's own placement when it has
 	// one, else on the shared placement (ADR-0039 §4).

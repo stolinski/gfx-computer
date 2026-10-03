@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	import {
 		captureCompositionGestureOrigin,
@@ -10,6 +10,7 @@
 	import {
 		clearKeyframeSelection,
 		keyframeSelection,
+		layerSelection,
 		selectKeyframe,
 		selectLayer,
 		selectSoundRailReference,
@@ -190,11 +191,61 @@
 		keyframes: ClipKeyframe[];
 	}
 
-	type OutlineRow = TrackRow | AutomationRow;
+	// A collapsible header above rows that belong together (a Type Field's
+	// words). Collapsed, it shows every member's keyframe ticks in one lane; a
+	// selected member keeps its group open.
+	interface GroupRow {
+		kind: 'group';
+		rowKey: string;
+		groupId: string;
+		label: string;
+		members: TimelineTrack[];
+		collapsed: boolean;
+	}
+
+	type OutlineRow = TrackRow | AutomationRow | GroupRow;
+
+	const collapsedGroups = new SvelteMap<string, boolean>();
+
+	function toggleGroup(groupId: string): void {
+		collapsedGroups.set(groupId, !collapsedGroups.get(groupId));
+	}
+
+	function groupTickFractions(members: readonly TimelineTrack[]): number[] {
+		const fractions = new SvelteSet<number>();
+		for (const member of members) {
+			for (const transition of member.transitions) {
+				for (const keyframe of transition.keyframes ?? []) {
+					fractions.add(Math.round(keyframe.fraction * 2000) / 2000);
+				}
+			}
+		}
+		return [...fractions].sort((left, right) => left - right);
+	}
 
 	const outlineRows = $derived.by(() => {
 		const rows: OutlineRow[] = [];
+		const emittedGroups = new SvelteSet<string>();
 		for (const track of tracks) {
+			const group = track.group;
+			if (group) {
+				const members = tracks.filter((candidate) => candidate.group?.id === group.id);
+				const collapsed =
+					collapsedGroups.get(group.id) === true &&
+					!members.some((member) => member.id === layerSelection.id);
+				if (!emittedGroups.has(group.id)) {
+					emittedGroups.add(group.id);
+					rows.push({
+						kind: 'group',
+						rowKey: `group:${group.id}`,
+						groupId: group.id,
+						label: group.label,
+						members,
+						collapsed
+					});
+				}
+				if (collapsed) continue;
+			}
 			rows.push({ kind: 'track', rowKey: track.id, track });
 			const selection = timeline.selection;
 			if (!selection || selection.trackId !== track.id) continue;
@@ -228,7 +279,7 @@
 		const centers = new SvelteMap<string, number>();
 		let offsetY = 0;
 		for (const row of outlineRows) {
-			const height = row.kind === 'track' ? LANE_ROW_HEIGHT : AUTOMATION_ROW_HEIGHT;
+			const height = row.kind === 'automation' ? AUTOMATION_ROW_HEIGHT : LANE_ROW_HEIGHT;
 			if (row.kind === 'track') centers.set(row.track.id, offsetY + height / 2);
 			offsetY += height;
 		}
@@ -237,7 +288,7 @@
 
 	const rowsContentHeight = $derived(
 		outlineRows.reduce(
-			(total, row) => total + (row.kind === 'track' ? LANE_ROW_HEIGHT : AUTOMATION_ROW_HEIGHT),
+			(total, row) => total + (row.kind === 'automation' ? AUTOMATION_ROW_HEIGHT : LANE_ROW_HEIGHT),
 			0
 		)
 	);
@@ -619,6 +670,17 @@
 			{#each outlineRows as row (row.rowKey)}
 				{#if row.kind === 'track'}
 					<TimelineGutterRow track={row.track} />
+				{:else if row.kind === 'group'}
+					<button
+						class="gutter__group"
+						type="button"
+						aria-expanded={!row.collapsed}
+						onclick={() => toggleGroup(row.groupId)}
+					>
+						<span aria-hidden="true">{row.collapsed ? '▸' : '▾'}</span>
+						{row.label}
+						<span class="gutter__group-count">{row.members.length}</span>
+					</button>
 				{:else}
 					<div class="gutter__subrow">└ {row.channel}</div>
 				{/if}
@@ -650,7 +712,15 @@
 				contentBlockSize={rowsContentHeight}
 			/>
 			{#each outlineRows as row (row.rowKey)}
-				{#if row.kind === 'track'}
+				{#if row.kind === 'group'}
+					<div class="track-lane track-lane--group">
+						{#if row.collapsed}
+							{#each groupTickFractions(row.members) as fraction (fraction)}
+								<span class="track-lane__group-tick" style:left="{fraction * 100}%"></span>
+							{/each}
+						{/if}
+					</div>
+				{:else if row.kind === 'track'}
 					{#if isVideoTimelineTrack(row.track)}
 						<VideoTimelineTrack track={row.track} {timeline} />
 					{:else}
@@ -887,6 +957,44 @@
 		block-size: var(--lane-row-h);
 		border-block-end: 1px solid var(--lane-hairline);
 		position: relative;
+	}
+
+	.track-lane--group {
+		background: var(--chrome-deck, #131315);
+	}
+
+	.track-lane__group-tick {
+		background: var(--chrome-muted);
+		block-size: 10px;
+		inline-size: 1px;
+		inset-block-start: 50%;
+		position: absolute;
+		transform: translateY(-50%);
+	}
+
+	/* A group header: the same engraved voice as the automation sub-lane head. */
+	.gutter__group {
+		align-items: center;
+		background: var(--chrome-deck, #131315);
+		block-size: var(--lane-row-h);
+		border: 0;
+		border-block-end: 1px solid var(--lane-hairline);
+		color: var(--chrome-muted);
+		cursor: pointer;
+		display: flex;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.56rem;
+		font-weight: var(--fw-semibold);
+		gap: 6px;
+		inline-size: 100%;
+		letter-spacing: 0.12em;
+		padding-inline: 10px;
+		text-align: start;
+		text-transform: uppercase;
+	}
+
+	.gutter__group-count {
+		margin-inline-start: auto;
 	}
 
 	/* A Motion Beat: a dotted guide through every lane and a draggable flag in
