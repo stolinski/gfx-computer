@@ -10,6 +10,7 @@ import {
 	coveringDeterministicViewportRect,
 	deterministicFontCheckDescriptor,
 	hasDeterministicReadableCharacters,
+	inkRectForTextRect,
 	matchesDeterministicRenderedText,
 	nativeRectForElement,
 	parseDeterministicCssShadows,
@@ -385,5 +386,21 @@ describe('typed readable identity authority', () => {
 		if (contract.status === 'available') {
 			expect(contract.expected.map((entry) => entry.id)).toContain('overlay:counter:value');
 		}
+	});
+});
+
+describe('inkRectForTextRect', () => {
+	it('shrinks a text run box to its published ink insets', () => {
+		// 200 px tall run whose face spans 1.25 em: one em is 160 px.
+		expect(
+			inkRectForTextRect({ left: 100, top: 0, right: 900, bottom: 200 }, '0.05 0.25 0.1 0.25 1.25')
+		).toEqual({ left: 108, top: 40, right: 884, bottom: 160 });
+	});
+
+	it('keeps the box when the insets are missing or malformed', () => {
+		const rect = { left: 0, top: 0, right: 10, bottom: 10 };
+		expect(inkRectForTextRect(rect, '')).toBe(rect);
+		expect(inkRectForTextRect(rect, '1 2 3')).toBe(rect);
+		expect(inkRectForTextRect(rect, '0 0 0 0 0')).toBe(rect);
 	});
 });

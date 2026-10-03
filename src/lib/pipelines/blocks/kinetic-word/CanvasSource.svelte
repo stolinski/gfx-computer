@@ -28,7 +28,7 @@
 	class:kinetic-word--masked={glyphs !== undefined}
 	data-gfx-readable-id={`block:${block.id}:text`}
 	data-gfx-readable-text={block.text}
-	data-gfx-text-role={block.hierarchy === 'display' ? 'surface-display' : 'surface-title'}
+	data-gfx-text-role="surface-title"
 	>{#if glyphs}{#each glyphs as glyph, index (index)}<span
 				class="kinetic-word__glyph"
 				style:top={glyphOffset(glyph.reveal)}>{glyph.text}</span

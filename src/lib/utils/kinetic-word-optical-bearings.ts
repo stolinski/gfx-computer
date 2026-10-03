@@ -26,9 +26,22 @@ export interface KineticWordOpticalBearings {
 	 * shifting the word by this makes `y` the optical centre for every Pack.
 	 */
 	verticalOffsetEm: number;
+	/** Space between the face's ascent and the ink's top, in em. */
+	inkTopEm: number;
+	/** Space between the ink's bottom and the face's descent, in em. */
+	inkBottomEm: number;
+	/** The face's ascent plus descent: the height a text run's box spans, in em. */
+	contentEm: number;
 }
 
-const ZERO_BEARINGS: KineticWordOpticalBearings = { startEm: 0, endEm: 0, verticalOffsetEm: 0 };
+const ZERO_BEARINGS: KineticWordOpticalBearings = {
+	startEm: 0,
+	endEm: 0,
+	verticalOffsetEm: 0,
+	inkTopEm: 0,
+	inkBottomEm: 0,
+	contentEm: 0
+};
 const REFERENCE_FONT_PX = 1000;
 const measurementCache = new Map<string, KineticWordOpticalBearings>();
 let measurementContext: OffscreenCanvasRenderingContext2D | null | undefined;
@@ -49,6 +62,22 @@ function readMeasurementContext(): OffscreenCanvasRenderingContext2D | null {
  * only the first and last graphemes are measured; the result is em-relative
  * and therefore independent of the word's rendered size or scale.
  */
+/**
+ * The ink insets verification shrinks a word's text box by (ADR-0064): start,
+ * top, end, bottom, and the content height they are fractions of, all in em.
+ * Placement is optical, so the readable region a layout check measures must be
+ * the ink, not the face's box.
+ */
+export function formatKineticWordInkInsets(bearings: KineticWordOpticalBearings): string {
+	return [
+		bearings.startEm,
+		bearings.inkTopEm,
+		bearings.endEm,
+		bearings.inkBottomEm,
+		bearings.contentEm
+	].join(' ');
+}
+
 export function measureKineticWordOpticalBearings(
 	text: string,
 	fontFamily: string | undefined,
@@ -83,10 +112,18 @@ export function measureKineticWordOpticalBearings(
 	const inkCentre = (body.actualBoundingBoxAscent - body.actualBoundingBoxDescent) / 2;
 	const boxCentre = (body.fontBoundingBoxAscent - body.fontBoundingBoxDescent) / 2;
 	const verticalOffsetEm = (inkCentre - boxCentre) / REFERENCE_FONT_PX;
+	const round = (value: number): number => Math.round(value * 10_000) / 10_000;
 	const bearings = {
-		startEm: Math.round(startEm * 10_000) / 10_000,
-		endEm: Math.round(endEm * 10_000) / 10_000,
-		verticalOffsetEm: Math.round(verticalOffsetEm * 10_000) / 10_000
+		startEm: round(startEm),
+		endEm: round(endEm),
+		verticalOffsetEm: round(verticalOffsetEm),
+		inkTopEm: round(
+			(body.fontBoundingBoxAscent - body.actualBoundingBoxAscent) / REFERENCE_FONT_PX
+		),
+		inkBottomEm: round(
+			(body.fontBoundingBoxDescent - body.actualBoundingBoxDescent) / REFERENCE_FONT_PX
+		),
+		contentEm: round((body.fontBoundingBoxAscent + body.fontBoundingBoxDescent) / REFERENCE_FONT_PX)
 	};
 	measurementCache.set(key, bearings);
 	return bearings;

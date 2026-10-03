@@ -416,7 +416,10 @@ function expectedSurfaceReadableText(
 			entries,
 			`block:${word.id}:text`,
 			word.text,
-			word.hierarchy === 'display' ? 'surface-display' : 'surface-title'
+			// A Type Field is a multi-word lockup, not a one-word hero: its display
+			// words are held to the title band's floor (the hero band's 400 px tall-
+			// frame floor is unreachable for a long word), and ceilings stay taste.
+			'surface-title'
 		);
 	}
 	for (const primitive of state.surface.diagram ?? []) {

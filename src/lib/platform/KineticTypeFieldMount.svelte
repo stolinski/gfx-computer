@@ -29,6 +29,7 @@
 		type KineticWordGlyphFrame
 	} from '$lib/utils/kinetic-word-glyphs';
 	import {
+		formatKineticWordInkInsets,
 		KINETIC_WORD_BASE_LETTER_SPACING_EM,
 		measureKineticWordOpticalBearings
 	} from '$lib/utils/kinetic-word-optical-bearings';
@@ -115,6 +116,8 @@
 			mappedWeight === undefined ? '' : `--kinetic-word-weight:${mappedWeight}`,
 			`--kinetic-word-letter-spacing:${letterSpacingEm}em`,
 			`--kinetic-word-optical-y:${bearings.verticalOffsetEm}em`,
+			// Verification measures the word's ink, the way it is placed.
+			`--gfx-readable-ink-insets:${formatKineticWordInkInsets(bearings)}`,
 			horizontalAnchor === 'start' ? `--kinetic-word-bearing-start:${bearings.startEm}em` : '',
 			horizontalAnchor === 'end' ? `--kinetic-word-bearing-end:${bearings.endEm}em` : '',
 			`left:${(geometry.position.x + (channels?.x ?? 0)) * 100}%`,

@@ -46,7 +46,7 @@ describe('deterministic readable motion authority', () => {
 		);
 	});
 
-	it('publishes static Kinetic Words once with hierarchy-derived readable roles', () => {
+	it('publishes static Kinetic Words once with the title readable role', () => {
 		const state = createDefaultEngineState();
 		state.surface.type = 'plain';
 		state.surface.content = { body: [] };
@@ -80,7 +80,7 @@ describe('deterministic readable motion authority', () => {
 
 		const contract = deriveDeterministicReadableContract(state, 0);
 		expect(contract.status === 'available' ? contract.expected : []).toEqual([
-			{ id: 'block:type:text', text: 'TYPE', role: 'surface-display' },
+			{ id: 'block:type:text', text: 'TYPE', role: 'surface-title' },
 			{ id: 'block:moves:text', text: 'MOVES', role: 'surface-title' }
 		]);
 		expect(isDeterministicReadableIdentityMotionHidden(state, 0, 'block:type:text')).toBe(false);

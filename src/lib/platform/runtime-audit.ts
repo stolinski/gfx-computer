@@ -782,6 +782,30 @@ export function coveringDeterministicViewportRect(
 	};
 }
 
+/**
+ * Shrink a text run's box to its ink when the renderer publishes ink insets
+ * (`--gfx-readable-ink-insets: start top end bottom content`, in em). Text
+ * placed optically — Kinetic Words — is checked where its ink is, not where
+ * its face's side bearings and empty ascent would put it.
+ */
+export function inkRectForTextRect(
+	rect: Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom'>,
+	insets: string
+): Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom'> {
+	const values = insets.trim().split(/\s+/).map(Number);
+	if (values.length !== 5 || values.some((value) => !Number.isFinite(value))) return rect;
+	const [start, top, end, bottom, content] = values;
+	if (content <= 0) return rect;
+	const emPixels = (rect.bottom - rect.top) / content;
+	const ink = {
+		left: rect.left + start * emPixels,
+		top: rect.top + top * emPixels,
+		right: rect.right - end * emPixels,
+		bottom: rect.bottom - bottom * emPixels
+	};
+	return ink.right > ink.left && ink.bottom > ink.top ? ink : rect;
+}
+
 /** Measure painted text fragments rather than a block element's stretched layout box. */
 export function nativeReadableTextRect(
 	element: HTMLElement,
@@ -791,9 +815,12 @@ export function nativeReadableTextRect(
 	range.selectNodeContents(element);
 	const viewportRect = coveringDeterministicViewportRect([...range.getClientRects()]);
 	range.detach();
-	return viewportRect
-		? nativeRectForViewportRect(viewportRect, relevantNativeRoot(element, roots))
-		: nativeRectForElement(element, roots);
+	if (!viewportRect) return nativeRectForElement(element, roots);
+	const insets = getComputedStyle(element).getPropertyValue('--gfx-readable-ink-insets');
+	return nativeRectForViewportRect(
+		insets ? inkRectForTextRect(viewportRect, insets) : viewportRect,
+		relevantNativeRoot(element, roots)
+	);
 }
 
 function clippingRectForElement(
