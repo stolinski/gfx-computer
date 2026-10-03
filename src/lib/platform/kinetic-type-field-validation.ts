@@ -5,6 +5,7 @@ import {
 import {
 	listKineticWordKeyframeTracks,
 	type KineticTypeField,
+	type KineticWord,
 	type MotionBeat,
 	type SurfaceState
 } from './engine-schema';
@@ -21,6 +22,19 @@ export const KINETIC_TYPE_FIELD_SURFACE_TYPE = 'plain' as const;
 /** At its beat, a phrase word reads only when it is this opaque and this settled. */
 export const KINETIC_PHRASE_READABLE_OPACITY = 0.98;
 export const KINETIC_PHRASE_READABLE_REVEAL = 0.02;
+
+/**
+ * Whether a Kinetic Word reads at `atMs`: fully shown and settled in its own
+ * mask. A word rising into or leaving its mask is in motion, not on screen to
+ * be read; verification neither expects it nor faults its moving geometry.
+ */
+export function isKineticWordReadableAt(word: KineticWord, atMs: number): boolean {
+	const channels = word.animation?.channels;
+	return (
+		evaluateKeyframeTrackAtMs(channels?.opacity, atMs, 1) >= KINETIC_PHRASE_READABLE_OPACITY &&
+		Math.abs(evaluateKeyframeTrackAtMs(channels?.reveal, atMs, 0)) <= KINETIC_PHRASE_READABLE_REVEAL
+	);
+}
 
 /**
  * Field-wide resource ceilings (ADR-0064). Per-word and per-channel ceilings

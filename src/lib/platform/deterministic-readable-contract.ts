@@ -1,4 +1,5 @@
 import type { EngineState, Overlay, Preset, SurfaceContent } from '$lib/platform/engine-schema';
+import { isKineticWordReadableAt } from './kinetic-type-field-validation';
 import {
 	annotationBodyPlainText,
 	parseAnnotationBodyText
@@ -246,7 +247,8 @@ function surfaceHasLegibleHold(state: EngineState, progress: number): boolean {
 }
 
 function blockHasLegibleHold(state: EngineState, blockId: string, progress: number): boolean {
-	if (state.surface.typeField?.words.some((word) => word.id === blockId)) return true;
+	const word = state.surface.typeField?.words.find((entry) => entry.id === blockId);
+	if (word) return isKineticWordReadableAt(word, progress * state.transport.durationSeconds * 1000);
 	const primitive = state.surface.diagram?.find((entry) => entry.id === blockId);
 	if (!primitive) return false;
 	const resolved = resolveCascadeTimings(state).get(`block:${blockId}`);
@@ -409,6 +411,7 @@ function expectedSurfaceReadableText(
 	if (chart)
 		entries.push(...resolveChartReadableText(chart, state.transport.orientation, progress));
 	for (const word of state.surface.typeField?.words ?? []) {
+		if (!isKineticWordReadableAt(word, progress * state.transport.durationSeconds * 1000)) continue;
 		appendReadableText(
 			entries,
 			`block:${word.id}:text`,

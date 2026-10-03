@@ -86,6 +86,27 @@ describe('deterministic readable motion authority', () => {
 		expect(isDeterministicReadableIdentityMotionHidden(state, 0, 'block:type:text')).toBe(false);
 	});
 
+	it('expects a Kinetic Word only while it is shown and settled in its mask', () => {
+		const state = requirePresetState('kinetic-type-field');
+		const at = (seconds: number): string[] => {
+			const contract = deriveDeterministicReadableContract(state, seconds * 1_000_000);
+			return contract.status === 'available' ? contract.expected.map((entry) => entry.id) : [];
+		};
+		// At the move beat the first phrase reads; BECOME has not risen yet.
+		expect(at(1)).toEqual(['block:type:text', 'block:can:text', 'block:move:text']);
+		// Mid-swap MOVE is leaving its mask and BECOME is still rising: in motion.
+		expect(at(2.15)).toEqual(['block:type:text', 'block:can:text']);
+		expect(isDeterministicReadableIdentityMotionHidden(state, 2_150_000, 'block:move:text')).toBe(
+			true
+		);
+		expect(at(4.5)).toEqual([
+			'block:type:text',
+			'block:is:text',
+			'block:the:text',
+			'block:composition:text'
+		]);
+	});
+
 	it('publishes Overlay identities only during their readable hold', () => {
 		const state = requirePresetState('lower-third');
 		const beforeHold = deriveDeterministicReadableContract(
