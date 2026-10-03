@@ -318,9 +318,11 @@ try {
 					`block:${expected.id}:text`,
 					`${expected.id} readable identity drifted`
 				);
+				// Every Kinetic Word reads in the title band (ADR-0064): a lockup word,
+				// not a one-word hero.
 				assert.equal(
 					word.textRole,
-					expected.hierarchy === 'display' ? 'surface-display' : 'surface-title',
+					'surface-title',
 					`${expected.id} readable role drifted`
 				);
 				assert.ok(
