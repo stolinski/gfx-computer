@@ -10,6 +10,7 @@ import {
 	type SurfaceState
 } from './engine-schema';
 import { evaluateKeyframeTrackAtMs } from './keyframe-track-evaluation';
+import { evaluateKineticWordGlyphFrames } from '$lib/utils/kinetic-word-glyphs';
 
 /** Semantic finding inside `surface.typeField`. Structural ceilings live in Zod. */
 export interface KineticTypeFieldSemanticIssue {
@@ -30,9 +31,13 @@ export const KINETIC_PHRASE_READABLE_REVEAL = 0.02;
  */
 export function isKineticWordReadableAt(word: KineticWord, atMs: number): boolean {
 	const channels = word.animation?.channels;
-	return (
-		evaluateKeyframeTrackAtMs(channels?.opacity, atMs, 1) >= KINETIC_PHRASE_READABLE_OPACITY &&
-		Math.abs(evaluateKeyframeTrackAtMs(channels?.reveal, atMs, 0)) <= KINETIC_PHRASE_READABLE_REVEAL
+	if (evaluateKeyframeTrackAtMs(channels?.opacity, atMs, 1) < KINETIC_PHRASE_READABLE_OPACITY) {
+		return false;
+	}
+	// Every glyph, not the word-level value: a staggered word reads only once
+	// its slowest glyph has settled too.
+	return evaluateKineticWordGlyphFrames(word.text, channels?.reveal, word.glyphStagger, atMs).every(
+		(glyph) => Math.abs(glyph.reveal) <= KINETIC_PHRASE_READABLE_REVEAL
 	);
 }
 
@@ -134,13 +139,17 @@ export function validateKineticTypeFieldSemantics(
 		if (!beat) continue;
 		const unreadable: string[] = [];
 		for (const wordId of phrase.wordIds) {
-			const channels = wordsById.get(wordId)?.animation?.channels;
+			const word = wordsById.get(wordId);
+			if (!word || isKineticWordReadableAt(word, beat.atMs)) continue;
+			const channels = word.animation?.channels;
 			const opacity = evaluateKeyframeTrackAtMs(channels?.opacity, beat.atMs, 1);
 			const reveal = evaluateKeyframeTrackAtMs(channels?.reveal, beat.atMs, 0);
 			if (opacity < KINETIC_PHRASE_READABLE_OPACITY) {
 				unreadable.push(`"${wordId}" is at opacity ${opacity.toFixed(2)}`);
-			} else if (Math.abs(reveal) > KINETIC_PHRASE_READABLE_REVEAL) {
-				unreadable.push(`"${wordId}" is ${reveal < 0 ? 'still rising into' : 'leaving'} its mask`);
+			} else {
+				unreadable.push(
+					`"${wordId}" is ${reveal < 0 || reveal === 0 ? 'still rising into' : 'leaving'} its mask`
+				);
 			}
 		}
 		if (unreadable.length > 0) {

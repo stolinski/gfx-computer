@@ -33,7 +33,7 @@
 						"hierarchy": "display",
 						"ink": "ink",
 						"position": {
-							"x": 0.05,
+							"x": 0.0505,
 							"y": 0.2917
 						},
 						"horizontalAnchor": "start",
@@ -46,7 +46,7 @@
 									"y": 0.4137
 								},
 								"horizontalAnchor": "start",
-								"scale": 2.5,
+								"scale": 2.36,
 								"rotation": 0
 							}
 						},
@@ -197,7 +197,7 @@
 						"hierarchy": "support",
 						"ink": "accent",
 						"position": {
-							"x": 0.05,
+							"x": 0.0505,
 							"y": 0.5951
 						},
 						"horizontalAnchor": "start",
@@ -290,7 +290,7 @@
 						"hierarchy": "display",
 						"ink": "accent",
 						"position": {
-							"x": 0.05,
+							"x": 0.0505,
 							"y": 0.7873
 						},
 						"horizontalAnchor": "start",
@@ -424,7 +424,7 @@
 						"hierarchy": "display",
 						"ink": "accent",
 						"position": {
-							"x": 0.05,
+							"x": 0.0505,
 							"y": 0.7873
 						},
 						"horizontalAnchor": "start",
@@ -572,7 +572,7 @@
 						"hierarchy": "support",
 						"ink": "accent",
 						"position": {
-							"x": 0.05,
+							"x": 0.0505,
 							"y": 0.6796
 						},
 						"horizontalAnchor": "start",
@@ -665,7 +665,7 @@
 						"hierarchy": "support",
 						"ink": "accent",
 						"position": {
-							"x": 0.116,
+							"x": 0.1165,
 							"y": 0.6796
 						},
 						"horizontalAnchor": "start",
@@ -758,7 +758,7 @@
 						"hierarchy": "display",
 						"ink": "ink",
 						"position": {
-							"x": 0.05,
+							"x": 0.0505,
 							"y": 0.8296
 						},
 						"horizontalAnchor": "start",
