@@ -170,7 +170,7 @@ Transitions are editing decisions handled in DaVinci Resolve, not missing Starte
 3. **Replace the rejected opening candidate — Dex `75u4vxtf`.** `show-open-in-focus` was removed; one text-led title card based on `chapter-card-1-burnout` and one brand-led title card based on `chapter-card-syntax-logo` were admitted without their authored CRT filters. Transitions remain in the DaVinci Resolve edit.
 4. **Close cumulative admission — Dex `qfxr9r0n`.** The honest count reached **43**. Existing baseline ratification plus exact affected evidence for the four added Starters closed that library state without rerunning unchanged Presets solely to restate their acceptance.
 5. **Add the 3D Canvas jobs.** The completed 3D Canvas Upgrade admitted `website-filmed` and `headline-hands-on` as distinct creator jobs, raising the honest count to **45**; `crt-filmed` and `stage-oblique-fixture` remain supporting fixtures.
-6. **Add kinetic type — Dex `fbutl1u4`.** `kinetic-type-field` (TYPE CAN MOVE → TYPE CAN BECOME → TYPE IS THE COMPOSITION on seven Motion Beats) raises the honest count to **46**; `kinetic-type-field-motion-fixture` and `kinetic-type-field-static-fixture` remain engine proofs. Admission requires Scott's aesthetic approval of its exact evidence.
+6. **Add kinetic type — Dex `fbutl1u4`.** `kinetic-type-field` (TYPE CAN MOVE → TYPE CAN BECOME → TYPE IS THE COMPOSITION on seven Motion Beats) raises the honest count to **46**; `kinetic-type-field-motion-fixture` and `kinetic-type-field-static-fixture` remain engine proofs. Scott approved its exact evidence on 2026-10-03.
 
 ## Mechanical check
 
