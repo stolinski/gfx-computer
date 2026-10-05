@@ -1,0 +1,88 @@
+{
+	"probe": "video-mosh-gpu",
+	"status": "passed",
+	"cases": [
+		{
+			"name": "parity/320x180/follow",
+			"failures": [],
+			"measurements": {
+				"maximumError": 0,
+				"worstStep": -1
+			}
+		},
+		{
+			"name": "parity/320x180/follow-bleed-corrupt",
+			"failures": [],
+			"measurements": {
+				"maximumError": 0.00244140625,
+				"worstStep": 4
+			}
+		},
+		{
+			"name": "parity/320x180/repeat",
+			"failures": [],
+			"measurements": {
+				"maximumError": 0.0029296875,
+				"worstStep": 5
+			}
+		},
+		{
+			"name": "parity/180x320/follow",
+			"failures": [],
+			"measurements": {
+				"maximumError": 0,
+				"worstStep": -1
+			}
+		},
+		{
+			"name": "parity/180x320/follow-bleed-corrupt",
+			"failures": [],
+			"measurements": {
+				"maximumError": 0.00244140625,
+				"worstStep": 4
+			}
+		},
+		{
+			"name": "parity/180x320/repeat",
+			"failures": [],
+			"measurements": {
+				"maximumError": 0.0029296875,
+				"worstStep": 5
+			}
+		},
+		{
+			"name": "determinism/horizontal",
+			"failures": [],
+			"measurements": {
+				"steps": 6,
+				"differingSteps": 0,
+				"worstStepMilliseconds": 300.09999990463257,
+				"medianStepMilliseconds": 17.100000143051147
+			}
+		},
+		{
+			"name": "determinism/vertical",
+			"failures": [],
+			"measurements": {
+				"steps": 6,
+				"differingSteps": 0,
+				"worstStepMilliseconds": 648.5999999046326,
+				"medianStepMilliseconds": 18.299999952316284
+			}
+		},
+		{
+			"name": "resolve/horizontal",
+			"failures": [],
+			"measurements": {
+				"maximumError": 0.0004863664215686292
+			}
+		},
+		{
+			"name": "resolve/vertical",
+			"failures": [],
+			"measurements": {
+				"maximumError": 0.0004863664215686292
+			}
+		}
+	]
+}

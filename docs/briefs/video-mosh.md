@@ -4,6 +4,7 @@
 **Slug:** video-mosh
 **Pack:** syntax
 **Verification preset:** `video-mosh-review` (a review composition assembled at review time in a jailed store from local footage; never committed)
+**Progress:** Schema and validation landed 2026-10-05 (`qxztoure`); the GPU processor and its CPU specification landed 2026-10-05 (`vr8v1cym`).
 
 ## Pitch
 
