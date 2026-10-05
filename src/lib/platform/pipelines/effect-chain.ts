@@ -76,7 +76,7 @@ const presentFragmentFn = tgpu['~unstable'].fragmentFn({
 		return vec4f(ditheredRgb, outA);
 	}`.$uses({ layout: presentBindGroupLayout });
 
-interface CompiledEffect {
+export interface CompiledEffect {
 	type: string;
 	apply(opts: {
 		commandEncoder: GPUCommandEncoder;
@@ -104,7 +104,12 @@ interface CompiledPresent {
 	dispose(): void;
 }
 
-function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect {
+/**
+ * One Effect's full-screen pass exactly as the chain runs it. Exported so a GPU
+ * probe can measure a single pass into an rgba16float target before the
+ * dithered 8-bit present (`scripts/probe-optical-vignette-gpu.ts`).
+ */
+export function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect {
 	const { device, root } = host;
 
 	// The effect declares its uniform layout via paramsStruct (a TgpuStruct).

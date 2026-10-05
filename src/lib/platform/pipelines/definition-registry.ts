@@ -22,6 +22,7 @@ import { halftoneCmykEffectDefinition } from '$lib/pipelines/effects/halftone-cm
 import { halftoneDotsEffectDefinition } from '$lib/pipelines/effects/halftone-dots/definition';
 import { heatmapEffectDefinition } from '$lib/pipelines/effects/heatmap/definition';
 import { ntscSignalEffectDefinition } from '$lib/pipelines/effects/ntsc-signal/definition';
+import { opticalVignetteEffectDefinition } from '$lib/pipelines/effects/optical-vignette/definition';
 import { paperGrainEffectDefinition } from '$lib/pipelines/effects/paper-grain/definition';
 import { pixelationEffectDefinition } from '$lib/pipelines/effects/pixelation/definition';
 import { refractiveLensEffectDefinition } from '$lib/pipelines/effects/refractive-lens/definition';
@@ -137,6 +138,7 @@ export const PIPELINE_DEFINITION_REGISTRY = {
 	effects: {
 		paperGrain: paperGrainEffectDefinition,
 		chromaticAberration: chromaticAberrationEffectDefinition,
+		opticalVignette: opticalVignetteEffectDefinition,
 		crtScreen: crtScreenEffectDefinition,
 		crtTube: crtTubeEffectDefinition,
 		ntscSignal: ntscSignalEffectDefinition,

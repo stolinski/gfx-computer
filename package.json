@@ -22,6 +22,7 @@
 		"probe:browser-session": "node --experimental-strip-types scripts/probe-browser-session-integrity.ts",
 		"probe:stale-build-recovery": "node --experimental-strip-types scripts/probe-stale-build-recovery.ts",
 		"probe:user-pack-render": "node --experimental-strip-types scripts/probe-user-pack-render.ts",
+		"probe:optical-vignette": "node --experimental-strip-types scripts/probe-optical-vignette-gpu.ts",
 		"probe:text-animation-weight": "node --experimental-strip-types scripts/probe-text-animation-variable-weight.ts",
 		"probe:kinetic-type-field": "node --experimental-strip-types scripts/probe-kinetic-type-field-static.ts",
 		"probe:kinetic-type-field-motion": "node --experimental-strip-types scripts/probe-kinetic-type-field-motion.ts",

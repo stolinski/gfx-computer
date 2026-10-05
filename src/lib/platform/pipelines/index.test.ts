@@ -69,6 +69,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'source-url',
 	'paper-grain',
 	'chromatic-aberration',
+	'optical-vignette',
 	'crt-screen',
 	'crt-tube',
 	'ntsc-signal',

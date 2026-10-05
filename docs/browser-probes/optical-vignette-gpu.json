@@ -1,0 +1,254 @@
+{
+	"probe": "optical-vignette-gpu",
+	"status": "passed",
+	"cases": [
+		{
+			"name": "horizontal/identity",
+			"width": 3840,
+			"height": 2160,
+			"params": {
+				"exposureLoss": 0,
+				"onset": 0.6,
+				"feather": 0.1,
+				"roundness": 0.3,
+				"center": {
+					"x": 0.5,
+					"y": 0.5
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"differingTexels": 0,
+				"alphaChanges": 0,
+				"transparentLeaks": 0,
+				"brightenedChannels": 0,
+				"maximumChannelRatioSpread": 0,
+				"maximumReferenceError": 0
+			}
+		},
+		{
+			"name": "horizontal/alpha-default",
+			"width": 3840,
+			"height": 2160,
+			"params": {
+				"exposureLoss": 1,
+				"onset": 0.3,
+				"feather": 0.45,
+				"roundness": 1,
+				"center": {
+					"x": 0.5,
+					"y": 0.5
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"differingTexels": 6220790,
+				"alphaChanges": 0,
+				"transparentLeaks": 0,
+				"brightenedChannels": 0,
+				"maximumChannelRatioSpread": 0.0021405959278540942,
+				"maximumReferenceError": 0.0004884564263695212
+			}
+		},
+		{
+			"name": "horizontal/alpha-strong-off-centre",
+			"width": 3840,
+			"height": 2160,
+			"params": {
+				"exposureLoss": 3,
+				"onset": 0.3,
+				"feather": 0.45,
+				"roundness": 1,
+				"center": {
+					"x": 0.3,
+					"y": 0.7
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"differingTexels": 6220788,
+				"alphaChanges": 0,
+				"transparentLeaks": 0,
+				"brightenedChannels": 0,
+				"maximumChannelRatioSpread": 0.002114560070620497,
+				"maximumReferenceError": 0.0004883424805753878
+			}
+		},
+		{
+			"name": "horizontal/falloff-default",
+			"width": 3840,
+			"height": 2160,
+			"params": {
+				"exposureLoss": 1,
+				"onset": 0.3,
+				"feather": 0.45,
+				"roundness": 1,
+				"center": {
+					"x": 0.5,
+					"y": 0.5
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"maximumReferenceError": 0.0004883777541471179,
+				"channelMismatches": 0,
+				"centerExposure": 1,
+				"farthestCornerStops": 1.00002374693296,
+				"monotonicViolations": 0,
+				"maximumAxisDifference": 0,
+				"exposureAtRadius540": 0.9669998215414354,
+				"exposureAtRadius1000": 0.886273949963925
+			}
+		},
+		{
+			"name": "horizontal/falloff-strong",
+			"width": 3840,
+			"height": 2160,
+			"params": {
+				"exposureLoss": 2,
+				"onset": 0.6,
+				"feather": 0.15,
+				"roundness": 1,
+				"center": {
+					"x": 0.5,
+					"y": 0.5
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"maximumReferenceError": 0.0004883811663526361,
+				"channelMismatches": 0,
+				"centerExposure": 1,
+				"farthestCornerStops": 1.999937753677431,
+				"monotonicViolations": 0,
+				"maximumAxisDifference": 0,
+				"exposureAtRadius540": 0.9801223920554454,
+				"exposureAtRadius1000": 0.9018820720474566
+			}
+		},
+		{
+			"name": "vertical/identity",
+			"width": 2160,
+			"height": 3840,
+			"params": {
+				"exposureLoss": 0,
+				"onset": 0.6,
+				"feather": 0.1,
+				"roundness": 0.3,
+				"center": {
+					"x": 0.5,
+					"y": 0.5
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"differingTexels": 0,
+				"alphaChanges": 0,
+				"transparentLeaks": 0,
+				"brightenedChannels": 0,
+				"maximumChannelRatioSpread": 0,
+				"maximumReferenceError": 0
+			}
+		},
+		{
+			"name": "vertical/alpha-default",
+			"width": 2160,
+			"height": 3840,
+			"params": {
+				"exposureLoss": 1,
+				"onset": 0.3,
+				"feather": 0.45,
+				"roundness": 1,
+				"center": {
+					"x": 0.5,
+					"y": 0.5
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"differingTexels": 6220788,
+				"alphaChanges": 0,
+				"transparentLeaks": 0,
+				"brightenedChannels": 0,
+				"maximumChannelRatioSpread": 0.0021479775152839498,
+				"maximumReferenceError": 0.0004884252989824089
+			}
+		},
+		{
+			"name": "vertical/alpha-strong-off-centre",
+			"width": 2160,
+			"height": 3840,
+			"params": {
+				"exposureLoss": 3,
+				"onset": 0.3,
+				"feather": 0.45,
+				"roundness": 1,
+				"center": {
+					"x": 0.3,
+					"y": 0.7
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"differingTexels": 6220788,
+				"alphaChanges": 0,
+				"transparentLeaks": 0,
+				"brightenedChannels": 0,
+				"maximumChannelRatioSpread": 0.002117432820936349,
+				"maximumReferenceError": 0.0004883204092520632
+			}
+		},
+		{
+			"name": "vertical/falloff-default",
+			"width": 2160,
+			"height": 3840,
+			"params": {
+				"exposureLoss": 1,
+				"onset": 0.3,
+				"feather": 0.45,
+				"roundness": 1,
+				"center": {
+					"x": 0.5,
+					"y": 0.5
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"maximumReferenceError": 0.0004883777541471179,
+				"channelMismatches": 0,
+				"centerExposure": 1,
+				"farthestCornerStops": 1.00002374693296,
+				"monotonicViolations": 0,
+				"maximumAxisDifference": 0,
+				"exposureAtRadius540": 0.9669998215414354,
+				"exposureAtRadius1000": 0.886273949963925
+			}
+		},
+		{
+			"name": "vertical/falloff-strong",
+			"width": 2160,
+			"height": 3840,
+			"params": {
+				"exposureLoss": 2,
+				"onset": 0.6,
+				"feather": 0.15,
+				"roundness": 1,
+				"center": {
+					"x": 0.5,
+					"y": 0.5
+				}
+			},
+			"failures": [],
+			"measurements": {
+				"maximumReferenceError": 0.0004883974303053762,
+				"channelMismatches": 0,
+				"centerExposure": 1,
+				"farthestCornerStops": 1.999937753677431,
+				"monotonicViolations": 0,
+				"maximumAxisDifference": 0,
+				"exposureAtRadius540": 0.9801223920554454,
+				"exposureAtRadius1000": 0.9018820720474566
+			}
+		}
+	]
+}

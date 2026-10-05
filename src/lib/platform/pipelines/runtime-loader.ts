@@ -232,6 +232,10 @@ const effectRendererLoaders: Record<string, RuntimeRendererLoader<EffectRenderer
 		import('$lib/pipelines/effects/chromatic-aberration').then(
 			(module) => module.chromaticAberrationEffectRenderer as unknown as EffectRenderer
 		),
+	[PIPELINE_DEFINITION_REGISTRY.effects.opticalVignette.type]: () =>
+		import('$lib/pipelines/effects/optical-vignette').then(
+			(module) => module.opticalVignetteEffectRenderer as unknown as EffectRenderer
+		),
 	[PIPELINE_DEFINITION_REGISTRY.effects.crtScreen.type]: () =>
 		import('$lib/pipelines/effects/crt-screen').then(
 			(module) => module.crtScreenEffectRenderer as unknown as EffectRenderer

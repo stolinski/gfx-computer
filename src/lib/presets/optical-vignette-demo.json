@@ -1,0 +1,140 @@
+{
+	"schema": "gfx@1",
+	"kind": "fixture",
+	"name": "Optical vignette — effect fixture",
+	"description": "Proving fixture for the optical-vignette Effect at its default settings, over a full-frame Pack field. A cos⁴ lens falloff measured in native pixels from the frame centre takes one stop of linear light from the farthest corners and less everywhere else, so the flat field darkens toward its edges the way a lens image does — round in both orientations, with no ring, no banding, no colour shift, and no hard edge. A flat field is the hardest case for a vignette: any synthetic ellipse or step would show. The Effect scales colour in linear light and leaves alpha untouched. Fixture — exercises the Pipeline, not held to the deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 4,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": {
+				"start": 0.05,
+				"duration": 0.08,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.9,
+				"duration": 0.05,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"animation": {
+				"channels": {
+					"opacity": [
+						{
+							"atMs": 0,
+							"value": 0
+						},
+						{
+							"atMs": 250,
+							"value": 0
+						},
+						{
+							"atMs": 650,
+							"value": 1,
+							"ease": "smooth"
+						},
+						{
+							"atMs": 3500,
+							"value": 1
+						},
+						{
+							"atMs": 3750,
+							"value": 0,
+							"ease": "smooth"
+						}
+					]
+				}
+			},
+			"diagram": [
+				{
+					"id": "vignette-label",
+					"type": "label",
+					"position": {
+						"x": 0.5,
+						"y": 0.3719
+					},
+					"text": "OPTICAL VIGNETTE",
+					"role": "caption",
+					"scale": 2.8,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.4
+							},
+							"scale": 0.85
+						}
+					}
+				},
+				{
+					"id": "vignette-title",
+					"type": "label",
+					"position": {
+						"x": 0.4987,
+						"y": 0.5645
+					},
+					"text": "Through the lens",
+					"role": "headline",
+					"scale": 1.5,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.5
+							},
+							"scale": 1
+						}
+					}
+				}
+			]
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [
+			{
+				"type": "optical-vignette",
+				"id": "lens",
+				"params": {
+					"exposureLoss": 1,
+					"onset": 0.3,
+					"feather": 0.45,
+					"roundness": 1,
+					"center": {
+						"x": 0.5,
+						"y": 0.5
+					}
+				}
+			}
+		],
+		"audioCues": [],
+		"media": {
+			"assets": [],
+			"videoTrack": {
+				"clips": []
+			}
+		},
+		"backgroundFill": "pack"
+	}
+}

@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
 
+import { runSetCompositionEffectParamsOperation } from './composition-appearance-operations';
 import { compositionEditHistory } from './composition-edit-history';
+import { runCompositionHistoryTransaction } from './composition-edit-transaction';
 import { compositionMeta } from './composition-meta.svelte';
 import {
 	runAddCompositionAnnotationMarkOperation,
@@ -434,6 +436,65 @@ describe('Effect chain membership', () => {
 			await runRemoveCompositionEffectOperation({ expectedRevision: 3, effectId: 'dithering-1' })
 		);
 		expect(engineState.effects.map((effect) => effect.id)).toEqual(['paper-grain-1']);
+	});
+
+	it('authors an optical vignette through the registry-derived operations', async () => {
+		const added = expectApplied(
+			await runAddCompositionEffectOperation({
+				expectedRevision: 0,
+				effectType: 'optical-vignette'
+			})
+		);
+		expect(added.focus).toEqual({ target: 'effect', effectId: 'optical-vignette-1' });
+		expect(pipelineRendererRuntime.current().effects.has('optical-vignette')).toBe(true);
+		expect(engineState.effects[0].params).toEqual({
+			exposureLoss: 1,
+			onset: 0.3,
+			feather: 0.45,
+			roundness: 1,
+			center: { x: 0.5, y: 0.5 }
+		});
+
+		const edited = {
+			exposureLoss: 1.25,
+			onset: 0.3,
+			feather: 0.45,
+			roundness: 1,
+			center: { x: 0.5, y: 0.5 }
+		};
+		expectApplied(
+			await runSetCompositionEffectParamsOperation({
+				expectedRevision: 1,
+				effectId: 'optical-vignette-1',
+				params: edited
+			})
+		);
+		expect(engineState.effects[0].params).toMatchObject({ exposureLoss: 1.25 });
+
+		const refused = expectFailed(
+			await runSetCompositionEffectParamsOperation({
+				expectedRevision: 2,
+				effectId: 'optical-vignette-1',
+				params: { ...edited, exposureLoss: 4 }
+			})
+		);
+		expect(refused.code).toBe('schema_invalid');
+		expect(engineState.effects[0].params).toMatchObject({ exposureLoss: 1.25 });
+
+		expectApplied(runCompositionHistoryTransaction('undo', 2));
+		expect(engineState.effects[0].params).toMatchObject({ exposureLoss: 1 });
+		expectApplied(runCompositionHistoryTransaction('redo', 3));
+		expect(engineState.effects[0].params).toMatchObject({ exposureLoss: 1.25 });
+
+		expectApplied(
+			await runRemoveCompositionEffectOperation({
+				expectedRevision: 4,
+				effectId: 'optical-vignette-1'
+			})
+		);
+		expect(engineState.effects).toEqual([]);
+		expectApplied(runCompositionHistoryTransaction('undo', 5));
+		expect(engineState.effects.map((effect) => effect.type)).toEqual(['optical-vignette']);
 	});
 });
 

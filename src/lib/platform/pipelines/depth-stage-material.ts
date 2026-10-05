@@ -44,6 +44,11 @@ export function srgbToLinearWgsl(encoded: string): string {
 	return /* wgsl */ `select(pow((${encoded} + vec3f(0.055)) / 1.055, vec3f(2.4)), ${encoded} / 12.92, ${encoded} <= vec3f(0.04045))`;
 }
 
+/** WGSL: a non-negative linear-light vec3f expression, sRGB-encoded. The inverse of `srgbToLinearWgsl`. */
+export function linearToSrgbWgsl(linear: string): string {
+	return /* wgsl */ `select(1.055 * pow(${linear}, vec3f(1.0 / 2.4)) - vec3f(0.055), ${linear} * 12.92, ${linear} <= vec3f(0.0031308))`;
+}
+
 /**
  * WGSL: shade one body fragment. Expects unit `N`, `V` (to the eye), `L` (to
  * the key), a linear `albedo`, `roughness`, `metallic`, the key's `keyIntensity`

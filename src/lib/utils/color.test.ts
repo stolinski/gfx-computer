@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	linearChannelToSrgb,
 	relativeLuminance,
 	srgbChannelToLinear,
 	wcagContrastRatio,
@@ -48,6 +49,15 @@ describe('srgbChannelToLinear', () => {
 		expect(srgbChannelToLinear(0)).toBe(0);
 		expect(srgbChannelToLinear(1)).toBeCloseTo(1, 6);
 		expect(srgbChannelToLinear(0.04045)).toBeCloseTo(0.04045 / 12.92, 6);
-		expect(srgbChannelToLinear(0.5)).toBeCloseTo(0.2140, 3);
+		expect(srgbChannelToLinear(0.5)).toBeCloseTo(0.214, 3);
+	});
+});
+
+describe('linearChannelToSrgb', () => {
+	it('inverts srgbChannelToLinear across the curve', () => {
+		expect(linearChannelToSrgb(0)).toBe(0);
+		for (const encoded of [0.01, 0.04045, 0.2, 0.5, 0.8, 1]) {
+			expect(linearChannelToSrgb(srgbChannelToLinear(encoded))).toBeCloseTo(encoded, 6);
+		}
 	});
 });

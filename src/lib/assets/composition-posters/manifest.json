@@ -412,6 +412,13 @@
 		"height": 360,
 		"contentFraction": 0.8773
 	},
+	"optical-vignette-demo": {
+		"contentKey": "2f991fdcd271ce80",
+		"timestampSeconds": 2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9598
+	},
 	"outro-watch-next": {
 		"contentKey": "4293753ce916157a",
 		"timestampSeconds": 4,
