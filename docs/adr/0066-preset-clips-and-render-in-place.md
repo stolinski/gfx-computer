@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, not built (decided 2026-10-05 with Scott; Dex epic for Preset clips, Brief [`preset-clips`](../briefs/preset-clips.md)).** Depends on [ADR-0065](0065-video-track-mosh-windows-and-alpha-footage.md) for alpha footage and mosh windows. Extends the Media library entry of [ADR-0045](0045-composition-media-library-and-video-track.md) with render provenance.
+**Superseded — withdrawn 2026-10-05 by Scott, never built.** The plan was scrapped the day it was written, after review found it had not been thought through: Chrome's WebCodecs cannot decode ProRes 4444, so alpha footage would have needed WebM VP9 alpha at roughly twice the decode cost; rendering a Preset in a hidden page would likely stall, because GFX export waits on browser paints that hidden frames barely get; and the first moshed frame over a cut searched motion between unrelated shots. The schema and GPU processor that briefly landed were removed. Nothing in this record is current product truth; it remains only as history.
 
 Date: 2026-10-05
 

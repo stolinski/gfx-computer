@@ -75,8 +75,8 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0062](0062-dimensional-type-compiled-typefaces-and-the-first-overlay-body.md) | Canon (built and approved 2026-09-03; landed on `main`)                                                                                       | Dimensional type: compiled typefaces, resolved outlines, and the first Overlay-owned body; amends 0059 §2                               |
 | [0063](0063-keyframed-effect-parameters.md)                                    | Canon (built 2026-10-01, Dex epic `fvfbrf8t`)                                                                                                 | Effect params join the keyframe channel vocabulary: schema-derived channels, one manifest evaluator; amends 0035 §3, 0012, 0044         |
 | [0064](0064-kinetic-type-word-fields.md)                                       | Canon (built 2026-10-03: word field, masked reveals, Motion Beats, verification authorities, and the approved `kinetic-type-field` reference) | Kinetic type as a bounded Block field with independent word tracks, masked glyph reveals, Motion Beats, and Pack-mapped variable weight |
-| [0065](0065-video-track-mosh-windows-and-alpha-footage.md)                     | Designed, not built (decided 2026-10-05)                                                                                                      | Mosh windows on the Video track: footage-only datamosh replayed on seek, and opt-in alpha footage; amends 0043, 0045                    |
-| [0066](0066-preset-clips-and-render-in-place.md)                               | Designed, not built (decided 2026-10-05)                                                                                                      | Preset clips: render a Preset in place on the Video track, with provenance and re-render; builds on 0065                                |
+| [0065](0065-video-track-mosh-windows-and-alpha-footage.md)                     | Superseded (withdrawn 2026-10-05, never built)                                                                                                | Mosh windows on the Video track and opt-in alpha footage — scrapped                                                                     |
+| [0066](0066-preset-clips-and-render-in-place.md)                               | Superseded (withdrawn 2026-10-05, never built)                                                                                                | Preset clips rendered in place on the Video track — scrapped                                                                            |
 
 ## Supersession And Refinement
 
@@ -88,7 +88,6 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 - `0022` -> shipped snapshot-and-wipe implementation in `0026`; live dual-tree remains deferred.
 - `0035` -> Effect params join the channel vocabulary in `0063` (schema-derived channels, one manifest evaluator, the frost ramps of `0044` as sugar); the camera and focus of `0057` stay one-move until they are its next consumer.
 - `0033`'s original Sound-kit section -> superseded by its 2026-07-02 amendment; engine defaults + per-motion overrides are current.
-- `0043` + `0045` -> the first explicit footage operation, mosh windows, plus opt-in alpha footage in `0065` -> Presets rendered in place as Video clips in `0066`.
 - `0034`'s three-zone/no-left-panel UI -> retained by `0045`; the existing right rail switches between Inspector and Media modes.
 - `0043`'s deterministic decoder/compositor/audio/export/privacy foundation -> retained by `0045`; its singular `state.sourceVideo`, authoring, and opacity model -> superseded by composition `state.media` + coverage-aware Video clips.
 

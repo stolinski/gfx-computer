@@ -7,7 +7,6 @@ import { requireLoadedEffectRenderer } from './runtime-loader';
 import { compilePassComposite, type CompiledPassComposite } from './pass-composite';
 import { resolvePassExecution, type PassPixelBounds } from './pass-execution';
 import type { EffectRenderer } from './types';
-import { videoUnderlayCoverUvWgsl } from './video-underlay-cover-wgsl';
 
 const TEXTURE_USAGE_COPY_DST = 0x02;
 const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
@@ -296,12 +295,26 @@ function compilePresent(host: GpuHost): CompiledPresent {
 		out: d.vec4f
 	}) /* wgsl */ `{
 			let s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
-			${videoUnderlayCoverUvWgsl({
-				uv: 'in.uv',
-				displaySize: 'layout.$.uniforms.videoUnderlayDisplaySize',
-				canvasSize: 'layout.$.uniforms.canvasSize',
-				rotation: 'layout.$.uniforms.videoUnderlayRotation'
-			})}
+			let underlayDisplaySize = layout.$.uniforms.videoUnderlayDisplaySize;
+			let underlayAspect = underlayDisplaySize.x / max(1.0, underlayDisplaySize.y);
+			let canvasSize = layout.$.uniforms.canvasSize;
+			let canvasAspect = canvasSize.x / max(1.0, canvasSize.y);
+			let cropWidth = min(1.0, canvasAspect / underlayAspect);
+			let cropHeight = min(1.0, underlayAspect / canvasAspect);
+			let underlayUv = vec2f(
+				0.5 + (in.uv.x - 0.5) * cropWidth,
+				0.5 + (in.uv.y - 0.5) * cropHeight
+			);
+			let rotation = layout.$.uniforms.videoUnderlayRotation;
+			let uv0 = underlayUv;
+			let uv90 = vec2f(underlayUv.y, 1.0 - underlayUv.x);
+			let uv180 = vec2f(1.0 - underlayUv.x, 1.0 - underlayUv.y);
+			let uv270 = vec2f(1.0 - underlayUv.y, underlayUv.x);
+			let is0 = select(0.0, 1.0, rotation < 0.5);
+			let is90 = select(0.0, 1.0, rotation >= 0.5 && rotation < 1.5);
+			let is180 = select(0.0, 1.0, rotation >= 1.5 && rotation < 2.5);
+			let is270 = select(0.0, 1.0, rotation >= 2.5);
+			let rawUv = uv0 * is0 + uv90 * is90 + uv180 * is180 + uv270 * is270;
 			let underlaySample = textureSample(
 				layout.$.videoUnderlayTexture,
 				layout.$.samp,

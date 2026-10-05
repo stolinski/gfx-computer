@@ -110,14 +110,6 @@ _Avoid_: animation Track, transition clip, Source video.
 Media-relative time within a **Media asset**. For active output frame `F`, `localFrame = F - timelineStartFrame` and `sourceTime = sourceStartSeconds + framesToSeconds(localFrame, transport rate)`. The decoder adds the media track's first presentation timestamp and selects the last presentation sample at or before that requested timestamp. This exact mapping drives preview, audio, and export.
 _Avoid_: Timeline time (composition placement), container-absolute PTS.
 
-**Mosh window** _(designed, not built — [ADR-0065](adr/0065-video-track-mosh-windows-and-alpha-footage.md))_:
-A time range of at most 3 seconds in `state.media.videoTrack.moshes[]` where the footage stops refreshing: the **held frame** (the footage at `startFrame − 1`) is dragged block by block by the live footage's own motion (`follow`) or by its first motion step repeated (`repeat`), with bleed, seeded corruption, and a heal back to clean footage at the end. It processes footage only, never the five Layers, and replays from the held frame on a seek so every frame is the same pixels however it is reached. A window may run into or out of a transparent gap when the clips it touches keep alpha (a mosh-out or mosh-in).
-_Avoid_: datamosh Effect (it is not in `effects[]`), glitch, transition (a mosh is footage state, not a Preset transition).
-
-**Preset clip** _(designed, not built — [ADR-0066](adr/0066-preset-clips-and-render-in-place.md))_:
-A **Video clip** whose **Media library entry** was produced by **rendering a Preset in place**: the source Preset is exported at the host composition's orientation, rate, and Pack, alpha kept, into the asset store, and the entry records the source and a content key so the library can mark it stale and offer Re-render. It plays as footage; nothing renders at playback or export time.
-_Avoid_: nested composition, sub-Preset, live Preset (a Preset clip is rendered media, not a second live tree).
-
 **Block**:
 A discrete content unit rendered on a Surface (title, body, image, kicker). One Surface carries multiple Blocks.
 _Avoid_: component, region, element.

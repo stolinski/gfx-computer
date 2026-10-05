@@ -264,83 +264,6 @@ describe('Video media semantic validation', () => {
 	});
 });
 
-describe('Mosh window semantic validation (ADR-0065)', () => {
-	function moshPreset(
-		moshes: NonNullable<Preset['state']['media']['videoTrack']['moshes']>
-	): Preset {
-		const preset = videoPreset('Mosh');
-		preset.state.transport.fps = 30;
-		preset.state.transport.durationSeconds = 6;
-		preset.state.media.videoTrack.clips[0].durationFrames = 90;
-		preset.state.media.videoTrack.clips.push({
-			...preset.state.media.videoTrack.clips[0],
-			id: 'clip-b',
-			timelineStartFrame: 90
-		});
-		preset.state.media.videoTrack.moshes = moshes;
-		return preset;
-	}
-
-	const window = {
-		id: 'cut',
-		startFrame: 90,
-		durationFrames: 45,
-		motion: 'follow' as const,
-		blockSize: 16 as const,
-		bleed: 0.08,
-		corruption: 0.15,
-		seed: 7,
-		healFrames: 12
-	};
-
-	it('accepts a window over a cut with footage at the held frame', () => {
-		assert.deepEqual(validatePresetSemantics(moshPreset([window])), []);
-	});
-
-	it('reports every broken window rule at its field', () => {
-		const issues = validatePresetSemantics(
-			moshPreset([
-				{ ...window, durationFrames: 91, healFrames: 100 },
-				{ ...window, startFrame: 120, durationFrames: 70 }
-			])
-		);
-		const at = (path: string, pattern: RegExp): boolean =>
-			issues.some((issue) => issue.path.join('.') === path && pattern.test(issue.message));
-
-		assert.ok(at('state.media.videoTrack.moshes.0.durationFrames', /limit is 90/));
-		assert.ok(at('state.media.videoTrack.moshes.0.healFrames', /heals over 100/));
-		assert.ok(at('state.media.videoTrack.moshes.1.id', /Duplicate Mosh window ID/));
-		assert.ok(
-			issues.some(
-				(issue) =>
-					issue.path.join('.') === 'state.media.videoTrack.moshes.1.startFrame' &&
-					issue.message.includes('ordered and non-overlapping')
-			)
-		);
-		assert.ok(
-			issues.some(
-				(issue) =>
-					issue.path.join('.') === 'state.media.videoTrack.moshes.1.durationFrames' &&
-					issue.message.includes("beyond the composition's 180 frames")
-			)
-		);
-	});
-
-	it('refuses a window that touches a gap', () => {
-		const preset = moshPreset([{ ...window, startFrame: 100 }]);
-		preset.state.media.videoTrack.clips[1].timelineStartFrame = 110;
-		preset.state.media.videoTrack.clips[1].durationFrames = 70;
-		const issues = validatePresetSemantics(preset);
-		assert.ok(
-			issues.some(
-				(issue) =>
-					issue.path.join('.') === 'state.media.videoTrack.moshes.0.startFrame' &&
-					issue.message.includes('needs footage on every frame from its held frame 99')
-			)
-		);
-	});
-});
-
 function chartPresetForSemanticValidation(): Preset {
 	const preset: Preset = {
 		schema: 'gfx@1',
@@ -552,10 +475,9 @@ describe('Effect keyframe channel semantic validation (ADR-0063)', () => {
 				}
 			])
 		);
-		assert.deepEqual(
-			issues.map((issue) => issue.path),
-			[['state', 'effects', 0, 'animation', 'channels', 'pixelSize', 0, 'value']]
-		);
+		assert.deepEqual(issues.map((issue) => issue.path), [
+			['state', 'effects', 0, 'animation', 'channels', 'pixelSize', 0, 'value']
+		]);
 	});
 
 	it('refuses an animation block on a composition-owned Effect', () => {
@@ -569,10 +491,7 @@ describe('Effect keyframe channel semantic validation (ADR-0063)', () => {
 				}
 			])
 		);
-		assert.deepEqual(
-			issues.map((issue) => issue.path),
-			[['state', 'effects', 0, 'animation']]
-		);
+		assert.deepEqual(issues.map((issue) => issue.path), [['state', 'effects', 0, 'animation']]);
 		assert.match(issues[0].message, /depth-of-field Effect carries no animation block/);
 	});
 });

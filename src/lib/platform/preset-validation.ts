@@ -23,7 +23,6 @@ import { isCaptureAsset, listCaptureAssets } from './capture-assets';
 import { isStageModel, listStageModels } from './stage-models';
 import { isSubstrateAsset } from './substrate-textures';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
-import { describeVideoMoshWindowFindings } from '../utils/video-mosh-windows';
 import { normalizeWebsiteCaptureUrl } from '../utils/website-showcase';
 import { TEXT_EFFECT_CATALOG } from '../text-animations/catalog';
 import { textEffectUnavailableReason } from '../text-animations/availability';
@@ -141,17 +140,6 @@ function validateMediaSemantics(preset: Preset, issues: PresetSemanticIssue[]): 
 				message: `Video clips must be ordered and non-overlapping; "${clip.id}" starts before "${previous.id}" ends`
 			});
 		}
-	}
-
-	for (const finding of describeVideoMoshWindowFindings(
-		preset.state.media,
-		compositionFrameCount,
-		resolveFrameRate(preset.state.transport.fps)
-	)) {
-		issues.push({
-			path: ['state', 'media', 'videoTrack', 'moshes', finding.index, finding.field],
-			message: finding.message
-		});
 	}
 }
 
