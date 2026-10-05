@@ -79,7 +79,7 @@ At an epic boundary that lane still stops for the human as required by the execu
 
 The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (including iMessage) has shipped. **Core GUI schema/persistence parity shipped** ([ADR-0032](adr/0032-gui-agent-parity-authoring.md), epic `3pkmqyns`), the **GUI authoring interface shipped** ([ADR-0034](adr/0034-gui-design-authoring-interface.md), epics `jz2yykvi` + `wfonjyb3`, 2026-07-01), and operational parity shipped in `9hl3hqv7`. The active work is the factory runway above; residual context:
 
-- a small **corpus refinement tail** — active, epic `ri2qchcm`;
+- a small **corpus refinement tail** — closed 2026-10-03 (epic `ri2qchcm`; its last task declined as not worth building);
 - **Sound design** — ✅ **shipped** ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md), epic `1frpmv40` complete; amended 2026-07-02 to the final by-ear-approved model — engine defaults per motion kind + per-cue overrides, kit concept removed);
 - **the capability arc** — ✅ shipped in full (§ below).
 
@@ -89,7 +89,7 @@ The engine gap is closed, the make-cinematic push is **done across every surface
 
 **Reference deliverables:** the Scott-ratified Calibration Trio — `docu-timeline-build`, the `lower-third` house card, `type-hero-vantage` — is the bar (calibrated 2026-07-09). The 2026-06 cinematic-era references (`lower-third-cinematic`, `chapter-card-cinematic`) were retired 2026-07-13 under [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) — superseded by the recomposed house style and the depth-stage deliverables; `server-renders-again` was retired 2026-09-01 under [ADR-0056](adr/0056-newspaper-photographed-page.md) together with the torn-clipping register it showcased — the newspaper is now a full-bleed photographed page, fully Pack-immune.
 
-**The remaining corpus tail** is tracked in dex epic `ri2qchcm`. Do not duplicate its changing task statuses here; image substrate and the configurable edge-treatment primitive are already shipped engine capabilities.
+**The corpus tail** (dex epic `ri2qchcm`) is closed: Scott declined its last task, alpha-preserving native-4K Critic capture, on 2026-10-03; image substrate and the configurable edge-treatment primitive are already shipped engine capabilities.
 
 **dex is the source of truth for per-family task state** (run `dex list --ready`).
 
@@ -196,7 +196,7 @@ Grilled into a spec (2026-06). Overturns the old `ideas/` "audio stays out — R
 - 🧭 **Linear-light blending** — changes composite math; risky; separate pass with heavy before/after verification (deferred from the render-path work).
 - 🧭 **Fixer sub-agent** for `preset-choice`/`aesthetic-miss` Critic findings — build-harness; revisit after more Critic runs (open design question, ex-`todos/fixer-sub-agent.md`).
 - 🧭 **`probe-timeline.ts`** for the G6/L4 timing rubric gap (currently no probe).
-- 🧭 **Opaque-piece probe mode** (rubric-gap from the depth-stage Critic, 2026-06) — **luma auto-detection shipped** (`_probe-channel.ts`): `probe-banding`, `probe-edge-aa`, and `probe-ink-coverage` now resolve their measurement channel — auto-detecting opaque→luma (or forced with `--channel luma`), `probe-ink-coverage` measuring deviation from the field's modal luma — so R3/R4/R5/Q9 ARE measurable on opaque full-frame pieces, not only alpha-keyed overlays. Residual under `9w7kdptf`: alpha-preserving verification of the opaque _export_ rides the export-decode lane (`probe-export-decode.ts`), and any remaining per-probe `--opaque` ergonomics.
+- 🧭 **Opaque-piece probe mode** (rubric-gap from the depth-stage Critic, 2026-06) — **luma auto-detection shipped** (`_probe-channel.ts`): `probe-banding`, `probe-edge-aa`, and `probe-ink-coverage` now resolve their measurement channel — auto-detecting opaque→luma (or forced with `--channel luma`), `probe-ink-coverage` measuring deviation from the field's modal luma — so R3/R4/R5/Q9 ARE measurable on opaque full-frame pieces, not only alpha-keyed overlays. Declined 2026-10-03 (`9w7kdptf`, not planned): alpha-preserving verification of the opaque _export_ rides the export-decode lane (`probe-export-decode.ts`), and any remaining per-probe `--opaque` ergonomics.
 - 🧭 **Recalibrate G4 overlay cap-height bands** — sized for full-width broadcast lower-thirds; too large for a corner chip.
 
 ---
