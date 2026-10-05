@@ -138,7 +138,9 @@ async function launchHeadlessLayoutChrome() {
 				new Promise((resolve) => setTimeout(resolve, 1_000))
 			]);
 			if (child.exitCode === null) child.kill('SIGKILL');
-			await rm(profile, { recursive: true, force: true });
+			// Chrome keeps flushing its profile for a moment after exit, so a single
+			// removal can race it and fail a matrix that already finished.
+			await rm(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 		}
 	};
 }
