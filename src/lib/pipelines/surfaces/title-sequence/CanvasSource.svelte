@@ -10,6 +10,12 @@
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const isVertical = $derived(engineState.transport.orientation === 'vertical');
+	// Kicker size as a fraction of frame width, sized so the smallest-cap Pack
+	// face (Sentry's, cap ≈ 0.70 em) clears the surface-label cap-height floor
+	// (24 px horizontal, 32 px vertical): 0.022 × 2160 = 47.5 px → 33.3 px caps
+	// in the tall frame. Matches the type-hero subtitle.
+	const KICKER_SIZE_HORIZONTAL = 0.012;
+	const KICKER_SIZE_VERTICAL = 0.022;
 
 	const content = $derived(engineState.surface.content);
 	const hasTitle = $derived((content.title ?? '').trim().length > 0);
@@ -35,7 +41,7 @@
 				data-text-anim-slot="kicker"
 				data-gfx-readable-id="surface:title-sequence:kicker"
 				data-gfx-text-role="surface-label"
-				style:font-size={`${frame.width * (isVertical ? 0.021 : 0.012)}px`}
+				style:font-size={`${frame.width * (isVertical ? KICKER_SIZE_VERTICAL : KICKER_SIZE_HORIZONTAL)}px`}
 			>
 				{content.kicker}
 			</span>
