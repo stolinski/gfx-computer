@@ -28,16 +28,16 @@ One input, `PUBLIC_GFX_HOSTED`, read by both sides:
 Every hosted-mode difference goes through an existing inventory rather than a
 scattered conditional:
 
-| Concern                    | Where it is decided                                  | Hosted answer                                                   |
-| -------------------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
-| Which routes are served    | `public-surface-inventory.ts` (`isSurfaceRefusedByProfile`) | 404 for `development-only` rows _and_ the `node-origin` export transport |
-| Which formats are offered  | `composition-export-formats.ts`                      | WebM only; ProRes stays visible in the Format select but cannot be chosen, and `transport.set-format` refuses it naming the local origin |
-| Which lane encodes         | `composition-export-controller.ts` default services  | `exportWebMInBrowser`; the ProRes service rejects                |
-| Deployment inputs          | `findHostedRuntimeDeploymentFailures`                | `GFX_RELEASE` and `PUBLIC_GFX_COMPOSITION_STORE=browser`, nothing else |
-| Health                     | `/api/health`                                        | `200 { status: "ready", checks: { ffmpeg: "not-served", temporaryDisk: "not-served" } }` |
-| Response headers           | `public-response-headers.ts`                         | The full public set, plus `Origin-Trial` on documents            |
-| Server Sentry              | `hooks.server.ts`                                    | `initCloudflareSentryHandle` per request (the worker build of `@sentry/sveltekit` has no process-wide `init`) |
-| Disk-backed authoring GUI  | `IS_ORIGIN_COMPOSITION_STORE_SERVED`, `IS_HOSTED_ORIGIN` | Pack fork, clip drop, backdrops, site capture, and X-post import are absent |
+| Concern                   | Where it is decided                                         | Hosted answer                                                                                                                            |
+| ------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Which routes are served   | `public-surface-inventory.ts` (`isSurfaceRefusedByProfile`) | 404 for `development-only` rows _and_ the `node-origin` export transport                                                                 |
+| Which formats are offered | `composition-export-formats.ts`                             | WebM only; ProRes stays visible in the Format select but cannot be chosen, and `transport.set-format` refuses it naming the local origin |
+| Which lane encodes        | `composition-export-controller.ts` default services         | `exportWebMInBrowser`; the ProRes service rejects                                                                                        |
+| Deployment inputs         | `findHostedRuntimeDeploymentFailures`                       | `GFX_RELEASE` and `PUBLIC_GFX_COMPOSITION_STORE=browser`, nothing else                                                                   |
+| Health                    | `/api/health`                                               | `200 { status: "ready", checks: { ffmpeg: "not-served", temporaryDisk: "not-served" } }`                                                 |
+| Response headers          | `public-response-headers.ts`                                | The full public set, plus `Origin-Trial` on documents                                                                                    |
+| Server Sentry             | `hooks.server.ts`                                           | `initCloudflareSentryHandle` per request (the worker build of `@sentry/sveltekit` has no process-wide `init`)                            |
+| Disk-backed authoring GUI | `IS_ORIGIN_COMPOSITION_STORE_SERVED`, `IS_HOSTED_ORIGIN`    | Pack fork, clip drop, backdrops, site capture, and X-post import are absent                                                              |
 
 ## Rendering in an unflagged Chrome: the origin trial
 
@@ -52,7 +52,9 @@ in `standard-browser-dom-capture.ts` then passes with no code change.
   origin trials site (a Google account; the token is issued on submit).
 - Store it once: `pnpm wrangler secret put GFX_ORIGIN_TRIAL_TOKEN`.
 - Tokens last six weeks and renew by submitting feedback on the trial page;
-  a renewed token is a new secret. The trial is currently extended through
+  a renewed token is a new secret. Renewal is not planned (Scott, 2026-10-03):
+  once the current token lapses, an unflagged Chrome sees the capability gate
+  until the API ships to stable. The trial is currently extended through
   Chrome 154; when the API ships to stable, the token becomes unnecessary and
   the header is harmless.
 - Chromium only. Safari and Firefox have no HTML-in-Canvas, so they see the
@@ -60,9 +62,9 @@ in `standard-browser-dom-capture.ts` then passes with no code change.
 
 ## Two Workers, two hostnames
 
-| Hostname            | Worker                                          | Source       | Declared in                |
-| ------------------- | ----------------------------------------------- | ------------ | -------------------------- |
-| `gfx.computer`      | `gfx-computer`                                  | this app     | `wrangler.jsonc` (root)    |
+| Hostname            | Worker                                             | Source       | Declared in                |
+| ------------------- | -------------------------------------------------- | ------------ | -------------------------- |
+| `gfx.computer`      | `gfx-computer`                                     | this app     | `wrangler.jsonc` (root)    |
 | `docs.gfx.computer` | the docs Worker, named in its own `wrangler.jsonc` | `docs-site/` | `docs-site/wrangler.jsonc` |
 
 Both hostnames are Cloudflare **custom domains**, so deploying either Worker
@@ -131,7 +133,7 @@ pnpm dev:hosted                # vite dev with PUBLIC_GFX_HOSTED=1 and the brows
 
 - **No ProRes.** ProRes 4444 is an ffmpeg lane. Pieces that need it are
   exported from the local origin. A browser-side lossless lane (PNG sequence
-  plus WAV) is planned, not shipped.
+  plus WAV) is not planned.
 - **No Resolve sync export.** The timecode-stamped `.mov` of
   [ADR-0042](adr/0042-resolve-marker-sync.md) is ProRes; `__gfxExport` with a
   `startTimecode` is refused on the hosted origin with the format message.
