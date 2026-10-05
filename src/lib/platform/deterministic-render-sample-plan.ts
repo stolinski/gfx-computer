@@ -1,4 +1,5 @@
 import { resolveMarkForIndex, type Preset } from './engine-schema';
+import { isStageBodyOverlay } from './pipelines/depth-stage-planes';
 import { listSurfaceMarkInstances } from './surface-mark-instances';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { deterministicFrameAddressFor } from '../utils/deterministic-render-measurements';
@@ -48,11 +49,16 @@ function uniqueOrderedFrames(frames: readonly number[], maximumFrame: number): n
 	);
 }
 
+// A body Overlay on the depth stage (ADR-0062) draws geometry, not DOM: the
+// stage keeps it out of every capture root, so it has no rect to hold stable.
 function stableGeometryCandidates(preset: Preset, excludedOwnerId?: string): string[] {
+	const onDepthStage = preset.state.stage?.type === 'depth';
 	return [
 		'composition-root',
 		'overlay-root',
-		...preset.state.overlays.map((overlay) => `overlay:${overlay.id}`)
+		...preset.state.overlays
+			.filter((overlay) => !(onDepthStage && isStageBodyOverlay(overlay)))
+			.map((overlay) => `overlay:${overlay.id}`)
 	]
 		.filter((identity) => identity !== excludedOwnerId)
 		.sort((left, right) => left.localeCompare(right));

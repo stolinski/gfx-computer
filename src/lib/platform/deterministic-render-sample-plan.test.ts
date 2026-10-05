@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import headlineHandsOnPreset from '../presets/headline-hands-on.json';
 import isolateFixture from '../presets/isolate-demo.json';
 import lowerThirdPreset from '../presets/lower-third.json';
 import kineticMotionFixture from '../presets/kinetic-type-field-motion-fixture.json';
@@ -42,6 +43,18 @@ describe('deriveDeterministicRenderSamplePlan', () => {
 			[...(transition?.auxiliaryFrameIndices ?? [])].sort((left, right) => left - right)
 		);
 		expect(transition?.stableGeometryCandidateIds).toContain('composition-root');
+	});
+
+	it('holds no DOM geometry stable for an Overlay the depth stage draws as a body', () => {
+		const preset = parsePresetIngress(headlineHandsOnPreset);
+		const bodyIds = preset.state.overlays
+			.filter((overlay) => overlay.type === 'dimensional-type')
+			.map((overlay) => `overlay:${overlay.id}`);
+		expect(bodyIds.length).toBeGreaterThan(0);
+		for (const sample of deriveDeterministicRenderSamplePlan(preset).samples) {
+			expect(sample.stableGeometryCandidateIds).toContain('overlay-root');
+			for (const bodyId of bodyIds) expect(sample.stableGeometryCandidateIds).not.toContain(bodyId);
+		}
 	});
 
 	it('samples Kinetic Type at every beat and across each word envelope', () => {
