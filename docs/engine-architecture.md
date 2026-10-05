@@ -228,7 +228,7 @@ interface EngineState {
 
 interface Media {
 	assets: VideoAsset[]; // composition-scoped Media library entries
-	videoTrack: { clips: VideoClip[] }; // one ordered primary Video track
+	videoTrack: { clips: VideoClip[]; moshes?: VideoMoshWindow[] }; // one ordered primary Video track; Mosh windows (ADR-0065, schema only so far)
 }
 
 interface VideoAsset {

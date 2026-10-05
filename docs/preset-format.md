@@ -100,6 +100,28 @@ Each clip's audio is decoded from the same Source interval and placed at the sam
 
 V1 rejects active Video clips with `backgroundFill`, `stage`, or transition Presets. It supports one 1x track, hard cuts, move, left/right trim, slip, snapping, clip removal, and transparent gaps. It excludes multiple Video tracks, overlaps, ripple edits, clip transitions, speed changes, loops/holds, footage grading, depth-stage video planes, live video transitions, silence detection, and automatic cut generation. Those exclusions add behavior around the clip contract rather than adding inert schema now.
 
+#### Mosh windows ([ADR-0065](adr/0065-video-track-mosh-windows-and-alpha-footage.md)) — schema and validation only
+
+The Video track may carry ordered, non-overlapping **Mosh windows** in `videoTrack.moshes` (absent means none, and is what every writer emits when there are none). The schema and semantic rules are shipped; rendering lands with the rest of the video mosh epic.
+
+```jsonc
+"moshes": [
+  {
+    "id": "cut-mosh",          // stable, non-empty, unique
+    "startFrame": 150,         // integer ≥ 1; the held frame is startFrame − 1
+    "durationFrames": 45,      // positive integer, at most 3 seconds at the transport rate
+    "motion": "follow",        // "follow" drags by each step's block motion; "repeat" repeats the first step
+    "blockSize": 16,           // 8 | 16 | 32 native target pixels per macroblock
+    "bleed": 0.08,             // 0..1 share of the live residual leaked back each step
+    "corruption": 0.15,        // 0..1 share of seeded blocks that lag, jump, or go stale
+    "seed": 0,                 // 0..65535, frozen
+    "healFrames": 11           // 1..durationFrames frames at the end that blend back to live footage
+  }
+]
+```
+
+A new window authored without params defaults to `follow`, 16 px blocks, bleed 0.08, corruption 0.15, seed 0, and a heal over the last quarter (`createVideoMoshWindowDefaults`). Semantic validation reports, at the window's field: duplicate IDs, a window longer than 3 seconds or past the composition end, `healFrames` above `durationFrames`, overlap or misordering, and any gap in footage from the held frame through the last moshed frame.
+
 Legacy input containing only `state.sourceVideo` is accepted at the shared ingress and normalized to one deterministic Media library entry plus one frame-0 full-span Video clip, preserving its offset, audio inclusion, and gain. Input containing both `state.sourceVideo` and `state.media` is rejected. Canonical parse, runtime state, GET/PUT interchange, GUI export, and first autosave emit only `state.media`; `state.sourceVideo` is migration history, not an active alternative contract.
 
 ### `typography`

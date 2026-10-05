@@ -526,6 +526,48 @@ describe('engine schema', () => {
 		expectIssue(invalid, 'Invalid option', 'invalid Diagram label role');
 	});
 
+	it('parses Mosh windows strictly and leaves an absent list absent', () => {
+		const withoutWindows = EngineStateSchema.safeParse({ ...baseState(), media: videoMedia() });
+		assert.ok(withoutWindows.success);
+		assert.equal('moshes' in withoutWindows.data.media.videoTrack, false);
+
+		const window = {
+			id: 'cut',
+			startFrame: 30,
+			durationFrames: 45,
+			motion: 'repeat',
+			blockSize: 32,
+			bleed: 0,
+			corruption: 1,
+			seed: 65535,
+			healFrames: 45
+		};
+		const withWindow = baseState();
+		withWindow.media = videoMedia();
+		((withWindow.media as Record<string, unknown>).videoTrack as Record<string, unknown>).moshes = [
+			window
+		];
+		expectValid(withWindow, 'a Mosh window');
+
+		for (const [field, value, label] of [
+			['startFrame', 0, 'a window with no held frame'],
+			['blockSize', 12, 'an unsupported block size'],
+			['motion', 'drift', 'an unknown motion'],
+			['bleed', 1.5, 'bleed above 1'],
+			['seed', 70000, 'a seed above 65535'],
+			['healFrames', 0, 'zero heal frames'],
+			['extra', true, 'an unknown field']
+		] as const) {
+			const invalid = structuredClone(withWindow);
+			(
+				((invalid.media as Record<string, unknown>).videoTrack as Record<string, unknown>)
+					.moshes as Record<string, unknown>[]
+			)[0][field] = value;
+			const result = EngineStateSchema.safeParse(invalid);
+			assert.equal(result.success, false, `accepted ${label}`);
+		}
+	});
+
 	it('validates canonical Video media and full-frame bed eligibility', () => {
 		const emptyResult = EngineStateSchema.safeParse(baseState());
 		assert.ok(emptyResult.success, emptyResult.success ? '' : emptyResult.error.message);

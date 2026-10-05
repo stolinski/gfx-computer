@@ -108,13 +108,46 @@ const VideoClipSchema = z.strictObject({
 	audio: VideoClipAudioSchema
 });
 
+export const VIDEO_MOSH_MOTIONS = ['follow', 'repeat'] as const;
+
+export const VIDEO_MOSH_BLOCK_SIZES = [8, 16, 32] as const;
+
+/**
+ * One Mosh window (ADR-0065): a range of the Video track where footage stops
+ * refreshing. The held frame is the footage at `startFrame − 1`; `follow`
+ * drags it by each step's block motion, `repeat` by the first step's motion
+ * over and over. `bleed` leaks the live residual back in, `corruption` with
+ * its frozen `seed` breaks blocks deterministically, and the last
+ * `healFrames` blend back to clean footage. Footage only — never the Layers.
+ */
+const VideoMoshWindowSchema = z.strictObject({
+	id: z.string().min(1, 'Mosh window ID must not be empty'),
+	/** First moshed frame; the held frame is the one before it, so it is at least 1. */
+	startFrame: z.number().int().min(1),
+	durationFrames: z.number().int().positive(),
+	motion: z.enum(VIDEO_MOSH_MOTIONS),
+	/** Macroblock edge in native target pixels; motion is constant within a block. */
+	blockSize: z.literal([...VIDEO_MOSH_BLOCK_SIZES]),
+	bleed: z.number().min(0).max(1),
+	corruption: z.number().min(0).max(1),
+	seed: z.number().int().min(0).max(65535),
+	/** Frames at the end of the window that blend the smear back to live footage. */
+	healFrames: z.number().int().positive()
+});
+
 export const MediaSchema = z.strictObject({
 	assets: z.array(VideoAssetSchema),
-	videoTrack: z.strictObject({ clips: z.array(VideoClipSchema) })
+	videoTrack: z.strictObject({
+		clips: z.array(VideoClipSchema),
+		/** Ordered, non-overlapping Mosh windows. Absent means none. */
+		moshes: z.array(VideoMoshWindowSchema).optional()
+	})
 });
 
 export type VideoAsset = z.infer<typeof VideoAssetSchema>;
 export type VideoClip = z.infer<typeof VideoClipSchema>;
+export type VideoMoshWindow = z.infer<typeof VideoMoshWindowSchema>;
+export type VideoMoshMotion = (typeof VIDEO_MOSH_MOTIONS)[number];
 export type Media = z.infer<typeof MediaSchema>;
 
 // ---- Sound design (ADR-0033) ----
