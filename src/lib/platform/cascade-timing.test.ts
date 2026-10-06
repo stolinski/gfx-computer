@@ -331,14 +331,7 @@ describe('cascade timing', () => {
 					type: 'pixelation',
 					id: 'unwelded',
 					params: { pixelSize: 12 },
-					animation: {
-						channels: {
-							pixelSize: [
-								{ atMs: 0, value: 12 },
-								{ atMs: 1000, value: 2 }
-							]
-						}
-					}
+					animation: { channels: { pixelSize: [{ atMs: 0, value: 12 }, { atMs: 1000, value: 2 }] } }
 				},
 				{ type: 'pixelation', id: 'static', params: { pixelSize: 8 } }
 			]

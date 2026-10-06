@@ -173,10 +173,7 @@ export function isDevelopmentOnlySurfacePath(pathname: string): boolean {
  * development-only surfaces; the hosted origin refuses those and the Node-only
  * export transport it has no encoder for.
  */
-export function isSurfaceRefusedByProfile(
-	pathname: string,
-	profile: PublicRuntimeProfile
-): boolean {
+export function isSurfaceRefusedByProfile(pathname: string, profile: PublicRuntimeProfile): boolean {
 	if (profile === 'development') return false;
 	const exposure = findPublicSurface(pathname).exposure;
 	if (exposure === 'development-only') return true;

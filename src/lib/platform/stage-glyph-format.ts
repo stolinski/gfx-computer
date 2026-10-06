@@ -71,9 +71,7 @@ function assertOutlineStream(commands: Float32Array, codePoint: number): void {
 		const opcode = commands[cursor];
 		const arity = STAGE_GLYPH_COMMAND_ARITY[opcode];
 		if (arity === undefined) {
-			throw new TypeError(
-				`Stage glyph U+${codePoint.toString(16)} has an unknown opcode ${opcode}.`
-			);
+			throw new TypeError(`Stage glyph U+${codePoint.toString(16)} has an unknown opcode ${opcode}.`);
 		}
 		if (cursor + arity >= commands.length) {
 			throw new TypeError(`Stage glyph U+${codePoint.toString(16)} outline is truncated.`);
@@ -190,9 +188,7 @@ export function decodeStageTypeface(buffer: ArrayBufferLike): StageTypefaceData 
 		const commandStart = view.getUint32(offset + 8, true);
 		const commandCount = view.getUint32(offset + 12, true);
 		if (commandStart + commandCount > commandFloats) {
-			throw new TypeError(
-				`Stage glyph U+${codePoint.toString(16)} points past the outline stream.`
-			);
+			throw new TypeError(`Stage glyph U+${codePoint.toString(16)} points past the outline stream.`);
 		}
 		const commands = stream.subarray(commandStart, commandStart + commandCount);
 		assertOutlineStream(commands, codePoint);

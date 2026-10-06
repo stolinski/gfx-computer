@@ -3,10 +3,13 @@ import type { UserVideoAssetDescriptor } from './user-video-asset';
 import { uploadUserVideo } from './user-video-upload-transport';
 
 export type CompositionMediaUploadResult =
-	{ status: 'committed'; asset: VideoAsset } | { status: 'superseded' };
+	| { status: 'committed'; asset: VideoAsset }
+	| { status: 'superseded' };
 
 export type CompositionMediaAssetRemovalResult =
-	{ status: 'removed'; asset: VideoAsset } | { status: 'referenced' } | { status: 'not-found' };
+	| { status: 'removed'; asset: VideoAsset }
+	| { status: 'referenced' }
+	| { status: 'not-found' };
 
 export type UserVideoUploadService = (file: File) => Promise<UserVideoAssetDescriptor>;
 

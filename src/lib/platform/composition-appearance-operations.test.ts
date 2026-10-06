@@ -475,11 +475,7 @@ describe('composition stage camera and focus (ADR-0060 §5)', () => {
 		const changed = expectApplied(
 			await runSetCompositionStageFocusOperation({
 				expectedRevision: 1,
-				focus: {
-					aperture: 0.35,
-					band: 0.05,
-					pull: { from: 0, to: 1, start: { seconds: 0.6 }, duration: { frames: 18 } }
-				}
+				focus: { aperture: 0.35, band: 0.05, pull: { from: 0, to: 1, start: { seconds: 0.6 }, duration: { frames: 18 } } }
 			})
 		);
 		expect(changed.some((pointer) => pointer.startsWith('/state/stage/focus'))).toBe(true);

@@ -85,10 +85,7 @@ export function encodeStageMesh(source: StageMeshSource): Uint8Array {
 	view.setUint32(12, source.indices.length, true);
 	view.setUint32(16, STAGE_MESH_VERTEX_FLOATS, true);
 	view.setUint32(20, Math.max(1, source.regionCount), true);
-	bytes.set(
-		new Uint8Array(source.vertices.buffer, source.vertices.byteOffset, source.vertices.byteLength),
-		HEADER_BYTES
-	);
+	bytes.set(new Uint8Array(source.vertices.buffer, source.vertices.byteOffset, source.vertices.byteLength), HEADER_BYTES);
 	bytes.set(
 		new Uint8Array(source.indices.buffer, source.indices.byteOffset, source.indices.byteLength),
 		HEADER_BYTES + source.vertices.byteLength

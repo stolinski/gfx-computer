@@ -1,8 +1,5 @@
 import { clampNumber } from '$lib/utils/math';
-import {
-	resolveOverlayPlacement,
-	resolveOverlayPlacementCenter
-} from '$lib/utils/overlay-placement';
+import { resolveOverlayPlacement, resolveOverlayPlacementCenter } from '$lib/utils/overlay-placement';
 import { getLayoutSafeArea } from '$lib/utils/safe-area';
 import type { VideoOrientation } from '$lib/utils/video-frame';
 import type { OverlayChannelValues } from './anim-state.svelte';

@@ -6,7 +6,10 @@ import blankPresetJson from '$lib/presets/blank.json';
 
 import type { Preset } from './engine-schema';
 import { parsePresetIngress } from './preset-ingress';
-import { LEGACY_SOURCE_VIDEO_ASSET_ID, LEGACY_SOURCE_VIDEO_CLIP_ID } from './preset-ingress';
+import {
+	LEGACY_SOURCE_VIDEO_ASSET_ID,
+	LEGACY_SOURCE_VIDEO_CLIP_ID
+} from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
 import { isUserCompositionNotHeldError } from './user-composition-store-errors';
 import { userCompositionStore } from './user-composition-store';
@@ -196,9 +199,9 @@ describe('userCompositionStore', () => {
 	});
 
 	it('uses an explicit request fetch instead of global fetch when loading', async () => {
-		const requestFetch = vi
-			.fn<typeof fetch>()
-			.mockResolvedValueOnce(jsonResponse(presetToWireFormat(blankPreset)));
+		const requestFetch = vi.fn<typeof fetch>().mockResolvedValueOnce(
+			jsonResponse(presetToWireFormat(blankPreset))
+		);
 
 		const loaded = await userCompositionStore.loadUserComposition('request-scoped', requestFetch);
 

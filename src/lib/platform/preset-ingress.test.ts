@@ -135,10 +135,7 @@ describe('Preset ingress migration', () => {
 		assert.equal(result.success, false);
 		if (result.success) return;
 		assert.equal(result.error.issues[0]?.path.join('.'), 'state');
-		assert.match(
-			result.error.issues[0]?.message ?? '',
-			/both legacy sourceVideo and canonical media/
-		);
+		assert.match(result.error.issues[0]?.message ?? '', /both legacy sourceVideo and canonical media/);
 	});
 
 	it('rejects invalid legacy input instead of silently stripping it', () => {

@@ -71,7 +71,8 @@ const INHERITED_COMPOSITION_TEXT_PROPERTIES = [
 // Colour syntax Chrome resolves into computed values but the rasterizer's CSS
 // parser predates: it throws on the WHOLE frame when it meets one, so a single
 // `color-mix()` shadow blanks an otherwise working composition.
-const MODERN_CSS_COLOR_FUNCTION = /\b(?:color-mix|color|oklch|oklab|lab|lch|hwb|light-dark)\(/i;
+const MODERN_CSS_COLOR_FUNCTION =
+	/\b(?:color-mix|color|oklch|oklab|lab|lch|hwb|light-dark)\(/i;
 
 // Exactly the declarations the rasterizer parses as colour — physical sides,
 // because that is what it reads. Composite values (shadows, gradients) are
@@ -136,9 +137,7 @@ export function rewriteModernCssColorFunctions(
  * Color 4 value straight back as `oklch(...)` or `color(srgb …)` — the very
  * syntax the rasterizer cannot parse — so reading it converts nothing.
  */
-export function createLegacyCssColorResolver(
-	view: Window
-): ((color: string) => string | null) | null {
+export function createLegacyCssColorResolver(view: Window): ((color: string) => string | null) | null {
 	const canvas = view.document.createElement('canvas');
 	canvas.width = 1;
 	canvas.height = 1;

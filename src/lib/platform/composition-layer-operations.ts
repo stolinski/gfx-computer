@@ -470,7 +470,9 @@ export async function runRemoveCompositionOverlayOperation(
 		undoLabel: 'Remove Overlay',
 		focus: { target: 'composition-root' },
 		mutate: (draft) => {
-			const index = draft.state.overlays.findIndex((overlay) => overlay.id === request.overlayId);
+			const index = draft.state.overlays.findIndex(
+				(overlay) => overlay.id === request.overlayId
+			);
 			if (index < 0) {
 				throw new CompositionOperationError(
 					'unknown_target',
@@ -500,11 +502,7 @@ export async function runReorderCompositionOverlayOperation(
 			overlays.map((overlay) => overlay.id)
 		);
 	}
-	if (
-		!Number.isSafeInteger(request.index) ||
-		request.index < 0 ||
-		request.index >= overlays.length
-	) {
+	if (!Number.isSafeInteger(request.index) || request.index < 0 || request.index >= overlays.length) {
 		return refuseIndexOutOfRange(row, 'Overlay', request.index, overlays.length);
 	}
 
@@ -562,7 +560,11 @@ export async function runAddCompositionAnnotationMarkOperation(
 			`The Surface content declares no unauthored ${request.markStyle} Mark. Write a [${request.markStyle}]…[/${request.markStyle}] span into the content first.`,
 			{
 				rejected: request.markStyle,
-				alternatives: [...new Set(instances.slice(authoredCount).map((instance) => instance.style))]
+				alternatives: [
+					...new Set(
+						instances.slice(authoredCount).map((instance) => instance.style)
+					)
+				]
 			}
 		);
 	}
@@ -723,11 +725,7 @@ export async function runReorderCompositionEffectOperation(
 			effects.map((effect) => effect.id)
 		);
 	}
-	if (
-		!Number.isSafeInteger(request.index) ||
-		request.index < 0 ||
-		request.index >= effects.length
-	) {
+	if (!Number.isSafeInteger(request.index) || request.index < 0 || request.index >= effects.length) {
 		return refuseIndexOutOfRange(row, 'Effect', request.index, effects.length);
 	}
 
@@ -881,3 +879,4 @@ function requireFreeEntityId(id: string, entries: readonly { id: string }[]): vo
 		rejected: id
 	});
 }
+

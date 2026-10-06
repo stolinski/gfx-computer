@@ -155,9 +155,7 @@ export function findDecodedExportShapeFaults(
 ): string[] {
 	const faults: string[] = [];
 	if (measured.videoCodec !== expected.videoCodec) {
-		faults.push(
-			`decoded video codec is ${measured.videoCodec}; the lane encodes ${expected.videoCodec}`
-		);
+		faults.push(`decoded video codec is ${measured.videoCodec}; the lane encodes ${expected.videoCodec}`);
 	}
 	if (measured.pixelFormat === null || !expected.pixelFormats.includes(measured.pixelFormat)) {
 		faults.push(
@@ -253,8 +251,7 @@ export function findDecodedOutputClassFaults(
 	const faults: string[] = [];
 	if (frames.length === 0) return ['no decoded frames were measured'];
 	for (const [index, frame] of frames.entries()) {
-		if (frame.isBlank)
-			faults.push(`decoded frame ${index} is a uniform field, so it carries no image`);
+		if (frame.isBlank) faults.push(`decoded frame ${index} is a uniform field, so it carries no image`);
 		if (outputClass === 'opaque') {
 			if (frame.edgeClass !== 'opaque' || frame.opaqueCoverage < 1) {
 				faults.push(
@@ -275,9 +272,7 @@ export function findDecodedOutputClassFaults(
 		outputClass === 'transparent' &&
 		!frames.some((frame) => frame.alphaCoverage - frame.opaqueCoverage > 0)
 	) {
-		faults.push(
-			'no decoded frame retained a partially covered pixel, so soft alpha edges were lost'
-		);
+		faults.push('no decoded frame retained a partially covered pixel, so soft alpha edges were lost');
 	}
 	return faults;
 }
@@ -354,14 +349,11 @@ export function findBrowserExportDecodeFaults(
 	tolerance: BrowserExportDecodeTolerance = BROWSER_EXPORT_DECODE_TOLERANCES[outputClass]
 ): string[] {
 	const faults: string[] = [];
-	if (frames.length === 0)
-		return ['no decoded frame was compared against the frame the browser presented'];
+	if (frames.length === 0) return ['no decoded frame was compared against the frame the browser presented'];
 	for (const frame of frames) {
 		const { source, decoded, drift, frameIndex } = frame;
 		if (decoded.measurement.isBlank && !source.measurement.isBlank) {
-			faults.push(
-				`decoded frame ${frameIndex} is a uniform field where the browser presented an image`
-			);
+			faults.push(`decoded frame ${frameIndex} is a uniform field where the browser presented an image`);
 		}
 		if (outputClass === 'opaque') {
 			if (decoded.measurement.edgeClass !== 'opaque' || decoded.measurement.opaqueCoverage < 1) {
@@ -369,10 +361,7 @@ export function findBrowserExportDecodeFaults(
 					`decoded frame ${frameIndex} is ${decoded.measurement.edgeClass} at the border with ${(decoded.measurement.opaqueCoverage * 100).toFixed(2)}% opaque pixels; a full-frame piece is opaque everywhere`
 				);
 			}
-		} else if (
-			decoded.borderAlpha.maxAlpha >
-			source.borderAlpha.maxAlpha + tolerance.borderAlphaMax
-		) {
+		} else if (decoded.borderAlpha.maxAlpha > source.borderAlpha.maxAlpha + tolerance.borderAlphaMax) {
 			faults.push(
 				`decoded frame ${frameIndex} carries alpha up to ${decoded.borderAlpha.maxAlpha} on its border where the browser presented up to ${source.borderAlpha.maxAlpha}; the lane tolerance is ${tolerance.borderAlphaMax} above the source`
 			);
@@ -392,13 +381,10 @@ export function findBrowserExportDecodeFaults(
 		(frame) => frame.source.measurement.alphaCoverage - frame.source.measurement.opaqueCoverage > 0
 	);
 	const decodedHasSoftEdges = frames.some(
-		(frame) =>
-			frame.decoded.measurement.alphaCoverage - frame.decoded.measurement.opaqueCoverage > 0
+		(frame) => frame.decoded.measurement.alphaCoverage - frame.decoded.measurement.opaqueCoverage > 0
 	);
 	if (outputClass === 'transparent' && sourceHasSoftEdges && !decodedHasSoftEdges) {
-		faults.push(
-			'no decoded frame retained a partially covered pixel, so soft alpha edges were lost'
-		);
+		faults.push('no decoded frame retained a partially covered pixel, so soft alpha edges were lost');
 	}
 	return faults;
 }

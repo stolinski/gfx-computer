@@ -7,7 +7,9 @@ export type CompositionMediaInspectionState =
 	| { status: 'ready'; metadata: UserVideoAssetMetadata }
 	| { status: 'error'; message: string };
 
-export type UserVideoAssetInspectionService = (assetUrl: string) => Promise<UserVideoAssetMetadata>;
+export type UserVideoAssetInspectionService = (
+	assetUrl: string
+) => Promise<UserVideoAssetMetadata>;
 
 const IDLE_INSPECTION_STATE: CompositionMediaInspectionState = { status: 'idle' };
 

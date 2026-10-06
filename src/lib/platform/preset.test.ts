@@ -309,3 +309,4 @@ describe('applyPreset', () => {
 		assert.equal(preset.state.effects[0].animation?.channels?.pixelSize[1].value, 1);
 	});
 });
+

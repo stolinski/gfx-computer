@@ -645,12 +645,7 @@ describe('Effect rows (ADR-0063)', () => {
 				id: 'welded',
 				params: { pixelSize: 48 },
 				animation: {
-					channels: {
-						pixelSize: [
-							{ atMs: 0, value: 96 },
-							{ atMs: 400, value: 1 }
-						]
-					},
+					channels: { pixelSize: [{ atMs: 0, value: 96 }, { atMs: 400, value: 1 }] },
 					cascade: { anchor: { overlay: 'leader' }, event: 'end', offsetMs: 0 }
 				}
 			}

@@ -298,9 +298,9 @@ describe('browser-scoped composition session store', () => {
 			maxCompositionBytes: 1024 * 1024
 		});
 
-		const cause = await tight
-			.forkUserComposition('second', namedPreset('Second'), null)
-			.catch((e) => e);
+		const cause = await tight.forkUserComposition('second', namedPreset('Second'), null).catch(
+			(e) => e
+		);
 
 		assert.equal(storageFailureCode(cause), 'quota_exceeded');
 		assert.ok(cause instanceof Error && cause.message.includes('delete a composition'));
@@ -354,14 +354,9 @@ describe('browser-scoped composition session store', () => {
 			usedBytes: null,
 			quotaBytes: null
 		});
+		assert.equal(storageFailureCode(await store.listUserCompositions().catch((e) => e)), 'storage_unavailable');
 		assert.equal(
-			storageFailureCode(await store.listUserCompositions().catch((e) => e)),
-			'storage_unavailable'
-		);
-		assert.equal(
-			storageFailureCode(
-				await store.forkUserComposition('untitled', blankPreset, null).catch((e) => e)
-			),
+			storageFailureCode(await store.forkUserComposition('untitled', blankPreset, null).catch((e) => e)),
 			'storage_unavailable'
 		);
 	});

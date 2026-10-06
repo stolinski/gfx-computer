@@ -96,10 +96,7 @@ declare global {
  * the per-composition dimension for "which pieces are slow to export" charts.
  */
 export function exportSpanAttributes(
-	options: Pick<
-		TransparentVideoExportOptions,
-		'fps' | 'durationSeconds' | 'hasBackground' | 'audio'
-	>
+	options: Pick<TransparentVideoExportOptions, 'fps' | 'durationSeconds' | 'hasBackground' | 'audio'>
 ): Record<string, string | number | boolean> {
 	return {
 		'export.fps': options.fps,

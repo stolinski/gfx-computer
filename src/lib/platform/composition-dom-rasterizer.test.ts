@@ -55,10 +55,9 @@ function cloneHarness(declared: Record<string, string>): CloneHarness {
  * assigning a CSS Color 4 value succeeds, and the `fillStyle` GETTER hands the
  * same modern syntax straight back. Only the painted pixel is a real conversion.
  */
-function colorResolverHarness(painted: Record<string, [number, number, number, number]>): {
-	view: Window;
-	readFrequently: boolean | undefined;
-} {
+function colorResolverHarness(
+	painted: Record<string, [number, number, number, number]>
+): { view: Window; readFrequently: boolean | undefined } {
 	let fillStyle = '#000000';
 	const record: { readFrequently: boolean | undefined } = { readFrequently: undefined };
 	const context = {
@@ -85,12 +84,7 @@ function colorResolverHarness(painted: Record<string, [number, number, number, n
 			})
 		}
 	} as unknown as Window;
-	return {
-		view,
-		get readFrequently() {
-			return record.readFrequently;
-		}
-	};
+	return { view, get readFrequently() { return record.readFrequently; } };
 }
 
 describe('createLegacyCssColorResolver', () => {
@@ -130,10 +124,7 @@ describe('rewriteModernCssColorFunctions', () => {
 		);
 		// The exact box-shadow shape a color-mix() diagram node resolves to.
 		assert.equal(
-			rewriteModernCssColorFunctions(
-				'color(srgb 0 0 0 / 0.238274) 0px 12px 18px 0px',
-				toLegacyColor
-			),
+			rewriteModernCssColorFunctions('color(srgb 0 0 0 / 0.238274) 0px 12px 18px 0px', toLegacyColor),
 			'rgba(<color(srgb 0 0 0 / 0.238274)>) 0px 12px 18px 0px'
 		);
 	});

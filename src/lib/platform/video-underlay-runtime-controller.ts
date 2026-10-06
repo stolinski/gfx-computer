@@ -184,9 +184,7 @@ export class VideoUnderlayRuntimeController {
 
 		signal?.throwIfAborted();
 		if (cache) {
-			await Promise.all(
-				Array.from(referencedAssets.values(), (asset) => cache.acquire(asset).initialize())
-			);
+			await Promise.all(Array.from(referencedAssets.values(), (asset) => cache.acquire(asset).initialize()));
 		}
 		signal?.throwIfAborted();
 		if (

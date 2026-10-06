@@ -475,10 +475,9 @@ describe('Effect keyframe channel semantic validation (ADR-0063)', () => {
 				}
 			])
 		);
-		assert.deepEqual(
-			issues.map((issue) => issue.path),
-			[['state', 'effects', 0, 'animation', 'channels', 'pixelSize', 0, 'value']]
-		);
+		assert.deepEqual(issues.map((issue) => issue.path), [
+			['state', 'effects', 0, 'animation', 'channels', 'pixelSize', 0, 'value']
+		]);
 	});
 
 	it('refuses an animation block on a composition-owned Effect', () => {
@@ -492,10 +491,7 @@ describe('Effect keyframe channel semantic validation (ADR-0063)', () => {
 				}
 			])
 		);
-		assert.deepEqual(
-			issues.map((issue) => issue.path),
-			[['state', 'effects', 0, 'animation']]
-		);
+		assert.deepEqual(issues.map((issue) => issue.path), [['state', 'effects', 0, 'animation']]);
 		assert.match(issues[0].message, /depth-of-field Effect carries no animation block/);
 	});
 });

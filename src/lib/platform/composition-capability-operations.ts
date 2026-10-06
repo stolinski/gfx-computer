@@ -18,7 +18,10 @@ import {
 	PUBLIC_EXPORT_RUNTIME_LIMITS
 } from './public-runtime-contract';
 import { readWebmcpDerivedEnums } from './webmcp-derived-tool-schemas';
-import { listEffectKeyframeChannels, type EffectKeyframeChannel } from './effect-keyframe-channels';
+import {
+	listEffectKeyframeChannels,
+	type EffectKeyframeChannel
+} from './effect-keyframe-channels';
 import { getEffectDefinition } from './pipelines/definition-registry';
 import { requireCompositionOperationRow } from './composition-operation-preflight';
 import { STANDARD_TRANSPORT_RATES } from '../utils/composition-timing';

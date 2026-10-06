@@ -109,11 +109,7 @@
 		{/if}
 	</Field>
 	{#each items as item, index (index)}
-		<div
-			class="item-entry"
-			class:item-entry--selected={selectedItemIndex === index}
-			data-item-row={index}
-		>
+		<div class="item-entry" class:item-entry--selected={selectedItemIndex === index} data-item-row={index}>
 			<div class="item-entry__header">
 				<span class="item-entry__num">{index + 1}</span>
 				<input type="text" aria-label={`Item ${index + 1} text`} bind:value={item.text} />
@@ -142,8 +138,7 @@
 				<Field label="Strike">
 					<select
 						value={item.strike ? 'animated' : 'static'}
-						onchange={(e) =>
-							itemStrikeModeChange(item, (e.currentTarget as HTMLSelectElement).value)}
+						onchange={(e) => itemStrikeModeChange(item, (e.currentTarget as HTMLSelectElement).value)}
 					>
 						<option value="static">Static (struck at open)</option>
 						<option value="animated">Animated (draws on cue)</option>

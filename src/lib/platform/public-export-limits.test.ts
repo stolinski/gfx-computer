@@ -101,13 +101,7 @@ describe('public export envelope boundaries', () => {
 
 describe('public export admission control', () => {
 	it('admits up to the concurrency ceiling and turns the next caller away', () => {
-		assert.equal(
-			findExportConcurrencyRejection(
-				LIMITS.maxConcurrentSessions - 1,
-				LIMITS.maxConcurrentSessions
-			),
-			null
-		);
+		assert.equal(findExportConcurrencyRejection(LIMITS.maxConcurrentSessions - 1, LIMITS.maxConcurrentSessions), null);
 		const rejection = findExportConcurrencyRejection(
 			LIMITS.maxConcurrentSessions,
 			LIMITS.maxConcurrentSessions

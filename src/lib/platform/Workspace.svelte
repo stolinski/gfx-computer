@@ -825,8 +825,7 @@
 		// typeface per composition while the stage carries a body.
 		const localStage = engineState.stage;
 		const hasBodies =
-			localStage?.type === 'depth' &&
-			partitionStageOverlays(engineState.overlays).bodies.length > 0;
+			localStage?.type === 'depth' && partitionStageOverlays(engineState.overlays).bodies.length > 0;
 		const slugs = hasBodies ? [resolveStageTypefaceRole(getPack(packState.slug))] : [];
 		untrack(() => {
 			stageTypefaceController.update({ stageIdentity: localStage ?? null, slugs });

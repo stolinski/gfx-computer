@@ -197,8 +197,7 @@
 	</header>
 	{#if IS_ORIGIN_COMPOSITION_STORE_SERVED}
 		<p class="media-drop-cue" aria-hidden={isUploading}>
-			<strong>{isDragActive ? 'Drop clips' : isUploading ? 'Importing clips' : 'Drop video'}</strong
-			>
+			<strong>{isDragActive ? 'Drop clips' : isUploading ? 'Importing clips' : 'Drop video'}</strong>
 			<span>MP4 · MOV · WEBM</span>
 		</p>
 	{/if}

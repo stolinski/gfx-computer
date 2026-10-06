@@ -26,7 +26,11 @@ function hasOwn(value: Record<string, unknown>, key: string): boolean {
 	return Object.prototype.hasOwnProperty.call(value, key);
 }
 
-function addPrefixedIssues(ctx: z.RefinementCtx, prefix: PropertyKey[], error: z.ZodError): void {
+function addPrefixedIssues(
+	ctx: z.RefinementCtx,
+	prefix: PropertyKey[],
+	error: z.ZodError
+): void {
 	for (const issue of error.issues) {
 		ctx.addIssue({
 			code: 'custom',
@@ -78,7 +82,10 @@ function legacySourceVideoMedia(
 
 const LegacyTransportSchema = z.object({
 	durationSeconds: z.number().min(0.1).max(600),
-	fps: z.union([z.number().int().min(1).max(120), z.literal([...NTSC_FRACTIONAL_FPS])])
+	fps: z.union([
+		z.number().int().min(1).max(120),
+		z.literal([...NTSC_FRACTIONAL_FPS])
+	])
 });
 
 /**
@@ -134,7 +141,10 @@ function migrateLegacyPresetInput(input: unknown, ctx: z.RefinementCtx): unknown
 
 	const migratedState = { ...state };
 	delete migratedState['sourceVideo'];
-	migratedState['media'] = legacySourceVideoMedia(sourceVideoResult.data, transportResult.data);
+	migratedState['media'] = legacySourceVideoMedia(
+		sourceVideoResult.data,
+		transportResult.data
+	);
 	return { ...value, state: migratedState };
 }
 
@@ -155,7 +165,9 @@ export type CompositionLegacyUpgrade = 'legacy-schema-id' | 'legacy-source-video
  * one. The browser-scoped session store acts on it, rewriting the stored record
  * in its current form so the same upgrade is not re-derived on every read.
  */
-export function readCompositionLegacyUpgrades(value: unknown): readonly CompositionLegacyUpgrade[] {
+export function readCompositionLegacyUpgrades(
+	value: unknown
+): readonly CompositionLegacyUpgrade[] {
 	if (!isRecord(value)) return [];
 
 	const upgrades: CompositionLegacyUpgrade[] = [];

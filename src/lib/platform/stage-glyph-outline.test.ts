@@ -27,19 +27,13 @@ describe('splitRingAtSelfIntersections', () => {
 		const loops = splitRingAtSelfIntersections(l);
 		assert.equal(loops.length, 2);
 		const areas = loops.map(signedRingArea);
-		assert.ok(
-			areas.every((area) => Math.sign(area) === Math.sign(areas[0])),
-			'both loops fill'
-		);
+		assert.ok(areas.every((area) => Math.sign(area) === Math.sign(areas[0])), 'both loops fill');
 		const [letter, overlap] = [...loops].sort(
 			(a, b) => Math.abs(signedRingArea(b)) - Math.abs(signedRingArea(a))
 		);
 		assert.ok(letter.length / 2 === 6 && overlap.length / 2 === 3);
 		for (const loop of loops) {
-			assert.ok(
-				deviation(loop, [], 2, earcut(loop, [], 2)) < 1e-9,
-				'each loop triangulates exactly'
-			);
+			assert.ok(deviation(loop, [], 2, earcut(loop, [], 2)) < 1e-9, 'each loop triangulates exactly');
 		}
 	});
 
@@ -63,11 +57,7 @@ describe('compiled faces (ADR-0062)', () => {
 				const rings = flattenStageGlyph(glyph, typeface.capHeight);
 				assert.ok(rings.length > 0, `${slug} U+${codePoint.toString(16)} has rings`);
 				for (const ring of rings) {
-					assert.equal(
-						splitRingAtSelfIntersections(ring).length,
-						1,
-						`${slug} U+${codePoint.toString(16)} ring is simple`
-					);
+					assert.equal(splitRingAtSelfIntersections(ring).length, 1, `${slug} U+${codePoint.toString(16)} ring is simple`);
 				}
 				for (const contour of groupStageGlyphContours(rings)) {
 					const flat = [...contour.outer];

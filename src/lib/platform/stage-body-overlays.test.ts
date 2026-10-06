@@ -49,9 +49,7 @@ beforeAll(async () => {
 			new URL(`../assets/typefaces/${REFERENCE_STAGE_TYPEFACE_SLUG}.stageglyphs`, import.meta.url)
 		)
 	);
-	typeface = decodeStageTypeface(
-		bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-	);
+	typeface = decodeStageTypeface(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
 	await pipelineRendererController.ensureOverlay('dimensional-type');
 });
 
@@ -63,12 +61,7 @@ describe('resolveOverlayStageBodies (ADR-0062)', () => {
 	it('resolves a body only for body Overlays, in Layer order with their index', () => {
 		const resolved = resolveOverlayStageBodies({
 			overlays: [
-				{
-					type: 'lower-third',
-					id: 'plain',
-					content: {},
-					position: { anchor: 'bottom-left' }
-				} as never,
+				{ type: 'lower-third', id: 'plain', content: {}, position: { anchor: 'bottom-left' } } as never,
 				headline()
 			],
 			pack,
@@ -131,10 +124,7 @@ describe('resolveOverlayStageBodies (ADR-0062)', () => {
 		});
 		const baseline = projectFramePoint(tallRig, body.model, [0, 0, 0]);
 		const capTop = projectFramePoint(tallRig, body.model, [0, 1, 0]);
-		assert.ok(
-			Math.abs(baseline.y - capTop.y - 0.12 * tallAspect) < 1e-6,
-			'a cap is the size of the frame width'
-		);
+		assert.ok(Math.abs(baseline.y - capTop.y - 0.12 * tallAspect) < 1e-6, 'a cap is the size of the frame width');
 		const left = projectFramePoint(tallRig, body.model, [body.mesh.min[0], 0.5, 0]);
 		const right = projectFramePoint(tallRig, body.model, [body.mesh.max[0], 0.5, 0]);
 		assert.ok(left.x > 0.05 && right.x < 0.95, 'the line stays inside the tall frame');
@@ -144,18 +134,7 @@ describe('resolveOverlayStageBodies (ADR-0062)', () => {
 		const tallAspect = 9 / 16;
 		const tallRig = createStageCameraRig({ aspect: tallAspect, camera: REST_CAMERA, time: 0 });
 		const [{ body }] = resolveOverlayStageBodies({
-			overlays: [
-				headline({
-					content: {
-						text: 'HANDS ON EVERYTHING',
-						size: 0.2,
-						depth: 0.35,
-						bevel: 0.06,
-						lift: 0,
-						lean: 0
-					}
-				})
-			],
+			overlays: [headline({ content: { text: 'HANDS ON EVERYTHING', size: 0.2, depth: 0.35, bevel: 0.06, lift: 0, lean: 0 } })],
 			pack,
 			typeface: lookup,
 			rig: tallRig,
@@ -166,10 +145,7 @@ describe('resolveOverlayStageBodies (ADR-0062)', () => {
 		const right = projectFramePoint(tallRig, body.model, [body.mesh.max[0], 0.5, 0]);
 		// Centred in the frame, the line spans exactly the safe width (the tall
 		// frame keeps 5% clear on the left and 9% on the right).
-		assert.ok(
-			Math.abs(right.x - left.x - 0.86) < 1e-6,
-			`spans the safe width: ${left.x} .. ${right.x}`
-		);
+		assert.ok(Math.abs(right.x - left.x - 0.86) < 1e-6, `spans the safe width: ${left.x} .. ${right.x}`);
 		assert.ok(left.x > 0.05 && right.x < 0.95, 'stays inside the picture');
 		const baseline = projectFramePoint(tallRig, body.model, [0, 0, 0]);
 		const capTop = projectFramePoint(tallRig, body.model, [0, 1, 0]);

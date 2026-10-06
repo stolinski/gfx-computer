@@ -160,18 +160,12 @@ describe('composition Media library actions', () => {
 
 		assert.deepEqual(removeCompositionMediaAsset(media, 'video-1'), { status: 'referenced' });
 		assert.equal(removeCompositionMediaAsset(media, 'video-2').status, 'removed');
-		assert.deepEqual(
-			media.assets.map((asset) => asset.id),
-			['video-1']
-		);
+		assert.deepEqual(media.assets.map((asset) => asset.id), ['video-1']);
 	});
 
 	it('renames entries with trimmed non-empty names', () => {
 		const media = mediaWithClip();
-		assert.equal(
-			renameCompositionMediaAsset(media, 'video-1', '  Main camera  ').name,
-			'Main camera'
-		);
+		assert.equal(renameCompositionMediaAsset(media, 'video-1', '  Main camera  ').name, 'Main camera');
 		assert.throws(() => renameCompositionMediaAsset(media, 'video-1', '   '), /must not be empty/);
 	});
 

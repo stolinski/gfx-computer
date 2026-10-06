@@ -1,4 +1,8 @@
-import { resolveMarkForIndex, type EngineState, type MarkInstance } from './engine-schema';
+import {
+	resolveMarkForIndex,
+	type EngineState,
+	type MarkInstance
+} from './engine-schema';
 import { listSurfaceMarkInstances } from './surface-mark-instances';
 import { opacityEnvelope, resolveCascadeTimings } from './cascade-timing';
 import { getOverlayDefinition } from './pipelines/definition-registry';

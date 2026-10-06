@@ -350,13 +350,7 @@ export async function renderAudioMix(
 	const playable = plan.filter((entry) => entry.when < duration);
 	signal?.throwIfAborted();
 
-	const clipChannels = await mixVideoClipAudio(
-		state,
-		frameRate,
-		outputSampleCount,
-		services,
-		signal
-	);
+	const clipChannels = await mixVideoClipAudio(state, frameRate, outputSampleCount, services, signal);
 	if (playable.length === 0 && clipChannels === null) return null;
 
 	// Web Audio is used ONLY to decode (resampled to the mix rate). The
