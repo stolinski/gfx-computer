@@ -33,8 +33,11 @@ export function layoutFigureLayered(
 	const crossCenter = direction === 'right' ? box.y + box.height / 2 : box.x + box.width / 2;
 	const centers = layerSizes.map((size, layerIndex) => {
 		const main = mainStart + layerGap * layerIndex;
+		// Smaller layers spread out (up to 1.8× the shared pitch) so their labels
+		// have room and the network keeps its centred, tapering silhouette.
+		const layerPitch = Math.min(crossLength / size, pitch * 1.8);
 		return Array.from({ length: size }, (_, index) => {
-			const cross = crossCenter + (index - (size - 1) / 2) * pitch;
+			const cross = crossCenter + (index - (size - 1) / 2) * layerPitch;
 			return direction === 'right'
 				? { x: roundFigurePixel(main), y: roundFigurePixel(cross) }
 				: { x: roundFigurePixel(cross), y: roundFigurePixel(main) };
