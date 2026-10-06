@@ -158,6 +158,31 @@ function keepFigureTextInFrame(
 }
 
 /**
+ * A Figure title broken into lines that each fit the frame width, greedily by
+ * word. Type is never squeezed to fit; a word wider than the frame keeps its
+ * own line and the frame clamp keeps it on screen.
+ */
+export function wrapFigureTitle(
+	title: string,
+	width: number,
+	measure: (text: string, role: FigureTextRole) => { width: number }
+): string[] {
+	const lines: string[] = [];
+	let current = '';
+	for (const word of title.split(/\s+/).filter((entry) => entry.length > 0)) {
+		const candidate = current.length === 0 ? word : `${current} ${word}`;
+		if (current.length > 0 && measure(candidate, 'title').width > width) {
+			lines.push(current);
+			current = word;
+		} else {
+			current = candidate;
+		}
+	}
+	if (current.length > 0) lines.push(current);
+	return lines;
+}
+
+/**
  * Lays a Figure out for one orientation. The returned `scene` evaluates Moves
  * and Pin channels at explicit composition progress; layout never reruns per
  * frame.
@@ -166,7 +191,9 @@ export function prepareFigure(figure: Figure, orientation: VideoOrientation): Pr
 	const frame = resolveFigureFrame(figure, orientation);
 	const measure = (text: string, role: FigureTextRole) =>
 		measureFigureText(text, role, orientation);
-	const titleHeight = figure.title ? measure(figure.title, 'title').height : 0;
+	const titleLines = figure.title ? wrapFigureTitle(figure.title, frame.width, measure) : [];
+	const titleLineHeight = figure.title ? measure(figure.title, 'title').height : 0;
+	const titleHeight = titleLines.length * titleLineHeight;
 	const sourceHeight = figure.sourceNote ? measure(figure.sourceNote, 'source').height : 0;
 	const gap = Math.min(frame.width, frame.height) * 0.04;
 	const plot = insetFigureRect(frame, {
@@ -186,21 +213,21 @@ export function prepareFigure(figure: Figure, orientation: VideoOrientation): Pr
 	const chrome = (motion: FigureMotion): FigureSceneItem[] => {
 		const chromeAlpha = motion.reveal(0) > 0 ? Math.min(1, motion.revealLinear(0) * 3) : 0;
 		const items: FigureSceneItem[] = [];
-		if (figure.title) {
+		titleLines.forEach((line, lineIndex) => {
 			items.push(
 				createFigureText(env, {
-					key: 'title',
+					key: lineIndex === 0 ? 'title' : `title#${lineIndex}`,
 					mark: 'title',
-					text: figure.title,
+					text: line,
 					role: 'title',
 					x: frame.x,
-					y: frame.y,
+					y: frame.y + lineIndex * titleLineHeight,
 					anchor: 'start',
 					baseline: 'hanging',
 					opacity: chromeAlpha
 				})
 			);
-		}
+		});
 		if (figure.sourceNote) {
 			items.push(
 				createFigureText(env, {

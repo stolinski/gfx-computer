@@ -9,7 +9,7 @@ import {
 } from '$lib/platform/engine-schema';
 import { FIGURE_TARGET_DECLARATIONS } from '$lib/platform/figure-target-declarations.fixture';
 import type { FigureSceneItem } from './figure-scene';
-import { prepareFigure } from './figure-scene-prepare';
+import { prepareFigure, wrapFigureTitle } from './figure-scene-prepare';
 import { getVideoFrameSize, type VideoOrientation } from './video-frame';
 
 const ORIENTATIONS: readonly VideoOrientation[] = ['horizontal', 'vertical'];
@@ -174,5 +174,17 @@ describe('honest motion', () => {
 		assert.ok(Number.isNaN(rowY(0.1, 'bar:cn')));
 		assert.ok(rowY(0.1, 'bar:jp') < rowY(0.1, 'bar:de'));
 		assert.ok(rowY(0.99, 'bar:cn') < rowY(0.99, 'bar:jp'));
+	});
+});
+
+describe('wrapFigureTitle', () => {
+	it('breaks a title into lines that fit the frame without splitting words', () => {
+		const measure = (text: string) => ({ width: text.length * 10 });
+		assert.deepEqual(wrapFigureTitle('The largest economies, 1990–2023', 160, measure), [
+			'The largest',
+			'economies,',
+			'1990–2023'
+		]);
+		assert.deepEqual(wrapFigureTitle('Short', 160, measure), ['Short']);
 	});
 });
