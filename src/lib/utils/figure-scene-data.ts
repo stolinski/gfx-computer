@@ -108,7 +108,7 @@ export function prepareBarRaceFigure(
 				plot.x + plot.width
 			]);
 			const chrome = chromeAlpha(motion);
-			const ticks = generateChartLinearTicks(scale, plot.width);
+			const ticks = generateChartLinearTicks(scale, plot.width * 0.6);
 			// Ticks print only the decimals their own step needs.
 			const tickFormat = {
 				...format,
@@ -117,6 +117,10 @@ export function prepareBarRaceFigure(
 					: Math.min(format.precision, 1)
 			};
 			for (const tick of ticks) {
+				// Ticks arrive through the growing edge of the axis rather than popping in.
+				const edgeFade = tick.isZero
+					? 1
+					: clamp01((plot.x + plot.width - tick.position) / (plot.width * 0.08));
 				items.push({
 					shape: 'path',
 					key: `tick:${tick.value}`,
@@ -125,7 +129,7 @@ export function prepareBarRaceFigure(
 					fillOpacity: 0,
 					stroke: tick.isZero ? 'axis' : 'grid',
 					strokeWidth: tick.isZero ? 4 : 2,
-					opacity: chrome * (tick.isZero ? 1 : 0.6)
+					opacity: chrome * (tick.isZero ? 1 : 0.6) * edgeFade
 				});
 				if (!tick.isZero) {
 					items.push(
@@ -137,7 +141,7 @@ export function prepareBarRaceFigure(
 							y: env.plot.y,
 							anchor: 'middle',
 							baseline: 'hanging',
-							opacity: chrome
+							opacity: chrome * edgeFade
 						})
 					);
 				}

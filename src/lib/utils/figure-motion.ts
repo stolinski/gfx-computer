@@ -208,7 +208,13 @@ export function evaluateFigureMotion(
 		advance = advances[0].from;
 		for (const move of advances) {
 			if (progress < move.start) break;
-			const t = clamp01(figureMoveEasedProgress(move, progress));
+			// Without a declared ease an advance runs at a steady pace: a race or a
+			// line drawing forward should not rush its first years.
+			const t = clamp01(
+				move.ease === undefined
+					? figureMoveLinearProgress(move, progress)
+					: figureMoveEasedProgress(move, progress)
+			);
 			advance = move.from + (move.to - move.from) * t;
 		}
 	}

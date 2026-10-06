@@ -8,11 +8,6 @@ import type { FigurePoint } from './figure-geometry';
  * linearly interpolated value — position eases, magnitude never overshoots.
  */
 
-function smoothstep(t: number): number {
-	const x = t <= 0 ? 0 : t >= 1 ? 1 : t;
-	return x * x * (3 - 2 * x);
-}
-
 /** Rank of each entity at one frame: sorted by value descending, ties by declaration order. */
 function rankFrame(
 	entityIds: readonly string[],
@@ -47,6 +42,10 @@ export interface FigureBarRaceState {
 	label: string;
 }
 
+/** How long, in frames, a re-sort takes once two values cross. */
+export const FIGURE_BAR_RACE_SWAP_FRAMES = 0.35;
+const FIGURE_BAR_RACE_SWAP_SAMPLES = 12;
+
 export function resolveFigureBarRaceState(
 	figure: Pick<BarRaceFigure, 'data'>,
 	position: number,
@@ -54,31 +53,56 @@ export function resolveFigureBarRaceState(
 ): FigureBarRaceState {
 	const { entities, frames } = figure.data;
 	const ids = entities.map((entity) => entity.id);
-	const clamped = Math.max(0, Math.min(frames.length - 1, position));
-	const lower = Math.floor(clamped);
-	const upper = Math.min(frames.length - 1, lower + 1);
-	const t = clamped - lower;
-	const valuesAt = (index: number): Map<string, number> =>
-		new Map(frames[index].values.map((value) => [value.entityId, value.value]));
-	const lowerValues = valuesAt(lower);
-	const upperValues = valuesAt(upper);
-	const lowerRanks = rankFrame(ids, lowerValues);
-	const upperRanks = rankFrame(ids, upperValues);
-	const rankT = smoothstep(t);
+	const lastFrame = frames.length - 1;
+	const frameValues = frames.map(
+		(frame) => new Map(frame.values.map((value) => [value.entityId, value.value]))
+	);
+	// Values interpolate linearly by key; an entity missing from a frame is absent there.
+	const valuesAt = (at: number): Map<string, number> => {
+		const clamped = Math.max(0, Math.min(lastFrame, at));
+		const lower = Math.floor(clamped);
+		const upper = Math.min(lastFrame, lower + 1);
+		const t = clamped - lower;
+		const result = new Map<string, number>();
+		for (const id of ids) {
+			const a = frameValues[lower].get(id);
+			const b = frameValues[upper].get(id);
+			if (a === undefined && b === undefined) continue;
+			result.set(id, (a ?? 0) + ((b ?? 0) - (a ?? 0)) * t);
+		}
+		return result;
+	};
+	const clamped = Math.max(0, Math.min(lastFrame, position));
+	const values = valuesAt(clamped);
+	// A row moves when its value actually crosses another: the instantaneous rank,
+	// smoothed over a short trailing window with a smoothstep-shaped kernel, so a
+	// re-sort is a brief eased slide at the moment of the crossing.
+	const smoothedRank = new Map<string, number>(ids.map((id) => [id, 0]));
+	let weightTotal = 0;
+	for (let sample = 0; sample < FIGURE_BAR_RACE_SWAP_SAMPLES; sample += 1) {
+		const u = (sample + 0.5) / FIGURE_BAR_RACE_SWAP_SAMPLES;
+		const weight = 6 * u * (1 - u);
+		const ranks = rankFrame(ids, valuesAt(clamped - FIGURE_BAR_RACE_SWAP_FRAMES * u));
+		for (const id of ids) {
+			smoothedRank.set(id, (smoothedRank.get(id) ?? 0) + (ranks.get(id) ?? ids.length) * weight);
+		}
+		weightTotal += weight;
+	}
 	const rows = ids.map((entityId) => {
-		const a = lowerValues.get(entityId) ?? 0;
-		const b = upperValues.get(entityId) ?? 0;
-		const rank =
-			(lowerRanks.get(entityId) ?? ids.length) * (1 - rankT) +
-			(upperRanks.get(entityId) ?? ids.length) * rankT;
-		// Fully visible through the last visible row, gone one row below it.
-		const visibility = Math.max(0, Math.min(1, visibleCount - rank));
-		return { entityId, value: a + (b - a) * t, rank, visibility };
+		// Rounded so a settled rank is exactly an integer after the weighted sum.
+		const rank = Math.round(((smoothedRank.get(entityId) ?? 0) / weightTotal) * 1e6) / 1e6;
+		// Gone within half a row of leaving the visible block, so a departing bar
+		// never slides into whatever sits below the chart.
+		const visibility = Math.max(0, Math.min(1, (visibleCount - 0.5 - rank) * 2));
+		return { entityId, value: values.get(entityId) ?? 0, rank, visibility };
 	});
 	const visibleMax = Math.max(
 		0,
 		...rows.filter((row) => row.visibility > 0).map((row) => row.value)
 	);
+	const lower = Math.floor(clamped);
+	const upper = Math.min(lastFrame, lower + 1);
+	const t = clamped - lower;
 	const lowerLabel = frames[lower].label;
 	const upperLabel = frames[upper].label;
 	const lowerYear = Number(lowerLabel);

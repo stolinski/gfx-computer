@@ -1,0 +1,2503 @@
+{
+	"schema": "supers@1",
+	"name": "The Largest Economies, 1990–2023",
+	"description": "A full-frame bar chart race: the ten largest economies by GDP from 1990 to 2023, re-ranking year by year at a steady pace, ending on the two that pulled away. World Bank data, current US dollars.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 24,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"figures": [
+				{
+					"type": "figure",
+					"id": "gdp-race",
+					"kind": "bar-race",
+					"title": "The largest economies, 1990–2023",
+					"sourceNote": "World Bank · GDP, current US$",
+					"data": {
+						"entities": [
+							{
+								"id": "us",
+								"label": "United States"
+							},
+							{
+								"id": "cn",
+								"label": "China"
+							},
+							{
+								"id": "jp",
+								"label": "Japan"
+							},
+							{
+								"id": "de",
+								"label": "Germany"
+							},
+							{
+								"id": "in",
+								"label": "India"
+							},
+							{
+								"id": "gb",
+								"label": "United Kingdom"
+							},
+							{
+								"id": "fr",
+								"label": "France"
+							},
+							{
+								"id": "it",
+								"label": "Italy"
+							},
+							{
+								"id": "br",
+								"label": "Brazil"
+							},
+							{
+								"id": "ca",
+								"label": "Canada"
+							},
+							{
+								"id": "ru",
+								"label": "Russia"
+							},
+							{
+								"id": "kr",
+								"label": "South Korea"
+							},
+							{
+								"id": "mx",
+								"label": "Mexico"
+							},
+							{
+								"id": "au",
+								"label": "Australia"
+							},
+							{
+								"id": "es",
+								"label": "Spain"
+							},
+							{
+								"id": "id",
+								"label": "Indonesia"
+							}
+						],
+						"frames": [
+							{
+								"label": "1990",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 5.963
+									},
+									{
+										"entityId": "cn",
+										"value": 0.362
+									},
+									{
+										"entityId": "jp",
+										"value": 3.253
+									},
+									{
+										"entityId": "de",
+										"value": 1.778
+									},
+									{
+										"entityId": "in",
+										"value": 0.321
+									},
+									{
+										"entityId": "gb",
+										"value": 1.093
+									},
+									{
+										"entityId": "fr",
+										"value": 1.258
+									},
+									{
+										"entityId": "it",
+										"value": 1.184
+									},
+									{
+										"entityId": "br",
+										"value": 0.385
+									},
+									{
+										"entityId": "ca",
+										"value": 0.596
+									},
+									{
+										"entityId": "ru",
+										"value": 0.517
+									},
+									{
+										"entityId": "kr",
+										"value": 0.292
+									},
+									{
+										"entityId": "mx",
+										"value": 0.261
+									},
+									{
+										"entityId": "au",
+										"value": 0.312
+									},
+									{
+										"entityId": "es",
+										"value": 0.536
+									},
+									{
+										"entityId": "id",
+										"value": 0.106
+									}
+								]
+							},
+							{
+								"label": "1991",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 6.158
+									},
+									{
+										"entityId": "cn",
+										"value": 0.385
+									},
+									{
+										"entityId": "jp",
+										"value": 3.725
+									},
+									{
+										"entityId": "de",
+										"value": 1.876
+									},
+									{
+										"entityId": "in",
+										"value": 0.27
+									},
+									{
+										"entityId": "gb",
+										"value": 1.143
+									},
+									{
+										"entityId": "fr",
+										"value": 1.259
+									},
+									{
+										"entityId": "it",
+										"value": 1.249
+									},
+									{
+										"entityId": "br",
+										"value": 0.343
+									},
+									{
+										"entityId": "ca",
+										"value": 0.613
+									},
+									{
+										"entityId": "ru",
+										"value": 0.518
+									},
+									{
+										"entityId": "kr",
+										"value": 0.341
+									},
+									{
+										"entityId": "mx",
+										"value": 0.313
+									},
+									{
+										"entityId": "au",
+										"value": 0.326
+									},
+									{
+										"entityId": "es",
+										"value": 0.577
+									},
+									{
+										"entityId": "id",
+										"value": 0.117
+									}
+								]
+							},
+							{
+								"label": "1992",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 6.52
+									},
+									{
+										"entityId": "cn",
+										"value": 0.429
+									},
+									{
+										"entityId": "jp",
+										"value": 4.065
+									},
+									{
+										"entityId": "de",
+										"value": 2.141
+									},
+									{
+										"entityId": "in",
+										"value": 0.288
+									},
+									{
+										"entityId": "gb",
+										"value": 1.18
+									},
+									{
+										"entityId": "fr",
+										"value": 1.39
+									},
+									{
+										"entityId": "it",
+										"value": 1.323
+									},
+									{
+										"entityId": "br",
+										"value": 0.328
+									},
+									{
+										"entityId": "ca",
+										"value": 0.594
+									},
+									{
+										"entityId": "ru",
+										"value": 0.46
+									},
+									{
+										"entityId": "kr",
+										"value": 0.367
+									},
+									{
+										"entityId": "mx",
+										"value": 0.363
+									},
+									{
+										"entityId": "au",
+										"value": 0.326
+									},
+									{
+										"entityId": "es",
+										"value": 0.63
+									},
+									{
+										"entityId": "id",
+										"value": 0.128
+									}
+								]
+							},
+							{
+								"label": "1993",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 6.859
+									},
+									{
+										"entityId": "cn",
+										"value": 0.447
+									},
+									{
+										"entityId": "jp",
+										"value": 4.632
+									},
+									{
+										"entityId": "de",
+										"value": 2.079
+									},
+									{
+										"entityId": "in",
+										"value": 0.279
+									},
+									{
+										"entityId": "gb",
+										"value": 1.061
+									},
+									{
+										"entityId": "fr",
+										"value": 1.314
+									},
+									{
+										"entityId": "it",
+										"value": 1.067
+									},
+									{
+										"entityId": "br",
+										"value": 0.368
+									},
+									{
+										"entityId": "ca",
+										"value": 0.579
+									},
+									{
+										"entityId": "ru",
+										"value": 0.435
+									},
+									{
+										"entityId": "kr",
+										"value": 0.406
+									},
+									{
+										"entityId": "mx",
+										"value": 0.53
+									},
+									{
+										"entityId": "au",
+										"value": 0.313
+									},
+									{
+										"entityId": "es",
+										"value": 0.525
+									},
+									{
+										"entityId": "id",
+										"value": 0.158
+									}
+								]
+							},
+							{
+								"label": "1994",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 7.287
+									},
+									{
+										"entityId": "cn",
+										"value": 0.567
+									},
+									{
+										"entityId": "jp",
+										"value": 5.104
+									},
+									{
+										"entityId": "de",
+										"value": 2.215
+									},
+									{
+										"entityId": "in",
+										"value": 0.327
+									},
+									{
+										"entityId": "gb",
+										"value": 1.14
+									},
+									{
+										"entityId": "fr",
+										"value": 1.386
+									},
+									{
+										"entityId": "it",
+										"value": 1.102
+									},
+									{
+										"entityId": "br",
+										"value": 0.525
+									},
+									{
+										"entityId": "ca",
+										"value": 0.58
+									},
+									{
+										"entityId": "ru",
+										"value": 0.395
+									},
+									{
+										"entityId": "kr",
+										"value": 0.479
+									},
+									{
+										"entityId": "mx",
+										"value": 0.554
+									},
+									{
+										"entityId": "au",
+										"value": 0.323
+									},
+									{
+										"entityId": "es",
+										"value": 0.53
+									},
+									{
+										"entityId": "id",
+										"value": 0.177
+									}
+								]
+							},
+							{
+								"label": "1995",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 7.64
+									},
+									{
+										"entityId": "cn",
+										"value": 0.738
+									},
+									{
+										"entityId": "jp",
+										"value": 5.64
+									},
+									{
+										"entityId": "de",
+										"value": 2.593
+									},
+									{
+										"entityId": "in",
+										"value": 0.36
+									},
+									{
+										"entityId": "gb",
+										"value": 1.349
+									},
+									{
+										"entityId": "fr",
+										"value": 1.595
+									},
+									{
+										"entityId": "it",
+										"value": 1.177
+									},
+									{
+										"entityId": "br",
+										"value": 0.769
+									},
+									{
+										"entityId": "ca",
+										"value": 0.606
+									},
+									{
+										"entityId": "ru",
+										"value": 0.396
+									},
+									{
+										"entityId": "kr",
+										"value": 0.586
+									},
+									{
+										"entityId": "mx",
+										"value": 0.38
+									},
+									{
+										"entityId": "au",
+										"value": 0.369
+									},
+									{
+										"entityId": "es",
+										"value": 0.614
+									},
+									{
+										"entityId": "id",
+										"value": 0.202
+									}
+								]
+							},
+							{
+								"label": "1996",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 8.073
+									},
+									{
+										"entityId": "cn",
+										"value": 0.869
+									},
+									{
+										"entityId": "jp",
+										"value": 5.021
+									},
+									{
+										"entityId": "de",
+										"value": 2.507
+									},
+									{
+										"entityId": "in",
+										"value": 0.393
+									},
+									{
+										"entityId": "gb",
+										"value": 1.425
+									},
+									{
+										"entityId": "fr",
+										"value": 1.599
+									},
+									{
+										"entityId": "it",
+										"value": 1.315
+									},
+									{
+										"entityId": "br",
+										"value": 0.85
+									},
+									{
+										"entityId": "ca",
+										"value": 0.631
+									},
+									{
+										"entityId": "ru",
+										"value": 0.392
+									},
+									{
+										"entityId": "kr",
+										"value": 0.631
+									},
+									{
+										"entityId": "mx",
+										"value": 0.432
+									},
+									{
+										"entityId": "au",
+										"value": 0.402
+									},
+									{
+										"entityId": "es",
+										"value": 0.642
+									},
+									{
+										"entityId": "id",
+										"value": 0.227
+									}
+								]
+							},
+							{
+								"label": "1997",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 8.578
+									},
+									{
+										"entityId": "cn",
+										"value": 0.968
+									},
+									{
+										"entityId": "jp",
+										"value": 4.58
+									},
+									{
+										"entityId": "de",
+										"value": 2.219
+									},
+									{
+										"entityId": "in",
+										"value": 0.416
+									},
+									{
+										"entityId": "gb",
+										"value": 1.569
+									},
+									{
+										"entityId": "fr",
+										"value": 1.449
+									},
+									{
+										"entityId": "it",
+										"value": 1.245
+									},
+									{
+										"entityId": "br",
+										"value": 0.883
+									},
+									{
+										"entityId": "ca",
+										"value": 0.655
+									},
+									{
+										"entityId": "ru",
+										"value": 0.405
+									},
+									{
+										"entityId": "kr",
+										"value": 0.589
+									},
+									{
+										"entityId": "mx",
+										"value": 0.523
+									},
+									{
+										"entityId": "au",
+										"value": 0.436
+									},
+									{
+										"entityId": "es",
+										"value": 0.59
+									},
+									{
+										"entityId": "id",
+										"value": 0.216
+									}
+								]
+							},
+							{
+								"label": "1998",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 9.063
+									},
+									{
+										"entityId": "cn",
+										"value": 1.037
+									},
+									{
+										"entityId": "jp",
+										"value": 4.15
+									},
+									{
+										"entityId": "de",
+										"value": 2.248
+									},
+									{
+										"entityId": "in",
+										"value": 0.421
+									},
+									{
+										"entityId": "gb",
+										"value": 1.661
+									},
+									{
+										"entityId": "fr",
+										"value": 1.497
+									},
+									{
+										"entityId": "it",
+										"value": 1.273
+									},
+									{
+										"entityId": "br",
+										"value": 0.864
+									},
+									{
+										"entityId": "ca",
+										"value": 0.634
+									},
+									{
+										"entityId": "ru",
+										"value": 0.271
+									},
+									{
+										"entityId": "kr",
+										"value": 0.397
+									},
+									{
+										"entityId": "mx",
+										"value": 0.557
+									},
+									{
+										"entityId": "au",
+										"value": 0.4
+									},
+									{
+										"entityId": "es",
+										"value": 0.619
+									},
+									{
+										"entityId": "id",
+										"value": 0.095
+									}
+								]
+							},
+							{
+								"label": "1999",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 9.631
+									},
+									{
+										"entityId": "cn",
+										"value": 1.104
+									},
+									{
+										"entityId": "jp",
+										"value": 4.689
+									},
+									{
+										"entityId": "de",
+										"value": 2.214
+									},
+									{
+										"entityId": "in",
+										"value": 0.459
+									},
+									{
+										"entityId": "gb",
+										"value": 1.693
+									},
+									{
+										"entityId": "fr",
+										"value": 1.487
+									},
+									{
+										"entityId": "it",
+										"value": 1.255
+									},
+									{
+										"entityId": "br",
+										"value": 0.6
+									},
+									{
+										"entityId": "ca",
+										"value": 0.678
+									},
+									{
+										"entityId": "ru",
+										"value": 0.196
+									},
+									{
+										"entityId": "kr",
+										"value": 0.516
+									},
+									{
+										"entityId": "mx",
+										"value": 0.631
+									},
+									{
+										"entityId": "au",
+										"value": 0.39
+									},
+									{
+										"entityId": "es",
+										"value": 0.634
+									},
+									{
+										"entityId": "id",
+										"value": 0.14
+									}
+								]
+							},
+							{
+								"label": "2000",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 10.251
+									},
+									{
+										"entityId": "cn",
+										"value": 1.224
+									},
+									{
+										"entityId": "jp",
+										"value": 5.042
+									},
+									{
+										"entityId": "de",
+										"value": 1.967
+									},
+									{
+										"entityId": "in",
+										"value": 0.468
+									},
+									{
+										"entityId": "gb",
+										"value": 1.672
+									},
+									{
+										"entityId": "fr",
+										"value": 1.361
+									},
+									{
+										"entityId": "it",
+										"value": 1.15
+									},
+									{
+										"entityId": "br",
+										"value": 0.655
+									},
+									{
+										"entityId": "ca",
+										"value": 0.745
+									},
+									{
+										"entityId": "ru",
+										"value": 0.26
+									},
+									{
+										"entityId": "kr",
+										"value": 0.597
+									},
+									{
+										"entityId": "mx",
+										"value": 0.742
+									},
+									{
+										"entityId": "au",
+										"value": 0.417
+									},
+									{
+										"entityId": "es",
+										"value": 0.598
+									},
+									{
+										"entityId": "id",
+										"value": 0.165
+									}
+								]
+							},
+							{
+								"label": "2001",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 10.582
+									},
+									{
+										"entityId": "cn",
+										"value": 1.355
+									},
+									{
+										"entityId": "jp",
+										"value": 4.439
+									},
+									{
+										"entityId": "de",
+										"value": 1.966
+									},
+									{
+										"entityId": "in",
+										"value": 0.485
+									},
+									{
+										"entityId": "gb",
+										"value": 1.656
+									},
+									{
+										"entityId": "fr",
+										"value": 1.37
+									},
+									{
+										"entityId": "it",
+										"value": 1.172
+									},
+									{
+										"entityId": "br",
+										"value": 0.56
+									},
+									{
+										"entityId": "ca",
+										"value": 0.739
+									},
+									{
+										"entityId": "ru",
+										"value": 0.307
+									},
+									{
+										"entityId": "kr",
+										"value": 0.568
+									},
+									{
+										"entityId": "mx",
+										"value": 0.796
+									},
+									{
+										"entityId": "au",
+										"value": 0.38
+									},
+									{
+										"entityId": "es",
+										"value": 0.628
+									},
+									{
+										"entityId": "id",
+										"value": 0.16
+									}
+								]
+							},
+							{
+								"label": "2002",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 10.929
+									},
+									{
+										"entityId": "cn",
+										"value": 1.49
+									},
+									{
+										"entityId": "jp",
+										"value": 4.246
+									},
+									{
+										"entityId": "de",
+										"value": 2.102
+									},
+									{
+										"entityId": "in",
+										"value": 0.515
+									},
+									{
+										"entityId": "gb",
+										"value": 1.791
+									},
+									{
+										"entityId": "fr",
+										"value": 1.492
+									},
+									{
+										"entityId": "it",
+										"value": 1.282
+									},
+									{
+										"entityId": "br",
+										"value": 0.51
+									},
+									{
+										"entityId": "ca",
+										"value": 0.761
+									},
+									{
+										"entityId": "ru",
+										"value": 0.345
+									},
+									{
+										"entityId": "kr",
+										"value": 0.65
+									},
+									{
+										"entityId": "mx",
+										"value": 0.811
+									},
+									{
+										"entityId": "au",
+										"value": 0.396
+									},
+									{
+										"entityId": "es",
+										"value": 0.709
+									},
+									{
+										"entityId": "id",
+										"value": 0.196
+									}
+								]
+							},
+							{
+								"label": "2003",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 11.456
+									},
+									{
+										"entityId": "cn",
+										"value": 1.684
+									},
+									{
+										"entityId": "jp",
+										"value": 4.573
+									},
+									{
+										"entityId": "de",
+										"value": 2.535
+									},
+									{
+										"entityId": "in",
+										"value": 0.608
+									},
+									{
+										"entityId": "gb",
+										"value": 2.061
+									},
+									{
+										"entityId": "fr",
+										"value": 1.835
+									},
+									{
+										"entityId": "it",
+										"value": 1.583
+									},
+									{
+										"entityId": "br",
+										"value": 0.558
+									},
+									{
+										"entityId": "ca",
+										"value": 0.896
+									},
+									{
+										"entityId": "ru",
+										"value": 0.43
+									},
+									{
+										"entityId": "kr",
+										"value": 0.729
+									},
+									{
+										"entityId": "mx",
+										"value": 0.766
+									},
+									{
+										"entityId": "au",
+										"value": 0.469
+									},
+									{
+										"entityId": "es",
+										"value": 0.908
+									},
+									{
+										"entityId": "id",
+										"value": 0.235
+									}
+								]
+							},
+							{
+								"label": "2004",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 12.217
+									},
+									{
+										"entityId": "cn",
+										"value": 1.984
+									},
+									{
+										"entityId": "jp",
+										"value": 4.941
+									},
+									{
+										"entityId": "de",
+										"value": 2.852
+									},
+									{
+										"entityId": "in",
+										"value": 0.709
+									},
+									{
+										"entityId": "gb",
+										"value": 2.43
+									},
+									{
+										"entityId": "fr",
+										"value": 2.11
+									},
+									{
+										"entityId": "it",
+										"value": 1.813
+									},
+									{
+										"entityId": "br",
+										"value": 0.669
+									},
+									{
+										"entityId": "ca",
+										"value": 1.027
+									},
+									{
+										"entityId": "ru",
+										"value": 0.591
+									},
+									{
+										"entityId": "kr",
+										"value": 0.823
+									},
+									{
+										"entityId": "mx",
+										"value": 0.819
+									},
+									{
+										"entityId": "au",
+										"value": 0.616
+									},
+									{
+										"entityId": "es",
+										"value": 1.07
+									},
+									{
+										"entityId": "id",
+										"value": 0.257
+									}
+								]
+							},
+							{
+								"label": "2005",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 13.039
+									},
+									{
+										"entityId": "cn",
+										"value": 2.318
+									},
+									{
+										"entityId": "jp",
+										"value": 4.876
+									},
+									{
+										"entityId": "de",
+										"value": 2.893
+									},
+									{
+										"entityId": "in",
+										"value": 0.82
+									},
+									{
+										"entityId": "gb",
+										"value": 2.551
+									},
+									{
+										"entityId": "fr",
+										"value": 2.192
+									},
+									{
+										"entityId": "it",
+										"value": 1.865
+									},
+									{
+										"entityId": "br",
+										"value": 0.892
+									},
+									{
+										"entityId": "ca",
+										"value": 1.173
+									},
+									{
+										"entityId": "ru",
+										"value": 0.764
+									},
+									{
+										"entityId": "kr",
+										"value": 0.972
+									},
+									{
+										"entityId": "mx",
+										"value": 0.918
+									},
+									{
+										"entityId": "au",
+										"value": 0.697
+									},
+									{
+										"entityId": "es",
+										"value": 1.155
+									},
+									{
+										"entityId": "id",
+										"value": 0.286
+									}
+								]
+							},
+							{
+								"label": "2006",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 13.816
+									},
+									{
+										"entityId": "cn",
+										"value": 2.791
+									},
+									{
+										"entityId": "jp",
+										"value": 4.648
+									},
+									{
+										"entityId": "de",
+										"value": 3.046
+									},
+									{
+										"entityId": "in",
+										"value": 0.94
+									},
+									{
+										"entityId": "gb",
+										"value": 2.72
+									},
+									{
+										"entityId": "fr",
+										"value": 2.318
+									},
+									{
+										"entityId": "it",
+										"value": 1.959
+									},
+									{
+										"entityId": "br",
+										"value": 1.108
+									},
+									{
+										"entityId": "ca",
+										"value": 1.319
+									},
+									{
+										"entityId": "ru",
+										"value": 0.99
+									},
+									{
+										"entityId": "kr",
+										"value": 1.095
+									},
+									{
+										"entityId": "mx",
+										"value": 1.02
+									},
+									{
+										"entityId": "au",
+										"value": 0.75
+									},
+									{
+										"entityId": "es",
+										"value": 1.262
+									},
+									{
+										"entityId": "id",
+										"value": 0.365
+									}
+								]
+							},
+							{
+								"label": "2007",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 14.474
+									},
+									{
+										"entityId": "cn",
+										"value": 3.604
+									},
+									{
+										"entityId": "jp",
+										"value": 4.625
+									},
+									{
+										"entityId": "de",
+										"value": 3.484
+									},
+									{
+										"entityId": "in",
+										"value": 1.217
+									},
+									{
+										"entityId": "gb",
+										"value": 3.105
+									},
+									{
+										"entityId": "fr",
+										"value": 2.656
+									},
+									{
+										"entityId": "it",
+										"value": 2.223
+									},
+									{
+										"entityId": "br",
+										"value": 1.397
+									},
+									{
+										"entityId": "ca",
+										"value": 1.469
+									},
+									{
+										"entityId": "ru",
+										"value": 1.3
+									},
+									{
+										"entityId": "kr",
+										"value": 1.221
+									},
+									{
+										"entityId": "mx",
+										"value": 1.102
+									},
+									{
+										"entityId": "au",
+										"value": 0.857
+									},
+									{
+										"entityId": "es",
+										"value": 1.477
+									},
+									{
+										"entityId": "id",
+										"value": 0.432
+									}
+								]
+							},
+							{
+								"label": "2008",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 14.77
+									},
+									{
+										"entityId": "cn",
+										"value": 4.667
+									},
+									{
+										"entityId": "jp",
+										"value": 5.16
+									},
+									{
+										"entityId": "de",
+										"value": 3.808
+									},
+									{
+										"entityId": "in",
+										"value": 1.199
+									},
+									{
+										"entityId": "gb",
+										"value": 2.945
+									},
+									{
+										"entityId": "fr",
+										"value": 2.927
+									},
+									{
+										"entityId": "it",
+										"value": 2.418
+									},
+									{
+										"entityId": "br",
+										"value": 1.696
+									},
+									{
+										"entityId": "ca",
+										"value": 1.553
+									},
+									{
+										"entityId": "ru",
+										"value": 1.661
+									},
+									{
+										"entityId": "kr",
+										"value": 1.092
+									},
+									{
+										"entityId": "mx",
+										"value": 1.162
+									},
+									{
+										"entityId": "au",
+										"value": 1.058
+									},
+									{
+										"entityId": "es",
+										"value": 1.636
+									},
+									{
+										"entityId": "id",
+										"value": 0.51
+									}
+								]
+							},
+							{
+								"label": "2009",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 14.478
+									},
+									{
+										"entityId": "cn",
+										"value": 5.19
+									},
+									{
+										"entityId": "jp",
+										"value": 5.337
+									},
+									{
+										"entityId": "de",
+										"value": 3.479
+									},
+									{
+										"entityId": "in",
+										"value": 1.342
+									},
+									{
+										"entityId": "gb",
+										"value": 2.429
+									},
+									{
+										"entityId": "fr",
+										"value": 2.7
+									},
+									{
+										"entityId": "it",
+										"value": 2.209
+									},
+									{
+										"entityId": "br",
+										"value": 1.667
+									},
+									{
+										"entityId": "ca",
+										"value": 1.375
+									},
+									{
+										"entityId": "ru",
+										"value": 1.223
+									},
+									{
+										"entityId": "kr",
+										"value": 0.983
+									},
+									{
+										"entityId": "mx",
+										"value": 0.943
+									},
+									{
+										"entityId": "au",
+										"value": 0.932
+									},
+									{
+										"entityId": "es",
+										"value": 1.497
+									},
+									{
+										"entityId": "id",
+										"value": 0.54
+									}
+								]
+							},
+							{
+								"label": "2010",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 15.049
+									},
+									{
+										"entityId": "cn",
+										"value": 6.193
+									},
+									{
+										"entityId": "jp",
+										"value": 5.812
+									},
+									{
+										"entityId": "de",
+										"value": 3.467
+									},
+									{
+										"entityId": "in",
+										"value": 1.676
+									},
+									{
+										"entityId": "gb",
+										"value": 2.497
+									},
+									{
+										"entityId": "fr",
+										"value": 2.646
+									},
+									{
+										"entityId": "it",
+										"value": 2.145
+									},
+									{
+										"entityId": "br",
+										"value": 2.209
+									},
+									{
+										"entityId": "ca",
+										"value": 1.617
+									},
+									{
+										"entityId": "ru",
+										"value": 1.525
+									},
+									{
+										"entityId": "kr",
+										"value": 1.193
+									},
+									{
+										"entityId": "mx",
+										"value": 1.105
+									},
+									{
+										"entityId": "au",
+										"value": 1.153
+									},
+									{
+										"entityId": "es",
+										"value": 1.428
+									},
+									{
+										"entityId": "id",
+										"value": 0.755
+									}
+								]
+							},
+							{
+								"label": "2011",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 15.6
+									},
+									{
+										"entityId": "cn",
+										"value": 7.672
+									},
+									{
+										"entityId": "jp",
+										"value": 6.279
+									},
+									{
+										"entityId": "de",
+										"value": 3.824
+									},
+									{
+										"entityId": "in",
+										"value": 1.823
+									},
+									{
+										"entityId": "gb",
+										"value": 2.676
+									},
+									{
+										"entityId": "fr",
+										"value": 2.87
+									},
+									{
+										"entityId": "it",
+										"value": 2.307
+									},
+									{
+										"entityId": "br",
+										"value": 2.616
+									},
+									{
+										"entityId": "ca",
+										"value": 1.793
+									},
+									{
+										"entityId": "ru",
+										"value": 2.046
+									},
+									{
+										"entityId": "kr",
+										"value": 1.307
+									},
+									{
+										"entityId": "mx",
+										"value": 1.229
+									},
+									{
+										"entityId": "au",
+										"value": 1.403
+									},
+									{
+										"entityId": "es",
+										"value": 1.488
+									},
+									{
+										"entityId": "id",
+										"value": 0.893
+									}
+								]
+							},
+							{
+								"label": "2012",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 16.254
+									},
+									{
+										"entityId": "cn",
+										"value": 8.674
+									},
+									{
+										"entityId": "jp",
+										"value": 6.334
+									},
+									{
+										"entityId": "de",
+										"value": 3.596
+									},
+									{
+										"entityId": "in",
+										"value": 1.828
+									},
+									{
+										"entityId": "gb",
+										"value": 2.72
+									},
+									{
+										"entityId": "fr",
+										"value": 2.683
+									},
+									{
+										"entityId": "it",
+										"value": 2.098
+									},
+									{
+										"entityId": "br",
+										"value": 2.465
+									},
+									{
+										"entityId": "ca",
+										"value": 1.828
+									},
+									{
+										"entityId": "ru",
+										"value": 2.208
+									},
+									{
+										"entityId": "kr",
+										"value": 1.335
+									},
+									{
+										"entityId": "mx",
+										"value": 1.255
+									},
+									{
+										"entityId": "au",
+										"value": 1.553
+									},
+									{
+										"entityId": "es",
+										"value": 1.331
+									},
+									{
+										"entityId": "id",
+										"value": 0.918
+									}
+								]
+							},
+							{
+								"label": "2013",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 16.881
+									},
+									{
+										"entityId": "cn",
+										"value": 9.743
+									},
+									{
+										"entityId": "jp",
+										"value": 5.272
+									},
+									{
+										"entityId": "de",
+										"value": 3.807
+									},
+									{
+										"entityId": "in",
+										"value": 1.857
+									},
+									{
+										"entityId": "gb",
+										"value": 2.797
+									},
+									{
+										"entityId": "fr",
+										"value": 2.816
+									},
+									{
+										"entityId": "it",
+										"value": 2.153
+									},
+									{
+										"entityId": "br",
+										"value": 2.473
+									},
+									{
+										"entityId": "ca",
+										"value": 1.847
+									},
+									{
+										"entityId": "ru",
+										"value": 2.292
+									},
+									{
+										"entityId": "kr",
+										"value": 1.435
+									},
+									{
+										"entityId": "mx",
+										"value": 1.327
+									},
+									{
+										"entityId": "au",
+										"value": 1.584
+									},
+									{
+										"entityId": "es",
+										"value": 1.362
+									},
+									{
+										"entityId": "id",
+										"value": 0.913
+									}
+								]
+							},
+							{
+								"label": "2014",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 17.608
+									},
+									{
+										"entityId": "cn",
+										"value": 10.675
+									},
+									{
+										"entityId": "jp",
+										"value": 4.986
+									},
+									{
+										"entityId": "de",
+										"value": 3.965
+									},
+									{
+										"entityId": "in",
+										"value": 2.039
+									},
+									{
+										"entityId": "gb",
+										"value": 3.085
+									},
+									{
+										"entityId": "fr",
+										"value": 2.861
+									},
+									{
+										"entityId": "it",
+										"value": 2.173
+									},
+									{
+										"entityId": "br",
+										"value": 2.456
+									},
+									{
+										"entityId": "ca",
+										"value": 1.806
+									},
+									{
+										"entityId": "ru",
+										"value": 2.059
+									},
+									{
+										"entityId": "kr",
+										"value": 1.556
+									},
+									{
+										"entityId": "mx",
+										"value": 1.365
+									},
+									{
+										"entityId": "au",
+										"value": 1.475
+									},
+									{
+										"entityId": "es",
+										"value": 1.38
+									},
+									{
+										"entityId": "id",
+										"value": 0.891
+									}
+								]
+							},
+							{
+								"label": "2015",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 18.295
+									},
+									{
+										"entityId": "cn",
+										"value": 11.281
+									},
+									{
+										"entityId": "jp",
+										"value": 4.534
+									},
+									{
+										"entityId": "de",
+										"value": 3.425
+									},
+									{
+										"entityId": "in",
+										"value": 2.104
+									},
+									{
+										"entityId": "gb",
+										"value": 2.946
+									},
+									{
+										"entityId": "fr",
+										"value": 2.442
+									},
+									{
+										"entityId": "it",
+										"value": 1.845
+									},
+									{
+										"entityId": "br",
+										"value": 1.802
+									},
+									{
+										"entityId": "ca",
+										"value": 1.557
+									},
+									{
+										"entityId": "ru",
+										"value": 1.363
+									},
+									{
+										"entityId": "kr",
+										"value": 1.539
+									},
+									{
+										"entityId": "mx",
+										"value": 1.213
+									},
+									{
+										"entityId": "au",
+										"value": 1.357
+									},
+									{
+										"entityId": "es",
+										"value": 1.206
+									},
+									{
+										"entityId": "id",
+										"value": 0.861
+									}
+								]
+							},
+							{
+								"label": "2016",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 18.805
+									},
+									{
+										"entityId": "cn",
+										"value": 11.456
+									},
+									{
+										"entityId": "jp",
+										"value": 5.11
+									},
+									{
+										"entityId": "de",
+										"value": 3.537
+									},
+									{
+										"entityId": "in",
+										"value": 2.295
+									},
+									{
+										"entityId": "gb",
+										"value": 2.707
+									},
+									{
+										"entityId": "fr",
+										"value": 2.47
+									},
+									{
+										"entityId": "it",
+										"value": 1.887
+									},
+									{
+										"entityId": "br",
+										"value": 1.796
+									},
+									{
+										"entityId": "ca",
+										"value": 1.528
+									},
+									{
+										"entityId": "ru",
+										"value": 1.277
+									},
+									{
+										"entityId": "kr",
+										"value": 1.579
+									},
+									{
+										"entityId": "mx",
+										"value": 1.112
+									},
+									{
+										"entityId": "au",
+										"value": 1.212
+									},
+									{
+										"entityId": "es",
+										"value": 1.243
+									},
+									{
+										"entityId": "id",
+										"value": 0.932
+									}
+								]
+							},
+							{
+								"label": "2017",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 19.612
+									},
+									{
+										"entityId": "cn",
+										"value": 12.538
+									},
+									{
+										"entityId": "jp",
+										"value": 5.038
+									},
+									{
+										"entityId": "de",
+										"value": 3.765
+									},
+									{
+										"entityId": "in",
+										"value": 2.651
+									},
+									{
+										"entityId": "gb",
+										"value": 2.699
+									},
+									{
+										"entityId": "fr",
+										"value": 2.589
+									},
+									{
+										"entityId": "it",
+										"value": 1.971
+									},
+									{
+										"entityId": "br",
+										"value": 2.064
+									},
+									{
+										"entityId": "ca",
+										"value": 1.649
+									},
+									{
+										"entityId": "ru",
+										"value": 1.574
+									},
+									{
+										"entityId": "kr",
+										"value": 1.71
+									},
+									{
+										"entityId": "mx",
+										"value": 1.191
+									},
+									{
+										"entityId": "au",
+										"value": 1.331
+									},
+									{
+										"entityId": "es",
+										"value": 1.322
+									},
+									{
+										"entityId": "id",
+										"value": 1.016
+									}
+								]
+							},
+							{
+								"label": "2018",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 20.657
+									},
+									{
+										"entityId": "cn",
+										"value": 14.148
+									},
+									{
+										"entityId": "jp",
+										"value": 5.154
+									},
+									{
+										"entityId": "de",
+										"value": 4.055
+									},
+									{
+										"entityId": "in",
+										"value": 2.703
+									},
+									{
+										"entityId": "gb",
+										"value": 2.897
+									},
+									{
+										"entityId": "fr",
+										"value": 2.782
+									},
+									{
+										"entityId": "it",
+										"value": 2.099
+									},
+									{
+										"entityId": "br",
+										"value": 1.917
+									},
+									{
+										"entityId": "ca",
+										"value": 1.725
+									},
+									{
+										"entityId": "ru",
+										"value": 1.657
+									},
+									{
+										"entityId": "kr",
+										"value": 1.824
+									},
+									{
+										"entityId": "mx",
+										"value": 1.256
+									},
+									{
+										"entityId": "au",
+										"value": 1.433
+									},
+									{
+										"entityId": "es",
+										"value": 1.432
+									},
+									{
+										"entityId": "id",
+										"value": 1.042
+									}
+								]
+							},
+							{
+								"label": "2019",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 21.54
+									},
+									{
+										"entityId": "cn",
+										"value": 14.56
+									},
+									{
+										"entityId": "jp",
+										"value": 5.246
+									},
+									{
+										"entityId": "de",
+										"value": 3.96
+									},
+									{
+										"entityId": "in",
+										"value": 2.836
+									},
+									{
+										"entityId": "gb",
+										"value": 2.876
+									},
+									{
+										"entityId": "fr",
+										"value": 2.723
+									},
+									{
+										"entityId": "it",
+										"value": 2.02
+									},
+									{
+										"entityId": "br",
+										"value": 1.873
+									},
+									{
+										"entityId": "ca",
+										"value": 1.744
+									},
+									{
+										"entityId": "ru",
+										"value": 1.693
+									},
+									{
+										"entityId": "kr",
+										"value": 1.751
+									},
+									{
+										"entityId": "mx",
+										"value": 1.304
+									},
+									{
+										"entityId": "au",
+										"value": 1.398
+									},
+									{
+										"entityId": "es",
+										"value": 1.403
+									},
+									{
+										"entityId": "id",
+										"value": 1.119
+									}
+								]
+							},
+							{
+								"label": "2020",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 21.375
+									},
+									{
+										"entityId": "cn",
+										"value": 14.996
+									},
+									{
+										"entityId": "jp",
+										"value": 5.189
+									},
+									{
+										"entityId": "de",
+										"value": 3.941
+									},
+									{
+										"entityId": "in",
+										"value": 2.675
+									},
+									{
+										"entityId": "gb",
+										"value": 2.724
+									},
+									{
+										"entityId": "fr",
+										"value": 2.648
+									},
+									{
+										"entityId": "it",
+										"value": 1.907
+									},
+									{
+										"entityId": "br",
+										"value": 1.476
+									},
+									{
+										"entityId": "ca",
+										"value": 1.656
+									},
+									{
+										"entityId": "ru",
+										"value": 1.493
+									},
+									{
+										"entityId": "kr",
+										"value": 1.744
+									},
+									{
+										"entityId": "mx",
+										"value": 1.121
+									},
+									{
+										"entityId": "au",
+										"value": 1.333
+									},
+									{
+										"entityId": "es",
+										"value": 1.29
+									},
+									{
+										"entityId": "id",
+										"value": 1.059
+									}
+								]
+							},
+							{
+								"label": "2021",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 23.726
+									},
+									{
+										"entityId": "cn",
+										"value": 18.202
+									},
+									{
+										"entityId": "jp",
+										"value": 5.226
+									},
+									{
+										"entityId": "de",
+										"value": 4.355
+									},
+									{
+										"entityId": "in",
+										"value": 3.167
+									},
+									{
+										"entityId": "gb",
+										"value": 3.195
+									},
+									{
+										"entityId": "fr",
+										"value": 2.966
+									},
+									{
+										"entityId": "it",
+										"value": 2.179
+									},
+									{
+										"entityId": "br",
+										"value": 1.671
+									},
+									{
+										"entityId": "ca",
+										"value": 2.022
+									},
+									{
+										"entityId": "ru",
+										"value": 1.829
+									},
+									{
+										"entityId": "kr",
+										"value": 1.942
+									},
+									{
+										"entityId": "mx",
+										"value": 1.317
+									},
+									{
+										"entityId": "au",
+										"value": 1.561
+									},
+									{
+										"entityId": "es",
+										"value": 1.461
+									},
+									{
+										"entityId": "id",
+										"value": 1.187
+									}
+								]
+							},
+							{
+								"label": "2022",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 26.055
+									},
+									{
+										"entityId": "cn",
+										"value": 18.317
+									},
+									{
+										"entityId": "jp",
+										"value": 4.448
+									},
+									{
+										"entityId": "de",
+										"value": 4.201
+									},
+									{
+										"entityId": "in",
+										"value": 3.25
+									},
+									{
+										"entityId": "gb",
+										"value": 3.181
+									},
+									{
+										"entityId": "fr",
+										"value": 2.795
+									},
+									{
+										"entityId": "it",
+										"value": 2.104
+									},
+									{
+										"entityId": "br",
+										"value": 1.952
+									},
+									{
+										"entityId": "ca",
+										"value": 2.201
+									},
+									{
+										"entityId": "ru",
+										"value": 2.292
+									},
+									{
+										"entityId": "kr",
+										"value": 1.799
+									},
+									{
+										"entityId": "mx",
+										"value": 1.467
+									},
+									{
+										"entityId": "au",
+										"value": 1.696
+									},
+									{
+										"entityId": "es",
+										"value": 1.449
+									},
+									{
+										"entityId": "id",
+										"value": 1.319
+									}
+								]
+							},
+							{
+								"label": "2023",
+								"values": [
+									{
+										"entityId": "us",
+										"value": 27.812
+									},
+									{
+										"entityId": "cn",
+										"value": 18.27
+									},
+									{
+										"entityId": "jp",
+										"value": 4.385
+									},
+									{
+										"entityId": "de",
+										"value": 4.562
+									},
+									{
+										"entityId": "in",
+										"value": 3.501
+									},
+									{
+										"entityId": "gb",
+										"value": 3.421
+									},
+									{
+										"entityId": "fr",
+										"value": 3.056
+									},
+									{
+										"entityId": "it",
+										"value": 2.317
+									},
+									{
+										"entityId": "br",
+										"value": 2.191
+									},
+									{
+										"entityId": "ca",
+										"value": 2.197
+									},
+									{
+										"entityId": "ru",
+										"value": 2.046
+									},
+									{
+										"entityId": "kr",
+										"value": 1.845
+									},
+									{
+										"entityId": "mx",
+										"value": 1.794
+									},
+									{
+										"entityId": "au",
+										"value": 1.734
+									},
+									{
+										"entityId": "es",
+										"value": 1.619
+									},
+									{
+										"entityId": "id",
+										"value": 1.371
+									}
+								]
+							}
+						],
+						"valueFormat": {
+							"prefix": "$",
+							"suffix": "T",
+							"precision": 1
+						}
+					},
+					"layout": {
+						"visibleCount": 10
+					},
+					"frameOrientationOverrides": {
+						"vertical": {
+							"x": 0.07,
+							"y": 0.09,
+							"width": 0.82,
+							"height": 0.72
+						}
+					},
+					"encoding": {
+						"barColor": "uniform"
+					},
+					"moves": [
+						{
+							"move": "reveal",
+							"style": "grow",
+							"start": 0.01,
+							"duration": 0.05,
+							"ease": "smooth"
+						},
+						{
+							"move": "advance",
+							"from": 0,
+							"to": 33,
+							"start": 0.07,
+							"duration": 0.79
+						},
+						{
+							"move": "focus",
+							"targets": ["bar:us", "bar:cn"],
+							"start": 0.88,
+							"duration": 0.04
+						},
+						{
+							"move": "exit",
+							"style": "fade",
+							"start": 0.955,
+							"duration": 0.04
+						}
+					]
+				}
+			]
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

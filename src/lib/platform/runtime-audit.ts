@@ -1367,9 +1367,15 @@ export async function captureDeterministicRenderRegionManifest(
 		) {
 			// An SVG shape's box is its geometry; its stroke paints half its width
 			// outside that, so the probe region grows by it to hold the whole edge.
+			// A degenerate box (a straight axis-aligned rule) keeps the bare margin:
+			// it has no curved or diagonal edge for the stroke to complete.
+			const strokeWidth = Number.parseFloat(style.strokeWidth) || 0;
 			const strokeOutset =
-				element instanceof SVGGeometryElement && style.stroke !== 'none'
-					? (Number.parseFloat(style.strokeWidth) || 0) / 2
+				element instanceof SVGGeometryElement &&
+				style.stroke !== 'none' &&
+				rect.width > strokeWidth &&
+				rect.height > strokeWidth
+					? strokeWidth / 2
 					: 0;
 			probeRegions.push({
 				id: `non-axis-edge:${exactReadableIdentity(element) ?? element.tagName.toLowerCase()}`,
