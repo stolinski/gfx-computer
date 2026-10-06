@@ -31,6 +31,15 @@ describe('measureEdgeCoverage', () => {
 		assert.equal(measurement.hardSteps, 0);
 	});
 
+	it('finds the coverage pixel of a full-top edge below unrelated fractional content', () => {
+		// The outer anti-aliasing of a ring (86, 211), the ring (246), its inner
+		// anti-aliasing (206, 81), then the dark interior (28).
+		const measurement = measureColumns([[86, 211, 246, 246, 206, 81, 28, 28]]);
+		assert.equal(measurement.smoothPixels, 1);
+		assert.equal(measurement.hardSteps, 0);
+		assert.equal(measureColumns([[86, 246, 246, 28, 28]]).hardSteps, 1);
+	});
+
 	it('still fails an aliased edge under unrelated translucent content', () => {
 		const measurement = measureColumns([[60, 60, 10, 10, 250, 250]]);
 		assert.equal(measurement.hardSteps, 1);

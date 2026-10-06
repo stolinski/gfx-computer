@@ -34,8 +34,9 @@ function isFractional(value: number): boolean {
  *
  * - the column's first fractional pixel lies between the first empty and the
  *   first full pixel (the original, polarity-agnostic reading); or
- * - a fractional pixel sits directly against the full block on its empty side,
- *   in the run walked back from the first full pixel to the nearest empty one.
+ * - a fractional pixel borders the transition: walking back from the later of
+ *   the two blocks toward the earlier one, a fractional pixel is met before the
+ *   earlier block's class reappears (either polarity).
  *
  * The second reading keeps an unrelated translucent shape above the edge — a
  * link entering a node's bounding box, say — from hiding the coverage pixel that
@@ -71,10 +72,13 @@ export function measureEdgeCoverage(
 		const boundaryLo = Math.min(firstFull, firstEmpty);
 		const boundaryHi = Math.max(firstFull, firstEmpty);
 		let smooth = firstFractional > boundaryLo && firstFractional < boundaryHi;
-		if (!smooth && firstEmpty < firstFull) {
-			for (let y = firstFull - 1; y > firstEmpty; y--) {
+		if (!smooth) {
+			// Walk back from the later block toward the earlier one; a fractional
+			// pixel met before re-entering the earlier block borders the edge.
+			const earlierIsEmpty = firstEmpty < firstFull;
+			for (let y = boundaryHi - 1; y > boundaryLo; y--) {
 				const a = sample(x, y);
-				if (a < EDGE_COVERAGE_LOW) break;
+				if (earlierIsEmpty ? a < EDGE_COVERAGE_LOW : a >= EDGE_COVERAGE_HIGH) break;
 				if (isFractional(a)) {
 					smooth = true;
 					break;
