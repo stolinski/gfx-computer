@@ -33,7 +33,7 @@
 		"audit:parity": "node --experimental-strip-types scripts/audit-inspector-parity.ts",
 		"audit:webmcp-parity": "node --experimental-strip-types scripts/audit-webmcp-operation-parity.ts",
 		"audit:planning": "node --experimental-strip-types scripts/audit-planning-state.ts",
-		"test:structural": "node --test scripts/check-discoverability.test.mjs scripts/check-legacy-name-dispositions.test.mjs scripts/check-verification-spawn-hygiene.test.mjs src/lib/utils/pack-registry-source.test.mjs && node --experimental-strip-types scripts/audit-starter-template-coverage.ts && node --experimental-strip-types --test scripts/planning-state-checks.test.ts scripts/change-impact-classifier.test.ts scripts/layout-contract-matrix.test.ts scripts/preset-validation-command.test.ts scripts/derive-gfx-render-matrix-manifest.test.ts scripts/browser-render-verification.test.ts && node scripts/test-structural.mjs",
+		"test:structural": "node --test scripts/check-discoverability.test.mjs scripts/check-legacy-name-dispositions.test.mjs scripts/check-verification-spawn-hygiene.test.mjs src/lib/utils/pack-registry-source.test.mjs && node --experimental-strip-types scripts/audit-starter-template-coverage.ts && node --experimental-strip-types --test scripts/planning-state-checks.test.ts scripts/change-impact-classifier.test.ts scripts/layout-contract-matrix.test.ts scripts/preset-validation-command.test.ts scripts/derive-gfx-render-matrix-manifest.test.ts scripts/browser-render-verification.test.ts scripts/probe-banding.test.ts scripts/probe-edge-aa.test.ts && node scripts/test-structural.mjs",
 		"test:discoverability": "node --test scripts/check-discoverability.test.mjs",
 		"test:watch": "vitest",
 		"prepare": "svelte-kit sync || echo ''",

@@ -1,5 +1,7 @@
+import { pathToFileURL } from 'node:url';
+
 import { parseChannelFlag, resolveChannel } from './_probe-channel.ts';
-import { getProbeBounds, loadProbePng, parseProbeArgs } from './_probe-image.ts';
+import { getProbeBounds, loadProbePng, parseProbeArgs, type ProbeBounds } from './_probe-image.ts';
 
 // Reports anti-aliasing metrics on diagonal / curved alpha edges. Used by
 // the Critic for R4 (no aliasing on non-axis-aligned edges).
@@ -10,67 +12,110 @@ import { getProbeBounds, loadProbePng, parseProbeArgs } from './_probe-image.ts'
 //   coverage_ratio    — smooth_pixels / (hard_stairsteps + smooth_pixels).
 //                       Closer to 1.0 = well anti-aliased.
 
-const { pngPath, region } = parseProbeArgs({
-	region: 'required',
-	usage: 'usage: probe-edge-aa.ts <png> --region x,y,w,h'
-});
-const png = await loadProbePng(pngPath);
-const { x0, y0, x1, y1 } = getProbeBounds(png, region);
+/** LOW/HIGH are coverage thresholds on the chosen channel. */
+export const EDGE_COVERAGE_LOW = 32;
+export const EDGE_COVERAGE_HIGH = 224;
 
-// Measure edges on alpha (transparent overlays) or luma (opaque pieces, where
-// the edge is a bright glyph/shape on a darker field); auto-detected unless
-// `--channel` forces it. LOW/HIGH are coverage thresholds on the chosen channel.
-const { channel, sample } = resolveChannel(png, { x0, y0, x1, y1 }, parseChannelFlag(process.argv));
-
-const LOW = 32;
-const HIGH = 224;
-
-let hardSteps = 0;
-let smoothPixels = 0;
-let emptyTopColumns = 0;
-let fullTopColumns = 0;
-
-for (let x = x0; x < x1; x++) {
-	let firstFractional = -1;
-	let firstFull = -1;
-	let firstEmpty = -1;
-	for (let y = y0; y < y1; y++) {
-		const a = sample(x, y);
-		if (a < LOW && firstEmpty < 0) firstEmpty = y;
-		if (a > LOW && a < HIGH && firstFractional < 0) firstFractional = y;
-		if (a >= HIGH && firstFull < 0) firstFull = y;
-		if (firstEmpty >= 0 && firstFractional >= 0 && firstFull >= 0) break;
-	}
-	const sawEdge = firstFull >= 0 && firstEmpty >= 0;
-	if (!sawEdge) continue;
-
-	// Polarity-agnostic: the column is smoothly anti-aliased if a fractional
-	// pixel sits BETWEEN the full block and the empty block, whichever is on top.
-	// The old test assumed empty→full only (`firstFull > firstFractional`), so a
-	// column whose edge runs full→empty — region placed inside the glyph — misread
-	// as a hard stairstep. The same ampersand scored 0.564 or 1.0 by region alone.
-	if (firstEmpty < firstFull) emptyTopColumns++;
-	else fullTopColumns++;
-
-	const boundaryLo = Math.min(firstFull, firstEmpty);
-	const boundaryHi = Math.max(firstFull, firstEmpty);
-	if (firstFractional > boundaryLo && firstFractional < boundaryHi) {
-		smoothPixels++;
-	} else {
-		hardSteps++;
-	}
+export interface EdgeCoverageMeasurement {
+	hardSteps: number;
+	smoothPixels: number;
+	emptyTopColumns: number;
+	fullTopColumns: number;
 }
 
-const total = hardSteps + smoothPixels;
-const ratio = total === 0 ? null : smoothPixels / total;
+function isFractional(value: number): boolean {
+	return value > EDGE_COVERAGE_LOW && value < EDGE_COVERAGE_HIGH;
+}
 
-console.log(
-	JSON.stringify({
-		channel,
-		hard_stairsteps: hardSteps,
-		smooth_pixels: smoothPixels,
-		transition_sample_count: total,
-		coverage_ratio: ratio === null ? null : Number(ratio.toFixed(3)),
-		polarity: { empty_top: emptyTopColumns, full_top: fullTopColumns }
-	})
-);
+/**
+ * Column-wise edge coverage over `bounds`. A column with both an empty block and
+ * a full block is smoothly anti-aliased when a fractional pixel sits between
+ * them. Two readings of "between" count, and either suffices:
+ *
+ * - the column's first fractional pixel lies between the first empty and the
+ *   first full pixel (the original, polarity-agnostic reading); or
+ * - a fractional pixel sits directly against the full block on its empty side,
+ *   in the run walked back from the first full pixel to the nearest empty one.
+ *
+ * The second reading keeps an unrelated translucent shape above the edge — a
+ * link entering a node's bounding box, say — from hiding the coverage pixel that
+ * actually borders the edge. An aliased edge (empty directly against full) still
+ * fails both readings.
+ */
+export function measureEdgeCoverage(
+	bounds: ProbeBounds,
+	sample: (x: number, y: number) => number
+): EdgeCoverageMeasurement {
+	let hardSteps = 0;
+	let smoothPixels = 0;
+	let emptyTopColumns = 0;
+	let fullTopColumns = 0;
+
+	for (let x = bounds.x0; x < bounds.x1; x++) {
+		let firstFractional = -1;
+		let firstFull = -1;
+		let firstEmpty = -1;
+		for (let y = bounds.y0; y < bounds.y1; y++) {
+			const a = sample(x, y);
+			if (a < EDGE_COVERAGE_LOW && firstEmpty < 0) firstEmpty = y;
+			if (isFractional(a) && firstFractional < 0) firstFractional = y;
+			if (a >= EDGE_COVERAGE_HIGH && firstFull < 0) firstFull = y;
+			if (firstEmpty >= 0 && firstFractional >= 0 && firstFull >= 0) break;
+		}
+		const sawEdge = firstFull >= 0 && firstEmpty >= 0;
+		if (!sawEdge) continue;
+
+		if (firstEmpty < firstFull) emptyTopColumns++;
+		else fullTopColumns++;
+
+		const boundaryLo = Math.min(firstFull, firstEmpty);
+		const boundaryHi = Math.max(firstFull, firstEmpty);
+		let smooth = firstFractional > boundaryLo && firstFractional < boundaryHi;
+		if (!smooth && firstEmpty < firstFull) {
+			for (let y = firstFull - 1; y > firstEmpty; y--) {
+				const a = sample(x, y);
+				if (a < EDGE_COVERAGE_LOW) break;
+				if (isFractional(a)) {
+					smooth = true;
+					break;
+				}
+			}
+		}
+		if (smooth) smoothPixels++;
+		else hardSteps++;
+	}
+	return { hardSteps, smoothPixels, emptyTopColumns, fullTopColumns };
+}
+
+async function main(): Promise<void> {
+	const { pngPath, region } = parseProbeArgs({
+		region: 'required',
+		usage: 'usage: probe-edge-aa.ts <png> --region x,y,w,h'
+	});
+	const png = await loadProbePng(pngPath);
+	const bounds = getProbeBounds(png, region);
+	// Measure edges on alpha (transparent overlays) or luma (opaque pieces, where
+	// the edge is a bright glyph/shape on a darker field); auto-detected unless
+	// `--channel` forces it.
+	const { channel, sample } = resolveChannel(png, bounds, parseChannelFlag(process.argv));
+	const measurement = measureEdgeCoverage(bounds, sample);
+	const total = measurement.hardSteps + measurement.smoothPixels;
+	const ratio = total === 0 ? null : measurement.smoothPixels / total;
+	console.log(
+		JSON.stringify({
+			channel,
+			hard_stairsteps: measurement.hardSteps,
+			smooth_pixels: measurement.smoothPixels,
+			transition_sample_count: total,
+			coverage_ratio: ratio === null ? null : Number(ratio.toFixed(3)),
+			polarity: {
+				empty_top: measurement.emptyTopColumns,
+				full_top: measurement.fullTopColumns
+			}
+		})
+	);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+	await main();
+}
