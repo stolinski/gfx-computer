@@ -1,0 +1,948 @@
+{
+	"schema": "supers@1",
+	"name": "Who Meets Whom in Les Misérables",
+	"description": "A full-frame network of Les Misérables: the thirty most-connected characters, linked when they share a chapter, settle into their circles; then a line of influence travels from the bishop Myriel through Valjean and Marius to the barricade. Knuth's Stanford GraphBase.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 16,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"figures": [
+				{
+					"type": "figure",
+					"id": "les-miserables",
+					"kind": "network",
+					"title": "Who meets whom in Les Misérables",
+					"sourceNote": "Characters linked when they appear in the same chapter · Knuth, The Stanford GraphBase",
+					"data": {
+						"nodes": [
+							{
+								"id": "myriel",
+								"label": "Myriel",
+								"group": "valjean"
+							},
+							{
+								"id": "valjean",
+								"label": "Valjean",
+								"group": "valjean"
+							},
+							{
+								"id": "tholomyes",
+								"label": "Tholomyès",
+								"group": "fantine"
+							},
+							{
+								"id": "listolier",
+								"label": "Listolier",
+								"group": "fantine"
+							},
+							{
+								"id": "fameuil",
+								"label": "Fameuil",
+								"group": "fantine"
+							},
+							{
+								"id": "blacheville",
+								"label": "Blacheville",
+								"group": "fantine"
+							},
+							{
+								"id": "favourite",
+								"label": "Favourite",
+								"group": "fantine"
+							},
+							{
+								"id": "fantine",
+								"label": "Fantine",
+								"group": "fantine"
+							},
+							{
+								"id": "mme-thenardier",
+								"label": "Mme. Thénardier",
+								"group": "underworld"
+							},
+							{
+								"id": "thenardier",
+								"label": "Thénardier",
+								"group": "underworld"
+							},
+							{
+								"id": "cosette",
+								"label": "Cosette",
+								"group": "valjean"
+							},
+							{
+								"id": "javert",
+								"label": "Javert",
+								"group": "underworld"
+							},
+							{
+								"id": "bamatabois",
+								"label": "Bamatabois",
+								"group": "valjean"
+							},
+							{
+								"id": "eponine",
+								"label": "Éponine",
+								"group": "underworld"
+							},
+							{
+								"id": "gavroche",
+								"label": "Gavroche",
+								"group": "students"
+							},
+							{
+								"id": "marius",
+								"label": "Marius",
+								"group": "students"
+							},
+							{
+								"id": "mabeuf",
+								"label": "Mabeuf",
+								"group": "students"
+							},
+							{
+								"id": "enjolras",
+								"label": "Enjolras",
+								"group": "students"
+							},
+							{
+								"id": "combeferre",
+								"label": "Combeferre",
+								"group": "students"
+							},
+							{
+								"id": "prouvaire",
+								"label": "Jean Prouvaire",
+								"group": "students"
+							},
+							{
+								"id": "feuilly",
+								"label": "Feuilly",
+								"group": "students"
+							},
+							{
+								"id": "courfeyrac",
+								"label": "Courfeyrac",
+								"group": "students"
+							},
+							{
+								"id": "bahorel",
+								"label": "Bahorel",
+								"group": "students"
+							},
+							{
+								"id": "bossuet",
+								"label": "Bossuet",
+								"group": "students"
+							},
+							{
+								"id": "joly",
+								"label": "Joly",
+								"group": "students"
+							},
+							{
+								"id": "grantaire",
+								"label": "Grantaire",
+								"group": "students"
+							},
+							{
+								"id": "gueulemer",
+								"label": "Gueulemer",
+								"group": "underworld"
+							},
+							{
+								"id": "babet",
+								"label": "Babet",
+								"group": "underworld"
+							},
+							{
+								"id": "claquesous",
+								"label": "Claquesous",
+								"group": "underworld"
+							},
+							{
+								"id": "montparnasse",
+								"label": "Montparnasse",
+								"group": "underworld"
+							}
+						],
+						"links": [
+							{
+								"source": "valjean",
+								"target": "myriel",
+								"value": 5
+							},
+							{
+								"source": "listolier",
+								"target": "tholomyes",
+								"value": 4
+							},
+							{
+								"source": "fameuil",
+								"target": "tholomyes",
+								"value": 4
+							},
+							{
+								"source": "fameuil",
+								"target": "listolier",
+								"value": 4
+							},
+							{
+								"source": "blacheville",
+								"target": "tholomyes",
+								"value": 4
+							},
+							{
+								"source": "blacheville",
+								"target": "listolier",
+								"value": 4
+							},
+							{
+								"source": "blacheville",
+								"target": "fameuil",
+								"value": 4
+							},
+							{
+								"source": "favourite",
+								"target": "tholomyes",
+								"value": 3
+							},
+							{
+								"source": "favourite",
+								"target": "listolier",
+								"value": 3
+							},
+							{
+								"source": "favourite",
+								"target": "fameuil",
+								"value": 3
+							},
+							{
+								"source": "favourite",
+								"target": "blacheville",
+								"value": 4
+							},
+							{
+								"source": "fantine",
+								"target": "tholomyes",
+								"value": 3
+							},
+							{
+								"source": "fantine",
+								"target": "listolier",
+								"value": 3
+							},
+							{
+								"source": "fantine",
+								"target": "fameuil",
+								"value": 3
+							},
+							{
+								"source": "fantine",
+								"target": "blacheville",
+								"value": 3
+							},
+							{
+								"source": "fantine",
+								"target": "favourite",
+								"value": 4
+							},
+							{
+								"source": "fantine",
+								"target": "valjean",
+								"value": 9
+							},
+							{
+								"source": "mme-thenardier",
+								"target": "fantine",
+								"value": 2
+							},
+							{
+								"source": "mme-thenardier",
+								"target": "valjean",
+								"value": 7
+							},
+							{
+								"source": "thenardier",
+								"target": "mme-thenardier",
+								"value": 13
+							},
+							{
+								"source": "thenardier",
+								"target": "fantine",
+								"value": 1
+							},
+							{
+								"source": "thenardier",
+								"target": "valjean",
+								"value": 12
+							},
+							{
+								"source": "cosette",
+								"target": "mme-thenardier",
+								"value": 4
+							},
+							{
+								"source": "cosette",
+								"target": "valjean",
+								"value": 31
+							},
+							{
+								"source": "cosette",
+								"target": "tholomyes",
+								"value": 1
+							},
+							{
+								"source": "cosette",
+								"target": "thenardier",
+								"value": 1
+							},
+							{
+								"source": "javert",
+								"target": "valjean",
+								"value": 17
+							},
+							{
+								"source": "javert",
+								"target": "fantine",
+								"value": 5
+							},
+							{
+								"source": "javert",
+								"target": "thenardier",
+								"value": 5
+							},
+							{
+								"source": "javert",
+								"target": "mme-thenardier",
+								"value": 1
+							},
+							{
+								"source": "javert",
+								"target": "cosette",
+								"value": 1
+							},
+							{
+								"source": "bamatabois",
+								"target": "fantine",
+								"value": 1
+							},
+							{
+								"source": "bamatabois",
+								"target": "javert",
+								"value": 1
+							},
+							{
+								"source": "bamatabois",
+								"target": "valjean",
+								"value": 2
+							},
+							{
+								"source": "eponine",
+								"target": "mme-thenardier",
+								"value": 2
+							},
+							{
+								"source": "eponine",
+								"target": "thenardier",
+								"value": 3
+							},
+							{
+								"source": "gavroche",
+								"target": "thenardier",
+								"value": 1
+							},
+							{
+								"source": "gavroche",
+								"target": "javert",
+								"value": 1
+							},
+							{
+								"source": "gavroche",
+								"target": "valjean",
+								"value": 1
+							},
+							{
+								"source": "marius",
+								"target": "cosette",
+								"value": 21
+							},
+							{
+								"source": "marius",
+								"target": "valjean",
+								"value": 19
+							},
+							{
+								"source": "marius",
+								"target": "tholomyes",
+								"value": 1
+							},
+							{
+								"source": "marius",
+								"target": "thenardier",
+								"value": 2
+							},
+							{
+								"source": "marius",
+								"target": "eponine",
+								"value": 5
+							},
+							{
+								"source": "marius",
+								"target": "gavroche",
+								"value": 4
+							},
+							{
+								"source": "mabeuf",
+								"target": "marius",
+								"value": 1
+							},
+							{
+								"source": "mabeuf",
+								"target": "eponine",
+								"value": 1
+							},
+							{
+								"source": "mabeuf",
+								"target": "gavroche",
+								"value": 1
+							},
+							{
+								"source": "enjolras",
+								"target": "marius",
+								"value": 7
+							},
+							{
+								"source": "enjolras",
+								"target": "gavroche",
+								"value": 7
+							},
+							{
+								"source": "enjolras",
+								"target": "javert",
+								"value": 6
+							},
+							{
+								"source": "enjolras",
+								"target": "mabeuf",
+								"value": 1
+							},
+							{
+								"source": "enjolras",
+								"target": "valjean",
+								"value": 4
+							},
+							{
+								"source": "combeferre",
+								"target": "enjolras",
+								"value": 15
+							},
+							{
+								"source": "combeferre",
+								"target": "marius",
+								"value": 5
+							},
+							{
+								"source": "combeferre",
+								"target": "gavroche",
+								"value": 6
+							},
+							{
+								"source": "combeferre",
+								"target": "mabeuf",
+								"value": 2
+							},
+							{
+								"source": "prouvaire",
+								"target": "gavroche",
+								"value": 1
+							},
+							{
+								"source": "prouvaire",
+								"target": "enjolras",
+								"value": 4
+							},
+							{
+								"source": "prouvaire",
+								"target": "combeferre",
+								"value": 2
+							},
+							{
+								"source": "feuilly",
+								"target": "gavroche",
+								"value": 2
+							},
+							{
+								"source": "feuilly",
+								"target": "enjolras",
+								"value": 6
+							},
+							{
+								"source": "feuilly",
+								"target": "prouvaire",
+								"value": 2
+							},
+							{
+								"source": "feuilly",
+								"target": "combeferre",
+								"value": 5
+							},
+							{
+								"source": "feuilly",
+								"target": "mabeuf",
+								"value": 1
+							},
+							{
+								"source": "feuilly",
+								"target": "marius",
+								"value": 1
+							},
+							{
+								"source": "courfeyrac",
+								"target": "marius",
+								"value": 9
+							},
+							{
+								"source": "courfeyrac",
+								"target": "enjolras",
+								"value": 17
+							},
+							{
+								"source": "courfeyrac",
+								"target": "combeferre",
+								"value": 13
+							},
+							{
+								"source": "courfeyrac",
+								"target": "gavroche",
+								"value": 7
+							},
+							{
+								"source": "courfeyrac",
+								"target": "mabeuf",
+								"value": 2
+							},
+							{
+								"source": "courfeyrac",
+								"target": "eponine",
+								"value": 1
+							},
+							{
+								"source": "courfeyrac",
+								"target": "feuilly",
+								"value": 6
+							},
+							{
+								"source": "courfeyrac",
+								"target": "prouvaire",
+								"value": 3
+							},
+							{
+								"source": "bahorel",
+								"target": "combeferre",
+								"value": 5
+							},
+							{
+								"source": "bahorel",
+								"target": "gavroche",
+								"value": 5
+							},
+							{
+								"source": "bahorel",
+								"target": "courfeyrac",
+								"value": 6
+							},
+							{
+								"source": "bahorel",
+								"target": "mabeuf",
+								"value": 2
+							},
+							{
+								"source": "bahorel",
+								"target": "enjolras",
+								"value": 4
+							},
+							{
+								"source": "bahorel",
+								"target": "feuilly",
+								"value": 3
+							},
+							{
+								"source": "bahorel",
+								"target": "prouvaire",
+								"value": 2
+							},
+							{
+								"source": "bahorel",
+								"target": "marius",
+								"value": 1
+							},
+							{
+								"source": "bossuet",
+								"target": "marius",
+								"value": 5
+							},
+							{
+								"source": "bossuet",
+								"target": "courfeyrac",
+								"value": 12
+							},
+							{
+								"source": "bossuet",
+								"target": "gavroche",
+								"value": 5
+							},
+							{
+								"source": "bossuet",
+								"target": "bahorel",
+								"value": 4
+							},
+							{
+								"source": "bossuet",
+								"target": "enjolras",
+								"value": 10
+							},
+							{
+								"source": "bossuet",
+								"target": "feuilly",
+								"value": 6
+							},
+							{
+								"source": "bossuet",
+								"target": "prouvaire",
+								"value": 2
+							},
+							{
+								"source": "bossuet",
+								"target": "combeferre",
+								"value": 9
+							},
+							{
+								"source": "bossuet",
+								"target": "mabeuf",
+								"value": 1
+							},
+							{
+								"source": "bossuet",
+								"target": "valjean",
+								"value": 1
+							},
+							{
+								"source": "joly",
+								"target": "bahorel",
+								"value": 5
+							},
+							{
+								"source": "joly",
+								"target": "bossuet",
+								"value": 7
+							},
+							{
+								"source": "joly",
+								"target": "gavroche",
+								"value": 3
+							},
+							{
+								"source": "joly",
+								"target": "courfeyrac",
+								"value": 5
+							},
+							{
+								"source": "joly",
+								"target": "enjolras",
+								"value": 5
+							},
+							{
+								"source": "joly",
+								"target": "feuilly",
+								"value": 5
+							},
+							{
+								"source": "joly",
+								"target": "prouvaire",
+								"value": 2
+							},
+							{
+								"source": "joly",
+								"target": "combeferre",
+								"value": 5
+							},
+							{
+								"source": "joly",
+								"target": "mabeuf",
+								"value": 1
+							},
+							{
+								"source": "joly",
+								"target": "marius",
+								"value": 2
+							},
+							{
+								"source": "grantaire",
+								"target": "bossuet",
+								"value": 3
+							},
+							{
+								"source": "grantaire",
+								"target": "enjolras",
+								"value": 3
+							},
+							{
+								"source": "grantaire",
+								"target": "combeferre",
+								"value": 1
+							},
+							{
+								"source": "grantaire",
+								"target": "courfeyrac",
+								"value": 2
+							},
+							{
+								"source": "grantaire",
+								"target": "joly",
+								"value": 2
+							},
+							{
+								"source": "grantaire",
+								"target": "gavroche",
+								"value": 1
+							},
+							{
+								"source": "grantaire",
+								"target": "bahorel",
+								"value": 1
+							},
+							{
+								"source": "grantaire",
+								"target": "feuilly",
+								"value": 1
+							},
+							{
+								"source": "grantaire",
+								"target": "prouvaire",
+								"value": 1
+							},
+							{
+								"source": "gueulemer",
+								"target": "thenardier",
+								"value": 5
+							},
+							{
+								"source": "gueulemer",
+								"target": "valjean",
+								"value": 1
+							},
+							{
+								"source": "gueulemer",
+								"target": "mme-thenardier",
+								"value": 1
+							},
+							{
+								"source": "gueulemer",
+								"target": "javert",
+								"value": 1
+							},
+							{
+								"source": "gueulemer",
+								"target": "gavroche",
+								"value": 1
+							},
+							{
+								"source": "gueulemer",
+								"target": "eponine",
+								"value": 1
+							},
+							{
+								"source": "babet",
+								"target": "thenardier",
+								"value": 6
+							},
+							{
+								"source": "babet",
+								"target": "gueulemer",
+								"value": 6
+							},
+							{
+								"source": "babet",
+								"target": "valjean",
+								"value": 1
+							},
+							{
+								"source": "babet",
+								"target": "mme-thenardier",
+								"value": 1
+							},
+							{
+								"source": "babet",
+								"target": "javert",
+								"value": 2
+							},
+							{
+								"source": "babet",
+								"target": "gavroche",
+								"value": 1
+							},
+							{
+								"source": "babet",
+								"target": "eponine",
+								"value": 1
+							},
+							{
+								"source": "claquesous",
+								"target": "thenardier",
+								"value": 4
+							},
+							{
+								"source": "claquesous",
+								"target": "babet",
+								"value": 4
+							},
+							{
+								"source": "claquesous",
+								"target": "gueulemer",
+								"value": 4
+							},
+							{
+								"source": "claquesous",
+								"target": "valjean",
+								"value": 1
+							},
+							{
+								"source": "claquesous",
+								"target": "mme-thenardier",
+								"value": 1
+							},
+							{
+								"source": "claquesous",
+								"target": "javert",
+								"value": 1
+							},
+							{
+								"source": "claquesous",
+								"target": "eponine",
+								"value": 1
+							},
+							{
+								"source": "claquesous",
+								"target": "enjolras",
+								"value": 1
+							},
+							{
+								"source": "montparnasse",
+								"target": "javert",
+								"value": 1
+							},
+							{
+								"source": "montparnasse",
+								"target": "babet",
+								"value": 2
+							},
+							{
+								"source": "montparnasse",
+								"target": "gueulemer",
+								"value": 2
+							},
+							{
+								"source": "montparnasse",
+								"target": "claquesous",
+								"value": 2
+							},
+							{
+								"source": "montparnasse",
+								"target": "valjean",
+								"value": 1
+							},
+							{
+								"source": "montparnasse",
+								"target": "gavroche",
+								"value": 1
+							},
+							{
+								"source": "montparnasse",
+								"target": "eponine",
+								"value": 1
+							},
+							{
+								"source": "montparnasse",
+								"target": "thenardier",
+								"value": 1
+							}
+						]
+					},
+					"layout": {
+						"seed": 7,
+						"spread": 1,
+						"labels": "all"
+					},
+					"frameOrientationOverrides": {
+						"vertical": {
+							"x": 0.06,
+							"y": 0.08,
+							"width": 0.88,
+							"height": 0.76
+						}
+					},
+					"encoding": {
+						"nodeSize": "degree",
+						"nodeColor": "group",
+						"linkWidth": "value"
+					},
+					"moves": [
+						{
+							"move": "reveal",
+							"style": "grow",
+							"start": 0.02,
+							"duration": 0.34,
+							"ease": "settled"
+						},
+						{
+							"move": "propagate",
+							"path": ["myriel", "valjean", "marius", "enjolras"],
+							"start": 0.46,
+							"duration": 0.24,
+							"repeat": 1
+						},
+						{
+							"move": "focus",
+							"targets": ["node:myriel", "node:valjean", "node:marius", "node:enjolras"],
+							"start": 0.46,
+							"duration": 0.06
+						},
+						{
+							"move": "focus",
+							"targets": [],
+							"start": 0.84,
+							"duration": 0.06
+						},
+						{
+							"move": "exit",
+							"style": "fade",
+							"start": 0.95,
+							"duration": 0.045
+						}
+					]
+				}
+			]
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

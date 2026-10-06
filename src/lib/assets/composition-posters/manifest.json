@@ -377,6 +377,13 @@
 		"height": 360,
 		"contentFraction": 0.3981
 	},
+	"les-miserables-network": {
+		"contentKey": "68a11637cb7f551f",
+		"timestampSeconds": 8,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.378
+	},
 	"lower-third": {
 		"contentKey": "b968136b2af5eeb3",
 		"timestampSeconds": 3.35,

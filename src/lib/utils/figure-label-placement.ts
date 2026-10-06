@@ -1,0 +1,125 @@
+import type { FigurePoint, FigureRect } from './figure-geometry';
+
+/** A node whose label needs a place: its circle and the label's measured size. */
+export interface FigureNodeLabelRequest {
+	id: string;
+	center: FigurePoint;
+	radius: number;
+	width: number;
+	height: number;
+}
+
+/** Where a node's label sits: an anchor point with SVG text alignment. */
+export interface FigureNodeLabelPlacement {
+	x: number;
+	y: number;
+	anchor: 'start' | 'middle' | 'end';
+	baseline: 'hanging' | 'middle' | 'alphabetic';
+	/** The label's box, for callers that test further collisions. */
+	box: FigureRect;
+}
+
+type FigureLabelSide = readonly [dx: -1 | 0 | 1, dy: -1 | 0 | 1];
+
+// Preference order: under the node reads most naturally, then above, then the
+// sides, then the diagonals.
+const FIGURE_LABEL_SIDES: readonly FigureLabelSide[] = [
+	[0, 1],
+	[0, -1],
+	[1, 0],
+	[-1, 0],
+	[1, 1],
+	[-1, 1],
+	[1, -1],
+	[-1, -1]
+];
+
+function overlapArea(a: FigureRect, b: FigureRect): number {
+	const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+	const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+	return width > 0 && height > 0 ? width * height : 0;
+}
+
+function outsideArea(box: FigureRect, bounds: FigureRect): number {
+	return box.width * box.height - overlapArea(box, bounds);
+}
+
+function placementOnSide(
+	request: FigureNodeLabelRequest,
+	[dx, dy]: FigureLabelSide,
+	gap: number
+): FigureNodeLabelPlacement {
+	const reach = request.radius + gap;
+	// Diagonal labels tuck in toward the circle's rim rather than its box corner.
+	const diagonal = dx !== 0 && dy !== 0 ? Math.SQRT1_2 : 1;
+	const x = request.center.x + dx * reach * diagonal;
+	const y = request.center.y + dy * reach * diagonal;
+	const anchor = dx > 0 ? 'start' : dx < 0 ? 'end' : 'middle';
+	const baseline = dy > 0 ? 'hanging' : dy < 0 ? 'alphabetic' : 'middle';
+	const left =
+		anchor === 'start' ? x : anchor === 'end' ? x - request.width : x - request.width / 2;
+	const top =
+		baseline === 'hanging'
+			? y
+			: baseline === 'alphabetic'
+				? y - request.height
+				: y - request.height / 2;
+	return {
+		x,
+		y,
+		anchor,
+		baseline,
+		box: { x: left, y: top, width: request.width, height: request.height }
+	};
+}
+
+/**
+ * Places node labels so they avoid each other, other nodes and the edge of
+ * `bounds`. Larger nodes choose first; each label takes the side of its node
+ * (below, above, right, left, then diagonals) that overlaps least, preferring
+ * the earlier side on ties. Deterministic for the same input.
+ */
+export function placeFigureNodeLabels(
+	requests: readonly FigureNodeLabelRequest[],
+	bounds: FigureRect,
+	gap: number
+): Map<string, FigureNodeLabelPlacement> {
+	const nodeBoxes = requests.map((request) => ({
+		id: request.id,
+		// The circle's full box plus a margin, so a label never touches another node.
+		box: {
+			x: request.center.x - request.radius - gap * 2,
+			y: request.center.y - request.radius - gap * 2,
+			width: (request.radius + gap * 2) * 2,
+			height: (request.radius + gap * 2) * 2
+		}
+	}));
+	const order = requests
+		.map((request, index) => ({ request, index }))
+		.sort((a, b) => b.request.radius - a.request.radius || a.index - b.index);
+	const placedBoxes: FigureRect[] = [];
+	const placements = new Map<string, FigureNodeLabelPlacement>();
+	for (const { request } of order) {
+		let best: FigureNodeLabelPlacement | null = null;
+		let bestCost = Infinity;
+		FIGURE_LABEL_SIDES.forEach((side, sideIndex) => {
+			const candidate = placementOnSide(request, side, gap);
+			let cost = outsideArea(candidate.box, bounds) * 8;
+			for (const placed of placedBoxes) cost += overlapArea(candidate.box, placed) * 4;
+			for (const node of nodeBoxes) {
+				if (node.id !== request.id) cost += overlapArea(candidate.box, node.box);
+			}
+			// A small, size-relative nudge toward the preferred sides.
+			cost += sideIndex * request.height * request.height * 0.05;
+			if (cost < bestCost) {
+				bestCost = cost;
+				best = candidate;
+			}
+		});
+		if (best) {
+			placements.set(request.id, best);
+			placedBoxes.push((best as FigureNodeLabelPlacement).box);
+		}
+	}
+	return placements;
+}

@@ -26,6 +26,7 @@ import {
 	type FigureSceneItem,
 	type FigureVoice
 } from './figure-scene';
+import { placeFigureNodeLabels } from './figure-label-placement';
 import { wrapFigureText } from './figure-text';
 import type {
 	CycleFigure,
@@ -598,6 +599,24 @@ export function prepareNetworkFigure(
 	);
 	const centerOf = (id: string): FigurePoint =>
 		env.pinnedPosition(figureNodeMarkId(id)) ?? positions.get(id) ?? { x: box.x, y: box.y };
+	// Labels are placed once per layout so they avoid each other and the nodes.
+	const labelTextOf = (node: (typeof nodes)[number]): string =>
+		resolveFigurePin(figure, figureNodeMarkId(node.id), env.orientation)?.label ??
+		node.label ??
+		node.id;
+	const labelPlacements = placeFigureNodeLabels(
+		nodes
+			.filter((node) => showLabel(node.id))
+			.map((node) => ({
+				id: node.id,
+				center: centerOf(node.id),
+				radius: radii.get(node.id) ?? rMin,
+				width: env.measure(labelTextOf(node), 'label').width,
+				height: labelHeight
+			})),
+		env.plot,
+		labelHeight * 0.15
+	);
 	const groups = [...new Set(nodes.map((node) => node.group ?? ''))];
 	const voiceOf = (group: string | undefined): FigureVoice =>
 		figure.encoding.nodeColor === 'group'
@@ -789,17 +808,23 @@ export function prepareNetworkFigure(
 					strokeWidth: 6 * emphasis,
 					opacity: clamp01(reveal) * Math.max(motion.focusDim(id), reached)
 				});
-				if (showLabel(node.id)) {
+				const placement = labelPlacements.get(node.id);
+				if (placement) {
+					// A pulsing node pushes its label outward by the same amount.
+					const swell = r - (radii.get(node.id) ?? rMin);
+					const outX = placement.anchor === 'start' ? 1 : placement.anchor === 'end' ? -1 : 0;
+					const outY =
+						placement.baseline === 'hanging' ? 1 : placement.baseline === 'alphabetic' ? -1 : 0;
 					items.push(
 						createFigureText(env, {
 							key: `${id}#label`,
-							labelOf: id,
-							text: node.label ?? node.id,
+							mark: id,
+							text: labelTextOf(node),
 							role: 'label',
-							x: center.x,
-							y: center.y + r + labelHeight * 0.15,
-							anchor: 'middle',
-							baseline: 'hanging',
+							x: placement.x + outX * swell,
+							y: placement.y + outY * swell,
+							anchor: placement.anchor,
+							baseline: placement.baseline,
 							opacity: clamp01(reveal) * Math.max(motion.focusDim(id), reached)
 						})
 					);
