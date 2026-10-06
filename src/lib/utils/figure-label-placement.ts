@@ -139,3 +139,35 @@ export function placeFigureNodeLabels(
 	}
 	return placements;
 }
+
+/**
+ * Positions along one axis moved apart so neighbours are at least `spacing`
+ * apart: labels that would overlap form a cluster spread evenly around their
+ * average wanted position, and labels already clear of each other stay where
+ * they want to be. Returns positions in input order.
+ */
+export function separateFigureLabelPositions(wanted: readonly number[], spacing: number): number[] {
+	const order = wanted.map((_, index) => index).sort((a, b) => wanted[a] - wanted[b] || a - b);
+	const clusters: { members: number[]; start: number }[] = [];
+	for (const index of order) {
+		clusters.push({ members: [index], start: wanted[index] });
+		while (clusters.length > 1) {
+			const last = clusters[clusters.length - 1];
+			const previous = clusters[clusters.length - 2];
+			if (previous.start + previous.members.length * spacing <= last.start) break;
+			const members = [...previous.members, ...last.members];
+			const mean = members.reduce((sum, member) => sum + wanted[member], 0) / members.length;
+			clusters.splice(clusters.length - 2, 2, {
+				members,
+				start: mean - ((members.length - 1) * spacing) / 2
+			});
+		}
+	}
+	const positions = new Array<number>(wanted.length).fill(0);
+	for (const cluster of clusters) {
+		cluster.members.forEach((member, rank) => {
+			positions[member] = cluster.start + rank * spacing;
+		});
+	}
+	return positions;
+}

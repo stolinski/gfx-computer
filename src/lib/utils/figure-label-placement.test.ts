@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { placeFigureNodeLabels } from './figure-label-placement';
+import { placeFigureNodeLabels, separateFigureLabelPositions } from './figure-label-placement';
 
 const bounds = { x: 0, y: 0, width: 1000, height: 1000 };
 const overlaps = (
@@ -43,5 +43,15 @@ describe('placeFigureNodeLabels', () => {
 		).get('edge');
 		assert.ok(placed);
 		assert.ok(placed.box.y + placed.box.height <= bounds.height);
+	});
+});
+
+describe('separateFigureLabelPositions', () => {
+	it('leaves labels that already clear each other alone', () => {
+		assert.deepEqual(separateFigureLabelPositions([0, 30, 60], 20), [0, 30, 60]);
+	});
+
+	it('spreads an overlapping cluster around its average', () => {
+		assert.deepEqual(separateFigureLabelPositions([50, 40, 200], 20), [55, 35, 200]);
 	});
 });

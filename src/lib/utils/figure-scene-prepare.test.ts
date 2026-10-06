@@ -11,7 +11,7 @@ import { FIGURE_TARGET_DECLARATIONS } from '$lib/platform/figure-target-declarat
 import type { FigureSceneItem } from './figure-scene';
 import { prepareFigure } from './figure-scene-prepare';
 import { wrapFigureText } from './figure-text';
-import { fitTreemapLeafText } from './figure-scene-data';
+import { bumpChartPath, fitTreemapLeafText, partialBumpSegment } from './figure-scene-data';
 import { getVideoFrameSize, type VideoOrientation } from './video-frame';
 
 const ORIENTATIONS: readonly VideoOrientation[] = ['horizontal', 'vertical'];
@@ -235,5 +235,25 @@ describe('fitTreemapLeafText', () => {
 			fitTreemapLeafText('Other fossil', '818', { x: 0, y: 0, width: 20, height: 20 }, 8, measure),
 			[]
 		);
+	});
+});
+
+describe('bump chart curves', () => {
+	it('leaves and arrives level at each period', () => {
+		assert.equal(
+			bumpChartPath([
+				{ x: 0, y: 0 },
+				{ x: 100, y: 50 }
+			]),
+			'M0,0C50,0 50,50 100,50'
+		);
+	});
+
+	it('cuts a step on the curve at the horizontal fraction', () => {
+		const half = partialBumpSegment({ x: 0, y: 0 }, { x: 100, y: 50 }, 0.5);
+		assert.ok(Math.abs(half.end.x - 50) < 0.01);
+		assert.ok(Math.abs(half.end.y - 25) < 0.01);
+		const whole = partialBumpSegment({ x: 0, y: 0 }, { x: 100, y: 50 }, 1);
+		assert.ok(Math.abs(whole.end.x - 100) < 0.01 && Math.abs(whole.end.y - 50) < 0.01);
 	});
 });

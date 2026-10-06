@@ -1,0 +1,202 @@
+{
+	"schema": "supers@1",
+	"name": "The Most Populous Countries",
+	"description": "A full-frame bump chart: today's twelve most populous countries ranked against each other from 1960 to 2024. The lines draw decade by decade, then India's pass of China, the climb of Pakistan, Nigeria and Ethiopia, and the slide of Russia and Japan each take a turn in focus. World Bank population data.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 18,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"figures": [
+				{
+					"type": "figure",
+					"id": "population-rank",
+					"kind": "slope",
+					"title": "The most populous countries, ranked",
+					"sourceNote": "Rank among the twelve most populous countries of 2024 · World Bank, total population",
+					"data": {
+						"periods": [
+							{
+								"id": "y1960",
+								"label": "1960"
+							},
+							{
+								"id": "y1970",
+								"label": "1970"
+							},
+							{
+								"id": "y1980",
+								"label": "1980"
+							},
+							{
+								"id": "y1990",
+								"label": "1990"
+							},
+							{
+								"id": "y2000",
+								"label": "2000"
+							},
+							{
+								"id": "y2010",
+								"label": "2010"
+							},
+							{
+								"id": "y2020",
+								"label": "2020"
+							},
+							{
+								"id": "y2024",
+								"label": "2024"
+							}
+						],
+						"entities": [
+							{
+								"id": "india",
+								"label": "India",
+								"values": [436.0, 545.9, 687.4, 865.0, 1057.9, 1243.5, 1402.6, 1450.9]
+							},
+							{
+								"id": "china",
+								"label": "China",
+								"values": [667.1, 818.3, 981.2, 1135.2, 1262.6, 1337.7, 1411.1, 1409.0]
+							},
+							{
+								"id": "united-states",
+								"label": "United States",
+								"values": [180.7, 205.1, 227.2, 249.6, 282.2, 309.4, 331.6, 340.0]
+							},
+							{
+								"id": "indonesia",
+								"label": "Indonesia",
+								"values": [88.3, 115.7, 149.0, 183.5, 216.1, 246.3, 274.8, 283.5]
+							},
+							{
+								"id": "pakistan",
+								"label": "Pakistan",
+								"values": [45.7, 60.2, 82.3, 116.2, 154.9, 199.2, 235.0, 251.3]
+							},
+							{
+								"id": "nigeria",
+								"label": "Nigeria",
+								"values": [45.1, 55.9, 73.8, 97.1, 126.4, 166.6, 214.0, 232.7]
+							},
+							{
+								"id": "brazil",
+								"label": "Brazil",
+								"values": [72.4, 95.4, 121.2, 149.1, 174.0, 193.7, 208.7, 212.0]
+							},
+							{
+								"id": "bangladesh",
+								"label": "Bangladesh",
+								"values": [51.8, 69.1, 88.0, 111.6, 134.5, 152.2, 166.3, 173.6]
+							},
+							{
+								"id": "russia",
+								"label": "Russia",
+								"values": [119.9, 130.4, 139.0, 148.0, 146.6, 142.8, 145.2, 143.7]
+							},
+							{
+								"id": "ethiopia",
+								"label": "Ethiopia",
+								"values": [21.4, 27.8, 34.4, 47.6, 67.4, 90.5, 118.9, 132.1]
+							},
+							{
+								"id": "mexico",
+								"label": "Mexico",
+								"values": [36.7, 50.8, 67.3, 82.8, 98.6, 113.6, 126.8, 130.9]
+							},
+							{
+								"id": "japan",
+								"label": "Japan",
+								"values": [93.2, 103.4, 116.8, 123.5, 126.8, 128.1, 126.3, 124.0]
+							}
+						],
+						"valueFormat": {
+							"precision": 0,
+							"suffix": "M"
+						}
+					},
+					"layout": {
+						"mode": "rank"
+					},
+					"frameOrientationOverrides": {
+						"vertical": {
+							"x": 0.06,
+							"y": 0.08,
+							"width": 0.88,
+							"height": 0.76
+						}
+					},
+					"encoding": {
+						"lineColor": "uniform"
+					},
+					"moves": [
+						{
+							"move": "reveal",
+							"style": "fade",
+							"start": 0.02,
+							"duration": 0.05
+						},
+						{
+							"move": "advance",
+							"from": 0,
+							"to": 7,
+							"start": 0.06,
+							"duration": 0.36,
+							"ease": "smooth"
+						},
+						{
+							"move": "focus",
+							"targets": ["line:india", "line:china"],
+							"start": 0.46,
+							"duration": 0.05
+						},
+						{
+							"move": "focus",
+							"targets": ["line:pakistan", "line:nigeria", "line:ethiopia"],
+							"start": 0.62,
+							"duration": 0.05
+						},
+						{
+							"move": "focus",
+							"targets": ["line:russia", "line:japan"],
+							"start": 0.77,
+							"duration": 0.05
+						},
+						{
+							"move": "focus",
+							"targets": [],
+							"start": 0.9,
+							"duration": 0.04
+						},
+						{
+							"move": "exit",
+							"style": "fade",
+							"start": 0.955,
+							"duration": 0.04
+						}
+					]
+				}
+			]
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

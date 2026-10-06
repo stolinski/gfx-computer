@@ -11,6 +11,7 @@ import {
 import {
 	insetFigureRect,
 	intersectFigureRect,
+	lerpFigurePoint,
 	lerpFigureRect,
 	roundFigurePixel,
 	type FigurePoint,
@@ -31,6 +32,7 @@ import {
 	type FigureSceneItem,
 	type FigureVoice
 } from './figure-scene';
+import { separateFigureLabelPositions } from './figure-label-placement';
 import { formatFigureValue, wrapFigureText, type FigureTextRole } from './figure-text';
 import type {
 	BarRaceFigure,
@@ -562,6 +564,59 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 // ---------------------------------------------------------------------------
 // slope
 
+/**
+ * The bump-chart curve through `points`: each step is a cubic with flat
+ * tangents at both periods, so lines leave and arrive level.
+ */
+export function bumpChartPath(points: readonly FigurePoint[]): string {
+	if (points.length === 0) return '';
+	let d = `M${roundFigurePixel(points[0].x)},${roundFigurePixel(points[0].y)}`;
+	for (let index = 1; index < points.length; index += 1) {
+		const a = points[index - 1];
+		const b = points[index];
+		const mid = (a.x + b.x) / 2;
+		d += `C${roundFigurePixel(mid)},${roundFigurePixel(a.y)} ${roundFigurePixel(mid)},${roundFigurePixel(b.y)} ${roundFigurePixel(b.x)},${roundFigurePixel(b.y)}`;
+	}
+	return d;
+}
+
+/**
+ * The first part of the bump step from `a` to `b`, cut where it has covered
+ * `fraction` of the horizontal distance, as a path command continuing from `a`
+ * and the point it ends on. The cut is found on the curve itself, so a line
+ * drawn by `advance` grows along the same curve it settles into.
+ */
+export function partialBumpSegment(
+	a: FigurePoint,
+	b: FigurePoint,
+	fraction: number
+): { command: string; end: FigurePoint } {
+	const mid = (a.x + b.x) / 2;
+	const p1 = { x: mid, y: a.y };
+	const p2 = { x: mid, y: b.y };
+	const targetX = a.x + (b.x - a.x) * clamp01(fraction);
+	const xAt = (t: number): number =>
+		(1 - t) ** 3 * a.x + 3 * (1 - t) ** 2 * t * p1.x + 3 * (1 - t) * t ** 2 * p2.x + t ** 3 * b.x;
+	// x(t) rises monotonically; bisection finds the curve parameter for the cut.
+	let low = 0;
+	let high = 1;
+	for (let iteration = 0; iteration < 32; iteration += 1) {
+		const t = (low + high) / 2;
+		if ((xAt(t) - targetX) * Math.sign(b.x - a.x || 1) < 0) low = t;
+		else high = t;
+	}
+	const t = (low + high) / 2;
+	// De Casteljau split at t keeps the first part's control points.
+	const q1 = lerpFigurePoint(a, p1, t);
+	const r1 = lerpFigurePoint(p1, p2, t);
+	const r2 = lerpFigurePoint(p2, b, t);
+	const q2 = lerpFigurePoint(q1, r1, t);
+	const end = lerpFigurePoint(q2, lerpFigurePoint(r1, r2, t), t);
+	const p = (point: FigurePoint): string =>
+		`${roundFigurePixel(point.x)},${roundFigurePixel(point.y)}`;
+	return { command: `C${p(q1)} ${p(q2)} ${p(end)}`, end };
+}
+
 export function prepareSlopeFigure(figure: SlopeFigure, env: FigurePrepareEnv): FigureKindPrepared {
 	const settings = resolveFigureLayoutSettings(figure, env.orientation);
 	const { periods, entities, valueFormat } = figure.data;
@@ -578,10 +633,22 @@ export function prepareSlopeFigure(figure: SlopeFigure, env: FigurePrepareEnv): 
 		)
 	);
 	const isRank = settings.mode === 'rank';
+	const labelHeight = env.measure('Ag', 'label').height;
+	const tipLineHeight = Math.max(labelHeight, env.measure('0', 'value').height);
+	const right = labelWidth + (isRank ? 0 : valueWidth + gap * 0.5) + gap;
+	// A rank chart too narrow for names on both sides (a tall frame) numbers
+	// its rows on the left instead, the usual bump-chart axis, and names lines
+	// only where they end; each period keeps room for its label.
+	const rankNumberWidth = env.measure(String(entities.length), 'label').width;
+	const periodRoom = env.measure('0000', 'caption').width * 1.8;
+	const namesBothSides =
+		!isRank ||
+		(env.plot.width - right - labelWidth - gap) / Math.max(1, periods.length - 1) >= periodRoom;
 	const plot = insetFigureRect(env.plot, {
-		top: captionHeight + gap,
-		left: labelWidth + gap,
-		right: labelWidth + (isRank ? 0 : valueWidth + gap * 0.5) + gap
+		top: captionHeight + gap + labelHeight * 0.5,
+		bottom: labelHeight * 0.5 + gap,
+		left: (namesBothSides ? labelWidth : rankNumberWidth) + gap,
+		right
 	});
 	const periodX = periods.map(
 		(_, index) => plot.x + (plot.width * index) / Math.max(1, periods.length - 1)
@@ -636,8 +703,25 @@ export function prepareSlopeFigure(figure: SlopeFigure, env: FigurePrepareEnv): 
 					})
 				);
 			});
+			if (!namesBothSides) {
+				entities.forEach((_, rank) => {
+					items.push(
+						createFigureText(env, {
+							key: `rank:${rank + 1}`,
+							text: String(rank + 1),
+							role: 'label',
+							x: plot.x - gap * 0.6,
+							y: plot.y + rank * rowStep,
+							anchor: 'end',
+							baseline: 'middle',
+							opacity: chrome
+						})
+					);
+				});
+			}
 			const lower = Math.max(0, Math.floor(position));
 			const frac = position - lower;
+			const tips: { id: string; x: number; y: number; text: string; opacity: number }[] = [];
 			entities.forEach((entity, entityIndex) => {
 				const id = `line:${entity.id}`;
 				const emphasis = motion.focusEmphasis(id);
@@ -650,16 +734,26 @@ export function prepareSlopeFigure(figure: SlopeFigure, env: FigurePrepareEnv): 
 				const points: FigurePoint[] = [];
 				for (let index = 0; index <= Math.min(lower, periods.length - 1); index += 1)
 					points.push(pointOf(entityIndex, index));
+				// Rank lines are S-curves (a bump chart), so a line stays traceable
+				// through crossings; value lines stay straight (a slope chart).
+				let d = isRank ? bumpChartPath(points) : polylinePath(points);
 				if (lower < periods.length - 1 && frac > 0) {
 					const a = pointOf(entityIndex, lower);
 					const b = pointOf(entityIndex, lower + 1);
-					points.push({ x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac });
+					if (isRank) {
+						const partial = partialBumpSegment(a, b, frac);
+						d += partial.command;
+						points.push(partial.end);
+					} else {
+						points.push({ x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac });
+						d = polylinePath(points);
+					}
 				}
 				items.push({
 					shape: 'path',
 					key: id,
 					mark: id,
-					d: polylinePath(points),
+					d,
 					fill: null,
 					fillOpacity: 0,
 					stroke: voice,
@@ -682,35 +776,52 @@ export function prepareSlopeFigure(figure: SlopeFigure, env: FigurePrepareEnv): 
 						opacity: dim * fadeIn
 					});
 				}
-				const start = pointOf(entityIndex, 0);
-				items.push(
-					createFigureText(env, {
-						key: `${id}#start`,
-						labelOf: id,
-						text: isRank ? entity.label : `${entity.label}`,
-						role: 'label',
-						x: start.x - gap * 0.6,
-						y: start.y,
-						anchor: 'end',
-						baseline: 'middle',
-						opacity: dim * fadeIn
-					})
-				);
+				if (namesBothSides) {
+					const start = pointOf(entityIndex, 0);
+					items.push(
+						createFigureText(env, {
+							key: `${id}#start`,
+							labelOf: id,
+							text: entity.label,
+							role: 'label',
+							x: start.x - gap * 0.6,
+							y: start.y,
+							anchor: 'end',
+							baseline: 'middle',
+							opacity: dim * fadeIn
+						})
+					);
+				}
 				const tip = points[points.length - 1];
 				const tipValue =
 					lower < periods.length - 1
 						? entity.values[lower] + (entity.values[lower + 1] - entity.values[lower]) * frac
 						: entity.values[periods.length - 1];
+				tips.push({
+					id,
+					x: tip.x + gap * 0.6,
+					y: tip.y,
+					text: isRank ? entity.label : formatFigureValue(tipValue, valueFormat),
+					opacity: dim * fadeIn * (position > 0.02 ? 1 : 0)
+				});
+			});
+			// Lines crossing mid-step would stack their end labels; they part to
+			// label spacing and rejoin their lines once the lines separate.
+			const tipYs = separateFigureLabelPositions(
+				tips.map((tip) => tip.y),
+				tipLineHeight
+			);
+			tips.forEach((tip, index) => {
 				items.push(
 					createFigureText(env, {
-						key: `${id}#tip`,
-						text: isRank ? entity.label : formatFigureValue(tipValue, valueFormat),
+						key: `${tip.id}#tip`,
+						text: tip.text,
 						role: isRank ? 'label' : 'value',
-						x: tip.x + gap * 0.6,
-						y: tip.y,
+						x: tip.x,
+						y: tipYs[index],
 						anchor: 'start',
 						baseline: 'middle',
-						opacity: dim * fadeIn * (position > 0.02 ? 1 : 0)
+						opacity: tip.opacity
 					})
 				);
 			});
