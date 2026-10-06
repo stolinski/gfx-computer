@@ -1,4 +1,12 @@
-import { stratify, tree, treemap, treemapSquarify, type HierarchyNode } from 'd3-hierarchy';
+import {
+	stratify,
+	tree,
+	treemap,
+	treemapBinary,
+	treemapSquarify,
+	type HierarchyNode,
+	type HierarchyRectangularNode
+} from 'd3-hierarchy';
 
 import type { FigurePoint, FigureRect } from './figure-geometry';
 import { roundFigurePixel } from './figure-geometry';
@@ -107,6 +115,36 @@ export interface FigureTreemapLayoutCell {
  * label band of `labelBand` px at their top; `padding` separates cells.
  * Children sort by value descending, ties by declaration order.
  */
+/** The worst (largest) long-side to short-side ratio among a node's children. */
+function worstTreemapChildAspect(node: HierarchyRectangularNode<FigureHierarchyDatum>): number {
+	let worst = 1;
+	for (const child of node.children ?? []) {
+		const width = Math.max(1e-6, child.x1 - child.x0);
+		const height = Math.max(1e-6, child.y1 - child.y0);
+		worst = Math.max(worst, width / height, height / width);
+	}
+	return worst;
+}
+
+/**
+ * Tiles each group both squarified and binary-split and keeps whichever leaves
+ * its worst cell squarer. Squarify suits many siblings; with a few skewed ones
+ * it strands the smallest as an unlabelable sliver, which binary avoids.
+ */
+function tileFigureTreemapBalanced(
+	node: HierarchyRectangularNode<FigureHierarchyDatum>,
+	x0: number,
+	y0: number,
+	x1: number,
+	y1: number
+): void {
+	treemapSquarify(node, x0, y0, x1, y1);
+	const squarified = worstTreemapChildAspect(node);
+	treemapBinary(node, x0, y0, x1, y1);
+	if (worstTreemapChildAspect(node) <= squarified) return;
+	treemapSquarify(node, x0, y0, x1, y1);
+}
+
 export function layoutFigureTreemap(
 	nodes: readonly FigureHierarchyDatum[],
 	box: FigureRect,
@@ -122,7 +160,7 @@ export function layoutFigureTreemap(
 				(b.value ?? 0) - (a.value ?? 0) || (order.get(a.data.id) ?? 0) - (order.get(b.data.id) ?? 0)
 		);
 	const laidOut = treemap<FigureHierarchyDatum>()
-		.tile(treemapSquarify)
+		.tile(tileFigureTreemapBalanced)
 		.size([box.width, box.height])
 		.paddingInner(padding)
 		.paddingOuter(padding)

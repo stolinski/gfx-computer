@@ -1,0 +1,153 @@
+{
+	"schema": "supers@1",
+	"name": "Where the World's Electricity Comes From",
+	"description": "A full-frame treemap of global electricity generation in 2025: every source grows in by size, fossil and clean, then the frame zooms into clean power, where solar and wind now match nuclear. Ember yearly data.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 14,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"figures": [
+				{
+					"type": "figure",
+					"id": "electricity",
+					"kind": "treemap",
+					"title": "Where the world's electricity came from in 2025",
+					"sourceNote": "Ember · global electricity generation, terawatt-hours",
+					"data": {
+						"nodes": [
+							{
+								"id": "world",
+								"label": "World"
+							},
+							{
+								"id": "clean",
+								"label": "Clean",
+								"parent": "world"
+							},
+							{
+								"id": "fossil",
+								"label": "Fossil",
+								"parent": "world"
+							},
+							{
+								"id": "hydro",
+								"label": "Hydro",
+								"parent": "clean",
+								"value": 4432
+							},
+							{
+								"id": "nuclear",
+								"label": "Nuclear",
+								"parent": "clean",
+								"value": 2812
+							},
+							{
+								"id": "solar",
+								"label": "Solar",
+								"parent": "clean",
+								"value": 2779
+							},
+							{
+								"id": "wind",
+								"label": "Wind",
+								"parent": "clean",
+								"value": 2712
+							},
+							{
+								"id": "bioenergy-other",
+								"label": "Bioenergy and other",
+								"parent": "clean",
+								"value": 794
+							},
+							{
+								"id": "coal",
+								"label": "Coal",
+								"parent": "fossil",
+								"value": 10490
+							},
+							{
+								"id": "gas",
+								"label": "Gas",
+								"parent": "fossil",
+								"value": 6896
+							},
+							{
+								"id": "other-fossil",
+								"label": "Other fossil",
+								"parent": "fossil",
+								"value": 818
+							}
+						],
+						"valueFormat": {
+							"precision": 0,
+							"suffix": " TWh"
+						}
+					},
+					"layout": {
+						"padding": "airy",
+						"labels": "leaves"
+					},
+					"frameOrientationOverrides": {
+						"vertical": {
+							"x": 0.07,
+							"y": 0.08,
+							"width": 0.86,
+							"height": 0.76
+						}
+					},
+					"encoding": {
+						"color": "top-level"
+					},
+					"moves": [
+						{
+							"move": "reveal",
+							"style": "grow",
+							"start": 0.02,
+							"duration": 0.36,
+							"ease": "smooth"
+						},
+						{
+							"move": "focus",
+							"targets": ["node:clean"],
+							"zoom": true,
+							"start": 0.48,
+							"duration": 0.14
+						},
+						{
+							"move": "focus",
+							"targets": [],
+							"start": 0.8,
+							"duration": 0.12
+						},
+						{
+							"move": "exit",
+							"style": "fade",
+							"start": 0.95,
+							"duration": 0.045
+						}
+					]
+				}
+			]
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

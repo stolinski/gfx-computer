@@ -51,4 +51,21 @@ describe('layoutFigureTreemap', () => {
 		assert.ok(cells.every((cell) => inside(cell.rect)));
 		assert.deepEqual(cells, layoutFigureTreemap(treemap.data.nodes, box, 8, 60));
 	});
+
+	it('never strands a small sibling as a sliver among a few skewed ones', () => {
+		const nodes = [
+			{ id: 'root', label: 'Root' },
+			{ id: 'group', label: 'Group', parent: 'root' },
+			{ id: 'big', label: 'Big', parent: 'group', value: 10490 },
+			{ id: 'mid', label: 'Mid', parent: 'group', value: 6896 },
+			{ id: 'small', label: 'Small', parent: 'group', value: 818 }
+		];
+		const cells = layoutFigureTreemap(nodes, { x: 0, y: 0, width: 3000, height: 1500 }, 16, 60);
+		const small = cells.find((cell) => cell.id === 'small');
+		assert.ok(small);
+		const aspect =
+			Math.max(small.rect.width, small.rect.height) / Math.min(small.rect.width, small.rect.height);
+		// Squarify alone strands this cell as a ~1:24 strip; balanced tiling keeps it under half that.
+		assert.ok(aspect < 12, `aspect ${aspect}`);
+	});
 });

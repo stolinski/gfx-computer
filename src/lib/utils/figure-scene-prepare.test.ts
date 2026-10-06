@@ -11,6 +11,7 @@ import { FIGURE_TARGET_DECLARATIONS } from '$lib/platform/figure-target-declarat
 import type { FigureSceneItem } from './figure-scene';
 import { prepareFigure } from './figure-scene-prepare';
 import { wrapFigureText } from './figure-text';
+import { fitTreemapLeafText } from './figure-scene-data';
 import { getVideoFrameSize, type VideoOrientation } from './video-frame';
 
 const ORIENTATIONS: readonly VideoOrientation[] = ['horizontal', 'vertical'];
@@ -191,5 +192,43 @@ describe('wrapFigureText', () => {
 			'Proto-Indo-',
 			'European'
 		]);
+	});
+});
+
+describe('fitTreemapLeafText', () => {
+	// 10 px per character; label and value lines 20 px, captions 12 px.
+	const measure = (text: string, role: string): { width: number; height: number } => ({
+		width: text.length * (role === 'caption' ? 6 : 10),
+		height: role === 'caption' ? 12 : 20
+	});
+
+	it('wraps the label to the cell and puts the value beneath', () => {
+		const lines = fitTreemapLeafText(
+			'Bioenergy and other',
+			'794',
+			{ x: 0, y: 0, width: 140, height: 200 },
+			8,
+			measure
+		);
+		assert.deepEqual(
+			lines.map((line) => [line.text, line.role, line.offset]),
+			[
+				['Bioenergy', 'label', 0],
+				['and other', 'label', 20],
+				['794', 'value', 40]
+			]
+		);
+	});
+
+	it('falls back to one caption line, then to nothing', () => {
+		const wideShort = { x: 0, y: 0, width: 400, height: 30 };
+		assert.deepEqual(
+			fitTreemapLeafText('Other fossil', '818', wideShort, 8, measure).map((line) => line.text),
+			['Other fossil · 818']
+		);
+		assert.deepEqual(
+			fitTreemapLeafText('Other fossil', '818', { x: 0, y: 0, width: 20, height: 20 }, 8, measure),
+			[]
+		);
 	});
 });

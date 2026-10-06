@@ -31,8 +31,26 @@ export function insetFigureRect(
 	};
 }
 
+/** The overlap of two rects; zero width or height when they do not meet. */
+export function intersectFigureRect(a: FigureRect, b: FigureRect): FigureRect {
+	const x = Math.max(a.x, b.x);
+	const y = Math.max(a.y, b.y);
+	return {
+		x,
+		y,
+		width: Math.max(0, Math.min(a.x + a.width, b.x + b.width) - x),
+		height: Math.max(0, Math.min(a.y + a.height, b.y + b.height) - y)
+	};
+}
+
 export function lerpFigureNumber(from: number, to: number, t: number): number {
 	return from + (to - from) * t;
+}
+
+/** Smoothstep of `t` clamped to 0–1: eases in and out with zero slope at both ends. */
+export function smoothFigureStep(t: number): number {
+	const clamped = Math.max(0, Math.min(1, t));
+	return clamped * clamped * (3 - 2 * clamped);
 }
 
 export function lerpFigurePoint(from: FigurePoint, to: FigurePoint, t: number): FigurePoint {

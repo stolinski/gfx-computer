@@ -510,7 +510,9 @@ export function prepareTreeFigure(figure: TreeFigure, env: FigurePrepareEnv): Fi
 				const role = node.depth === 0 ? 'value' : 'label';
 				const text = resolveFigurePin(figure, id, env.orientation)?.label ?? datum.label;
 				// Inner labels of a left-to-right tree wrap to their column so they never
-				// run into the next column's nodes; lines stack away from the node.
+				// run into the next column's nodes; lines stack away from the node. The
+				// Pin label is applied before wrapping, so lines carry `mark` (the Pin still
+				// hides or fades them) rather than `labelOf` (which would replace each line).
 				const lines =
 					direction === 'right' && !node.isLeaf
 						? wrapFigureText(text, columnGap - gap * 0.5, role, env.measure)

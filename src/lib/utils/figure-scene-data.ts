@@ -10,16 +10,18 @@ import {
 } from './figure-data-frames';
 import {
 	insetFigureRect,
+	intersectFigureRect,
 	lerpFigureRect,
 	roundFigurePixel,
 	type FigurePoint,
 	packFigureLabelRows,
+	smoothFigureStep,
 	type FigureRect
 } from './figure-geometry';
 import { figureSankeyRibbonPath, layoutFigureSankey } from './figure-layout-sankey';
 import { layoutFigureTreemap } from './figure-layout-hierarchy';
 import { figureLinkMarkId, figureNodeMarkId } from './figure-mark-ids';
-import type { FigureMotion } from './figure-motion';
+import { resolveFigurePin, type FigureMotion } from './figure-motion';
 import {
 	createFigureText,
 	figureSequenceVoice,
@@ -29,7 +31,7 @@ import {
 	type FigureSceneItem,
 	type FigureVoice
 } from './figure-scene';
-import { formatFigureValue } from './figure-text';
+import { formatFigureValue, wrapFigureText, type FigureTextRole } from './figure-text';
 import type {
 	BarRaceFigure,
 	LineFigure,
@@ -932,6 +934,53 @@ export function prepareSankeyFigure(
 // ---------------------------------------------------------------------------
 // treemap
 
+/** One line of a treemap leaf's text: its words, type role and offset below the cell's text origin. */
+export interface TreemapLeafTextLine {
+	text: string;
+	role: FigureTextRole;
+	offset: number;
+}
+
+/**
+ * The text a treemap leaf can carry inside `rect`: the label wrapped to the
+ * cell with the value beneath, in label type and then caption type; failing
+ * both, one caption line "label · value"; failing that, nothing. Type is never
+ * squeezed, and nothing is drawn that would leave the cell.
+ */
+export function fitTreemapLeafText(
+	label: string,
+	value: string,
+	rect: FigureRect,
+	padding: number,
+	measure: FigurePrepareEnv['measure']
+): TreemapLeafTextLine[] {
+	const innerWidth = rect.width - padding * 2.5;
+	const innerHeight = rect.height - padding * 2;
+	if (innerWidth <= 0 || innerHeight <= 0) return [];
+	const fitsWidth = (text: string, role: FigureTextRole): boolean =>
+		measure(text, role).width <= innerWidth;
+	for (const [labelRole, valueRole] of [
+		['label', 'value'],
+		['caption', 'caption']
+	] as const) {
+		const lineHeight = measure('Ag', labelRole).height;
+		const valueHeight = measure('0', valueRole).height;
+		const wrapped = wrapFigureText(label, innerWidth, labelRole, measure);
+		if (!wrapped.every((line) => fitsWidth(line, labelRole)) || !fitsWidth(value, valueRole))
+			continue;
+		if (wrapped.length * lineHeight + valueHeight > innerHeight) continue;
+		return [
+			...wrapped.map((text, index) => ({ text, role: labelRole, offset: index * lineHeight })),
+			{ text: value, role: valueRole, offset: wrapped.length * lineHeight }
+		];
+	}
+	const single = `${label} · ${value}`;
+	if (fitsWidth(single, 'caption') && measure('Ag', 'caption').height <= innerHeight) {
+		return [{ text: single, role: 'caption', offset: 0 }];
+	}
+	return [];
+}
+
 export function prepareTreemapFigure(
 	figure: TreemapFigure,
 	env: FigurePrepareEnv
@@ -939,12 +988,13 @@ export function prepareTreemapFigure(
 	const settings = resolveFigureLayoutSettings(figure, env.orientation);
 	const padding = settings.padding === 'airy' ? 16 : 6;
 	const captionHeight = env.measure('Ag', 'caption').height;
-	const labelHeight = env.measure('Ag', 'label').height;
-	const valueHeight = env.measure('0', 'value').height;
 	const cells = layoutFigureTreemap(figure.data.nodes, env.plot, padding, captionHeight + padding);
 	const byId = new Map(cells.map((cell) => [cell.id, cell]));
 	const labelOf = new Map(figure.data.nodes.map((node) => [node.id, node.label]));
-	const branches = cells.filter((cell) => cell.depth === 1).map((cell) => cell.id);
+	// Branch voices follow the authored order, so an author picks which group
+	// takes the Pack's first voice by listing it first.
+	const branchIds = new Set(cells.filter((cell) => cell.depth === 1).map((cell) => cell.id));
+	const branches = figure.data.nodes.map((node) => node.id).filter((id) => branchIds.has(id));
 	const voiceOf = (branchId: string): FigureVoice =>
 		figure.encoding.color === 'top-level'
 			? figureSequenceVoice(Math.max(0, branches.indexOf(branchId)))
@@ -963,6 +1013,27 @@ export function prepareTreemapFigure(
 		const siblings = cells.filter((candidate) => candidate.parentId === cell.parentId);
 		siblingIndex.set(cell.id, siblings.indexOf(cell));
 	}
+	// Zooming re-tiles the zoomed branch for the whole plot, so its cells land
+	// well-proportioned in either orientation rather than stretched; each cell
+	// travels from its place in the whole to its place in the zoomed tiling.
+	const zoomTilings = new Map<string, Map<string, FigureRect>>();
+	const zoomTilingOf = (targetId: string): Map<string, FigureRect> => {
+		const cached = zoomTilings.get(targetId);
+		if (cached) return cached;
+		const zoomRootId = `${targetId}#zoom-root`;
+		const subtree = figure.data.nodes
+			.filter((node) => isDescendant(node.id, targetId))
+			.map((node) => (node.id === targetId ? { ...node, parent: zoomRootId } : node));
+		const tiled = layoutFigureTreemap(
+			[{ id: zoomRootId, label: '' }, ...subtree],
+			env.plot,
+			padding,
+			captionHeight + padding
+		);
+		const rects = new Map(tiled.map((cell) => [cell.id, cell.rect]));
+		zoomTilings.set(targetId, rects);
+		return rects;
+	};
 	const zoomRect = (rect: FigureRect, target: FigureRect, amount: number): FigureRect => {
 		if (amount <= 0) return rect;
 		const sx = env.plot.width / target.width;
@@ -988,101 +1059,151 @@ export function prepareTreemapFigure(
 				if (cell.depth === 0) continue;
 				const id = figureNodeMarkId(cell.id);
 				const inZoom = zoomTarget ? isDescendant(cell.id, zoomTarget.id) : true;
-				const zoomFade = zoomTarget && !inZoom ? 1 - zoomAmount : 1;
-				if (zoomFade <= 0) continue;
-				const rect = zoomTarget ? zoomRect(cell.rect, zoomTarget.rect, zoomAmount) : cell.rect;
-				const order = sizeOrder.indexOf(cell.id) / Math.max(1, cells.length - 1);
-				const grow = clamp01(motion.reveal(order));
-				const dim = Math.max(motion.focusDim(id), zoomTarget && inZoom ? 1 : 0);
-				const emphasis = motion.focusEmphasis(id);
-				const grown = {
-					x: rect.x + (rect.width * (1 - grow)) / 2,
-					y: rect.y + (rect.height * (1 - grow)) / 2,
-					width: rect.width * grow,
-					height: rect.height * grow
-				};
-				const voice = emphasis > 0.5 && !zoomTarget ? 'accent' : voiceOf(cell.branchId);
-				if (cell.isLeaf) {
-					items.push({
-						shape: 'rect',
-						key: id,
-						mark: id,
-						...grown,
-						rx: 6,
-						fill: voice,
-						// Siblings step their strength so neighbouring cells separate.
-						fillOpacity: 0.96 - 0.12 * ((siblingIndex.get(cell.id) ?? 0) % 3),
-						stroke: null,
-						strokeWidth: 0,
-						opacity: dim * zoomFade
+				const zoomedRect =
+					zoomTarget && inZoom ? zoomTilingOf(zoomTarget.id).get(cell.id) : undefined;
+				// Cells inside a zooming branch regroup in two overlapping halves so
+				// different tilings never cross: the old cells ride the scaled zoom and
+				// fade out while the re-tiled cells grow in. The branch's own outline
+				// moves straight through. Cells outside the branch are clipped to the
+				// plot as they scale away, and their text goes first.
+				const regrouping =
+					zoomTarget !== undefined && zoomedRect !== undefined && cell.id !== zoomTarget.id;
+				const instances: { rect: FigureRect; fade: number; regrow: number; key: string }[] = [];
+				if (!zoomTarget) {
+					instances.push({ rect: cell.rect, fade: 1, regrow: 1, key: id });
+				} else if (!inZoom) {
+					instances.push({
+						rect: intersectFigureRect(zoomRect(cell.rect, zoomTarget.rect, zoomAmount), env.plot),
+						fade: 1 - zoomAmount,
+						regrow: 1,
+						key: id
 					});
-					const label = labelOf.get(cell.id) ?? cell.id;
-					const value = formatFigureValue(cell.value, figure.data.valueFormat);
-					const inner = rect.width - padding * 2.5;
-					const fitsLabel =
-						env.measure(label, 'label').width <= inner &&
-						rect.height >= labelHeight + valueHeight + padding * 2;
-					const fitsSmall =
-						env.measure(label, 'caption').width <= inner &&
-						rect.height >= captionHeight * 2 + padding * 2;
-					if (settings.labels === 'leaves' && (fitsLabel || fitsSmall)) {
-						const textOpacity = dim * zoomFade * clamp01((grow - 0.7) / 0.3);
-						items.push(
-							createFigureText(env, {
-								key: `${id}#label`,
-								labelOf: id,
-								text: label,
-								role: fitsLabel ? 'label' : 'caption',
-								x: rect.x + padding * 1.25,
-								y: rect.y + padding * 1.25,
-								anchor: 'start',
-								baseline: 'hanging',
-								contrastWith: voice,
-								opacity: textOpacity
-							})
-						);
-						items.push(
-							createFigureText(env, {
-								key: `${id}#value`,
-								text: value,
-								role: fitsLabel ? 'value' : 'caption',
-								x: rect.x + padding * 1.25,
-								y: rect.y + padding * 1.25 + (fitsLabel ? labelHeight : captionHeight),
-								anchor: 'start',
-								baseline: 'hanging',
-								contrastWith: voice,
-								opacity: textOpacity
-							})
-						);
-					}
+				} else if (!regrouping || !zoomedRect) {
+					instances.push({
+						rect: zoomedRect ? lerpFigureRect(cell.rect, zoomedRect, zoomAmount) : cell.rect,
+						fade: 1,
+						regrow: 1,
+						key: id
+					});
 				} else {
-					items.push({
-						shape: 'rect',
-						key: id,
-						mark: id,
-						...grown,
-						rx: 8,
-						fill: null,
-						fillOpacity: 0,
-						stroke: voice,
-						strokeWidth: 3,
-						opacity: dim * zoomFade * 0.8
-					});
-					const label = `${labelOf.get(cell.id) ?? cell.id} · ${formatFigureValue(cell.value, figure.data.valueFormat)}`;
-					if (env.measure(label, 'caption').width <= rect.width - padding * 2) {
-						items.push(
-							createFigureText(env, {
-								key: `${id}#label`,
-								labelOf: id,
-								text: label,
-								role: 'caption',
-								x: rect.x + padding,
-								y: rect.y + padding * 0.5,
-								anchor: 'start',
-								baseline: 'hanging',
-								opacity: dim * zoomFade * clamp01((grow - 0.5) / 0.5)
-							})
-						);
+					if (zoomAmount < 0.6) {
+						instances.push({
+							rect: zoomRect(cell.rect, zoomTarget.rect, zoomAmount),
+							fade: 1 - smoothFigureStep(zoomAmount / 0.6),
+							regrow: 1,
+							key: `${id}#leaving`
+						});
+					}
+					if (zoomAmount > 0.4) {
+						// Incoming cells ride the moving branch outline, so they stay
+						// inside it while it is still opening out.
+						const settledOutline = zoomTilingOf(zoomTarget.id).get(zoomTarget.id) ?? env.plot;
+						const outlineNow = lerpFigureRect(zoomTarget.rect, settledOutline, zoomAmount);
+						const sx = outlineNow.width / settledOutline.width;
+						const sy = outlineNow.height / settledOutline.height;
+						instances.push({
+							rect: {
+								x: outlineNow.x + (zoomedRect.x - settledOutline.x) * sx,
+								y: outlineNow.y + (zoomedRect.y - settledOutline.y) * sy,
+								width: zoomedRect.width * sx,
+								height: zoomedRect.height * sy
+							},
+							fade: 1,
+							regrow: smoothFigureStep((zoomAmount - 0.4) / 0.6),
+							key: id
+						});
+					}
+				}
+				for (const instance of instances) {
+					const { rect } = instance;
+					const zoomFade = instance.fade;
+					if (zoomFade <= 0 || rect.width <= 0 || rect.height <= 0) continue;
+					const textZoomFade = !zoomTarget || inZoom ? zoomFade : clamp01(1 - zoomAmount * 4);
+					const order = sizeOrder.indexOf(cell.id) / Math.max(1, cells.length - 1);
+					const grow = clamp01(motion.reveal(order)) * instance.regrow;
+					const dim = Math.max(motion.focusDim(id), zoomTarget && inZoom ? 1 : 0);
+					const emphasis = motion.focusEmphasis(id);
+					const grown = {
+						x: rect.x + (rect.width * (1 - grow)) / 2,
+						y: rect.y + (rect.height * (1 - grow)) / 2,
+						width: rect.width * grow,
+						height: rect.height * grow
+					};
+					const voice = emphasis > 0.5 && !zoomTarget ? 'accent' : voiceOf(cell.branchId);
+					if (cell.isLeaf) {
+						items.push({
+							shape: 'rect',
+							key: instance.key,
+							mark: id,
+							...grown,
+							rx: 6,
+							fill: voice,
+							// Siblings step their strength so neighbouring cells separate.
+							fillOpacity: 0.96 - 0.12 * ((siblingIndex.get(cell.id) ?? 0) % 3),
+							stroke: null,
+							strokeWidth: 0,
+							opacity: dim * zoomFade
+						});
+						const label = labelOf.get(cell.id) ?? cell.id;
+						const value = formatFigureValue(cell.value, figure.data.valueFormat);
+						// Fit is judged on the settled cell; text rides the growing cell
+						// and appears only once the cell has nearly reached its size.
+						const textGrow = clamp01((grow - 0.85) / 0.15);
+						// A Pin label replaces the text before fitting, so lines carry `mark`.
+						const pinned = resolveFigurePin(figure, id, env.orientation)?.label ?? label;
+						const lines =
+							settings.labels === 'leaves'
+								? fitTreemapLeafText(pinned, value, rect, padding, env.measure)
+								: [];
+						const textOpacity = dim * textZoomFade * textGrow;
+						lines.forEach((line, lineIndex) => {
+							items.push(
+								createFigureText(env, {
+									key:
+										lineIndex === 0
+											? `${instance.key}#label`
+											: `${instance.key}#label-${lineIndex}`,
+									mark: id,
+									text: line.text,
+									role: line.role,
+									x: grown.x + padding * 1.25,
+									y: grown.y + padding * 1.25 + line.offset,
+									anchor: 'start',
+									baseline: 'hanging',
+									contrastWith: voice,
+									opacity: textOpacity
+								})
+							);
+						});
+					} else {
+						items.push({
+							shape: 'rect',
+							key: instance.key,
+							mark: id,
+							...grown,
+							rx: 8,
+							fill: null,
+							fillOpacity: 0,
+							stroke: voice,
+							strokeWidth: 3,
+							opacity: dim * zoomFade * 0.8
+						});
+						const label = `${labelOf.get(cell.id) ?? cell.id} · ${formatFigureValue(cell.value, figure.data.valueFormat)}`;
+						if (env.measure(label, 'caption').width <= rect.width - padding * 2) {
+							items.push(
+								createFigureText(env, {
+									key: `${instance.key}#label`,
+									labelOf: id,
+									text: label,
+									role: 'caption',
+									x: grown.x + padding,
+									y: grown.y + padding * 0.5,
+									anchor: 'start',
+									baseline: 'hanging',
+									opacity: dim * textZoomFade * clamp01((grow - 0.85) / 0.15)
+								})
+							);
+						}
 					}
 				}
 			}

@@ -797,6 +797,13 @@
 		"height": 360,
 		"contentFraction": 0.6978
 	},
+	"world-electricity-treemap": {
+		"contentKey": "1d21fc2472db58b3",
+		"timestampSeconds": 7,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.7538
+	},
 	"youtube-subscribe": {
 		"contentKey": "e51305a3d9ccab10",
 		"timestampSeconds": 3,

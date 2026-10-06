@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { packFigureLabelRows, trimFigureSegment } from './figure-geometry';
+import { packFigureLabelRows, smoothFigureStep, trimFigureSegment } from './figure-geometry';
 
 describe('packFigureLabelRows', () => {
 	it('keeps non-overlapping labels on one row', () => {
@@ -36,5 +36,13 @@ describe('trimFigureSegment', () => {
 	it('pulls both ends inward along the segment', () => {
 		const trimmed = trimFigureSegment({ x: 0, y: 0 }, { x: 10, y: 0 }, 2, 3);
 		assert.deepEqual(trimmed, { from: { x: 2, y: 0 }, to: { x: 7, y: 0 } });
+	});
+});
+
+describe('smoothFigureStep', () => {
+	it('clamps and eases symmetrically', () => {
+		assert.equal(smoothFigureStep(-1), 0);
+		assert.equal(smoothFigureStep(0.5), 0.5);
+		assert.equal(smoothFigureStep(2), 1);
 	});
 });
