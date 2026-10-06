@@ -15,6 +15,15 @@ import type { PackFont } from './packs/types';
 
 let builtinFacesReady: Promise<void> | null = null;
 
+/**
+ * Characters from every script subset a Pack font may split its faces into
+ * (Latin, Latin-1, Latin Extended, Greek, Cyrillic, sub/superscript digits).
+ * `document.fonts.load` fetches only the subsets whose unicode-range covers
+ * the sample, so without it a word like "α-Ketoglutarate" or "CO₂" would wait
+ * on a lazy subset and the first captured frames would rasterize a fallback.
+ */
+const FONT_SUBSET_COVERAGE_SAMPLE = 'AaÅåŁłŒœαΩЖж₂²€';
+
 function loadDeclaredFaces(fonts: readonly PackFont[]): Promise<unknown> {
 	const loads: Promise<unknown>[] = [];
 	for (const font of fonts) {
@@ -23,7 +32,9 @@ function loadDeclaredFaces(fonts: readonly PackFont[]): Promise<unknown> {
 			// Trigger the lazy @font-face load; swallow per-face failures so one
 			// missing face never blocks the whole render path.
 			loads.push(
-				document.fonts.load(`${style} ${weight} 1em "${font.family}"`).catch(() => undefined)
+				document.fonts
+					.load(`${style} ${weight} 1em "${font.family}"`, FONT_SUBSET_COVERAGE_SAMPLE)
+					.catch(() => undefined)
 			);
 		}
 	}

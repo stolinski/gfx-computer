@@ -69,6 +69,12 @@ export interface DeterministicProbeRegion {
 	kind: 'text' | 'shadow' | 'tonal' | 'non-axis-edge' | 'focal';
 	rect: DeterministicRenderRect;
 	excludedRect?: DeterministicRenderRect;
+	/**
+	 * Readable text boxes inside a non-axis-edge region. Text is rasterized
+	 * crisp on purpose (and checked by text-edge softness), so the edge probe
+	 * skips these pixels rather than reading glyph edges as shape aliasing.
+	 */
+	excludedTextRects?: DeterministicRenderRect[];
 	shadow?: DeterministicShadowBinding;
 	lengthPixels?: number;
 }

@@ -192,6 +192,11 @@ describe('wrapFigureText', () => {
 			'Fumarase',
 			'FADH'
 		]);
+		// Whole segments share a line while they fit.
+		assert.deepEqual(wrapFigureText('EIA · Energy use · Btu', 160, 'label', measure), [
+			'EIA · Energy use',
+			'Btu'
+		]);
 		assert.deepEqual(wrapFigureText('α-Ketoglutarate', 60, 'label', measure), ['α-Ketoglutarate']);
 		assert.deepEqual(wrapFigureText('Proto-Indo-European', 120, 'label', measure), [
 			'Proto-Indo-',

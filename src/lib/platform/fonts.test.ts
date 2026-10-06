@@ -5,9 +5,11 @@ import { PACK_REGISTRY } from './packs/registry.ts';
 import { registerLoadedUserPack, unregisterLoadedUserPack } from './user-pack-runtime.svelte.ts';
 
 const loadedSpecs: string[] = [];
+const loadedSamples: (string | undefined)[] = [];
 const fakeFontSet = {
-	load: vi.fn(async (spec: string) => {
+	load: vi.fn(async (spec: string, sample?: string) => {
 		loadedSpecs.push(spec);
+		loadedSamples.push(sample);
 		return [];
 	}),
 	ready: Promise.resolve(),
@@ -36,6 +38,11 @@ describe('fontsReady', () => {
 		assert.ok(loadedSpecs.includes('normal 400 1em "JetBrains Mono"'));
 		assert.ok(loadedSpecs.includes('normal 650 1em "Space Grotesk Variable"'));
 		assert.ok(loadedSpecs.includes('normal 900 1em "Playfair Display Variable"'));
+	});
+
+	it('loads every script subset a composition may use, not only the default one', () => {
+		// A Greek or subscript glyph must not wait on a lazily fetched subset.
+		assert.ok(loadedSamples.every((sample) => sample?.includes('α') && sample.includes('₂')));
 	});
 
 	it('gates on a User Pack loaded into the runtime without repeating the built-in sweep', async () => {

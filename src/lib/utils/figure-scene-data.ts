@@ -1011,6 +1011,32 @@ export function prepareSankeyFigure(
 								: node.rect.y + node.rect.height + gap * 0.3;
 				}
 				const textOpacity = clamp01(reveal) * dim;
+				// A middle-layer label sits over ribbons, which turn solid when a
+				// flow is focused; a plate in the field voice keeps it readable
+				// over any ribbon underneath.
+				if (node.layer !== 0 && node.layer !== lastLayer) {
+					const plateWidth = Math.max(
+						env.measure(label, 'label').width,
+						env.measure(value, 'caption').width
+					);
+					const pad = gap * 0.35;
+					const left =
+						anchor === 'start' ? x : anchor === 'end' ? x - plateWidth : x - plateWidth / 2;
+					items.push({
+						shape: 'rect',
+						key: `${id}#plate`,
+						x: left - pad,
+						y: y - pad * 0.6,
+						width: plateWidth + pad * 2,
+						height: labelHeight + captionHeight + pad * 1.2,
+						rx: pad,
+						fill: 'field',
+						fillOpacity: 0.94,
+						stroke: null,
+						strokeWidth: 0,
+						opacity: textOpacity
+					});
+				}
 				items.push(
 					createFigureText(env, {
 						key: `${id}#label`,
@@ -1119,11 +1145,6 @@ export function prepareTreemapFigure(
 		return false;
 	};
 	const sizeOrder = [...cells].sort((a, b) => b.value - a.value).map((cell) => cell.id);
-	const siblingIndex = new Map<string, number>();
-	for (const cell of cells) {
-		const siblings = cells.filter((candidate) => candidate.parentId === cell.parentId);
-		siblingIndex.set(cell.id, siblings.indexOf(cell));
-	}
 	// Zooming re-tiles the zoomed branch for the whole plot, so its cells land
 	// well-proportioned in either orientation rather than stretched; each cell
 	// travels from its place in the whole to its place in the zoomed tiling.
@@ -1249,8 +1270,9 @@ export function prepareTreemapFigure(
 							...grown,
 							rx: 6,
 							fill: voice,
-							// Siblings step their strength so neighbouring cells separate.
-							fillOpacity: 0.96 - 0.12 * ((siblingIndex.get(cell.id) ?? 0) % 3),
+							// Opaque, so the text ink chosen for the voice reads on the cell
+							// exactly; the padding gap separates neighbouring cells.
+							fillOpacity: 1,
 							stroke: null,
 							strokeWidth: 0,
 							opacity: dim * zoomFade

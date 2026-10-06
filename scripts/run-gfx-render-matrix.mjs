@@ -836,6 +836,9 @@ async function main() {
 						}
 						try {
 							const probeArguments = [canonicalPath, '--region', regionArgument(region.rect)];
+							for (const textRect of region.excludedTextRects ?? []) {
+								probeArguments.push('--exclude-region', regionArgument(textRect));
+							}
 							let probe = runJsonProbe(script, probeArguments);
 							if (code === 'edge-aliasing' && probe.parsed.transition_sample_count <= 0) {
 								const lumaProbe = runJsonProbe(script, [...probeArguments, '--channel', 'luma']);

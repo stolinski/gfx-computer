@@ -7,6 +7,7 @@ import type {
 	ChartBlock,
 	DiagramPoint,
 	DiagramPrimitive,
+	Figure,
 	EngineState,
 	KineticWord,
 	MarkTiming,
@@ -191,6 +192,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	checkOverlayTimings(state.overlays, totalSeconds, cascadeWindows, issues);
 	checkOverlayPlacement(state.overlays, orientation, issues);
 	checkChartLayout(state.surface.chart?.items ?? [], issues);
+	checkFigureFrames(state.surface.figures ?? [], issues);
 	if (state.surface.type === 'checklist') checkChecklistCardPlacement(state.surface, issues);
 	checkDiagramPlacement(state.surface.diagram ?? [], orientation, issues);
 	checkKineticWordPlacement(state.surface.typeField?.words ?? [], orientation, issues);
@@ -630,6 +632,36 @@ function checkChartLayout(blocks: readonly ChartBlock[], issues: RubricIssue[]):
 					severity: 'error',
 					path: `surface.chart.items[${index}]`,
 					message: `Chart geometry could not resolve in ${orientation}: ${error instanceof Error ? error.message : String(error)}`
+				});
+			}
+		}
+	}
+}
+
+/**
+ * Figure frames follow the Chart Block rule: an authored frame is placed as
+ * written, and leaving the orientation's safe zone (including the vertical
+ * platform rails) is reported here, never corrected by the renderer. A Figure
+ * without an authored frame lays out in the title-safe area.
+ */
+function checkFigureFrames(figures: readonly Figure[], issues: RubricIssue[]): void {
+	for (const [index, figure] of figures.entries()) {
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			const frame = figure.frameOrientationOverrides?.[orientation] ?? figure.frame;
+			if (!frame) continue;
+			const sa = getLayoutSafeArea(orientation);
+			const tolerance = 1e-6;
+			if (
+				frame.x < sa.left - tolerance ||
+				frame.y < sa.top - tolerance ||
+				frame.x + frame.width > 1 - sa.right + tolerance ||
+				frame.y + frame.height > 1 - sa.bottom + tolerance
+			) {
+				issues.push({
+					rule: 'G2',
+					severity: 'error',
+					path: `surface.figures[${index}].${figure.frameOrientationOverrides?.[orientation] ? `frameOrientationOverrides.${orientation}` : 'frame'}`,
+					message: `Figure frame extends outside the ${orientation} safe zone.`
 				});
 			}
 		}

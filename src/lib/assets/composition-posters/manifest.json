@@ -105,7 +105,7 @@
 		"contentFraction": 0.4721
 	},
 	"citric-acid-cycle": {
-		"contentKey": "565e639cca3268ab",
+		"contentKey": "b06a26fcfc228470",
 		"timestampSeconds": 8,
 		"width": 640,
 		"height": 360,
@@ -385,11 +385,11 @@
 		"contentFraction": 0.3981
 	},
 	"les-miserables-network": {
-		"contentKey": "68a11637cb7f551f",
+		"contentKey": "fa9b125f43dfc70d",
 		"timestampSeconds": 8,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.378
+		"contentFraction": 0.3757
 	},
 	"lower-third": {
 		"contentKey": "b968136b2af5eeb3",
@@ -483,7 +483,7 @@
 		"contentFraction": 1
 	},
 	"population-rank-bump": {
-		"contentKey": "2fd542d2ad898198",
+		"contentKey": "dfecaa435ddb616c",
 		"timestampSeconds": 9,
 		"width": 640,
 		"height": 360,
@@ -819,11 +819,11 @@
 		"contentFraction": 0.6978
 	},
 	"world-electricity-treemap": {
-		"contentKey": "1d21fc2472db58b3",
+		"contentKey": "8f45d75e581ff7ca",
 		"timestampSeconds": 7,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.7538
+		"contentFraction": 0.7591
 	},
 	"youtube-subscribe": {
 		"contentKey": "e51305a3d9ccab10",

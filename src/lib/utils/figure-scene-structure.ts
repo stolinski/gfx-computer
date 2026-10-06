@@ -681,8 +681,15 @@ export function prepareNetworkFigure(
 			const pathIndex = new Map(activePath?.map((id, index) => [id, index]) ?? []);
 			for (const link of figure.data.links) {
 				const id = figureLinkMarkId(link.source, link.target);
-				const from = centerOf(link.source);
-				const to = centerOf(link.target);
+				// Links run rim to rim, so they never show through a node's fill.
+				const trimmed = trimFigureSegment(
+					centerOf(link.source),
+					centerOf(link.target),
+					radii.get(link.source) ?? rMin,
+					radii.get(link.target) ?? rMin
+				);
+				const from = trimmed.from;
+				const to = trimmed.to;
 				const reveal = motion.revealLinear(Math.max(orderOf(link.source), orderOf(link.target)));
 				const dim = linkFocusDim(motion, id, [
 					figureNodeMarkId(link.source),

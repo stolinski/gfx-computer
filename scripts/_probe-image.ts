@@ -131,3 +131,20 @@ export function getProbeBounds(png: PNG, region: ProbeRegion | null): ProbeBound
 		y1: region ? Math.min(png.height, region.y + region.h) : png.height
 	};
 }
+
+/**
+ * Every region given for a repeatable flag (for example `--exclude-region`),
+ * in argument order. Each value is `x,y,w,h` with a positive size.
+ */
+export function parseRepeatedProbeRegions(flag: string): ProbeRegion[] {
+	const regions: ProbeRegion[] = [];
+	process.argv.forEach((argument, index) => {
+		if (argument !== flag) return;
+		const [x, y, w, h] = (process.argv[index + 1] ?? '').split(',').map(Number);
+		if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) {
+			throw new TypeError(`${flag} requires x,y,w,h`);
+		}
+		regions.push({ x, y, w, h });
+	});
+	return regions;
+}

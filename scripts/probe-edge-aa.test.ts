@@ -44,4 +44,15 @@ describe('measureEdgeCoverage', () => {
 		const measurement = measureColumns([[60, 60, 10, 10, 250, 250]]);
 		assert.equal(measurement.hardSteps, 1);
 	});
+
+	it('skips excluded text pixels so crisp glyphs never read as shape aliasing', () => {
+		// A crisp glyph (0 → 255) above a soft shape edge (128) in one column.
+		const columns = [[0, 255, 255, 0, 0, 128, 250]];
+		const bounds = { x0: 0, y0: 0, x1: 1, y1: 7 };
+		const sample = (x: number, y: number): number => columns[x][y] ?? 0;
+		assert.equal(measureEdgeCoverage(bounds, sample).hardSteps, 1);
+		const withoutText = measureEdgeCoverage(bounds, sample, [{ x0: 0, y0: 0, x1: 1, y1: 3 }]);
+		assert.equal(withoutText.hardSteps, 0);
+		assert.equal(withoutText.smoothPixels, 1);
+	});
 });

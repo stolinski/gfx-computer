@@ -1,7 +1,13 @@
 import { pathToFileURL } from 'node:url';
 
 import { parseChannelFlag, resolveChannel } from './_probe-channel.ts';
-import { getProbeBounds, loadProbePng, parseProbeArgs, type ProbeBounds } from './_probe-image.ts';
+import {
+	getProbeBounds,
+	loadProbePng,
+	parseProbeArgs,
+	parseRepeatedProbeRegions,
+	type ProbeBounds
+} from './_probe-image.ts';
 
 // Reports anti-aliasing metrics on diagonal / curved alpha edges. Used by
 // the Critic for R4 (no aliasing on non-axis-aligned edges).
@@ -42,11 +48,18 @@ function isFractional(value: number): boolean {
  * link entering a node's bounding box, say — from hiding the coverage pixel that
  * actually borders the edge. An aliased edge (empty directly against full) still
  * fails both readings.
+ *
+ * Pixels inside `excluded` boxes are skipped as if absent. The caller excludes
+ * readable text there: text is rasterized crisp on purpose and has its own
+ * softness check, so it must not stand in for a shape's edge.
  */
 export function measureEdgeCoverage(
 	bounds: ProbeBounds,
-	sample: (x: number, y: number) => number
+	sample: (x: number, y: number) => number,
+	excluded: readonly ProbeBounds[] = []
 ): EdgeCoverageMeasurement {
+	const isExcluded = (x: number, y: number): boolean =>
+		excluded.some((box) => x >= box.x0 && x < box.x1 && y >= box.y0 && y < box.y1);
 	let hardSteps = 0;
 	let smoothPixels = 0;
 	let emptyTopColumns = 0;
@@ -57,6 +70,7 @@ export function measureEdgeCoverage(
 		let firstFull = -1;
 		let firstEmpty = -1;
 		for (let y = bounds.y0; y < bounds.y1; y++) {
+			if (isExcluded(x, y)) continue;
 			const a = sample(x, y);
 			if (a < EDGE_COVERAGE_LOW && firstEmpty < 0) firstEmpty = y;
 			if (isFractional(a) && firstFractional < 0) firstFractional = y;
@@ -77,6 +91,7 @@ export function measureEdgeCoverage(
 			// pixel met before re-entering the earlier block borders the edge.
 			const earlierIsEmpty = firstEmpty < firstFull;
 			for (let y = boundaryHi - 1; y > boundaryLo; y--) {
+				if (isExcluded(x, y)) continue;
 				const a = sample(x, y);
 				if (earlierIsEmpty ? a < EDGE_COVERAGE_LOW : a >= EDGE_COVERAGE_HIGH) break;
 				if (isFractional(a)) {
@@ -94,7 +109,7 @@ export function measureEdgeCoverage(
 async function main(): Promise<void> {
 	const { pngPath, region } = parseProbeArgs({
 		region: 'required',
-		usage: 'usage: probe-edge-aa.ts <png> --region x,y,w,h'
+		usage: 'usage: probe-edge-aa.ts <png> --region x,y,w,h [--exclude-region x,y,w,h]...'
 	});
 	const png = await loadProbePng(pngPath);
 	const bounds = getProbeBounds(png, region);
@@ -102,7 +117,10 @@ async function main(): Promise<void> {
 	// the edge is a bright glyph/shape on a darker field); auto-detected unless
 	// `--channel` forces it.
 	const { channel, sample } = resolveChannel(png, bounds, parseChannelFlag(process.argv));
-	const measurement = measureEdgeCoverage(bounds, sample);
+	const excluded = parseRepeatedProbeRegions('--exclude-region').map((region) =>
+		getProbeBounds(png, region)
+	);
+	const measurement = measureEdgeCoverage(bounds, sample, excluded);
 	const total = measurement.hardSteps + measurement.smoothPixels;
 	const ratio = total === 0 ? null : measurement.smoothPixels / total;
 	console.log(

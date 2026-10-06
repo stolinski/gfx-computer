@@ -105,7 +105,8 @@ export function formatFigureValue(value: number, format: FigureValueFormat): str
 /**
  * Text broken into lines that each fit `width`, greedily, breaking at spaces
  * and after hyphens (the hyphen stays at the line end); a " · " separated list
- * that does not fit breaks at its separators first, which are dropped. Type is never squeezed
+ * that does not fit breaks at its separators first (the separator at a break
+ * is dropped), packing whole segments onto each line. Type is never squeezed
  * to fit; a word wider than `width` keeps its own line.
  */
 export function wrapFigureText(
@@ -114,9 +115,25 @@ export function wrapFigureText(
 	role: FigureTextRole,
 	measure: (text: string, role: FigureTextRole) => { width: number }
 ): string[] {
-	// A " · " list that has to wrap breaks at its separators first.
+	// A " · " list that has to wrap breaks at its separators first: whole
+	// segments share a line (joined by " · ") while they fit, and only a
+	// segment wider than the line breaks inside itself.
 	if (text.includes(' · ') && measure(text, role).width > width) {
-		return text.split(' · ').flatMap((part) => wrapFigureText(part, width, role, measure));
+		const lines: string[] = [];
+		let current = '';
+		for (const segment of text.split(' · ')) {
+			const candidate = current.length === 0 ? segment : `${current} · ${segment}`;
+			if (measure(candidate, role).width <= width) {
+				current = candidate;
+				continue;
+			}
+			if (current.length > 0) lines.push(current);
+			const wrapped = wrapFigureText(segment, width, role, measure);
+			current = wrapped.pop() ?? '';
+			lines.push(...wrapped);
+		}
+		if (current.length > 0) lines.push(current);
+		return lines;
 	}
 	const tokens = text
 		.split(/\s+/)

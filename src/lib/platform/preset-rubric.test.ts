@@ -256,6 +256,30 @@ describe('preset rubric', () => {
 		);
 	});
 
+	it('reports a Figure frame that enters the vertical platform rail (G2)', async () => {
+		const tree = (await import('../presets/indo-european-tree.json')).default;
+		const [figure] = tree.state.surface.figures;
+		const preset = makePreset({
+			surface: {
+				figures: [
+					{
+						...figure,
+						frameOrientationOverrides: {
+							vertical: { x: 0.06, y: 0.08, width: 0.88, height: 0.76 }
+						}
+					}
+				]
+			}
+		});
+		const issues = lintPreset(preset).filter(
+			(issue) => issue.rule === 'G2' && issue.path.startsWith('surface.figures')
+		);
+		assert.deepEqual(
+			issues.map((issue) => issue.path),
+			['surface.figures[0].frameOrientationOverrides.vertical']
+		);
+	});
+
 	it('reports a checklist card outside the safe zone without moving it', () => {
 		const preset = makePreset({});
 		preset.state.surface.type = 'checklist';

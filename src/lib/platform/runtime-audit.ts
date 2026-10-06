@@ -1171,6 +1171,22 @@ function shadowOutset(shadow: DeterministicShadowBinding): number {
 	);
 }
 
+/**
+ * A non-axis-edge probe region with the readable text boxes inside it listed
+ * for exclusion (each grown by 2 px for glyph antialiasing). Text is crisp by
+ * design and checked by its own softness probe; the edge probe measures shapes.
+ */
+function withExcludedTextRects(
+	region: DeterministicProbeRegion,
+	readableRegions: readonly { rect: DeterministicRenderRect }[]
+): DeterministicProbeRegion {
+	if (region.kind !== 'non-axis-edge') return region;
+	const excludedTextRects = readableRegions
+		.map((readable) => expandedRect(readable.rect, 2))
+		.filter((rect) => intersectDeterministicRenderRects(rect, region.rect) !== null);
+	return excludedTextRects.length > 0 ? { ...region, excludedTextRects } : region;
+}
+
 function expandedRect(rect: DeterministicRenderRect, outset: number): DeterministicRenderRect {
 	const left = Math.floor(rect.x - outset);
 	const top = Math.floor(rect.y - outset);
@@ -1436,7 +1452,9 @@ export async function captureDeterministicRenderRegionManifest(
 			unownedShadowCount
 		},
 		probeRegions,
-		selectedProbeRegions: selectDeterministicProbeRegions(probeRegions),
+		selectedProbeRegions: selectDeterministicProbeRegions(
+			probeRegions.map((region) => withExcludedTextRects(region, readableRegions))
+		),
 		measurements: {
 			titleSafeAreaAffectedPixels: measureTitleSafeAreaPixels(readableRegions, frame),
 			verticalPlatformSafeAreaAffectedPixels:

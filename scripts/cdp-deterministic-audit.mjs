@@ -433,7 +433,11 @@ async function runCase(testCase) {
 				'scripts/probe-edge-aa.ts',
 				first.paths.treatment,
 				'--region',
-				`${edge.rect.x},${edge.rect.y},${edge.rect.width},${edge.rect.height}`
+				`${edge.rect.x},${edge.rect.y},${edge.rect.width},${edge.rect.height}`,
+				...(edge.excludedTextRects ?? []).flatMap((rect) => [
+					'--exclude-region',
+					`${rect.x},${rect.y},${rect.width},${rect.height}`
+				])
 			]);
 			const edgeMeasurement = JSON.parse(edgeProbe.stdout);
 			if (edgeMeasurement.transition_sample_count <= 0 || edgeMeasurement.hard_stairsteps !== 0) {
