@@ -206,7 +206,8 @@
 	   land, like a real NLE's audio event chips. */
 	.track-transition--audio {
 		background: color-mix(in srgb, var(--track-color) 26%, var(--chrome-deck, #131315));
-		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--track-color) 55%, var(--chrome-deck, #131315));
+		box-shadow: inset 0 0 0 1px
+			color-mix(in srgb, var(--track-color) 55%, var(--chrome-deck, #131315));
 		min-inline-size: 58px;
 		padding-inline: 4px;
 	}
@@ -233,14 +234,14 @@
 	   ease's tail), so the wedge ends land where the eye sees motion start. */
 	.track-transition--unified {
 		background:
-			linear-gradient(to right, rgb(12 12 14 / 0.55), transparent) left / var(--enter-pct, 0%)
-				100% no-repeat,
-			linear-gradient(to left, rgb(12 12 14 / 0.55), transparent) right / var(--exit-pct, 0%)
-				100% no-repeat,
-			linear-gradient(rgb(12 12 14 / 0.4), rgb(12 12 14 / 0.4)) var(--enter-pct, 0%) 0 / 1px
-				100% no-repeat,
-			linear-gradient(rgb(12 12 14 / 0.4), rgb(12 12 14 / 0.4))
-				calc(100% - var(--exit-pct, 0%)) 0 / 1px 100% no-repeat,
+			linear-gradient(to right, rgb(12 12 14 / 0.55), transparent) left / var(--enter-pct, 0%) 100%
+				no-repeat,
+			linear-gradient(to left, rgb(12 12 14 / 0.55), transparent) right / var(--exit-pct, 0%) 100%
+				no-repeat,
+			linear-gradient(rgb(12 12 14 / 0.4), rgb(12 12 14 / 0.4)) var(--enter-pct, 0%) 0 / 1px 100%
+				no-repeat,
+			linear-gradient(rgb(12 12 14 / 0.4), rgb(12 12 14 / 0.4)) calc(100% - var(--exit-pct, 0%)) 0 /
+				1px 100% no-repeat,
 			var(--track-color);
 	}
 
@@ -251,15 +252,11 @@
 	/* Whole-bar ramps (beat chips) speak the same wedge language across their
 	   full width instead of dissolving the chip. */
 	.track-transition--ramp-in {
-		background:
-			linear-gradient(to right, rgb(12 12 14 / 0.55), transparent),
-			var(--track-color);
+		background: linear-gradient(to right, rgb(12 12 14 / 0.55), transparent), var(--track-color);
 	}
 
 	.track-transition--ramp-out {
-		background:
-			linear-gradient(to left, rgb(12 12 14 / 0.55), transparent),
-			var(--track-color);
+		background: linear-gradient(to left, rgb(12 12 14 / 0.55), transparent), var(--track-color);
 	}
 
 	.track-transition--selected {

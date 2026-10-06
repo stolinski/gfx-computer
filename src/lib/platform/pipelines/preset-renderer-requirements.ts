@@ -30,6 +30,7 @@ function addPresetRequirements(
 	requirements.blocks.add('paragraph');
 	for (const block of preset.state.surface.diagram ?? []) requirements.blocks.add(block.type);
 	for (const block of preset.state.surface.chart?.items ?? []) requirements.blocks.add(block.type);
+	for (const figure of preset.state.surface.figures ?? []) requirements.blocks.add(figure.type);
 	if ((preset.state.surface.typeField?.words.length ?? 0) > 0) {
 		requirements.blocks.add('kinetic-word');
 	}

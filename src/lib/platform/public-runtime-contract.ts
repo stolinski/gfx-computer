@@ -104,7 +104,7 @@ export const PUBLIC_RUNTIME_DEPLOYMENT_INPUTS: readonly PublicRuntimeDeploymentI
 		required: false,
 		defaultValue: null,
 		purpose:
-			'Chrome origin-trial token for the HTML-in-Canvas API, registered to this origin. A hosted origin sends it as the Origin-Trial header on every document so a visitor\'s unflagged Chrome exposes CanvasDrawElement; absent, only a flag-launched Chrome passes the capability gate. Local origins never need it — they launch the flagged browser.'
+			"Chrome origin-trial token for the HTML-in-Canvas API, registered to this origin. A hosted origin sends it as the Origin-Trial header on every document so a visitor's unflagged Chrome exposes CanvasDrawElement; absent, only a flag-launched Chrome passes the capability gate. Local origins never need it — they launch the flagged browser."
 	},
 	{
 		name: 'PUBLIC_GFX_COMPOSITION_STORE',

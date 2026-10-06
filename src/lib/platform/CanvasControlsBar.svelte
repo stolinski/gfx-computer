@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { formatClockTime, resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
+	import {
+		formatClockTime,
+		resolveFrameRate,
+		secondsToFrames
+	} from '$lib/utils/composition-timing';
 
 	import type { Timeline } from './timeline.svelte';
 	import { engineState } from './engine-state.svelte';
@@ -134,7 +138,12 @@
 <div class="controls-bar">
 	<!-- Left: transport -->
 	<div class="controls-bar__cluster">
-		<button class="controls-bar__btn" type="button" aria-label="Jump to start" onclick={jumpToStart}>
+		<button
+			class="controls-bar__btn"
+			type="button"
+			aria-label="Jump to start"
+			onclick={jumpToStart}
+		>
 			<svg
 				class="controls-bar__flip"
 				xmlns="http://www.w3.org/2000/svg"
@@ -161,7 +170,13 @@
 			aria-label="Step back one frame"
 			onclick={stepBack}
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 16 16"
+				aria-hidden="true"
+			>
 				<path
 					d="M10.5 3.5 5.5 8l5 4.5"
 					stroke="currentColor"
@@ -181,12 +196,32 @@
 			onclick={togglePlayPause}
 		>
 			{#if isPlaying}
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
-					<rect x="4.25" y="2.5" width="3.25" height="13" rx="0.9" fill="currentColor" fill-opacity="0.5" />
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="16"
+					height="16"
+					viewBox="0 0 18 18"
+					aria-hidden="true"
+				>
+					<rect
+						x="4.25"
+						y="2.5"
+						width="3.25"
+						height="13"
+						rx="0.9"
+						fill="currentColor"
+						fill-opacity="0.5"
+					/>
 					<rect x="10.5" y="2.5" width="3.25" height="13" rx="0.9" fill="currentColor" />
 				</svg>
 			{:else}
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="16"
+					height="16"
+					viewBox="0 0 18 18"
+					aria-hidden="true"
+				>
 					<path
 						d="M15.1 7.478L5.608 2.222C5.055 1.916 4.402 1.925 3.859 2.245C3.321 2.562 3 3.122 3 3.744V14.256C3 14.878 3.321 15.438 3.859 15.755C4.138 15.919 4.445 16.002 4.754 16.002C5.047 16.002 5.34 15.927 5.608 15.779L15.099 10.523C15.655 10.216 16 9.632 16 9.001C16 8.37 15.655 7.785 15.1 7.478Z"
 						fill="currentColor"
@@ -201,7 +236,13 @@
 			aria-label="Step forward one frame"
 			onclick={stepForward}
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 16 16"
+				aria-hidden="true"
+			>
 				<path
 					d="m5.5 3.5 5 4.5-5 4.5"
 					stroke="currentColor"
@@ -215,7 +256,13 @@
 		</button>
 
 		<button class="controls-bar__btn" type="button" aria-label="Jump to end" onclick={jumpToEnd}>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 18 18"
+				aria-hidden="true"
+			>
 				<path
 					d="M16.25 3C15.836 3 15.5 3.336 15.5 3.75V14.25C15.5 14.664 15.836 15 16.25 15C16.664 15 17 14.664 17 14.25V3.75C17 3.336 16.664 3 16.25 3Z"
 					fill="currentColor"
@@ -236,7 +283,13 @@
 			aria-pressed={isLooping}
 			onclick={toggleLoop}
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 16 16"
+				aria-hidden="true"
+			>
 				<path
 					d="M3 8a5 5 0 0 1 5-5h3.5M13 8a5 5 0 0 1-5 5H4.5"
 					stroke="currentColor"
@@ -272,7 +325,13 @@
 			disabled={!canZoomOut}
 			onclick={onZoomOut}
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 16 16"
+				aria-hidden="true"
+			>
 				<path d="M4 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
 			</svg>
 		</button>
@@ -293,7 +352,13 @@
 			disabled={!canZoomIn}
 			onclick={onZoomIn}
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 16 16"
+				aria-hidden="true"
+			>
 				<path d="M8 4v8M4 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
 			</svg>
 		</button>
@@ -307,7 +372,13 @@
 			aria-label="Toggle checkerboard"
 			onclick={onToggleCheckerboard}
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 16 16"
+				aria-hidden="true"
+			>
 				<rect x="0" y="0" width="4" height="4" fill="currentColor" fill-opacity="0.7" />
 				<rect x="4" y="4" width="4" height="4" fill="currentColor" fill-opacity="0.7" />
 				<rect x="8" y="0" width="4" height="4" fill="currentColor" fill-opacity="0.7" />
@@ -320,34 +391,39 @@
 		</button>
 
 		{#if !IS_HOSTED_ORIGIN}
-		<button
-			class="controls-bar__btn"
-			class:controls-bar__btn--active={backdropUrl !== null}
-			type="button"
-			aria-label="Pick reference backdrop"
-			popovertarget="backdrop-menu"
-			bind:this={backdropTriggerEl}
-		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
-				<path
-					fill-rule="evenodd"
-					clip-rule="evenodd"
-					d="M2.00098 4.75C2.00098 3.23119 3.23217 2 4.75098 2H13.251C14.7698 2 16.001 3.23119 16.001 4.75V13.25C16.001 14.7688 14.7698 16 13.251 16H4.75098C3.23217 16 2.00098 14.7688 2.00098 13.25V4.75Z"
-					fill="currentColor"
-					fill-opacity="0.4"
-				/>
-				<path
-					d="M16.001 13.25V12.1893L13.1953 9.38367C12.1214 8.30977 10.3806 8.30977 9.30667 9.38367L3.18172 15.5086C3.62674 15.8184 4.16765 16 4.75098 16H13.251C14.7698 16 16.001 14.7688 16.001 13.25Z"
-					fill="currentColor"
-				/>
-				<path
-					d="M6.25098 8.5C6.94138 8.5 7.50098 7.9404 7.50098 7.25C7.50098 6.5596 6.94138 6 6.25098 6C5.56058 6 5.00098 6.5596 5.00098 7.25C5.00098 7.9404 5.56058 8.5 6.25098 8.5Z"
-					fill="currentColor"
-				/>
-			</svg>
-		</button>
+			<button
+				class="controls-bar__btn"
+				class:controls-bar__btn--active={backdropUrl !== null}
+				type="button"
+				aria-label="Pick reference backdrop"
+				popovertarget="backdrop-menu"
+				bind:this={backdropTriggerEl}
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="16"
+					height="16"
+					viewBox="0 0 18 18"
+					aria-hidden="true"
+				>
+					<path
+						fill-rule="evenodd"
+						clip-rule="evenodd"
+						d="M2.00098 4.75C2.00098 3.23119 3.23217 2 4.75098 2H13.251C14.7698 2 16.001 3.23119 16.001 4.75V13.25C16.001 14.7688 14.7698 16 13.251 16H4.75098C3.23217 16 2.00098 14.7688 2.00098 13.25V4.75Z"
+						fill="currentColor"
+						fill-opacity="0.4"
+					/>
+					<path
+						d="M16.001 13.25V12.1893L13.1953 9.38367C12.1214 8.30977 10.3806 8.30977 9.30667 9.38367L3.18172 15.5086C3.62674 15.8184 4.16765 16 4.75098 16H13.251C14.7698 16 16.001 14.7688 16.001 13.25Z"
+						fill="currentColor"
+					/>
+					<path
+						d="M6.25098 8.5C6.94138 8.5 7.50098 7.9404 7.50098 7.25C7.50098 6.5596 6.94138 6 6.25098 6C5.56058 6 5.00098 6.5596 5.00098 7.25C5.00098 7.9404 5.56058 8.5 6.25098 8.5Z"
+						fill="currentColor"
+					/>
+				</svg>
+			</button>
 		{/if}
-
 	</div>
 </div>
 
@@ -447,7 +523,9 @@
 		inline-size: 30px;
 		justify-content: center;
 		padding: 0;
-		transition: background-color 100ms ease, color 100ms ease;
+		transition:
+			background-color 100ms ease,
+			color 100ms ease;
 	}
 
 	.controls-bar__btn:hover {

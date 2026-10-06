@@ -22,14 +22,19 @@ async function inspectUserVideoInput(
 ): Promise<UserVideoAssetMetadata> {
 	try {
 		const videoTrack = await input.getPrimaryVideoTrack();
-		if (!videoTrack) throw new TypeError(`User video inspection failed: ${failureLabel}: no video track found.`);
+		if (!videoTrack)
+			throw new TypeError(`User video inspection failed: ${failureLabel}: no video track found.`);
 		if (!(await videoTrack.canDecode())) {
-			throw new TypeError(`User video inspection failed: ${failureLabel}: the browser cannot decode its video codec.`);
+			throw new TypeError(
+				`User video inspection failed: ${failureLabel}: the browser cannot decode its video codec.`
+			);
 		}
 
 		const audioTrack = await input.getPrimaryAudioTrack();
 		if (audioTrack && !(await audioTrack.canDecode())) {
-			throw new TypeError(`User video inspection failed: ${failureLabel}: the browser cannot decode its audio codec.`);
+			throw new TypeError(
+				`User video inspection failed: ${failureLabel}: the browser cannot decode its audio codec.`
+			);
 		}
 
 		const [
@@ -66,7 +71,9 @@ async function inspectUserVideoInput(
 			!Number.isFinite(averageFrameRate) ||
 			averageFrameRate <= 0
 		) {
-			throw new TypeError(`User video inspection failed: ${failureLabel}: video metadata is incomplete.`);
+			throw new TypeError(
+				`User video inspection failed: ${failureLabel}: video metadata is incomplete.`
+			);
 		}
 
 		const videoMetadata = {
@@ -87,7 +94,9 @@ async function inspectUserVideoInput(
 			!Number.isFinite(audioSampleRate) ||
 			audioSampleRate <= 0
 		) {
-			throw new TypeError(`User video inspection failed: ${failureLabel}: audio metadata is incomplete.`);
+			throw new TypeError(
+				`User video inspection failed: ${failureLabel}: audio metadata is incomplete.`
+			);
 		}
 		return {
 			...videoMetadata,
@@ -117,9 +126,7 @@ export async function inspectUserVideoFile(file: File): Promise<UserVideoAssetMe
 	);
 }
 
-export async function inspectUserVideoAssetUrl(
-	assetUrl: string
-): Promise<UserVideoAssetMetadata> {
+export async function inspectUserVideoAssetUrl(assetUrl: string): Promise<UserVideoAssetMetadata> {
 	return inspectUserVideoInput(
 		new Input({
 			formats: ALL_FORMATS,

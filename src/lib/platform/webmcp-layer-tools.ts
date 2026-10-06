@@ -384,11 +384,7 @@ export function listWebmcpLayerToolDefinitions(): readonly WebmcpToolDefinition[
 				runWebmcpToolOperation('layer.add-diagram-primitive', () =>
 					runAddCompositionDiagramPrimitiveOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
-						primitiveType: readWebmcpLiteralArgument(
-							args,
-							'primitiveType',
-							DIAGRAM_PRIMITIVE_TYPES
-						)
+						primitiveType: readWebmcpLiteralArgument(args, 'primitiveType', DIAGRAM_PRIMITIVE_TYPES)
 					})
 				)
 		},

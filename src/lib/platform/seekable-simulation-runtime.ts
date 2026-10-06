@@ -59,10 +59,7 @@ export class SeekableSimulationRuntime<TState, TEvent> {
 	#currentStep = -1;
 	#isDisposed = false;
 
-	constructor(
-		stepRate: SimulationStepRate,
-		kernel: SeekableSimulationKernel<TState, TEvent>
-	) {
+	constructor(stepRate: SimulationStepRate, kernel: SeekableSimulationKernel<TState, TEvent>) {
 		if (stepRate.num <= 0 || stepRate.den <= 0) {
 			throw new TypeError('Simulation step rate must be positive.');
 		}
@@ -77,7 +74,9 @@ export class SeekableSimulationRuntime<TState, TEvent> {
 	): TState {
 		this.#assertUsable();
 		if (!Number.isInteger(targetStep) || targetStep < 0) {
-			throw new TypeError(`Simulation target step must be a non-negative integer, got ${targetStep}.`);
+			throw new TypeError(
+				`Simulation target step must be a non-negative integer, got ${targetStep}.`
+			);
 		}
 		if (!Number.isInteger(seed)) {
 			throw new TypeError(`Simulation seed must be an integer, got ${seed}.`);

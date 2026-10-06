@@ -74,8 +74,7 @@ export interface ClearCompositionSessionRequest {
 }
 
 export type CompositionSessionInspectionOutcome =
-	| CompositionSessionInspectionReceipt
-	| CompositionOperationFailure;
+	CompositionSessionInspectionReceipt | CompositionOperationFailure;
 
 export type CompositionSessionOutcome = CompositionLifecycleReceipt | CompositionOperationFailure;
 

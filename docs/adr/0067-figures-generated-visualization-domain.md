@@ -22,7 +22,7 @@ Building one Pipeline per new chart would repeat ADR-0048's cost for every kind 
 
 ### 1. A Figure is a declaration that generates its marks
 
-`surface.figures` is an optional array of one to four **Figures** on **any** Surface type, including a transparent Surface over footage. Each Figure has a stable `id`, a `kind`, kind-specific `data` and `layout`, a frame, **Moves**, and **Pins**.
+`surface.figures` is an optional array of one to nine **Figures** on **any** Surface type (each with its own reveal and exit, so they can sequence), including a transparent Surface over footage. Each Figure has a stable `id`, a `kind`, kind-specific `data` and `layout`, a frame, **Moves**, and **Pins**.
 
 The engine expands a Figure into **Marks** (nodes, links, bars, bands, rectangles, lines, labels), and each Mark gets a stable id derived from the data, such as `node:<id>` or `link:<source>><target>`. Generation is a pure function of the declaration and the orientation. It uses no wall clock and no unseeded randomness, so preview and export produce the same pixels.
 

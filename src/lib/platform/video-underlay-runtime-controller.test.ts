@@ -118,7 +118,14 @@ function createHarness(): VideoHarness {
 			const index = textureIndex++;
 			return {
 				upload: () =>
-					({ texture: {}, width: 1, height: 1, displayWidth: 1, displayHeight: 1, rotation: 0 }) as PreparedVideoUnderlayTexture,
+					({
+						texture: {},
+						width: 1,
+						height: 1,
+						displayWidth: 1,
+						displayHeight: 1,
+						rotation: 0
+					}) as PreparedVideoUnderlayTexture,
 				dispose: () => disposedTextures.push(index)
 			};
 		}
@@ -196,8 +203,7 @@ describe('VideoUnderlayRuntimeController', () => {
 					const isFirstCache = cacheIndex++ === 0;
 					return {
 						acquire: () => ({
-							initialize: () =>
-								isFirstCache ? initialization.promise : Promise.resolve(),
+							initialize: () => (isFirstCache ? initialization.promise : Promise.resolve()),
 							frameAt: async () => decodedFrame(0, []),
 							playbackFrameAt: async () => decodedFrame(0, [])
 						}),
@@ -303,9 +309,7 @@ describe('VideoUnderlayRuntimeController', () => {
 
 	it('reconciles immutable media membership and invalidates a resident texture', async () => {
 		const harness = createHarness();
-		harness.controller.reconcileMedia([
-			{ id: 'asset-one', assetUrl: '/changed.mp4' }
-		]);
+		harness.controller.reconcileMedia([{ id: 'asset-one', assetUrl: '/changed.mp4' }]);
 
 		assert.equal(harness.reconciled.length, 1);
 		assert.equal(harness.controller.preparedTexture(), null);

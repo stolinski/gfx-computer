@@ -786,15 +786,19 @@ for (const [role, fallbackRole] of [
 			? 'reference-identity'
 			: 'optional',
 		fallback: { kind: 'role', role: fallbackRole },
-		consumers: chartPipelines.map((pipelineKey) =>
-			resolverConsumer(
-				role === 'chart.mark' || role.startsWith('chart.series-')
-					? 'resolveChartMarkFillTreatment'
-					: 'resolveChartChromeColors',
-				undefined,
-				pipelineKey
-			)
-		),
+		consumers: [
+			...chartPipelines.map((pipelineKey) =>
+				resolverConsumer(
+					role === 'chart.mark' || role.startsWith('chart.series-')
+						? 'resolveChartMarkFillTreatment'
+						: 'resolveChartChromeColors',
+					undefined,
+					pipelineKey
+				)
+			),
+			// Figures (ADR-0067 §8) resolve every voice through the chart Roles.
+			resolverConsumer('resolveFigureVoiceColors', undefined, 'block:figure')
+		],
 		valueDescription: 'a GPU-supported chart colour',
 		validateValue: isPackColorValue
 	});

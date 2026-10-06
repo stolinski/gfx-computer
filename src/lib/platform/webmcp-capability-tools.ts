@@ -45,7 +45,7 @@ export function listWebmcpCapabilityToolDefinitions(): readonly WebmcpToolDefini
 					},
 					effectType: webmcpDerivedEnumProperty(
 						'effect-type',
-						"With the effect-type section, the Effect whose keyframe channels to list with their bounds."
+						'With the effect-type section, the Effect whose keyframe channels to list with their bounds.'
 					)
 				},
 				required: ['section'],

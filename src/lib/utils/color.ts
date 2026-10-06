@@ -109,6 +109,21 @@ export function wcagContrastRatio(foreground: string, background: string): numbe
 	return (lighter + 0.05) / (darker + 0.05);
 }
 
+/** WCAG 2.2 contrast ratio between two CSS colours (hex or rgb()/rgba()), ignoring alpha. */
+export function cssWcagContrastRatio(foreground: string, background: string): number {
+	const luminance = (color: string): number => {
+		const [red, green, blue] = cssColorToRgbaFloat(color);
+		return (
+			0.2126 * srgbChannelToLinear(red) +
+			0.7152 * srgbChannelToLinear(green) +
+			0.0722 * srgbChannelToLinear(blue)
+		);
+	};
+	const first = luminance(foreground);
+	const second = luminance(background);
+	return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+}
+
 /**
  * True when a surface background reads as dark (light text / UI sits on it).
  * Drives the highlight mode: dark surfaces punch light text to ink under the

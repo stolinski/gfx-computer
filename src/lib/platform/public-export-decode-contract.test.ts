@@ -51,7 +51,9 @@ function decodedMeasurement(
 	};
 }
 
-function renderedFrame(overrides: Partial<RenderedFrameMeasurement> = {}): RenderedFrameMeasurement {
+function renderedFrame(
+	overrides: Partial<RenderedFrameMeasurement> = {}
+): RenderedFrameMeasurement {
 	return {
 		width: HORIZONTAL.width,
 		height: HORIZONTAL.height,
@@ -100,7 +102,10 @@ describe('public export decode lane inventory', () => {
 
 describe('expected decoded export shape', () => {
 	it('expects a transparent WebM to report a plain 4:2:0 stream, since VP9 carries alpha beside it', () => {
-		const expected = expectedDecodedExport(TRANSPARENT_WEBM, HORIZONTAL, { frameCount: 6, fps: 30 });
+		const expected = expectedDecodedExport(TRANSPARENT_WEBM, HORIZONTAL, {
+			frameCount: 6,
+			fps: 30
+		});
 		assert.equal(expected.videoCodec, 'vp9');
 		assert.ok(expected.pixelFormats.includes('yuv420p'));
 		assert.equal(expected.audioCodec, null);
@@ -167,9 +172,7 @@ describe('decoded export cadence', () => {
 	});
 
 	it('holds ProRes to a tighter tolerance than the Matroska timecode scale allows', () => {
-		assert.ok(
-			EXPORT_TIMESTAMP_TOLERANCE_SECONDS.prores < EXPORT_TIMESTAMP_TOLERANCE_SECONDS.webm
-		);
+		assert.ok(EXPORT_TIMESTAMP_TOLERANCE_SECONDS.prores < EXPORT_TIMESTAMP_TOLERANCE_SECONDS.webm);
 		const faults = findExportCadenceFaults([0, 0.033, 0.067], {
 			frameCount: 3,
 			fps: 30,
@@ -206,7 +209,10 @@ describe('decoded export cadence', () => {
 
 describe('decoded output class', () => {
 	it('passes a transparent export with a clear border and surviving soft edges', () => {
-		assert.deepEqual(findDecodedOutputClassFaults([renderedFrame(), renderedFrame()], 'transparent'), []);
+		assert.deepEqual(
+			findDecodedOutputClassFaults([renderedFrame(), renderedFrame()], 'transparent'),
+			[]
+		);
 	});
 
 	it('fails a transparent export whose soft edges were hard-keyed away', () => {
@@ -348,9 +354,7 @@ describe('refused export correctiveness', () => {
 			},
 			{ status: 415, messageTokens: ['ProRes'], baselineExportDirectories: 0 }
 		);
-		assert.deepEqual(faults, [
-			'webm-start-timecode: answered 400; the ratified refusal is 415'
-		]);
+		assert.deepEqual(faults, ['webm-start-timecode: answered 400; the ratified refusal is 415']);
 	});
 
 	it('fails a refusal that left a work directory behind it', () => {
@@ -375,7 +379,11 @@ describe('browser lane decode', () => {
 		const { borderAlphaMax = 0, ...measurement } = overrides;
 		return {
 			measurement: renderedFrame(measurement),
-			borderAlpha: { maxAlpha: borderAlphaMax, coveredPixelCount: borderAlphaMax > 0 ? 3 : 0, pixelCount: 100 }
+			borderAlpha: {
+				maxAlpha: borderAlphaMax,
+				coveredPixelCount: borderAlphaMax > 0 ? 3 : 0,
+				pixelCount: 100
+			}
 		};
 	}
 

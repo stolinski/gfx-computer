@@ -62,8 +62,8 @@ export function layoutFigureForce(
 		)
 		// Wide boxes pull harder vertically, tall boxes horizontally, so the
 		// network fills the box's own aspect instead of a circle.
-		.force('x', forceX<FigureForceNode>(0).strength(0.06 / Math.max(1, aspect)))
-		.force('y', forceY<FigureForceNode>(0).strength(0.06 * Math.max(1, aspect)))
+		.force('x', forceX<FigureForceNode>(0).strength(0.06 / Math.sqrt(aspect)))
+		.force('y', forceY<FigureForceNode>(0).strength(0.06 * Math.sqrt(aspect)))
 		.stop();
 	for (let tick = 0; tick < FIGURE_FORCE_TICKS; tick += 1) simulation.tick();
 

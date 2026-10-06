@@ -10,6 +10,7 @@ import type {
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import type {
 	ChartBlock,
+	Figure,
 	DiagramPrimitive,
 	Effect,
 	KineticWord,
@@ -78,7 +79,7 @@ export interface AnnotationRenderer {
  * `AnnotationBody` stays paragraph-only; every placed variant keeps its own
  * authored identity and geometry.
  */
-export type Block = AnnotationBodyBlock | DiagramPrimitive | ChartBlock | KineticWord;
+export type Block = AnnotationBodyBlock | DiagramPrimitive | ChartBlock | KineticWord | Figure;
 
 export interface BlockRenderContext<TBlock extends Block = Block> {
 	block: TBlock;

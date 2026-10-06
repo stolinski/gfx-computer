@@ -47,13 +47,7 @@ export const COMPOSITION_INSPECTION_LAYER_LIMIT = 24;
 
 /** The Layer entity kinds an inspection reports, in composition paint order. */
 export type CompositionLayerEntryKind =
-	| 'surface'
-	| 'block'
-	| 'mark'
-	| 'overlay'
-	| 'text-animation'
-	| 'captions'
-	| 'effect';
+	'surface' | 'block' | 'mark' | 'overlay' | 'text-animation' | 'captions' | 'effect';
 
 /** One Layer entity, named the way an operation targets it. */
 export interface CompositionLayerEntry {
@@ -126,12 +120,10 @@ export interface SetCompositionIdentityRequest {
 }
 
 export type CompositionInspectionOutcome =
-	| CompositionInspectionReceipt
-	| CompositionOperationFailure;
+	CompositionInspectionReceipt | CompositionOperationFailure;
 
 export type CompositionJsonExportOutcome =
-	| CompositionJsonExportReceipt
-	| CompositionOperationFailure;
+	CompositionJsonExportReceipt | CompositionOperationFailure;
 
 /** The catalog classifications `composition.set-identity` accepts. */
 export const COMPOSITION_KINDS: readonly Preset['kind'][] = ['deliverable', 'fixture'];

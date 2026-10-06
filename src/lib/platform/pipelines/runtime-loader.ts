@@ -118,6 +118,10 @@ const blockRendererLoaders: Record<string, RuntimeRendererLoader<BlockRenderer>>
 	[PIPELINE_DEFINITION_REGISTRY.blocks.dotFieldChart.type]: () =>
 		import('$lib/pipelines/blocks/dot-field-chart').then(
 			(module) => module.dotFieldChartBlockRenderer as unknown as BlockRenderer
+		),
+	[PIPELINE_DEFINITION_REGISTRY.blocks.figure.type]: () =>
+		import('$lib/pipelines/blocks/figure').then(
+			(module) => module.figureBlockRenderer as unknown as BlockRenderer
 		)
 };
 

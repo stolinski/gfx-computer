@@ -7661,13 +7661,17 @@
             },
             "figures": {
               "minItems": 1,
-              "maxItems": 4,
+              "maxItems": 9,
               "type": "array",
               "items": {
                 "oneOf": [
                   {
                     "type": "object",
                     "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "figure"
+                      },
                       "id": {
                         "type": "string",
                         "minLength": 1,
@@ -8466,6 +8470,7 @@
                       }
                     },
                     "required": [
+                      "type",
                       "id",
                       "moves",
                       "kind",
@@ -8478,6 +8483,10 @@
                   {
                     "type": "object",
                     "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "figure"
+                      },
                       "id": {
                         "type": "string",
                         "minLength": 1,
@@ -9245,6 +9254,7 @@
                       }
                     },
                     "required": [
+                      "type",
                       "id",
                       "moves",
                       "kind",
@@ -9257,6 +9267,10 @@
                   {
                     "type": "object",
                     "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "figure"
+                      },
                       "id": {
                         "type": "string",
                         "minLength": 1,
@@ -10089,6 +10103,7 @@
                       }
                     },
                     "required": [
+                      "type",
                       "id",
                       "moves",
                       "kind",
@@ -10101,6 +10116,10 @@
                   {
                     "type": "object",
                     "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "figure"
+                      },
                       "id": {
                         "type": "string",
                         "minLength": 1,
@@ -10883,6 +10902,7 @@
                       }
                     },
                     "required": [
+                      "type",
                       "id",
                       "moves",
                       "kind",
@@ -10895,6 +10915,10 @@
                   {
                     "type": "object",
                     "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "figure"
+                      },
                       "id": {
                         "type": "string",
                         "minLength": 1,
@@ -11703,6 +11727,7 @@
                       }
                     },
                     "required": [
+                      "type",
                       "id",
                       "moves",
                       "kind",
@@ -11715,6 +11740,10 @@
                   {
                     "type": "object",
                     "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "figure"
+                      },
                       "id": {
                         "type": "string",
                         "minLength": 1,
@@ -12608,6 +12637,7 @@
                       }
                     },
                     "required": [
+                      "type",
                       "id",
                       "moves",
                       "kind",
@@ -12620,6 +12650,10 @@
                   {
                     "type": "object",
                     "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "figure"
+                      },
                       "id": {
                         "type": "string",
                         "minLength": 1,
@@ -13417,6 +13451,7 @@
                       }
                     },
                     "required": [
+                      "type",
                       "id",
                       "moves",
                       "kind",
@@ -13429,6 +13464,10 @@
                   {
                     "type": "object",
                     "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "figure"
+                      },
                       "id": {
                         "type": "string",
                         "minLength": 1,
@@ -14254,6 +14293,7 @@
                       }
                     },
                     "required": [
+                      "type",
                       "id",
                       "moves",
                       "kind",
@@ -14266,6 +14306,10 @@
                   {
                     "type": "object",
                     "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "figure"
+                      },
                       "id": {
                         "type": "string",
                         "minLength": 1,
@@ -15061,6 +15105,7 @@
                       }
                     },
                     "required": [
+                      "type",
                       "id",
                       "moves",
                       "kind",

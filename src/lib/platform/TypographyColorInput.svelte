@@ -43,7 +43,12 @@
 
 <input value={swatchValue} oninput={handleInput} type="color" />
 {#if isOverridden}
-	<button class="typo-reset" aria-label="Reset to Pack" title="Reset to Pack" onclick={clearOverride}>
+	<button
+		class="typo-reset"
+		aria-label="Reset to Pack"
+		title="Reset to Pack"
+		onclick={clearOverride}
+	>
 		<svg viewBox="0 0 12 12" aria-hidden="true">
 			<path
 				d="M6 2.2a3.8 3.8 0 1 1-3.5 2.4"

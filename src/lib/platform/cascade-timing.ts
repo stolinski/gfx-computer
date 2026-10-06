@@ -194,6 +194,17 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 		});
 	}
 
+	// Figures (ADR-0067) anchor on their required reveal Move. Their own Moves
+	// stay Figure-local; a Cascade may weld to the reveal but never reorders them.
+	for (const figure of state.surface.figures ?? []) {
+		const reveal = figure.moves.find((move) => move.move === 'reveal');
+		pending.set(`block:${figure.id}`, {
+			baseStartFraction: reveal?.start ?? 0,
+			durationFraction: reveal?.duration ?? 0,
+			cascade: undefined
+		});
+	}
+
 	// Animated Effects (ADR-0063 §6) are cascade subjects, never anchors. Their
 	// track counts from composition start (base 0) unless a cascade welds it;
 	// the window spans the authored envelope. Static Effects get no node.

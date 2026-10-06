@@ -71,7 +71,8 @@ export function resolveFigureBarRaceState(
 		const rank =
 			(lowerRanks.get(entityId) ?? ids.length) * (1 - rankT) +
 			(upperRanks.get(entityId) ?? ids.length) * rankT;
-		const visibility = Math.max(0, Math.min(1, visibleCount - rank + 0.5));
+		// Fully visible through the last visible row, gone one row below it.
+		const visibility = Math.max(0, Math.min(1, visibleCount - rank));
 		return { entityId, value: a + (b - a) * t, rank, visibility };
 	});
 	const visibleMax = Math.max(

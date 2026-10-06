@@ -149,7 +149,9 @@ describe('creating a composition', () => {
 	it('refuses to create anything while the transition snapshot path owns engine state', async () => {
 		transitionState.capturing = true;
 
-		expect(expectFailed(await runCreateBlankCompositionOperation()).code).toBe('precondition_unmet');
+		expect(expectFailed(await runCreateBlankCompositionOperation()).code).toBe(
+			'precondition_unmet'
+		);
 		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
 	});
 

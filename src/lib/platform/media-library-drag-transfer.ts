@@ -12,9 +12,7 @@ export interface MediaLibraryDragDataTransfer {
 	getData(format: string): string;
 }
 
-export function createMediaLibraryAssetDragPayload(
-	assetId: string
-): MediaLibraryAssetDragPayload {
+export function createMediaLibraryAssetDragPayload(assetId: string): MediaLibraryAssetDragPayload {
 	if (assetId.trim().length === 0) throw new TypeError('Media asset ID must not be empty.');
 	return { version: 1, type: 'media-library-asset', assetId };
 }

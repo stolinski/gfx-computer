@@ -662,6 +662,78 @@ function appendBlockTracks(
 		});
 	}
 
+	// Figures (ADR-0067): the Figure row carries its reveal; every other Move
+	// gets its own sub-row because Moves may overlap. Each clip is the Move's
+	// own window, kept after the reveal and before the exit.
+	for (const figure of state.surface.figures ?? []) {
+		const reveal = figure.moves.find((move) => move.move === 'reveal');
+		const exit = figure.moves.find((move) => move.move === 'exit');
+		const label = truncateMiddle(figure.title ?? figure.kind, 32);
+		const revealEndLimit = Math.min(
+			...figure.moves.filter((move) => move !== reveal).map((move) => move.start),
+			1
+		);
+		tracks.push({
+			id: createTimelineTrackId({ kind: 'block', blockId: figure.id }),
+			label,
+			color: BLOCK_COLOR,
+			transitions: reveal
+				? [
+						{
+							id: 'reveal',
+							label: `reveal · ${reveal.style}`,
+							color: BLOCK_COLOR,
+							start: reveal.start,
+							duration: reveal.duration,
+							minStart: 0,
+							maxStart: Math.max(0, revealEndLimit - Number.EPSILON),
+							minDuration: Number.EPSILON,
+							maxDuration: Math.max(Number.EPSILON, 1 - reveal.start),
+							onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+								if (!Number.isFinite(start) || !(duration > 0) || start + duration > 1) return;
+								if (start > revealEndLimit) return;
+								reveal.start = start;
+								reveal.duration = duration;
+							}
+						}
+					]
+				: []
+		});
+		figure.moves.forEach((move, index) => {
+			if (move === reveal) return;
+			const minimumStart = move === exit ? 0 : (reveal?.start ?? 0);
+			const maximumEnd = move === exit ? 1 : (exit?.start ?? 1);
+			tracks.push({
+				id: createTimelineTrackId({
+					kind: 'block-subtrack',
+					blockId: figure.id,
+					subtrack: { kind: 'move', index }
+				}),
+				label: move.move,
+				color: BLOCK_COLOR,
+				transitions: [
+					{
+						id: `move-${index}`,
+						label: move.move,
+						color: BLOCK_COLOR,
+						start: move.start,
+						duration: move.duration,
+						minStart: minimumStart,
+						maxStart: Math.max(minimumStart, maximumEnd - move.duration),
+						minDuration: Number.EPSILON,
+						maxDuration: Math.max(Number.EPSILON, maximumEnd - move.start),
+						onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+							if (!Number.isFinite(start) || !(duration > 0)) return;
+							if (start < minimumStart || start + duration > maximumEnd + Number.EPSILON) return;
+							move.start = start;
+							move.duration = duration;
+						}
+					}
+				]
+			});
+		});
+	}
+
 	for (const primitive of state.surface.diagram ?? []) {
 		if (primitive.type !== 'stat-callout') continue;
 		tracks.push({

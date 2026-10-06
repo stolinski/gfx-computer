@@ -35,8 +35,7 @@ export type DomFrameCaptureMode = 'canvas-draw-element' | 'dom-rasterization';
 export const CANVAS_DRAW_ELEMENT_FLAG_NAME = 'CanvasDrawElement';
 
 /** The exact flag argument a manual Chrome launch needs. */
-export const CANVAS_DRAW_ELEMENT_FLAG_ARGUMENT =
-	'--enable-blink-features=CanvasDrawElement,WebMCP';
+export const CANVAS_DRAW_ELEMENT_FLAG_ARGUMENT = '--enable-blink-features=CanvasDrawElement,WebMCP';
 
 /** The sanctioned launch for the combined-flag local agent browser (CDP 9229). */
 export const CANVAS_DRAW_ELEMENT_LAUNCH_COMMAND =

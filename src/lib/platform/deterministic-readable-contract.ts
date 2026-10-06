@@ -17,6 +17,7 @@ import type {
 import { resolveCaptionReadableText } from '$lib/utils/caption-readable-text';
 import { resolveChartReadableText } from '$lib/utils/chart-readable-text';
 import { resolveVisibleChartBlock } from '$lib/utils/chart-visibility';
+import { resolveFigureReadableText } from '$lib/utils/figure-readable-text';
 import {
 	messageEnter,
 	RECEIPT_DELIVERED_DELAY,
@@ -286,6 +287,16 @@ export function isDeterministicReadableIdentityMotionHidden(
 		if (!surfaceHasLegibleHold(state, progress)) return true;
 	}
 	const blockId = identity.match(/^block:([^:]+):/)?.[1];
+	const figure = blockId ? state.surface.figures?.find((entry) => entry.id === blockId) : undefined;
+	if (figure) {
+		// A Figure label is readable only while fully up (figure-readable-text.ts).
+		return !resolveFigureReadableText(
+			figure,
+			state.transport.orientation,
+			progress,
+			progress * state.transport.durationSeconds * 1000
+		).some((entry) => entry.id === identity);
+	}
 	if (blockId) return !blockHasLegibleHold(state, blockId, progress);
 	const overlayId = identity.match(/^overlay:([^:]+):/)?.[1];
 	if (overlayId) {
@@ -410,6 +421,16 @@ function expectedSurfaceReadableText(
 	const chart = resolveVisibleChartBlock(state.surface.chart, progress);
 	if (chart)
 		entries.push(...resolveChartReadableText(chart, state.transport.orientation, progress));
+	for (const figure of state.surface.figures ?? []) {
+		entries.push(
+			...resolveFigureReadableText(
+				figure,
+				state.transport.orientation,
+				progress,
+				progress * state.transport.durationSeconds * 1000
+			)
+		);
+	}
 	for (const word of state.surface.typeField?.words ?? []) {
 		if (!isKineticWordReadableAt(word, progress * state.transport.durationSeconds * 1000)) continue;
 		appendReadableText(

@@ -108,7 +108,15 @@ export function prepareBarRaceFigure(
 				plot.x + plot.width
 			]);
 			const chrome = chromeAlpha(motion);
-			for (const tick of generateChartLinearTicks(scale, plot.width)) {
+			const ticks = generateChartLinearTicks(scale, plot.width);
+			// Ticks print only the decimals their own step needs.
+			const tickFormat = {
+				...format,
+				precision: ticks.every((tick) => Number.isInteger(Math.round(tick.value * 1e9) / 1e9))
+					? 0
+					: Math.min(format.precision, 1)
+			};
+			for (const tick of ticks) {
 				items.push({
 					shape: 'path',
 					key: `tick:${tick.value}`,
@@ -123,7 +131,7 @@ export function prepareBarRaceFigure(
 					items.push(
 						createFigureText(env, {
 							key: `tick-label:${tick.value}`,
-							text: formatFigureValue(tick.value, format),
+							text: formatFigureValue(tick.value, tickFormat),
 							role: 'caption',
 							x: tick.position,
 							y: env.plot.y,
@@ -813,7 +821,9 @@ export function prepareSankeyFigure(
 				});
 				const flow = motion.flow(id);
 				if (flow && link.width > 2) {
-					const period = Math.max(60, link.width * 2.4);
+					// Thin rounded streaks riding the ribbon's centreline read as current, not as blocks.
+					const streak = Math.max(6, Math.min(16, link.width * 0.18));
+					const period = streak * 9;
 					items.push({
 						shape: 'path',
 						key: `${id}#flow`,
@@ -821,10 +831,13 @@ export function prepareSankeyFigure(
 						fill: null,
 						fillOpacity: 0,
 						stroke: 'ink',
-						strokeWidth: Math.max(2, link.width * 0.55),
-						opacity: 0.16 * flow.visibility * dim,
-						dash: { array: [period * 0.35, period * 0.65], offset: -flow.phase * period * 3 },
-						linecap: 'butt'
+						strokeWidth: streak,
+						opacity: 0.38 * flow.visibility * dim,
+						dash: {
+							array: [streak * 2.2, period - streak * 2.2],
+							offset: -flow.phase * period * 4
+						},
+						linecap: 'round'
 					});
 				}
 			}
@@ -929,6 +942,11 @@ export function prepareTreemapFigure(
 		return false;
 	};
 	const sizeOrder = [...cells].sort((a, b) => b.value - a.value).map((cell) => cell.id);
+	const siblingIndex = new Map<string, number>();
+	for (const cell of cells) {
+		const siblings = cells.filter((candidate) => candidate.parentId === cell.parentId);
+		siblingIndex.set(cell.id, siblings.indexOf(cell));
+	}
 	const zoomRect = (rect: FigureRect, target: FigureRect, amount: number): FigureRect => {
 		if (amount <= 0) return rect;
 		const sx = env.plot.width / target.width;
@@ -976,7 +994,8 @@ export function prepareTreemapFigure(
 						...grown,
 						rx: 6,
 						fill: voice,
-						fillOpacity: 0.85,
+						// Siblings step their strength so neighbouring cells separate.
+						fillOpacity: 0.96 - 0.12 * ((siblingIndex.get(cell.id) ?? 0) % 3),
 						stroke: null,
 						strokeWidth: 0,
 						opacity: dim * zoomFade
@@ -1003,6 +1022,7 @@ export function prepareTreemapFigure(
 								anchor: 'start',
 								baseline: 'hanging',
 								fill: 'ink',
+								contrastWith: voice,
 								opacity: textOpacity
 							})
 						);
@@ -1016,6 +1036,7 @@ export function prepareTreemapFigure(
 								anchor: 'start',
 								baseline: 'hanging',
 								fill: 'ink',
+								contrastWith: voice,
 								opacity: textOpacity
 							})
 						);

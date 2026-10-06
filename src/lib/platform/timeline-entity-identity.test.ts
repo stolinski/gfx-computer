@@ -149,10 +149,13 @@ describe('timeline entity identity', () => {
 			message:
 				'Timeline entity identity: track identity must name a kind, received an identity without a kind.'
 		});
-		assert.throws(() => createTimelineTrackId({ kind: 'scene' } as unknown as TimelineTrackIdentity), {
-			name: 'TypeError',
-			message: 'Timeline entity identity: unsupported track kind scene.'
-		});
+		assert.throws(
+			() => createTimelineTrackId({ kind: 'scene' } as unknown as TimelineTrackIdentity),
+			{
+				name: 'TypeError',
+				message: 'Timeline entity identity: unsupported track kind scene.'
+			}
+		);
 		assert.throws(() => createTimelineTrackId({ kind: 'stage-body', bodyId: '' }), TypeError);
 		assert.equal(parseTimelineTrackId('stage-body:'), null);
 		assert.equal(parseTimelineTrackId('stage-camera:1'), null);

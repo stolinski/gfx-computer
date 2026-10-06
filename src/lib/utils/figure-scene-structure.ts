@@ -948,7 +948,16 @@ export function prepareCycleFigure(figure: CycleFigure, env: FigurePrepareEnv): 
 				const angle = layout.angles[index];
 				const sin = Math.sin(angle);
 				const cos = Math.cos(angle);
-				const horizontal = Math.abs(sin) > 0.5;
+				const textWidth = Math.max(
+					env.measure(item.label, 'label').width,
+					item.detail ? env.measure(item.detail, 'caption').width : 0
+				);
+				const sideRoom =
+					sin > 0
+						? env.frame.x + env.frame.width - (center.x + r + gap * 0.6)
+						: center.x - r - gap * 0.6 - env.frame.x;
+				// A side label that would not fit beside its step drops below it instead.
+				const horizontal = Math.abs(sin) > 0.5 && sideRoom >= textWidth;
 				const labelX = horizontal ? center.x + Math.sign(sin) * (r + gap * 0.6) : center.x;
 				const labelAnchor = horizontal ? (sin > 0 ? 'start' : 'end') : 'middle';
 				const above = !horizontal && cos > 0;

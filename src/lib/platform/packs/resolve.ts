@@ -12,8 +12,9 @@
  * Only string-valued `style` Roles become CSS vars; structural Roles (edge
  * recipes, depth rigs, chrome) are consumed in code, not here.
  */
+import type { FigureVoice } from '$lib/utils/figure-scene';
 import { isStageTypeface, REFERENCE_STAGE_TYPEFACE_SLUG } from '../stage-typefaces';
-import { cssColorToRgbaFloat, getRgbColorChannels } from '$lib/utils/color';
+import { cssColorToRgbaFloat, cssWcagContrastRatio, getRgbColorChannels } from '$lib/utils/color';
 import {
 	readChartMarkFillRecipe,
 	readChartSeriesColorRole,
@@ -132,6 +133,44 @@ export function resolveChartSeriesStrokeColor(manifest: PackManifest, seriesInde
 		resolveChartCssColor(manifest, 'chart.mark') ??
 		requireCoreColor(manifest, 'accent-treatment')
 	);
+}
+
+/** Figure voice colours plus, for each voice, the ink that reads on it as a fill. */
+export interface FigureVoicePalette {
+	color: Record<FigureVoice, string>;
+	readableOn: Record<FigureVoice, string>;
+}
+
+/**
+ * Figure voices (ADR-0067 §8) resolve through the existing chart Roles, so
+ * every registered and User Pack styles Figures without new Roles. `muted` is
+ * the label ink (the renderer lowers its alpha); `field` is the Pack field.
+ * `readableOn` picks label ink or field colour — whichever contrasts more —
+ * for text sitting on a filled Mark.
+ */
+export function resolveFigureVoiceColors(manifest: PackManifest): FigureVoicePalette {
+	const chrome = resolveChartChromeColors(manifest);
+	const color: Record<FigureVoice, string> = {
+		'series-0': resolveChartSeriesStrokeColor(manifest, 0),
+		'series-1': resolveChartSeriesStrokeColor(manifest, 1),
+		'series-2': resolveChartSeriesStrokeColor(manifest, 2),
+		'series-3': resolveChartSeriesStrokeColor(manifest, 3),
+		ink: chrome.label,
+		muted: chrome.label,
+		accent: chrome.annotation,
+		axis: chrome.axis,
+		grid: chrome.grid,
+		field: chrome.labelPlate
+	};
+	const readable = (background: string): string =>
+		cssWcagContrastRatio(chrome.label, background) >=
+		cssWcagContrastRatio(chrome.labelPlate, background)
+			? chrome.label
+			: chrome.labelPlate;
+	const readableOn = Object.fromEntries(
+		Object.entries(color).map(([voice, value]) => [voice, readable(value)])
+	) as Record<FigureVoice, string>;
+	return { color, readableOn };
 }
 
 /** Resolve a semantic chart fill and its bounded declaration-order series voice through the Pack. */

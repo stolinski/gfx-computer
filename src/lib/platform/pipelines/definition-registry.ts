@@ -3,6 +3,7 @@ import { columnChartBlockDefinition } from '$lib/pipelines/blocks/column-chart/d
 import { dotFieldChartBlockDefinition } from '$lib/pipelines/blocks/dot-field-chart/definition';
 import { edgeArrowBlockDefinition } from '$lib/pipelines/blocks/edge-arrow/definition';
 import { lineChartBlockDefinition } from '$lib/pipelines/blocks/line-chart/definition';
+import { figureBlockDefinition } from '$lib/pipelines/blocks/figure/definition';
 import { labelBlockDefinition } from '$lib/pipelines/blocks/label/definition';
 import { kineticWordBlockDefinition } from '$lib/pipelines/blocks/kinetic-word/definition';
 import { nodeBlockDefinition } from '$lib/pipelines/blocks/node/definition';
@@ -105,7 +106,8 @@ export const PIPELINE_DEFINITION_REGISTRY = {
 		columnChart: columnChartBlockDefinition,
 		lineChart: lineChartBlockDefinition,
 		unitGridChart: unitGridChartBlockDefinition,
-		dotFieldChart: dotFieldChartBlockDefinition
+		dotFieldChart: dotFieldChartBlockDefinition,
+		figure: figureBlockDefinition
 	},
 	annotations: {
 		highlight: highlightAnnotationDefinition,

@@ -8,6 +8,7 @@ import type { FigureKind } from './engine-schema';
  */
 export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
 	'neural-network': {
+		type: 'figure',
 		id: 'digit-net',
 		kind: 'neural-network',
 		title: 'How a network reads a digit',
@@ -38,6 +39,7 @@ export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
 		pins: [{ mark: 'node:out:1', label: '8 — 94%' }]
 	},
 	tree: {
+		type: 'figure',
 		id: 'languages',
 		kind: 'tree',
 		title: 'Where English comes from',
@@ -75,6 +77,7 @@ export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
 		]
 	},
 	network: {
+		type: 'figure',
 		id: 'coauthors',
 		kind: 'network',
 		title: 'Six papers apart',
@@ -120,6 +123,7 @@ export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
 		]
 	},
 	cycle: {
+		type: 'figure',
 		id: 'water-cycle',
 		kind: 'cycle',
 		title: 'The water cycle',
@@ -139,6 +143,7 @@ export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
 		]
 	},
 	'bar-race': {
+		type: 'figure',
 		id: 'gdp-race',
 		kind: 'bar-race',
 		title: 'The largest economies',
@@ -219,6 +224,7 @@ export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
 		]
 	},
 	line: {
+		type: 'figure',
 		id: 'co2',
 		kind: 'line',
 		title: 'Carbon dioxide in the air',
@@ -257,6 +263,7 @@ export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
 		]
 	},
 	slope: {
+		type: 'figure',
 		id: 'phone-ranks',
 		kind: 'slope',
 		title: 'Who sells the most phones',
@@ -288,6 +295,7 @@ export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
 		]
 	},
 	sankey: {
+		type: 'figure',
 		id: 'power',
 		kind: 'sankey',
 		title: 'Where the power goes',
@@ -325,6 +333,7 @@ export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
 		]
 	},
 	treemap: {
+		type: 'figure',
 		id: 'budget',
 		kind: 'treemap',
 		title: 'Where the federal budget goes',

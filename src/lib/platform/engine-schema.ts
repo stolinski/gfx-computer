@@ -386,7 +386,8 @@ export const BlockTypeSchema = z.enum([
 	'column-chart',
 	'line-chart',
 	'unit-grid-chart',
-	'dot-field-chart'
+	'dot-field-chart',
+	'figure'
 ]);
 /** Discriminants for the complete Block Layer vocabulary. */
 export type BlockType = z.infer<typeof BlockTypeSchema>;
@@ -1328,7 +1329,7 @@ export type ChartGroup = z.infer<typeof ChartGroupSchema>;
 // figure-validation.ts so every ingress reports precise semantic paths.
 
 /** How many Figures one Surface carries. */
-export const FIGURE_GROUP_LIMIT = 4;
+export const FIGURE_GROUP_LIMIT = 9;
 /** How many Moves one Figure carries. */
 export const FIGURE_MOVE_LIMIT = 16;
 /** How many Pins one Figure carries. */
@@ -1685,6 +1686,8 @@ export const FigurePinSchema = z.strictObject({
 export type FigurePin = z.infer<typeof FigurePinSchema>;
 
 const figureBase = {
+	// Every Figure is the one `figure` Block Pipeline; `kind` picks its builder.
+	type: z.literal('figure'),
 	id: FigureDataIdSchema,
 	title: z.string().min(1).max(120).optional(),
 	sourceNote: z.string().min(1).max(160).optional(),
@@ -2754,7 +2757,8 @@ export const EngineStateSchema = z
 		const blockIds = new Set([
 			...diagramBlockIds,
 			...chartItems.map((chartItem) => chartItem.id),
-			...(state.surface.typeField?.words ?? []).map((word) => word.id)
+			...(state.surface.typeField?.words ?? []).map((word) => word.id),
+			...(state.surface.figures ?? []).map((figure) => figure.id)
 		]);
 
 		for (const edge of edges.values()) {
@@ -2784,7 +2788,7 @@ export const EngineStateSchema = z
 				ctx.addIssue({
 					code: 'custom',
 					path: [...edge.path, 'anchor'],
-					message: `cascade.anchor block "${anchor.block}" does not match any surface.diagram[].id, surface.chart.items[].id, or surface.typeField.words[].id.`
+					message: `cascade.anchor block "${anchor.block}" does not match any surface.diagram[].id, surface.chart.items[].id, surface.typeField.words[].id, or surface.figures[].id.`
 				});
 			}
 		}

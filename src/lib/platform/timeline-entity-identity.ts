@@ -26,7 +26,9 @@ export type OverlayTimelineSubtrack =
 	| { kind: 'spin' }
 	| { kind: 'cursor'; index: number };
 
-export type BlockTimelineSubtrack = { kind: 'roll' };
+// `move` is one row per non-reveal Move of a Figure (ADR-0067 §6); Moves may
+// overlap, so each gets its own row instead of sharing the Figure's row.
+export type BlockTimelineSubtrack = { kind: 'roll' } | { kind: 'move'; index: number };
 
 // The Layer rows, the Video and Sound rails, and the STAGE rows (ADR-0060):
 // the camera, the focus, and one row per body on the Dimensional Stage. A
@@ -147,8 +149,14 @@ export function createTimelineTrackId(identity: TimelineTrackIdentity): Timeline
 		}
 		case 'block':
 			return `block:${requireIdentitySegment(identity.blockId, 'Block id')}` as TimelineTrackId;
-		case 'block-subtrack':
-			return `block-subtrack:${requireIdentitySegment(identity.blockId, 'Block id')}:${identity.subtrack.kind}` as TimelineTrackId;
+		case 'block-subtrack': {
+			const base = `block-subtrack:${requireIdentitySegment(identity.blockId, 'Block id')}`;
+			return (
+				identity.subtrack.kind === 'move'
+					? `${base}:move:${requireIdentityIndex(identity.subtrack.index, 'Move index')}`
+					: `${base}:${identity.subtrack.kind}`
+			) as TimelineTrackId;
+		}
 		case 'text-animation':
 			return `text-animation:${requireIdentitySegment(identity.textAnimationId, 'Text animation id')}` as TimelineTrackId;
 		case 'effect':
@@ -219,6 +227,13 @@ export function parseTimelineTrackId(value: string): TimelineTrackIdentity | nul
 		return blockId === null
 			? null
 			: { kind: 'block-subtrack', blockId, subtrack: { kind: 'roll' } };
+	}
+	if (prefix === 'block-subtrack' && parts.length === 4 && parts[2] === 'move') {
+		const blockId = decodeIdentitySegment(parts[1]);
+		const index = parseIdentityIndex(parts[3]);
+		return blockId === null || index === null
+			? null
+			: { kind: 'block-subtrack', blockId, subtrack: { kind: 'move', index } };
 	}
 
 	return null;

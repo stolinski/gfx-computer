@@ -240,7 +240,8 @@ export function assertPublicRuntimeDeployment(
 		(failure) =>
 			`  ${failure.input}: ${failure.problem}${failure.fittingValue === null ? '' : ` Set it to ${failure.fittingValue}.`}`
 	);
-	const declaration = profile === 'hosted' ? 'PUBLIC_GFX_HOSTED is set' : `GFX_RUNTIME_PROFILE=${profile}`;
+	const declaration =
+		profile === 'hosted' ? 'PUBLIC_GFX_HOSTED is set' : `GFX_RUNTIME_PROFILE=${profile}`;
 	throw new PublicRuntimeConfigError(
 		`${declaration}, but ${failures.length} deployment input${failures.length === 1 ? '' : 's'} cannot serve ${profile} traffic:\n${lines.join('\n')}`
 	);

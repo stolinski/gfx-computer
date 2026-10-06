@@ -171,7 +171,7 @@ describe('media right rail source contract', () => {
 		}
 		assertIncludes(
 			source.mediaInspector,
-			"Array.from(event.dataTransfer?.files ?? [])",
+			'Array.from(event.dataTransfer?.files ?? [])',
 			'Media drop import must retain every dropped file'
 		);
 		for (const formatLabel of ['MP4', 'MOV', 'WEBM']) {

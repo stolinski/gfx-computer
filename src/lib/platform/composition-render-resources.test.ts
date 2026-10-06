@@ -23,7 +23,10 @@ function identity(width = 100): CompositionRenderResourceIdentity {
 	};
 }
 
-function factories(disposed: string[], failAt: string | null = null): CompositionRenderResourceFactories {
+function factories(
+	disposed: string[],
+	failAt: string | null = null
+): CompositionRenderResourceFactories {
 	function resource<T>(name: string): T {
 		if (failAt === name) throw new Error(`${name} failed`);
 		return { dispose: () => disposed.push(name) } as T;

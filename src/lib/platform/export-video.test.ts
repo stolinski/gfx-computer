@@ -89,10 +89,10 @@ describe('downloadVideoExport', () => {
 		await assert.rejects(
 			downloadVideoExport(
 				{
-				transport: 'origin',
-				downloadUrl: '/api/export/sessions/session-id/output',
-				cancelUrl: '/session'
-			},
+					transport: 'origin',
+					downloadUrl: '/api/export/sessions/session-id/output',
+					cancelUrl: '/session'
+				},
 				'gfx-bumper.mov'
 			),
 			/Export output is not ready/
@@ -111,10 +111,10 @@ describe('downloadVideoExport', () => {
 		await assert.rejects(
 			downloadVideoExport(
 				{
-				transport: 'origin',
-				downloadUrl: '/api/export/sessions/session-id/output',
-				cancelUrl: '/session'
-			},
+					transport: 'origin',
+					downloadUrl: '/api/export/sessions/session-id/output',
+					cancelUrl: '/session'
+				},
 				'gfx-overlay.webm'
 			),
 			/ended at 5 bytes; expected 4096/
@@ -252,17 +252,15 @@ describe('export session client', () => {
 		});
 		assert.deepEqual(
 			calls.map((call) => call.url),
-			[
-				'/api/export/sessions',
-				'/session/frames/0',
-				'/session/frames/1',
-				'/session/complete'
-			]
+			['/api/export/sessions', '/session/frames/0', '/session/frames/1', '/session/complete']
 		);
 		assert.ok(calls[1].init?.body instanceof Blob);
 		assert.ok(calls[2].init?.body instanceof Blob);
 		assert.notEqual(calls[1].init?.body, calls[2].init?.body);
-		assert.equal(calls.some((call) => call.url === '/session/output'), false);
+		assert.equal(
+			calls.some((call) => call.url === '/session/output'),
+			false
+		);
 	});
 
 	it('cancels the server session when the shared AbortSignal stops a frame upload', async () => {

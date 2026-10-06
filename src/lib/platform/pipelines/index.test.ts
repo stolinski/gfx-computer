@@ -42,6 +42,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'column-chart',
 	'unit-grid-chart',
 	'dot-field-chart',
+	'figure',
 	'highlight',
 	'underline',
 	'strike',
@@ -113,7 +114,8 @@ describe('Pipeline Definition Registry', () => {
 				'column-chart',
 				'line-chart',
 				'unit-grid-chart',
-				'dot-field-chart'
+				'dot-field-chart',
+				'figure'
 			].toSorted()
 		);
 	});

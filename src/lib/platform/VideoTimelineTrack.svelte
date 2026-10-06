@@ -308,8 +308,8 @@
 	   bottom, light text. Kind color stays out of the way of the layer palette. */
 	.video-timeline-clip {
 		background:
-			repeating-linear-gradient(to right, rgb(0 0 0 / 0.4) 0 3px, transparent 3px 11px) top /
-				100% 4px no-repeat,
+			repeating-linear-gradient(to right, rgb(0 0 0 / 0.4) 0 3px, transparent 3px 11px) top / 100%
+				4px no-repeat,
 			repeating-linear-gradient(to right, rgb(0 0 0 / 0.4) 0 3px, transparent 3px 11px) bottom /
 				100% 4px no-repeat,
 			#33363e;

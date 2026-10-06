@@ -199,7 +199,10 @@ export function captureCompositionGestureOrigin(): Preset | null {
 	try {
 		return captureOpenCompositionDocument();
 	} catch (error) {
-		console.error('Composition gesture origin could not be captured; the gesture records no undo.', error);
+		console.error(
+			'Composition gesture origin could not be captured; the gesture records no undo.',
+			error
+		);
 		return null;
 	}
 }

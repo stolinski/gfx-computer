@@ -126,10 +126,9 @@ describe('CanvasPaintGenerationTracker', () => {
 		const tracker = new CanvasPaintGenerationTracker();
 
 		tracker.record(targetCanvas, {} as HtmlInCanvasPaintEvent);
-		tracker.record(
-			targetCanvas,
-			{ changedElements: [nested] } as unknown as HtmlInCanvasPaintEvent
-		);
+		tracker.record(targetCanvas, {
+			changedElements: [nested]
+		} as unknown as HtmlInCanvasPaintEvent);
 
 		assert.equal(tracker.generationFor(composition), 2);
 		assert.equal(tracker.generationFor(overlay), 1);
@@ -150,17 +149,15 @@ describe('CanvasPaintGenerationTracker', () => {
 		const nestedOverlay = element(overlay);
 		const tracker = new CanvasPaintGenerationTracker();
 
-		tracker.record(
-			targetCanvas,
-			{ changedElements: [nestedOverlay] } as unknown as HtmlInCanvasPaintEvent
-		);
+		tracker.record(targetCanvas, {
+			changedElements: [nestedOverlay]
+		} as unknown as HtmlInCanvasPaintEvent);
 		assert.equal(tracker.generationFor(composition), 1);
 		assert.equal(tracker.generationFor(overlay), 1);
 
-		tracker.record(
-			targetCanvas,
-			{ changedElements: [nestedOverlay] } as unknown as HtmlInCanvasPaintEvent
-		);
+		tracker.record(targetCanvas, {
+			changedElements: [nestedOverlay]
+		} as unknown as HtmlInCanvasPaintEvent);
 		assert.equal(tracker.generationFor(composition), 1);
 		assert.equal(tracker.generationFor(overlay), 2);
 	});
@@ -171,10 +168,9 @@ describe('CanvasPaintGenerationTracker', () => {
 		Object.defineProperty(composition, 'parentElement', { value: targetCanvas });
 		const tracker = new CanvasPaintGenerationTracker();
 
-		tracker.record(
-			targetCanvas,
-			{ changedElements: [composition] } as unknown as HtmlInCanvasPaintEvent
-		);
+		tracker.record(targetCanvas, {
+			changedElements: [composition]
+		} as unknown as HtmlInCanvasPaintEvent);
 		tracker.record(targetCanvas, { changedElements: [] } as unknown as HtmlInCanvasPaintEvent);
 
 		assert.equal(tracker.generationFor(composition), 1);

@@ -1,4 +1,8 @@
-import { STAGE_CAMERA_POSE_LIMITS, type StageCameraPose, type StageCameraTravel } from './engine-schema';
+import {
+	STAGE_CAMERA_POSE_LIMITS,
+	type StageCameraPose,
+	type StageCameraTravel
+} from './engine-schema';
 
 // The stage camera's editing vocabulary shared by the Camera inspector and the
 // canvas gestures (ADR-0060): the rest pose a new pose starts from, a travel

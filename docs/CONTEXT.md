@@ -191,7 +191,7 @@ The five-**Block** vocabulary for art-directed, documentary-style diagrams — `
 _Avoid_: mermaid Block (auto-layout is not the model), infographic, map primitive (a map is a composition, not a type).
 
 **Figure**:
-A Surface-carried declaration in `surface.figures[]` (one to four, on any Surface) whose `kind` — `neural-network`, `tree`, `network`, `cycle`, `bar-race`, `line`, `slope`, `sankey`, `treemap` — plus inline `data`, `layout`, and `encoding` generate its **Marks** through a deterministic layout; rendered by the single `figure` Block Pipeline ([ADR-0067](adr/0067-figures-generated-visualization-domain.md)). Authors keep control through the frame, per-orientation layout, **Moves**, and **Pins**.
+A Surface-carried declaration in `surface.figures[]` (one to nine, on any Surface) whose `kind` — `neural-network`, `tree`, `network`, `cycle`, `bar-race`, `line`, `slope`, `sankey`, `treemap` — plus inline `data`, `layout`, and `encoding` generate its **Marks** through a deterministic layout; rendered by the single `figure` Block Pipeline ([ADR-0067](adr/0067-figures-generated-visualization-domain.md)). Authors keep control through the frame, per-orientation layout, **Moves**, and **Pins**.
 _Avoid_: chart (that is a Chart Block), diagram (that is a Diagram primitive), visualization, recipe, infographic.
 
 **Mark**:

@@ -403,8 +403,7 @@ function createDefaultDiagramPrimitive(
 			return { type, id, from: { x: 0.3, y: 0.7 }, to: { x: 0.7, y: 0.7 }, enter };
 		case 'edge-arrow': {
 			const nodes = diagram.filter((entry) => entry.type === 'node');
-			const from =
-				nodes.length >= 2 ? { node: nodes[nodes.length - 2].id } : { x: 0.35, y: 0.5 };
+			const from = nodes.length >= 2 ? { node: nodes[nodes.length - 2].id } : { x: 0.35, y: 0.5 };
 			const to = nodes.length >= 2 ? { node: nodes[nodes.length - 1].id } : { x: 0.65, y: 0.5 };
 			return { type, id, from, to, route: 'straight', enter };
 		}

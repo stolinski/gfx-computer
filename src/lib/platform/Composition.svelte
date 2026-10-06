@@ -2,6 +2,7 @@
 	import CaptionsMount from './CaptionsMount.svelte';
 	import ChartMount from './ChartMount.svelte';
 	import DiagramMount from './DiagramMount.svelte';
+	import FigureMount from './FigureMount.svelte';
 	import KineticTypeFieldMount from './KineticTypeFieldMount.svelte';
 	import { engineState } from './engine-state.svelte';
 	import OverlayMount from './OverlayMount.svelte';
@@ -74,6 +75,8 @@
 	     path — inside .composition even when the Overlay plane is hoisted, so
 	     a diagram parallaxes with the surface it annotates. -->
 	<DiagramMount />
+	<!-- Figures (ADR-0067) share the Surface plane with charts and diagrams. -->
+	<FigureMount />
 	{#if !splitPlanes}
 		<OverlayMount />
 		<!-- Captions ride TOPMOST wherever the overlays live — broadcast

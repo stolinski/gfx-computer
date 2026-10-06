@@ -54,7 +54,12 @@
 	<!-- Scrolls with the lanes; x is a lane-width percentage, y a row-centre pixel. -->
 	<svg class="track-tethers" style:block-size="{contentBlockSize}px" aria-hidden="true">
 		{#each cascadeTethers as tether (tether.key)}
-			<line x1="{tether.anchorX}%" y1={tether.anchorY} x2="{tether.anchorX}%" y2={tether.followerY} />
+			<line
+				x1="{tether.anchorX}%"
+				y1={tether.anchorY}
+				x2="{tether.anchorX}%"
+				y2={tether.followerY}
+			/>
 			<line
 				x1="{tether.anchorX}%"
 				y1={tether.followerY}

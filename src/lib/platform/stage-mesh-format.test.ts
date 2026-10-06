@@ -3,11 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'vitest';
 
-import {
-	decodeStageMesh,
-	encodeStageMesh,
-	STAGE_MESH_VERTEX_FLOATS
-} from './stage-mesh-format';
+import { decodeStageMesh, encodeStageMesh, STAGE_MESH_VERTEX_FLOATS } from './stage-mesh-format';
 import { getStageModel, listStageModels } from './stage-models';
 
 describe('stage mesh format', () => {

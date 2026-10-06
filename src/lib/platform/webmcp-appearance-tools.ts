@@ -493,11 +493,7 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 					runSetCompositionKineticWordAppearanceOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						wordId: readWebmcpStringArgument(args, 'wordId'),
-						hierarchy: readWebmcpLiteralArgument(
-							args,
-							'hierarchy',
-							KINETIC_WORD_HIERARCHIES
-						),
+						hierarchy: readWebmcpLiteralArgument(args, 'hierarchy', KINETIC_WORD_HIERARCHIES),
 						ink: readWebmcpLiteralArgument(args, 'ink', KINETIC_WORD_INK_ROLES)
 					})
 				)

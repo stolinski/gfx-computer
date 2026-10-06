@@ -40,7 +40,9 @@ const source: StageTypefaceSource = {
 describe('stage glyph format', () => {
 	it('round-trips metrics, outlines, advances, and kerning', () => {
 		const bytes = encodeStageTypeface(source);
-		const decoded = decodeStageTypeface(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+		const decoded = decodeStageTypeface(
+			bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+		);
 		assert.equal(decoded.unitsPerEm, 1000);
 		assert.equal(decoded.capHeight, 700);
 		assert.equal(decoded.descender, -250);
@@ -84,7 +86,10 @@ describe('stage glyph format', () => {
 		const wrongMagic = new Uint8Array(bytes);
 		wrongMagic[0] = 0x58;
 		assert.throws(() => decodeStageTypeface(wrongMagic.buffer), /wrong magic/);
-		assert.throws(() => decodeStageTypeface(bytes.buffer.slice(0, bytes.byteLength - 4)), /expected/);
+		assert.throws(
+			() => decodeStageTypeface(bytes.buffer.slice(0, bytes.byteLength - 4)),
+			/expected/
+		);
 		assert.throws(() => decodeStageTypeface(new ArrayBuffer(8)), /truncated/);
 	});
 

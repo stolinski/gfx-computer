@@ -64,6 +64,7 @@ import { paragraphIdentity } from '$lib/pipelines/blocks/paragraph/identity';
 import { statCalloutIdentity } from '$lib/pipelines/blocks/stat-callout/identity';
 import { timelineSegmentIdentity } from '$lib/pipelines/blocks/timeline-segment/identity';
 import { lineChartIdentity } from '$lib/pipelines/blocks/line-chart/identity';
+import { figureIdentity } from '$lib/pipelines/blocks/figure/identity';
 import { unitGridChartIdentity } from '$lib/pipelines/blocks/unit-grid-chart/identity';
 
 // Annotations
@@ -123,6 +124,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'block:bar-chart': barChartIdentity,
 	'block:column-chart': columnChartIdentity,
 	'block:line-chart': lineChartIdentity,
+	'block:figure': figureIdentity,
 	'block:unit-grid-chart': unitGridChartIdentity,
 	'block:dot-field-chart': dotFieldChartIdentity,
 

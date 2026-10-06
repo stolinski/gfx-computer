@@ -170,6 +170,9 @@ describe('honest motion', () => {
 			const item = prepared.scene(progress, 0).items.find((candidate) => candidate.key === key);
 			return item && item.shape === 'rect' ? item.y : Number.NaN;
 		};
-		assert.ok(rowY(0.99, 'bar:cn') < rowY(0.1, 'bar:cn'));
+		// China starts below the visible six and finishes above Japan.
+		assert.ok(Number.isNaN(rowY(0.1, 'bar:cn')));
+		assert.ok(rowY(0.1, 'bar:jp') < rowY(0.1, 'bar:de'));
+		assert.ok(rowY(0.99, 'bar:cn') < rowY(0.99, 'bar:jp'));
 	});
 });

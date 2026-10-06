@@ -13,7 +13,16 @@ import type { Figure, FigureKind } from '$lib/platform/engine-schema';
 
 /** Pack color voices a scene item resolves through the chart Roles (ADR-0067 §8). */
 export type FigureVoice =
-	'series-0' | 'series-1' | 'series-2' | 'series-3' | 'ink' | 'muted' | 'accent' | 'axis' | 'grid';
+	| 'series-0'
+	| 'series-1'
+	| 'series-2'
+	| 'series-3'
+	| 'ink'
+	| 'muted'
+	| 'accent'
+	| 'axis'
+	| 'grid'
+	| 'field';
 
 const FIGURE_SEQUENCE_VOICES: readonly FigureVoice[] = [
 	'series-0',
@@ -89,6 +98,8 @@ export interface FigureSceneText extends FigureSceneItemBase {
 	anchor: 'start' | 'middle' | 'end';
 	baseline: 'hanging' | 'middle' | 'alphabetic';
 	fill: FigureVoice;
+	/** When the text sits on a filled Mark: draw it in the ink that reads on that voice instead of `fill`. */
+	contrastWith?: FigureVoice;
 	/** The Mark this text labels: its Pin's label replaces the text, its hidden Pin hides it. */
 	labelOf?: string;
 }
