@@ -75,6 +75,30 @@ function niceChartUpperBound(value: number, span: number): number {
 	return normalizeChartZero(Number.isFinite(candidate) ? candidate : value);
 }
 
+/**
+ * A nice-rounded linear domain around an arbitrary data extent, for callers
+ * whose domain is not a Chart Block's (Figures, ADR-0067). `includeZero` keeps
+ * a zero baseline inside the domain.
+ */
+export function resolveNiceChartDomain(
+	min: number,
+	max: number,
+	includeZero: boolean
+): ChartLinearDomain {
+	const low = includeZero ? Math.min(0, min) : min;
+	const high = includeZero ? Math.max(0, max) : max;
+	if (!(high > low)) {
+		const pad = Math.abs(low) > 0 ? Math.abs(low) * 0.1 : 1;
+		return { min: normalizeChartZero(low - pad), max: normalizeChartZero(high + pad), zero: 0 };
+	}
+	const span = high - low;
+	return {
+		min: low === 0 ? 0 : niceChartLowerBound(low, span),
+		max: high === 0 ? 0 : niceChartUpperBound(high, span),
+		zero: 0
+	};
+}
+
 export function resolveChartNumericExtent(
 	block: BarChartBlock | ColumnChartBlock | LineChartBlock
 ): ChartNumericExtent {
