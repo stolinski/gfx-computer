@@ -7,6 +7,8 @@ export interface FigureNodeLabelRequest {
 	radius: number;
 	width: number;
 	height: number;
+	/** A direction the label would rather sit toward (for example, out of a ring). */
+	prefer?: FigurePoint;
 }
 
 /** Where a node's label sits: an anchor point with SVG text alignment. */
@@ -73,6 +75,17 @@ function placementOnSide(
 	};
 }
 
+/** The eight sides ordered by how closely they face `prefer`; ties keep the default order. */
+function sidesTowardFigureLabelPreference(prefer: FigurePoint): readonly FigureLabelSide[] {
+	const length = Math.hypot(prefer.x, prefer.y) || 1;
+	const facing = (side: FigureLabelSide): number =>
+		(side[0] * prefer.x + side[1] * prefer.y) / (length * Math.hypot(side[0], side[1]));
+	return [...FIGURE_LABEL_SIDES]
+		.map((side, index) => ({ side, index }))
+		.sort((a, b) => facing(b.side) - facing(a.side) || a.index - b.index)
+		.map(({ side }) => side);
+}
+
 /**
  * Places node labels so they avoid each other, other nodes and the edge of
  * `bounds`. Larger nodes choose first; each label takes the side of its node
@@ -102,7 +115,10 @@ export function placeFigureNodeLabels(
 	for (const { request } of order) {
 		let best: FigureNodeLabelPlacement | null = null;
 		let bestCost = Infinity;
-		FIGURE_LABEL_SIDES.forEach((side, sideIndex) => {
+		const sides = request.prefer
+			? sidesTowardFigureLabelPreference(request.prefer)
+			: FIGURE_LABEL_SIDES;
+		sides.forEach((side, sideIndex) => {
 			const candidate = placementOnSide(request, side, gap);
 			let cost = outsideArea(candidate.box, bounds) * 8;
 			for (const placed of placedBoxes) cost += overlapArea(candidate.box, placed) * 4;

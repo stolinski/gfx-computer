@@ -104,7 +104,8 @@ export function formatFigureValue(value: number, format: FigureValueFormat): str
 
 /**
  * Text broken into lines that each fit `width`, greedily, breaking at spaces
- * and after hyphens (the hyphen stays at the line end). Type is never squeezed
+ * and after hyphens (the hyphen stays at the line end); a " · " separated list
+ * that does not fit breaks at its separators first, which are dropped. Type is never squeezed
  * to fit; a word wider than `width` keeps its own line.
  */
 export function wrapFigureText(
@@ -113,10 +114,21 @@ export function wrapFigureText(
 	role: FigureTextRole,
 	measure: (text: string, role: FigureTextRole) => { width: number }
 ): string[] {
+	// A " · " list that has to wrap breaks at its separators first.
+	if (text.includes(' · ') && measure(text, role).width > width) {
+		return text.split(' · ').flatMap((part) => wrapFigureText(part, width, role, measure));
+	}
 	const tokens = text
 		.split(/\s+/)
 		.flatMap((word, index) => {
-			const parts = word.split(/(?<=-)/);
+			// Break after a hyphen only when it leaves at least three characters
+			// behind, so a prefix like "α-" never stands alone.
+			const parts = word.split(/(?<=-)/).reduce<string[]>((merged, part) => {
+				const last = merged[merged.length - 1];
+				if (last !== undefined && last.length <= 2) merged[merged.length - 1] = last + part;
+				else merged.push(part);
+				return merged;
+			}, []);
 			return parts.map((part, partIndex) => ({
 				part,
 				spaceBefore: partIndex === 0 && index > 0

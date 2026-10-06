@@ -1,0 +1,121 @@
+{
+	"schema": "supers@1",
+	"name": "The Citric Acid Cycle",
+	"description": "A full-frame process loop of the citric acid cycle: the eight intermediates appear in turn around the loop with the enzyme that makes each and what it releases, then one turn of the cycle runs twice around. OpenStax Biology 2e.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 16,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"figures": [
+				{
+					"type": "figure",
+					"id": "citric-acid-cycle",
+					"kind": "cycle",
+					"title": "The citric acid cycle",
+					"sourceNote": "Each step's product, enzyme and release · OpenStax Biology 2e, §7.3",
+					"data": {
+						"steps": [
+							{
+								"id": "citrate",
+								"label": "Citrate",
+								"detail": "Citrate synthase"
+							},
+							{
+								"id": "isocitrate",
+								"label": "Isocitrate",
+								"detail": "Aconitase"
+							},
+							{
+								"id": "alpha-ketoglutarate",
+								"label": "α-Ketoglutarate",
+								"detail": "Isocitrate dehydrogenase · CO₂, NADH"
+							},
+							{
+								"id": "succinyl-coa",
+								"label": "Succinyl-CoA",
+								"detail": "α-KG dehydrogenase · CO₂, NADH"
+							},
+							{
+								"id": "succinate",
+								"label": "Succinate",
+								"detail": "Succinyl-CoA synthetase · GTP"
+							},
+							{
+								"id": "fumarate",
+								"label": "Fumarate",
+								"detail": "Succinate dehydrogenase · FADH₂"
+							},
+							{
+								"id": "malate",
+								"label": "Malate",
+								"detail": "Fumarase"
+							},
+							{
+								"id": "oxaloacetate",
+								"label": "Oxaloacetate",
+								"detail": "Malate dehydrogenase · NADH"
+							}
+						]
+					},
+					"layout": {
+						"startAngle": 0,
+						"direction": "clockwise",
+						"aspect": "fit"
+					},
+					"frameOrientationOverrides": {
+						"vertical": {
+							"x": 0.06,
+							"y": 0.08,
+							"width": 0.88,
+							"height": 0.76
+						}
+					},
+					"encoding": {
+						"stepColor": "sequence"
+					},
+					"moves": [
+						{
+							"move": "reveal",
+							"style": "draw",
+							"start": 0.02,
+							"duration": 0.42,
+							"ease": "smooth"
+						},
+						{
+							"move": "propagate",
+							"start": 0.5,
+							"duration": 0.38,
+							"repeat": 2
+						},
+						{
+							"move": "exit",
+							"style": "fade",
+							"start": 0.95,
+							"duration": 0.045
+						}
+					]
+				}
+			]
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

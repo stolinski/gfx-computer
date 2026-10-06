@@ -104,6 +104,13 @@
 		"height": 360,
 		"contentFraction": 0.4721
 	},
+	"citric-acid-cycle": {
+		"contentKey": "565e639cca3268ab",
+		"timestampSeconds": 8,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.242
+	},
 	"cloth-bend-demo": {
 		"contentKey": "43bb32bec02d632f",
 		"timestampSeconds": 1.5,

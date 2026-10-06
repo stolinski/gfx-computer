@@ -1,6 +1,11 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { packFigureLabelRows, smoothFigureStep, trimFigureSegment } from './figure-geometry';
+import {
+	packFigureLabelRows,
+	smoothFigureStep,
+	trimFigurePolyline,
+	trimFigureSegment
+} from './figure-geometry';
 
 describe('packFigureLabelRows', () => {
 	it('keeps non-overlapping labels on one row', () => {
@@ -44,5 +49,31 @@ describe('smoothFigureStep', () => {
 		assert.equal(smoothFigureStep(-1), 0);
 		assert.equal(smoothFigureStep(0.5), 0.5);
 		assert.equal(smoothFigureStep(2), 1);
+	});
+});
+
+describe('trimFigurePolyline', () => {
+	it('removes length from both ends along the line', () => {
+		const line = [
+			{ x: 0, y: 0 },
+			{ x: 10, y: 0 },
+			{ x: 10, y: 10 }
+		];
+		assert.deepEqual(trimFigurePolyline(line, 4, 3), [
+			{ x: 4, y: 0 },
+			{ x: 10, y: 0 },
+			{ x: 10, y: 7 }
+		]);
+	});
+
+	it('collapses a line too short for its trims to the midpoint', () => {
+		const line = [
+			{ x: 0, y: 0 },
+			{ x: 10, y: 0 }
+		];
+		assert.deepEqual(trimFigurePolyline(line, 8, 8), [
+			{ x: 5, y: 0 },
+			{ x: 5, y: 0 }
+		]);
 	});
 });

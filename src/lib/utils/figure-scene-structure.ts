@@ -2,6 +2,7 @@ import {
 	createFigureRandom,
 	insetFigureRect,
 	lerpFigurePoint,
+	trimFigurePolyline,
 	roundFigurePixel,
 	trimFigureSegment,
 	type FigurePoint
@@ -863,34 +864,82 @@ export function prepareCycleFigure(figure: CycleFigure, env: FigurePrepareEnv): 
 	const steps = figure.data.steps;
 	const labelHeight = env.measure('Ag', 'label').height;
 	const captionHeight = env.measure('Ag', 'caption').height;
+	// Each step's label and detail form one text block. Steps facing the frame's
+	// sides wrap to a column that suits the frame; steps at the top and bottom of
+	// the ring have the width above and below it. Facing comes from the step's
+	// even-angle position, which the fitted layout keeps.
+	const sideColumn = env.plot.width * (env.plot.width >= env.plot.height ? 0.24 : 0.25);
+	const startRadians = (settings.startAngle * Math.PI) / 180;
+	const facesVertically = (index: number): boolean =>
+		Math.abs(Math.cos(startRadians + (Math.PI * 2 * index) / steps.length)) > 0.85;
+	const textBlocks = steps.map((step, index) => {
+		const column = facesVertically(index) ? env.plot.width * 0.5 : sideColumn;
+		const label =
+			resolveFigurePin(figure, figureNodeMarkId(step.id), env.orientation)?.label ?? step.label;
+		const labelLines = wrapFigureText(label, column, 'label', env.measure);
+		const detailLines = step.detail
+			? wrapFigureText(step.detail, column, 'caption', env.measure)
+			: [];
+		const width = Math.max(
+			...labelLines.map((line) => env.measure(line, 'label').width),
+			...detailLines.map((line) => env.measure(line, 'caption').width)
+		);
+		const height = labelLines.length * labelHeight + detailLines.length * captionHeight;
+		return { labelLines, detailLines, width, height, vertical: facesVertically(index) };
+	});
+	const sideBlocks = textBlocks.filter((block) => !block.vertical);
+	const endBlocks = textBlocks.filter((block) => block.vertical);
 	const widest = Math.max(
-		...steps.map((step) =>
-			Math.max(
-				env.measure(step.label, 'label').width,
-				step.detail ? env.measure(step.detail, 'caption').width : 0
-			)
-		)
+		0,
+		...(sideBlocks.length > 0 ? sideBlocks : textBlocks).map((block) => block.width)
+	);
+	const tallest = Math.max(
+		0,
+		...(endBlocks.length > 0 ? endBlocks : textBlocks).map((block) => block.height)
 	);
 	const gap = Math.min(env.plot.width, env.plot.height) * 0.025;
-	const radius = Math.max(36, Math.min(env.plot.width, env.plot.height) / 11);
-	const textBlock = labelHeight + (steps.some((step) => step.detail) ? captionHeight : 0);
+	// A tall frame's ring is a narrow oval between two text columns; smaller
+	// step circles leave it room.
+	const radius = Math.max(
+		36,
+		Math.min(env.plot.width, env.plot.height) / (env.plot.width >= env.plot.height ? 11 : 14)
+	);
 	const box = insetFigureRect(env.plot, {
-		top: radius + textBlock + gap,
-		bottom: radius + textBlock + gap,
-		left: radius + Math.min(widest, env.plot.width * 0.22) + gap,
-		right: radius + Math.min(widest, env.plot.width * 0.22) + gap
+		top: radius + tallest + gap,
+		bottom: radius + tallest + gap,
+		left: radius + widest + gap,
+		right: radius + widest + gap
 	});
 	const layout = layoutFigureCycle(steps.length, box, settings);
 	const centers = layout.centers.map(
 		(center, index) => env.pinnedPosition(figureNodeMarkId(steps[index].id)) ?? center
 	);
-	const meanRadius = (layout.radiusX + layout.radiusY) / 2;
-	const angularGap = ((radius + gap) / meanRadius) * layout.sweep;
-	const step = (Math.PI * 2 * layout.sweep) / steps.length;
+	// Text blocks are placed once per layout, preferring the side facing out of
+	// the ring, and moved aside when that side is taken.
+	const labelPlacements = placeFigureNodeLabels(
+		steps.map((step, index) => ({
+			id: step.id,
+			center: centers[index],
+			radius,
+			width: textBlocks[index].width,
+			height: textBlocks[index].height,
+			prefer: { x: centers[index].x - layout.center.x, y: centers[index].y - layout.center.y }
+		})),
+		env.plot,
+		gap * 0.6
+	);
+	// Each arrow follows the ellipse from one step to the next, trimmed back by
+	// distance so it leaves and meets the step circles with the same clearance.
 	const arcs = steps.map((item, index) => {
-		const from = layout.angles[index] + angularGap;
-		const to = layout.angles[index] + step - angularGap;
-		const points = cycleArcPoints(layout, from, to, 28);
+		const next =
+			index + 1 < steps.length
+				? layout.angles[index + 1]
+				: layout.angles[0] + layout.sweep * Math.PI * 2;
+		const points = trimFigurePolyline(
+			cycleArcPoints(layout, layout.angles[index], next, 64),
+			radius + gap,
+			radius + gap
+		);
 		const tail = points[points.length - 2];
 		const tip = points[points.length - 1];
 		const dx = tip.x - tail.x;
@@ -1021,59 +1070,41 @@ export function prepareCycleFigure(figure: CycleFigure, env: FigurePrepareEnv): 
 						opacity: clamp01(reveal) * motion.focusDim(id)
 					})
 				);
-				const angle = layout.angles[index];
-				const sin = Math.sin(angle);
-				const cos = Math.cos(angle);
-				const textWidth = Math.max(
-					env.measure(item.label, 'label').width,
-					item.detail ? env.measure(item.detail, 'caption').width : 0
-				);
-				const sideRoom =
-					sin > 0
-						? env.frame.x + env.frame.width - (center.x + r + gap * 0.6)
-						: center.x - r - gap * 0.6 - env.frame.x;
-				// A side label that would not fit beside its step drops below it instead.
-				const horizontal = Math.abs(sin) > 0.5 && sideRoom >= textWidth;
-				const labelX = horizontal ? center.x + Math.sign(sin) * (r + gap * 0.6) : center.x;
-				const labelAnchor = horizontal ? (sin > 0 ? 'start' : 'end') : 'middle';
-				const above = !horizontal && cos > 0;
-				const labelY = horizontal
-					? center.y - (item.detail ? captionHeight / 2 : 0)
-					: above
-						? center.y - r - gap * 0.4 - (item.detail ? captionHeight : 0)
-						: center.y + r + gap * 0.4;
-				items.push(
-					createFigureText(env, {
-						key: `${id}#label`,
-						labelOf: id,
-						text: item.label,
-						role: 'label',
-						x: labelX,
-						y: labelY,
-						anchor: labelAnchor,
-						baseline: horizontal ? 'middle' : above ? 'alphabetic' : 'hanging',
-						opacity: clamp01(reveal) * motion.focusDim(id)
-					})
-				);
-				if (item.detail) {
-					const detailId = `${id}#detail`;
+				const placement = labelPlacements.get(item.id);
+				if (!placement) return;
+				const block = textBlocks[index];
+				// A pulsing step pushes its text block outward by the same amount.
+				const swell = r - radius;
+				const outX = placement.anchor === 'start' ? 1 : placement.anchor === 'end' ? -1 : 0;
+				const outY =
+					placement.baseline === 'hanging' ? 1 : placement.baseline === 'alphabetic' ? -1 : 0;
+				const textOpacity = clamp01(reveal) * motion.focusDim(id);
+				const lines = [
+					...block.labelLines.map((text) => ({ text, role: 'label' as const })),
+					...block.detailLines.map((text) => ({ text, role: 'caption' as const }))
+				];
+				let lineTop = placement.box.y + outY * swell;
+				lines.forEach((line, lineIndex) => {
+					const isDetail = line.role === 'caption';
 					items.push(
 						createFigureText(env, {
-							key: detailId,
-							text: item.detail,
-							role: 'caption',
-							x: labelX,
-							y: horizontal
-								? labelY + labelHeight * 0.55
-								: above
-									? labelY + captionHeight * 0.15
-									: labelY + labelHeight,
-							anchor: labelAnchor,
+							key: isDetail
+								? `${id}#detail-${lineIndex - block.labelLines.length}`
+								: lineIndex === 0
+									? `${id}#label`
+									: `${id}#label-${lineIndex}`,
+							mark: id,
+							text: line.text,
+							role: line.role,
+							x: placement.x + outX * swell,
+							y: lineTop,
+							anchor: placement.anchor,
 							baseline: 'hanging',
-							opacity: clamp01(reveal) * motion.focusDim(id) * motion.annotate(detailId)
+							opacity: isDetail ? textOpacity * motion.annotate(`${id}#detail`) : textOpacity
 						})
 					);
-				}
+					lineTop += isDetail ? captionHeight : labelHeight;
+				});
 			});
 			return items;
 		}

@@ -188,6 +188,11 @@ describe('wrapFigureText', () => {
 			'1990–2023'
 		]);
 		assert.deepEqual(wrapFigureText('Short', 160, 'title', measure), ['Short']);
+		assert.deepEqual(wrapFigureText('Fumarase · FADH', 120, 'label', measure), [
+			'Fumarase',
+			'FADH'
+		]);
+		assert.deepEqual(wrapFigureText('α-Ketoglutarate', 60, 'label', measure), ['α-Ketoglutarate']);
 		assert.deepEqual(wrapFigureText('Proto-Indo-European', 120, 'label', measure), [
 			'Proto-Indo-',
 			'European'

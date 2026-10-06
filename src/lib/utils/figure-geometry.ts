@@ -89,6 +89,36 @@ export function trimFigureSegment(
 }
 
 /** A deterministic 32-bit PRNG (mulberry32) for seeded Figure data such as link weights. */
+/**
+ * A polyline with `startTrim` removed from its start and `endTrim` from its
+ * end, measured along its length. A line too short for both trims collapses to
+ * its midpoint.
+ */
+export function trimFigurePolyline(
+	points: readonly FigurePoint[],
+	startTrim: number,
+	endTrim: number
+): FigurePoint[] {
+	const lengths = [0];
+	for (let index = 1; index < points.length; index += 1) {
+		const from = points[index - 1];
+		const to = points[index];
+		lengths.push(lengths[index - 1] + Math.hypot(to.x - from.x, to.y - from.y));
+	}
+	const total = lengths[lengths.length - 1];
+	const startAt = Math.min(startTrim, total / 2);
+	const endAt = Math.max(total - endTrim, total / 2);
+	const pointAtLength = (target: number): FigurePoint => {
+		let index = 1;
+		while (index < lengths.length - 1 && lengths[index] < target) index += 1;
+		const span = lengths[index] - lengths[index - 1] || 1;
+		const t = (target - lengths[index - 1]) / span;
+		return lerpFigurePoint(points[index - 1], points[index], t);
+	};
+	const inner = points.filter((_, index) => lengths[index] > startAt && lengths[index] < endAt);
+	return [pointAtLength(startAt), ...inner, pointAtLength(endAt)];
+}
+
 export function createFigureRandom(seed: number): () => number {
 	let state = seed >>> 0;
 	return () => {

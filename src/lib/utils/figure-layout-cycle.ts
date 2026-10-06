@@ -13,10 +13,46 @@ export interface FigureCycleLayout {
 	sweep: 1 | -1;
 }
 
+const FIGURE_CYCLE_ARC_SAMPLES = 2048;
+
 /**
- * Circular layout for a process loop (ADR-0067 §3). Steps sit evenly around a
- * circle (`circle`) or an ellipse that fills the box (`fit`), starting at
- * `startAngle` degrees clockwise from twelve o'clock.
+ * Angles (unwrapped in the sweep direction) that split the ellipse's perimeter
+ * into equal lengths from `start`. On a circle these are equal angles; on a
+ * tall or wide ellipse they keep steps from bunching at the narrow ends.
+ */
+function equalArcLengthAngles(
+	stepCount: number,
+	radiusX: number,
+	radiusY: number,
+	start: number,
+	sweep: 1 | -1
+): number[] {
+	const pointAt = (t: number): FigurePoint => {
+		const angle = start + sweep * Math.PI * 2 * t;
+		return { x: Math.sin(angle) * radiusX, y: -Math.cos(angle) * radiusY };
+	};
+	const lengths = [0];
+	let previous = pointAt(0);
+	for (let index = 1; index <= FIGURE_CYCLE_ARC_SAMPLES; index += 1) {
+		const point = pointAt(index / FIGURE_CYCLE_ARC_SAMPLES);
+		lengths.push(lengths[index - 1] + Math.hypot(point.x - previous.x, point.y - previous.y));
+		previous = point;
+	}
+	const perimeter = lengths[FIGURE_CYCLE_ARC_SAMPLES];
+	let cursor = 0;
+	return Array.from({ length: stepCount }, (_, step) => {
+		const target = (perimeter * step) / stepCount;
+		while (cursor < FIGURE_CYCLE_ARC_SAMPLES - 1 && lengths[cursor + 1] < target) cursor += 1;
+		const span = lengths[cursor + 1] - lengths[cursor] || 1;
+		const t = (cursor + (target - lengths[cursor]) / span) / FIGURE_CYCLE_ARC_SAMPLES;
+		return start + sweep * Math.PI * 2 * t;
+	});
+}
+
+/**
+ * Circular layout for a process loop (ADR-0067 §3). Steps sit at equal
+ * distances around a circle (`circle`) or an ellipse that fills the box
+ * (`fit`), starting at `startAngle` degrees clockwise from twelve o'clock.
  */
 export function layoutFigureCycle(
 	stepCount: number,
@@ -33,10 +69,7 @@ export function layoutFigureCycle(
 	const radiusY = layout.aspect === 'circle' ? shortest : box.height / 2;
 	const sweep = layout.direction === 'clockwise' ? 1 : -1;
 	const start = (layout.startAngle * Math.PI) / 180;
-	const angles = Array.from(
-		{ length: stepCount },
-		(_, index) => start + sweep * ((Math.PI * 2 * index) / stepCount)
-	);
+	const angles = equalArcLengthAngles(stepCount, radiusX, radiusY, start, sweep);
 	const centers = angles.map((angle) => figureCyclePointAt(center, radiusX, radiusY, angle));
 	return { center, radiusX, radiusY, centers, angles, sweep };
 }
