@@ -59,9 +59,10 @@ export function layoutFigureTree(
 			? tree<FigureHierarchyDatum>()
 					.size([Math.PI * 2, radius])
 					.separation((a, b) => (a.parent === b.parent ? 1 : 2) / Math.max(1, a.depth))
-			: tree<FigureHierarchyDatum>().size(
-					direction === 'down' ? [box.width, box.height] : [box.height, box.width]
-				);
+			: tree<FigureHierarchyDatum>()
+					.size(direction === 'down' ? [box.width, box.height] : [box.height, box.width])
+					// Groups separate visibly without spending a whole slot between them.
+					.separation((a, b) => (a.parent === b.parent ? 1 : 1.4));
 	const laidOut = layout(root);
 	const result: FigureTreeLayoutNode[] = [];
 	laidOut.each((node) => {

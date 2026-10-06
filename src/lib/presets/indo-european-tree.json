@@ -1,0 +1,232 @@
+{
+	"schema": "supers@1",
+	"name": "Where English Comes From",
+	"description": "A full-frame family tree of the Indo-European languages: the family grows from its root out to fifteen modern languages, then one lineage lights from Proto-Indo-European to English.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 14,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"figures": [
+				{
+					"type": "figure",
+					"id": "indo-european",
+					"kind": "tree",
+					"title": "Where English comes from",
+					"sourceNote": "Indo-European language family, simplified",
+					"data": {
+						"nodes": [
+							{
+								"id": "pie",
+								"label": "Proto-Indo-European"
+							},
+							{
+								"id": "germanic",
+								"label": "Germanic",
+								"parent": "pie"
+							},
+							{
+								"id": "italic",
+								"label": "Italic",
+								"parent": "pie"
+							},
+							{
+								"id": "balto-slavic",
+								"label": "Balto-Slavic",
+								"parent": "pie"
+							},
+							{
+								"id": "indo-iranian",
+								"label": "Indo-Iranian",
+								"parent": "pie"
+							},
+							{
+								"id": "hellenic",
+								"label": "Hellenic",
+								"parent": "pie"
+							},
+							{
+								"id": "celtic",
+								"label": "Celtic",
+								"parent": "pie"
+							},
+							{
+								"id": "west-germanic",
+								"label": "West Germanic",
+								"parent": "germanic"
+							},
+							{
+								"id": "north-germanic",
+								"label": "North Germanic",
+								"parent": "germanic"
+							},
+							{
+								"id": "latin",
+								"label": "Latin",
+								"parent": "italic"
+							},
+							{
+								"id": "slavic",
+								"label": "Slavic",
+								"parent": "balto-slavic"
+							},
+							{
+								"id": "indo-aryan",
+								"label": "Indo-Aryan",
+								"parent": "indo-iranian"
+							},
+							{
+								"id": "iranian",
+								"label": "Iranian",
+								"parent": "indo-iranian"
+							},
+							{
+								"id": "english",
+								"label": "English",
+								"parent": "west-germanic"
+							},
+							{
+								"id": "german",
+								"label": "German",
+								"parent": "west-germanic"
+							},
+							{
+								"id": "dutch",
+								"label": "Dutch",
+								"parent": "west-germanic"
+							},
+							{
+								"id": "swedish",
+								"label": "Swedish",
+								"parent": "north-germanic"
+							},
+							{
+								"id": "norwegian",
+								"label": "Norwegian",
+								"parent": "north-germanic"
+							},
+							{
+								"id": "spanish",
+								"label": "Spanish",
+								"parent": "latin"
+							},
+							{
+								"id": "french",
+								"label": "French",
+								"parent": "latin"
+							},
+							{
+								"id": "italian",
+								"label": "Italian",
+								"parent": "latin"
+							},
+							{
+								"id": "russian",
+								"label": "Russian",
+								"parent": "slavic"
+							},
+							{
+								"id": "polish",
+								"label": "Polish",
+								"parent": "slavic"
+							},
+							{
+								"id": "hindi",
+								"label": "Hindi",
+								"parent": "indo-aryan"
+							},
+							{
+								"id": "persian",
+								"label": "Persian",
+								"parent": "iranian"
+							},
+							{
+								"id": "greek",
+								"label": "Greek",
+								"parent": "hellenic"
+							},
+							{
+								"id": "irish",
+								"label": "Irish",
+								"parent": "celtic"
+							},
+							{
+								"id": "welsh",
+								"label": "Welsh",
+								"parent": "celtic"
+							}
+						]
+					},
+					"layout": {
+						"direction": "right",
+						"nodeScale": 1
+					},
+					"layoutOrientationOverrides": {
+						"vertical": {
+							"direction": "right",
+							"nodeScale": 1.1
+						}
+					},
+					"frameOrientationOverrides": {
+						"vertical": {
+							"x": 0.07,
+							"y": 0.08,
+							"width": 0.82,
+							"height": 0.74
+						}
+					},
+					"encoding": {
+						"nodeColor": "branch"
+					},
+					"moves": [
+						{
+							"move": "reveal",
+							"style": "grow",
+							"start": 0.02,
+							"duration": 0.4,
+							"ease": "settled"
+						},
+						{
+							"move": "focus",
+							"targets": ["node:pie", "node:germanic", "node:west-germanic", "node:english"],
+							"start": 0.55,
+							"duration": 0.08
+						},
+						{
+							"move": "pulse",
+							"targets": ["node:english"],
+							"start": 0.66,
+							"duration": 0.12,
+							"repeat": 2
+						},
+						{
+							"move": "exit",
+							"style": "fade",
+							"start": 0.94,
+							"duration": 0.05
+						}
+					]
+				}
+			]
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

@@ -101,3 +101,40 @@ export function formatFigureValue(value: number, format: FigureValueFormat): str
 	const sign = scaled < 0 && Number(fixed) !== 0 ? '−' : '';
 	return `${sign}${format.prefix ?? ''}${grouped}${fraction ? `.${fraction}` : ''}${compactSuffix}${format.suffix ?? ''}`;
 }
+
+/**
+ * Text broken into lines that each fit `width`, greedily, breaking at spaces
+ * and after hyphens (the hyphen stays at the line end). Type is never squeezed
+ * to fit; a word wider than `width` keeps its own line.
+ */
+export function wrapFigureText(
+	text: string,
+	width: number,
+	role: FigureTextRole,
+	measure: (text: string, role: FigureTextRole) => { width: number }
+): string[] {
+	const tokens = text
+		.split(/\s+/)
+		.flatMap((word, index) => {
+			const parts = word.split(/(?<=-)/);
+			return parts.map((part, partIndex) => ({
+				part,
+				spaceBefore: partIndex === 0 && index > 0
+			}));
+		})
+		.filter((token) => token.part.length > 0);
+	const lines: string[] = [];
+	let current = '';
+	for (const token of tokens) {
+		const joiner = current.length === 0 ? '' : token.spaceBefore ? ' ' : '';
+		const candidate = `${current}${joiner}${token.part}`;
+		if (current.length > 0 && measure(candidate, role).width > width) {
+			lines.push(current);
+			current = token.part;
+		} else {
+			current = candidate;
+		}
+	}
+	if (current.length > 0) lines.push(current);
+	return lines;
+}

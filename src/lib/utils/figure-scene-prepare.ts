@@ -27,7 +27,12 @@ import {
 	prepareSlopeFigure,
 	prepareTreemapFigure
 } from './figure-scene-data';
-import { measureFigureText, resolveFigureTextStyle, type FigureTextRole } from './figure-text';
+import {
+	measureFigureText,
+	resolveFigureTextStyle,
+	wrapFigureText,
+	type FigureTextRole
+} from './figure-text';
 import type { VideoOrientation } from './video-frame';
 import type { Figure, FigurePin } from '$lib/platform/engine-schema';
 
@@ -155,33 +160,6 @@ function keepFigureTextInFrame(
 		if (shiftX === 0 && shiftY === 0) return item;
 		return { ...item, x: item.x + shiftX, y: item.y + shiftY };
 	});
-}
-
-/**
- * Figure chrome text (a title or source note) broken into lines that each fit
- * the frame width, greedily by
- * word. Type is never squeezed to fit; a word wider than the frame keeps its
- * own line and the frame clamp keeps it on screen.
- */
-export function wrapFigureText(
-	text: string,
-	width: number,
-	role: FigureTextRole,
-	measure: (text: string, role: FigureTextRole) => { width: number }
-): string[] {
-	const lines: string[] = [];
-	let current = '';
-	for (const word of text.split(/\s+/).filter((entry) => entry.length > 0)) {
-		const candidate = current.length === 0 ? word : `${current} ${word}`;
-		if (current.length > 0 && measure(candidate, role).width > width) {
-			lines.push(current);
-			current = word;
-		} else {
-			current = candidate;
-		}
-	}
-	if (current.length > 0) lines.push(current);
-	return lines;
 }
 
 /**

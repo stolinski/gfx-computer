@@ -16,7 +16,7 @@ import {
 	neuralNetworkLinkMarkId,
 	neuralNetworkNodeMarkId
 } from './figure-mark-ids';
-import type { FigureMotion } from './figure-motion';
+import { resolveFigurePin, type FigureMotion } from './figure-motion';
 import {
 	createFigureText,
 	figureSequenceVoice,
@@ -26,6 +26,7 @@ import {
 	type FigureSceneItem,
 	type FigureVoice
 } from './figure-scene';
+import { wrapFigureText } from './figure-text';
 import type {
 	CycleFigure,
 	NetworkFigure,
@@ -314,8 +315,12 @@ export function prepareTreeFigure(figure: TreeFigure, env: FigurePrepareEnv): Fi
 	const settings = resolveFigureLayoutSettings(figure, env.orientation);
 	const direction = settings.direction;
 	const labelHeight = env.measure('Ag', 'label').height;
+	// Only leaves carry labels past the last column; inner labels sit above their node.
+	const parentIds = new Set(figure.data.nodes.map((node) => node.parent));
 	const widest = Math.max(
-		...figure.data.nodes.map((node) => env.measure(node.label, 'label').width)
+		...figure.data.nodes
+			.filter((node) => !parentIds.has(node.id))
+			.map((node) => env.measure(node.label, 'label').width)
 	);
 	const gap = Math.min(env.plot.width, env.plot.height) * 0.025;
 	const radius =
@@ -342,6 +347,10 @@ export function prepareTreeFigure(figure: TreeFigure, env: FigurePrepareEnv): Fi
 						right: widest + gap
 					});
 	const layout = layoutFigureTree(figure.data.nodes, box, direction);
+	const columnGap =
+		direction === 'right'
+			? box.width / Math.max(1, layout.maxDepth)
+			: box.height / Math.max(1, layout.maxDepth);
 	const byId = new Map(layout.nodes.map((node) => [node.id, node]));
 	const centerOf = (id: string): FigurePoint =>
 		env.pinnedPosition(figureNodeMarkId(id)) ?? byId.get(id)?.center ?? layout.center;
@@ -375,10 +384,14 @@ export function prepareTreeFigure(figure: TreeFigure, env: FigurePrepareEnv): Fi
 				const order = (node.depth - 0.5) / Math.max(1, layout.maxDepth);
 				const reveal = motion.revealLinear(order);
 				const drawn = motion.revealStyle !== 'fade' && motion.revealStyle !== 'cascade';
-				const dim = linkFocusDim(motion, id, [
-					figureNodeMarkId(node.parentId),
-					figureNodeMarkId(node.id)
-				]);
+				// A tree link stays lit only when both ends are in focus, so focusing a
+				// lineage lights the path and not its siblings.
+				const pathEmphasis = Math.min(
+					motion.focusEmphasis(figureNodeMarkId(node.id)),
+					motion.focusEmphasis(figureNodeMarkId(node.parentId))
+				);
+				const ownDim = motion.focusDim(id);
+				const dim = ownDim + (1 - ownDim) * pathEmphasis;
 				const emphasis = Math.min(
 					motion.focusEmphasis(figureNodeMarkId(node.id)),
 					motion.focusEmphasis(figureNodeMarkId(node.parentId))
@@ -468,6 +481,13 @@ export function prepareTreeFigure(figure: TreeFigure, env: FigurePrepareEnv): Fi
 					if (node.isLeaf) {
 						x = center.x + radius + gap * 0.6;
 						anchor = 'start';
+					} else if (node.depth === 0) {
+						// The root sits below its node: its first-level children fan out at
+						// the root's own height, where an above label would collide.
+						x = center.x - radius;
+						anchor = 'start';
+						y = center.y + radius + gap * 0.4;
+						baseline = 'hanging';
 					} else {
 						// Internal labels sit above their node, reading forward over the links.
 						x = center.x - radius;
@@ -487,19 +507,36 @@ export function prepareTreeFigure(figure: TreeFigure, env: FigurePrepareEnv): Fi
 						anchor = Math.sin(angle) > 0.2 ? 'start' : Math.sin(angle) < -0.2 ? 'end' : 'middle';
 					}
 				}
-				items.push(
-					createFigureText(env, {
-						key: `${id}#label`,
-						labelOf: id,
-						text: datum.label,
-						role: node.depth === 0 ? 'value' : 'label',
-						x,
-						y,
-						anchor,
-						baseline,
-						opacity: clamp01(reveal) * motion.focusDim(id)
-					})
-				);
+				const role = node.depth === 0 ? 'value' : 'label';
+				const text = resolveFigurePin(figure, id, env.orientation)?.label ?? datum.label;
+				// Inner labels of a left-to-right tree wrap to their column so they never
+				// run into the next column's nodes; lines stack away from the node.
+				const lines =
+					direction === 'right' && !node.isLeaf
+						? wrapFigureText(text, columnGap - gap * 0.5, role, env.measure)
+						: [text];
+				const lineHeight = env.measure('Ag', role).height;
+				lines.forEach((line, lineIndex) => {
+					const stackOffset =
+						baseline === 'alphabetic'
+							? -(lines.length - 1 - lineIndex) * lineHeight
+							: baseline === 'hanging'
+								? lineIndex * lineHeight
+								: 0;
+					items.push(
+						createFigureText(env, {
+							key: lineIndex === 0 ? `${id}#label` : `${id}#label-${lineIndex}`,
+							mark: id,
+							text: line,
+							role,
+							x,
+							y: y + stackOffset,
+							anchor,
+							baseline,
+							opacity: clamp01(reveal) * motion.focusDim(id)
+						})
+					);
+				});
 			}
 			return items;
 		}
