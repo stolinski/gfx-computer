@@ -164,18 +164,21 @@ export function resolveFigureLayoutSettings<F extends Figure>(
 	return overrides?.[orientation] ?? figure.layout;
 }
 
+/**
+ * A Figure label. Text is always drawn in full-strength ink (or, with
+ * `contrastWith`, the ink that reads on that fill): hierarchy comes from role
+ * and size, never from fading or colouring text, so every label clears the
+ * contrast floor under every Pack (rubric G5).
+ */
 export function createFigureText(
 	env: Pick<FigurePrepareEnv, 'measure'>,
-	options: Omit<FigureSceneText, 'shape' | 'width' | 'opacity' | 'fill'> & {
-		opacity?: number;
-		fill?: FigureVoice;
-	}
+	options: Omit<FigureSceneText, 'shape' | 'width' | 'opacity' | 'fill'> & { opacity?: number }
 ): FigureSceneText {
 	return {
 		shape: 'text',
 		opacity: 1,
-		fill: 'ink',
 		...options,
+		fill: 'ink',
 		width: env.measure(options.text, options.role).width
 	};
 }

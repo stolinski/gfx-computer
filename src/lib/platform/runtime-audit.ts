@@ -875,6 +875,23 @@ function compositionElements(
 
 const NON_READABLE_REASON_SET = new Set<string>(DETERMINISTIC_NON_READABLE_TEXT_REASONS);
 
+/**
+ * A translucent stroke never reaches full coverage, so the edge-aliasing probe's
+ * empty/fractional/full thresholds cannot judge it: its bounding box would be
+ * scored by whatever else falls inside. A renderer may declare such a stroke with
+ * `data-gfx-edge-probe="translucent-stroke"`; the declaration is honoured only
+ * while the stroke really is translucent, and the renderer's opaque geometry —
+ * drawn by the same rasterizer — remains a probe candidate (rubric R4).
+ */
+function isDeclaredTranslucentStroke(element: Element, style: CSSStyleDeclaration): boolean {
+	if (element.getAttribute('data-gfx-edge-probe') !== 'translucent-stroke') return false;
+	const opacity = Number.parseFloat(style.opacity);
+	const strokeOpacity = Number.parseFloat(style.strokeOpacity);
+	const effective =
+		(Number.isFinite(opacity) ? opacity : 1) * (Number.isFinite(strokeOpacity) ? strokeOpacity : 1);
+	return effective < 0.95;
+}
+
 function hasTypedNonReadableContract(element: HTMLElement): boolean {
 	const reason = element.dataset.gfxNonReadableReason;
 	return reason !== undefined && NON_READABLE_REASON_SET.has(reason);
@@ -1344,7 +1361,10 @@ export async function captureDeterministicRenderRegionManifest(
 			if (stableOwner) probeRegions.push({ id: `tonal:${stableOwner}`, kind: 'tonal', rect });
 		}
 		const radius = Number.parseFloat(style.borderTopLeftRadius);
-		if ((radius > 0 && hasPaintedBackground(element)) || element instanceof SVGGeometryElement) {
+		if (
+			((radius > 0 && hasPaintedBackground(element)) || element instanceof SVGGeometryElement) &&
+			!isDeclaredTranslucentStroke(element, style)
+		) {
 			probeRegions.push({
 				id: `non-axis-edge:${exactReadableIdentity(element) ?? element.tagName.toLowerCase()}`,
 				kind: 'non-axis-edge',

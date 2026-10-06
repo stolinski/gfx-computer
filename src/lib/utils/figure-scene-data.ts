@@ -137,7 +137,6 @@ export function prepareBarRaceFigure(
 							y: env.plot.y,
 							anchor: 'middle',
 							baseline: 'hanging',
-							fill: 'muted',
 							opacity: chrome
 						})
 					);
@@ -178,7 +177,6 @@ export function prepareBarRaceFigure(
 						y: y + barHeight / 2,
 						anchor: 'end',
 						baseline: 'middle',
-						fill: emphasis > 0.5 ? 'accent' : 'ink',
 						opacity: opacity * clamp01(grow * 2)
 					})
 				);
@@ -191,7 +189,6 @@ export function prepareBarRaceFigure(
 						y: y + barHeight / 2,
 						anchor: 'start',
 						baseline: 'middle',
-						fill: 'ink',
 						opacity: opacity * clamp01(grow * 2)
 					})
 				);
@@ -207,7 +204,6 @@ export function prepareBarRaceFigure(
 					y: plot.y + plot.height - heroHeight * 0.1,
 					anchor: 'end',
 					baseline: 'alphabetic',
-					fill: 'muted',
 					opacity: chrome * 0.85
 				})
 			);
@@ -336,7 +332,6 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 						y: top + gap * 0.4,
 						anchor: 'start',
 						baseline: 'hanging',
-						fill: 'accent',
 						opacity: visible
 					})
 				);
@@ -361,7 +356,6 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 						y: tick.position,
 						anchor: 'end',
 						baseline: 'middle',
-						fill: 'muted',
 						opacity: chrome
 					})
 				);
@@ -386,7 +380,6 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 						y: plot.y + plot.height + gap * 0.5,
 						anchor: 'middle',
 						baseline: 'hanging',
-						fill: 'muted',
 						opacity: chrome
 					})
 				);
@@ -401,7 +394,6 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 						y: env.plot.y,
 						anchor: 'start',
 						baseline: 'hanging',
-						fill: 'muted',
 						opacity: chrome
 					})
 				);
@@ -433,7 +425,6 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 						y,
 						anchor: 'start',
 						baseline: 'middle',
-						fill: 'accent',
 						opacity: visible
 					})
 				);
@@ -474,7 +465,6 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 									? 'start'
 									: 'middle',
 						baseline: 'hanging',
-						fill: 'ink',
 						opacity: visible * motion.focusDim(id)
 					})
 				);
@@ -530,7 +520,6 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 						y: tip.y,
 						anchor: 'start',
 						baseline: data.series.length > 1 ? 'alphabetic' : 'middle',
-						fill: voice,
 						opacity: dim * fadeIn
 					})
 				);
@@ -545,7 +534,6 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 							y: tip.y + gap * 0.2,
 							anchor: 'start',
 							baseline: 'hanging',
-							fill: voice,
 							opacity: dim * fadeIn
 						})
 					);
@@ -629,7 +617,6 @@ export function prepareSlopeFigure(figure: SlopeFigure, env: FigurePrepareEnv): 
 						y: env.plot.y,
 						anchor: 'middle',
 						baseline: 'hanging',
-						fill: 'muted',
 						opacity: chrome * Math.max(0.35, reached)
 					})
 				);
@@ -691,7 +678,6 @@ export function prepareSlopeFigure(figure: SlopeFigure, env: FigurePrepareEnv): 
 						y: start.y,
 						anchor: 'end',
 						baseline: 'middle',
-						fill: emphasis > 0.5 ? 'accent' : 'ink',
 						opacity: dim * fadeIn
 					})
 				);
@@ -709,7 +695,6 @@ export function prepareSlopeFigure(figure: SlopeFigure, env: FigurePrepareEnv): 
 						y: tip.y,
 						anchor: 'start',
 						baseline: 'middle',
-						fill: voice,
 						opacity: dim * fadeIn * (position > 0.02 ? 1 : 0)
 					})
 				);
@@ -890,7 +875,6 @@ export function prepareSankeyFigure(
 						y,
 						anchor,
 						baseline: 'hanging',
-						fill: emphasis > 0.5 ? 'accent' : 'ink',
 						opacity: textOpacity
 					})
 				);
@@ -903,7 +887,6 @@ export function prepareSankeyFigure(
 						y: y + labelHeight,
 						anchor,
 						baseline: 'hanging',
-						fill: 'muted',
 						opacity: textOpacity
 					})
 				);
@@ -1021,7 +1004,6 @@ export function prepareTreemapFigure(
 								y: rect.y + padding * 1.25,
 								anchor: 'start',
 								baseline: 'hanging',
-								fill: 'ink',
 								contrastWith: voice,
 								opacity: textOpacity
 							})
@@ -1035,7 +1017,6 @@ export function prepareTreemapFigure(
 								y: rect.y + padding * 1.25 + (fitsLabel ? labelHeight : captionHeight),
 								anchor: 'start',
 								baseline: 'hanging',
-								fill: 'ink',
 								contrastWith: voice,
 								opacity: textOpacity
 							})
@@ -1066,7 +1047,6 @@ export function prepareTreemapFigure(
 								y: rect.y + padding * 0.5,
 								anchor: 'start',
 								baseline: 'hanging',
-								fill: voice,
 								opacity: dim * zoomFade * clamp01((grow - 0.5) / 0.5)
 							})
 						);

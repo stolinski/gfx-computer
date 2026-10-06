@@ -113,6 +113,9 @@
 				{:else if item.shape === 'path'}
 					<path
 						data-figure-mark={item.mark}
+						data-gfx-edge-probe={item.fill === null && item.opacity * voiceAlpha(item.stroke) < 0.95
+							? 'translucent-stroke'
+							: undefined}
 						d={item.d}
 						fill={color(item.fill)}
 						fill-opacity={item.fillOpacity * voiceAlpha(item.fill)}

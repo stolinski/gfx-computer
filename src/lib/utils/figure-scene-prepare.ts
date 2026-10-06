@@ -11,6 +11,7 @@ import {
 	type FigureKindPrepared,
 	type FigurePrepareEnv,
 	type FigureSceneItem,
+	type FigureSceneText,
 	type PreparedFigure
 } from './figure-scene';
 import {
@@ -26,7 +27,7 @@ import {
 	prepareSlopeFigure,
 	prepareTreemapFigure
 } from './figure-scene-data';
-import { measureFigureText, type FigureTextRole } from './figure-text';
+import { measureFigureText, resolveFigureTextStyle, type FigureTextRole } from './figure-text';
 import type { VideoOrientation } from './video-frame';
 import type { Figure, FigurePin } from '$lib/platform/engine-schema';
 
@@ -103,11 +104,29 @@ function applyFigurePins(
 }
 
 /**
- * Slides any label that would cross the Figure frame's side edges back inside
- * it. Layouts reserve room for their labels; this is the floor that keeps an
- * unusually long label (or a Pin's replacement) readable instead of cropped.
+ * The glyph box a text item paints, as offsets from its `y` in font-size units:
+ * a hanging baseline still paints ascenders above `y`, an alphabetic one paints
+ * descenders below it.
  */
-function keepFigureTextInFrame(items: FigureSceneItem[], frame: FigureRect): FigureSceneItem[] {
+const FIGURE_TEXT_VERTICAL_EXTENT: Readonly<
+	Record<FigureSceneText['baseline'], { above: number; below: number }>
+> = {
+	hanging: { above: 0.28, below: 1 },
+	middle: { above: 0.62, below: 0.48 },
+	alphabetic: { above: 1, below: 0.3 }
+};
+
+/**
+ * Slides any label that would cross the Figure frame back inside it, on both
+ * axes. Layouts reserve room for their labels; this is the floor that keeps an
+ * unusually long label (or a Pin's replacement) readable and inside the safe
+ * area instead of cropped.
+ */
+function keepFigureTextInFrame(
+	items: FigureSceneItem[],
+	frame: FigureRect,
+	orientation: VideoOrientation
+): FigureSceneItem[] {
 	return items.map((item) => {
 		if (item.shape !== 'text') return item;
 		const left =
@@ -117,11 +136,24 @@ function keepFigureTextInFrame(items: FigureSceneItem[], frame: FigureRect): Fig
 					? item.x - item.width
 					: item.x - item.width / 2;
 		const right = left + item.width;
-		const minimum = frame.x;
-		const maximum = frame.x + frame.width;
-		if (left >= minimum && right <= maximum) return item;
-		const shift = left < minimum ? minimum - left : maximum - right;
-		return { ...item, x: item.x + shift };
+		const shiftX =
+			left < frame.x
+				? frame.x - left
+				: right > frame.x + frame.width
+					? frame.x + frame.width - right
+					: 0;
+		const fontSize = resolveFigureTextStyle(item.role, orientation).fontSize;
+		const extent = FIGURE_TEXT_VERTICAL_EXTENT[item.baseline];
+		const top = item.y - extent.above * fontSize;
+		const bottom = item.y + extent.below * fontSize;
+		const shiftY =
+			top < frame.y
+				? frame.y - top
+				: bottom > frame.y + frame.height
+					? frame.y + frame.height - bottom
+					: 0;
+		if (shiftX === 0 && shiftY === 0) return item;
+		return { ...item, x: item.x + shiftX, y: item.y + shiftY };
 	});
 }
 
@@ -180,7 +212,6 @@ export function prepareFigure(figure: Figure, orientation: VideoOrientation): Pr
 					y: frame.y + frame.height - sourceHeight,
 					anchor: 'start',
 					baseline: 'hanging',
-					fill: 'muted',
 					opacity: chromeAlpha
 				})
 			);
@@ -200,7 +231,11 @@ export function prepareFigure(figure: Figure, orientation: VideoOrientation): Pr
 				kind: figure.kind,
 				frame,
 				alpha: motion.figureAlpha,
-				items: keepFigureTextInFrame(applyFigurePins(figure, orientation, items, atMs), frame)
+				items: keepFigureTextInFrame(
+					applyFigurePins(figure, orientation, items, atMs),
+					frame,
+					orientation
+				)
 			};
 		}
 	};

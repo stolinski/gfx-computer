@@ -278,7 +278,6 @@ export function prepareNeuralNetworkFigure(
 								y: direction === 'right' ? center.y : center.y + outward * (radius + gap * 0.6),
 								anchor: direction === 'right' ? (isLast ? 'start' : 'end') : 'middle',
 								baseline: direction === 'right' ? 'middle' : isLast ? 'hanging' : 'alphabetic',
-								fill: emphasis > 0.5 ? 'accent' : 'ink',
 								opacity: clamp01(reveal) * (isLast ? lit : 1) * motion.focusDim(id)
 							})
 						);
@@ -298,7 +297,6 @@ export function prepareNeuralNetworkFigure(
 							y: direction === 'right' ? env.plot.y : first.y,
 							anchor: direction === 'right' ? 'middle' : 'start',
 							baseline: direction === 'right' ? 'hanging' : 'middle',
-							fill: 'muted',
 							opacity: motion.annotate(markId)
 						})
 					);
@@ -499,7 +497,6 @@ export function prepareTreeFigure(figure: TreeFigure, env: FigurePrepareEnv): Fi
 						y,
 						anchor,
 						baseline,
-						fill: emphasis > 0.5 ? 'accent' : 'ink',
 						opacity: clamp01(reveal) * motion.focusDim(id)
 					})
 				);
@@ -764,7 +761,6 @@ export function prepareNetworkFigure(
 							y: center.y + r + labelHeight * 0.15,
 							anchor: 'middle',
 							baseline: 'hanging',
-							fill: emphasis > 0.5 ? 'accent' : 'ink',
 							opacity: clamp01(reveal) * Math.max(motion.focusDim(id), reached)
 						})
 					);
@@ -958,7 +954,6 @@ export function prepareCycleFigure(figure: CycleFigure, env: FigurePrepareEnv): 
 						y: center.y,
 						anchor: 'middle',
 						baseline: 'middle',
-						fill: 'ink',
 						opacity: clamp01(reveal) * motion.focusDim(id)
 					})
 				);
@@ -993,7 +988,6 @@ export function prepareCycleFigure(figure: CycleFigure, env: FigurePrepareEnv): 
 						y: labelY,
 						anchor: labelAnchor,
 						baseline: horizontal ? 'middle' : above ? 'alphabetic' : 'hanging',
-						fill: emphasis > 0.5 ? 'accent' : 'ink',
 						opacity: clamp01(reveal) * motion.focusDim(id)
 					})
 				);
@@ -1012,7 +1006,6 @@ export function prepareCycleFigure(figure: CycleFigure, env: FigurePrepareEnv): 
 									: labelY + labelHeight,
 							anchor: labelAnchor,
 							baseline: 'hanging',
-							fill: 'muted',
 							opacity: clamp01(reveal) * motion.focusDim(id) * motion.annotate(detailId)
 						})
 					);
