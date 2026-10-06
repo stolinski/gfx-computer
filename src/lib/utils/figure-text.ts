@@ -12,15 +12,27 @@ import type { FigureValueFormat } from '$lib/platform/engine-schema';
 export type FigureTextRole = 'title' | 'label' | 'value' | 'caption' | 'source' | 'hero';
 
 const FIGURE_TEXT_ROLE_MAP: Readonly<
-	Record<FigureTextRole, { role: ChartTextRole; scale: number }>
+	Record<VideoOrientation, Readonly<Record<FigureTextRole, { role: ChartTextRole; scale: number }>>>
 > = {
-	title: { role: 'title', scale: 1 },
-	label: { role: 'category', scale: 1 },
-	value: { role: 'value', scale: 1 },
-	caption: { role: 'axis', scale: 1 },
-	source: { role: 'source', scale: 1 },
-	// Cap height stays inside the diagram stat-value band (rubric G4).
-	hero: { role: 'title', scale: 1.5 }
+	horizontal: {
+		title: { role: 'title', scale: 1 },
+		label: { role: 'category', scale: 1 },
+		value: { role: 'value', scale: 1 },
+		caption: { role: 'axis', scale: 1 },
+		source: { role: 'source', scale: 1.1 },
+		// Cap height stays inside the diagram stat-value band (rubric G4).
+		hero: { role: 'title', scale: 1.5 }
+	},
+	// The tall frame's bands are larger (rubric G4), and its labels must survive
+	// the phone-scale viewing distance, so supporting text grows.
+	vertical: {
+		title: { role: 'title', scale: 1 },
+		label: { role: 'category', scale: 1.2 },
+		value: { role: 'value', scale: 1.15 },
+		caption: { role: 'axis', scale: 1.2 },
+		source: { role: 'source', scale: 1.15 },
+		hero: { role: 'title', scale: 1.4 }
+	}
 };
 
 export interface FigureTextStyle {
@@ -34,7 +46,7 @@ export function resolveFigureTextStyle(
 	role: FigureTextRole,
 	orientation: VideoOrientation
 ): FigureTextStyle {
-	const mapped = FIGURE_TEXT_ROLE_MAP[role];
+	const mapped = FIGURE_TEXT_ROLE_MAP[orientation][role];
 	const style = resolveChartTextRoleStyle(mapped.role, orientation);
 	return {
 		fontSize: style.fontSize * mapped.scale,
@@ -55,7 +67,7 @@ export function measureFigureText(
 	orientation: VideoOrientation,
 	scale = 1
 ): FigureTextMeasurement {
-	const mapped = FIGURE_TEXT_ROLE_MAP[role];
+	const mapped = FIGURE_TEXT_ROLE_MAP[orientation][role];
 	const measured = measureChartTextForRender({ text, role: mapped.role }, orientation);
 	return {
 		width: measured.width * mapped.scale * scale,

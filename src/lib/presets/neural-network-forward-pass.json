@@ -44,7 +44,7 @@
 						"vertical": { "direction": "down", "nodeScale": 1.1 }
 					},
 					"frameOrientationOverrides": {
-						"vertical": { "x": 0.06, "y": 0.1, "width": 0.84, "height": 0.7 }
+						"vertical": { "x": 0.08, "y": 0.1, "width": 0.8, "height": 0.7 }
 					},
 					"encoding": {
 						"nodeBrightness": "activation",

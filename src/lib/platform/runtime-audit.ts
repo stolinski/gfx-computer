@@ -1365,10 +1365,16 @@ export async function captureDeterministicRenderRegionManifest(
 			((radius > 0 && hasPaintedBackground(element)) || element instanceof SVGGeometryElement) &&
 			!isDeclaredTranslucentStroke(element, style)
 		) {
+			// An SVG shape's box is its geometry; its stroke paints half its width
+			// outside that, so the probe region grows by it to hold the whole edge.
+			const strokeOutset =
+				element instanceof SVGGeometryElement && style.stroke !== 'none'
+					? (Number.parseFloat(style.strokeWidth) || 0) / 2
+					: 0;
 			probeRegions.push({
 				id: `non-axis-edge:${exactReadableIdentity(element) ?? element.tagName.toLowerCase()}`,
 				kind: 'non-axis-edge',
-				rect: expandedRect(rect, 2),
+				rect: expandedRect(rect, 2 + strokeOutset),
 				lengthPixels: Math.hypot(rect.width, rect.height)
 			});
 		}
