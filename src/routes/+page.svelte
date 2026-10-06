@@ -46,7 +46,7 @@
 	);
 
 	// Content families cut across the generic `plain` Surface. Charts are a semantic
-	// Block-domain family, so group every chart declaration together without slug heuristics;
+	// family — every Chart Block and Figure declaration — grouped without slug heuristics;
 	// legacy content families still use prefixes before falling back to Surface type.
 	const TEMPLATE_FAMILIES: readonly { label: string; prefixes: readonly string[] }[] = [
 		{ label: 'Captions', prefixes: ['captions-'] },

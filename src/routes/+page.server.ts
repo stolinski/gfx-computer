@@ -12,7 +12,10 @@ function homepagePresetCard(entry: CataloguedPreset) {
 		name: entry.preset.name,
 		kind: entry.preset.kind,
 		surfaceType: entry.preset.state.surface.type,
-		hasChart: entry.preset.state.surface.chart !== undefined,
+		// Chart Blocks and Figures (ADR-0067) are one library family: Charts.
+		hasChart:
+			entry.preset.state.surface.chart !== undefined ||
+			(entry.preset.state.surface.figures?.length ?? 0) > 0,
 		hasDepthStage: entry.preset.state.stage !== undefined,
 		hasDepthOfField: entry.preset.state.effects.some((effect) => effect.type === 'depth-of-field'),
 		durationSeconds: entry.preset.state.transport.durationSeconds,
