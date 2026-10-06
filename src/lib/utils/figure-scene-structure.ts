@@ -170,6 +170,12 @@ export function prepareNeuralNetworkFigure(
 						: 'muted';
 				const dim = linkFocusDim(motion, link.id, [link.sourceId, link.targetId]);
 				const drawn = motion.revealStyle === 'draw' || motion.revealStyle === 'grow';
+				// A link lights while the wave crosses it, by how much it carries.
+				const crossing = wave ? wave.position - link.stage : -1;
+				const carry =
+					crossing > 0 && crossing < 1
+						? Math.sin(Math.PI * crossing) * magnitude * link.sourceActivation
+						: 0;
 				items.push({
 					shape: 'path',
 					key: link.id,
@@ -178,8 +184,9 @@ export function prepareNeuralNetworkFigure(
 					fill: null,
 					fillOpacity: 0,
 					stroke: voice,
-					strokeWidth: figure.encoding.linkWidth === 'weight' ? 2 + 7 * magnitude : 3,
-					opacity: baseOpacity * dim * (drawn ? 1 : reveal),
+					strokeWidth:
+						(figure.encoding.linkWidth === 'weight' ? 2 + 7 * magnitude : 3) * (1 + 0.6 * carry),
+					opacity: Math.min(1, baseOpacity + 0.55 * carry) * dim * (drawn ? 1 : reveal),
 					draw: drawn ? reveal : undefined,
 					linecap: 'round'
 				});
@@ -210,7 +217,7 @@ export function prepareNeuralNetworkFigure(
 						key: `${link.id}#signal`,
 						cx: point.x,
 						cy: point.y,
-						r: radius * (0.12 + 0.16 * strength),
+						r: radius * (0.16 + 0.2 * strength),
 						fill: 'accent',
 						fillOpacity: 1,
 						stroke: null,
@@ -233,13 +240,27 @@ export function prepareNeuralNetworkFigure(
 							: 0.85;
 					const emphasis = motion.focusEmphasis(id);
 					const swell = 1 + 0.22 * motion.pulse(id) + 0.12 * glow + 0.1 * emphasis;
+					const nodeRadius = radius * swell * nodeRevealScale(motion, reveal);
+					// An opaque field-coloured disc under each node, so links stop at its rim.
+					items.push({
+						shape: 'circle',
+						key: `${id}#base`,
+						cx: center.x,
+						cy: center.y,
+						r: nodeRadius,
+						fill: 'field',
+						fillOpacity: 1,
+						stroke: null,
+						strokeWidth: 0,
+						opacity: clamp01(reveal)
+					});
 					items.push({
 						shape: 'circle',
 						key: id,
 						mark: id,
 						cx: center.x,
 						cy: center.y,
-						r: radius * swell * nodeRevealScale(motion, reveal),
+						r: nodeRadius,
 						fill: emphasis > 0.5 ? 'accent' : 'ink',
 						fillOpacity: 0.06 + 0.9 * activation * lit,
 						stroke: emphasis > 0 || glow > 0.3 ? 'accent' : 'ink',

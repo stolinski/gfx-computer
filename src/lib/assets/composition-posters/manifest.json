@@ -377,6 +377,13 @@
 		"height": 360,
 		"contentFraction": 0.0615
 	},
+	"neural-network-forward-pass": {
+		"contentKey": "06a0f2f648d9101f",
+		"timestampSeconds": 6,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4983
+	},
 	"newspaper-body-test": {
 		"contentKey": "ee7a487f00332f38",
 		"timestampSeconds": 1.4,

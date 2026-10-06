@@ -36,7 +36,7 @@
 
 	// `muted` shares the label ink at reduced strength.
 	function voiceAlpha(voice: FigureVoice | null): number {
-		return voice === 'muted' ? 0.62 : 1;
+		return voice === 'muted' ? 0.72 : 1;
 	}
 
 	function color(voice: FigureVoice | null): string {

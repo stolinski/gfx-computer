@@ -25,7 +25,7 @@ const FIGURE_MOVE_DEFAULT_EASE: Readonly<Record<FigureMove['move'], NamedEaseCur
 const FIGURE_CASCADE_SPAN = 0.4;
 const FIGURE_GROW_SPAN = 0.5;
 /** Opacity of Marks outside the current focus. */
-export const FIGURE_FOCUS_DIM = 0.22;
+export const FIGURE_FOCUS_DIM = 0.3;
 
 function clamp01(value: number): number {
 	return value <= 0 ? 0 : value >= 1 ? 1 : value;

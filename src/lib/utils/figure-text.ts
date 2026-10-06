@@ -17,9 +17,10 @@ const FIGURE_TEXT_ROLE_MAP: Readonly<
 	title: { role: 'title', scale: 1 },
 	label: { role: 'category', scale: 1 },
 	value: { role: 'value', scale: 1 },
-	caption: { role: 'axis', scale: 0.92 },
+	caption: { role: 'axis', scale: 1 },
 	source: { role: 'source', scale: 1 },
-	hero: { role: 'title', scale: 2.2 }
+	// Cap height stays inside the diagram stat-value band (rubric G4).
+	hero: { role: 'title', scale: 1.5 }
 };
 
 export interface FigureTextStyle {

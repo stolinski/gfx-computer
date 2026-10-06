@@ -1,0 +1,80 @@
+{
+	"schema": "supers@1",
+	"name": "How a Network Reads a Digit",
+	"description": "A full-frame neural-network explainer: the network builds layer by layer, a forward pass sweeps through it with every link lighting by what it carries, and it lands on its answer. Left to right in the wide frame, top to bottom in the tall one.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 12,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": { "fontFamily": "sans" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": {
+			"type": "plain",
+			"content": { "body": "" },
+			"figures": [
+				{
+					"type": "figure",
+					"id": "digit-net",
+					"kind": "neural-network",
+					"title": "How a network reads a digit",
+					"sourceNote": "Illustrative activations",
+					"data": {
+						"layers": [
+							{ "id": "pixels", "label": "Pixels", "size": 6 },
+							{ "id": "edges", "label": "Edges", "size": 9 },
+							{ "id": "shapes", "label": "Shapes", "size": 9 },
+							{ "id": "digit", "label": "Digit", "size": 4, "nodeLabels": ["0", "3", "8", "9"] }
+						],
+						"activations": [
+							[0.92, 0.18, 0.74, 0.55, 0.08, 0.81],
+							[0.12, 0.86, 0.34, 0.71, 0.05, 0.93, 0.47, 0.22, 0.66],
+							[0.78, 0.09, 0.88, 0.31, 0.62, 0.15, 0.95, 0.41, 0.07],
+							[0.04, 0.11, 0.93, 0.02]
+						],
+						"weightSeed": 20260
+					},
+					"layout": { "direction": "right", "nodeScale": 1.3 },
+					"layoutOrientationOverrides": {
+						"vertical": { "direction": "down", "nodeScale": 1.1 }
+					},
+					"frameOrientationOverrides": {
+						"vertical": { "x": 0.06, "y": 0.1, "width": 0.84, "height": 0.7 }
+					},
+					"encoding": {
+						"nodeBrightness": "activation",
+						"linkWidth": "weight",
+						"linkColor": "sign"
+					},
+					"moves": [
+						{
+							"move": "reveal",
+							"style": "cascade",
+							"start": 0.02,
+							"duration": 0.2,
+							"ease": "settled"
+						},
+						{ "move": "propagate", "start": 0.27, "duration": 0.34, "repeat": 1, "ease": "smooth" },
+						{ "move": "focus", "targets": ["node:digit:2"], "start": 0.64, "duration": 0.06 },
+						{
+							"move": "pulse",
+							"targets": ["node:digit:2"],
+							"start": 0.7,
+							"duration": 0.12,
+							"repeat": 2
+						},
+						{ "move": "exit", "style": "fade", "start": 0.94, "duration": 0.05 }
+					],
+					"pins": [{ "mark": "node:digit:2", "label": "8 · 93%" }]
+				}
+			]
+		},
+		"overlays": [],
+		"effects": []
+	}
+}
