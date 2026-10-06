@@ -1,0 +1,354 @@
+import type { FigureKind } from './engine-schema';
+
+/**
+ * The nine target Figures ADR-0067 is designed against, one per kind, written as
+ * raw wire JSON before the engine existed. Tests parse and validate every one;
+ * layout, scene, and motion tests run over all nine so no kind is designed
+ * around another. Not a deliverable — the listed Presets carry their own data.
+ */
+export const FIGURE_TARGET_DECLARATIONS: Record<FigureKind, unknown> = {
+	'neural-network': {
+		id: 'digit-net',
+		kind: 'neural-network',
+		title: 'How a network reads a digit',
+		data: {
+			layers: [
+				{ id: 'in', label: 'Pixels', size: 4 },
+				{ id: 'h1', label: 'Edges', size: 6 },
+				{ id: 'h2', label: 'Shapes', size: 6 },
+				{ id: 'out', label: 'Answer', size: 2, nodeLabels: ['3', '8'] }
+			],
+			activations: [
+				[0.9, 0.2, 0.7, 0.4],
+				[0.1, 0.8, 0.6, 0.3, 0.9, 0.2],
+				[0.7, 0.1, 0.9, 0.4, 0.2, 0.8],
+				[0.12, 0.94]
+			],
+			weightSeed: 7
+		},
+		layout: { direction: 'right', nodeScale: 1 },
+		layoutOrientationOverrides: { vertical: { direction: 'down', nodeScale: 1.2 } },
+		encoding: { nodeBrightness: 'activation', linkWidth: 'weight', linkColor: 'sign' },
+		moves: [
+			{ move: 'reveal', style: 'cascade', start: 0.02, duration: 0.25, ease: 'settled' },
+			{ move: 'propagate', start: 0.32, duration: 0.4, repeat: 1, ease: 'smooth' },
+			{ move: 'focus', targets: ['node:out:1'], start: 0.76, duration: 0.08 },
+			{ move: 'exit', style: 'fade', start: 0.92, duration: 0.06 }
+		],
+		pins: [{ mark: 'node:out:1', label: '8 — 94%' }]
+	},
+	tree: {
+		id: 'languages',
+		kind: 'tree',
+		title: 'Where English comes from',
+		data: {
+			nodes: [
+				{ id: 'pie', label: 'Proto-Indo-European' },
+				{ id: 'germanic', label: 'Germanic', parent: 'pie' },
+				{ id: 'italic', label: 'Italic', parent: 'pie' },
+				{ id: 'indo-iranian', label: 'Indo-Iranian', parent: 'pie' },
+				{ id: 'west-germanic', label: 'West Germanic', parent: 'germanic' },
+				{ id: 'north-germanic', label: 'North Germanic', parent: 'germanic' },
+				{ id: 'english', label: 'English', parent: 'west-germanic' },
+				{ id: 'german', label: 'German', parent: 'west-germanic' },
+				{ id: 'dutch', label: 'Dutch', parent: 'west-germanic' },
+				{ id: 'swedish', label: 'Swedish', parent: 'north-germanic' },
+				{ id: 'latin', label: 'Latin', parent: 'italic' },
+				{ id: 'spanish', label: 'Spanish', parent: 'latin' },
+				{ id: 'french', label: 'French', parent: 'latin' },
+				{ id: 'hindi', label: 'Hindi', parent: 'indo-iranian' },
+				{ id: 'persian', label: 'Persian', parent: 'indo-iranian' }
+			]
+		},
+		layout: { direction: 'down', nodeScale: 1 },
+		layoutOrientationOverrides: { vertical: { direction: 'right', nodeScale: 1 } },
+		encoding: { nodeColor: 'branch' },
+		moves: [
+			{ move: 'reveal', style: 'grow', start: 0.02, duration: 0.4, ease: 'settled' },
+			{ move: 'propagate', start: 0.5, duration: 0.25, repeat: 1 },
+			{
+				move: 'focus',
+				targets: ['node:english', 'node:west-germanic', 'node:germanic'],
+				start: 0.78,
+				duration: 0.08
+			}
+		]
+	},
+	network: {
+		id: 'coauthors',
+		kind: 'network',
+		title: 'Six papers apart',
+		data: {
+			nodes: [
+				{ id: 'ada', label: 'Ada', group: 'math', value: 9 },
+				{ id: 'ben', label: 'Ben', group: 'math', value: 4 },
+				{ id: 'cho', label: 'Cho', group: 'bio', value: 7 },
+				{ id: 'dev', label: 'Dev', group: 'bio', value: 3 },
+				{ id: 'eli', label: 'Eli', group: 'cs', value: 11 },
+				{ id: 'fay', label: 'Fay', group: 'cs', value: 5 },
+				{ id: 'gus', label: 'Gus', group: 'physics', value: 6 },
+				{ id: 'hal', label: 'Hal', group: 'physics', value: 2 },
+				{ id: 'ivy', label: 'Ivy', group: 'cs', value: 8 },
+				{ id: 'jon', label: 'Jon', group: 'bio', value: 4 }
+			],
+			links: [
+				{ source: 'ada', target: 'ben', value: 3 },
+				{ source: 'ada', target: 'eli', value: 2 },
+				{ source: 'ben', target: 'gus', value: 1 },
+				{ source: 'cho', target: 'dev', value: 4 },
+				{ source: 'cho', target: 'jon', value: 2 },
+				{ source: 'dev', target: 'ivy', value: 1 },
+				{ source: 'eli', target: 'fay', value: 5 },
+				{ source: 'eli', target: 'ivy', value: 3 },
+				{ source: 'fay', target: 'gus', value: 1 },
+				{ source: 'gus', target: 'hal', value: 2 },
+				{ source: 'ivy', target: 'jon', value: 2 }
+			]
+		},
+		layout: { seed: 11, spread: 1, labels: 'all' },
+		encoding: { nodeSize: 'value', nodeColor: 'group', linkWidth: 'value' },
+		moves: [
+			{ move: 'reveal', style: 'cascade', start: 0.02, duration: 0.3 },
+			{
+				move: 'propagate',
+				path: ['hal', 'gus', 'ben', 'ada', 'eli', 'ivy', 'jon'],
+				start: 0.4,
+				duration: 0.35,
+				repeat: 1
+			},
+			{ move: 'flow', start: 0.78, duration: 0.2, cycles: 3 }
+		]
+	},
+	cycle: {
+		id: 'water-cycle',
+		kind: 'cycle',
+		title: 'The water cycle',
+		data: {
+			steps: [
+				{ id: 'evaporation', label: 'Evaporation', detail: 'The sun lifts water off the ocean' },
+				{ id: 'condensation', label: 'Condensation', detail: 'Vapour cools into clouds' },
+				{ id: 'precipitation', label: 'Precipitation', detail: 'It falls as rain and snow' },
+				{ id: 'collection', label: 'Collection', detail: 'Rivers carry it back to sea' }
+			]
+		},
+		layout: { startAngle: 0, direction: 'clockwise', aspect: 'fit' },
+		encoding: { stepColor: 'sequence' },
+		moves: [
+			{ move: 'reveal', style: 'draw', start: 0.02, duration: 0.3 },
+			{ move: 'flow', start: 0.35, duration: 0.6, cycles: 4 }
+		]
+	},
+	'bar-race': {
+		id: 'gdp-race',
+		kind: 'bar-race',
+		title: 'The largest economies',
+		sourceNote: 'World Bank, GDP in current US$',
+		data: {
+			entities: [
+				{ id: 'us', label: 'United States' },
+				{ id: 'cn', label: 'China' },
+				{ id: 'jp', label: 'Japan' },
+				{ id: 'de', label: 'Germany' },
+				{ id: 'gb', label: 'United Kingdom' },
+				{ id: 'in', label: 'India' },
+				{ id: 'fr', label: 'France' },
+				{ id: 'it', label: 'Italy' }
+			],
+			frames: [
+				{
+					label: '1990',
+					values: [
+						{ entityId: 'us', value: 5.96 },
+						{ entityId: 'cn', value: 0.36 },
+						{ entityId: 'jp', value: 3.13 },
+						{ entityId: 'de', value: 1.77 },
+						{ entityId: 'gb', value: 1.09 },
+						{ entityId: 'in', value: 0.32 },
+						{ entityId: 'fr', value: 1.27 },
+						{ entityId: 'it', value: 1.18 }
+					]
+				},
+				{
+					label: '2000',
+					values: [
+						{ entityId: 'us', value: 10.25 },
+						{ entityId: 'cn', value: 1.21 },
+						{ entityId: 'jp', value: 4.97 },
+						{ entityId: 'de', value: 1.95 },
+						{ entityId: 'gb', value: 1.66 },
+						{ entityId: 'in', value: 0.47 },
+						{ entityId: 'fr', value: 1.36 },
+						{ entityId: 'it', value: 1.15 }
+					]
+				},
+				{
+					label: '2010',
+					values: [
+						{ entityId: 'us', value: 15.05 },
+						{ entityId: 'cn', value: 6.09 },
+						{ entityId: 'jp', value: 5.76 },
+						{ entityId: 'de', value: 3.4 },
+						{ entityId: 'gb', value: 2.49 },
+						{ entityId: 'in', value: 1.68 },
+						{ entityId: 'fr', value: 2.65 },
+						{ entityId: 'it', value: 2.13 }
+					]
+				},
+				{
+					label: '2020',
+					values: [
+						{ entityId: 'us', value: 21.35 },
+						{ entityId: 'cn', value: 14.69 },
+						{ entityId: 'jp', value: 5.04 },
+						{ entityId: 'de', value: 3.89 },
+						{ entityId: 'gb', value: 2.7 },
+						{ entityId: 'in', value: 2.67 },
+						{ entityId: 'fr', value: 2.64 },
+						{ entityId: 'it', value: 1.9 }
+					]
+				}
+			],
+			valueFormat: { prefix: '$', suffix: 'T', precision: 1 }
+		},
+		layout: { visibleCount: 6 },
+		layoutOrientationOverrides: { vertical: { visibleCount: 8 } },
+		encoding: { barColor: 'entity' },
+		moves: [
+			{ move: 'reveal', style: 'grow', start: 0.02, duration: 0.12, ease: 'smooth' },
+			{ move: 'advance', from: 0, to: 3, start: 0.16, duration: 0.7, ease: 'smooth' }
+		]
+	},
+	line: {
+		id: 'co2',
+		kind: 'line',
+		title: 'Carbon dioxide in the air',
+		sourceNote: 'NOAA Mauna Loa, annual mean',
+		data: {
+			series: [
+				{
+					id: 'mauna-loa',
+					label: 'CO₂ (ppm)',
+					points: [
+						{ x: 1960, y: 316.9 },
+						{ x: 1970, y: 325.7 },
+						{ x: 1980, y: 338.8 },
+						{ x: 1990, y: 354.4 },
+						{ x: 2000, y: 369.7 },
+						{ x: 2010, y: 389.9 },
+						{ x: 2020, y: 414.2 },
+						{ x: 2023, y: 421.1 }
+					]
+				}
+			],
+			xFormat: 'year',
+			yFormat: { precision: 0, suffix: ' ppm' },
+			thresholds: [{ id: 'safe', y: 350, label: '350 ppm' }],
+			events: [
+				{ id: 'kyoto', x: 1997, label: 'Kyoto Protocol' },
+				{ id: 'paris', x: 2015, label: 'Paris Agreement' }
+			]
+		},
+		layout: { baseline: 'data' },
+		encoding: { seriesColor: 'series' },
+		moves: [
+			{ move: 'reveal', style: 'fade', start: 0.02, duration: 0.08 },
+			{ move: 'advance', from: 1960, to: 2023, start: 0.1, duration: 0.6 },
+			{ move: 'annotate', targets: ['threshold:safe'], start: 0.3, duration: 0.06 }
+		]
+	},
+	slope: {
+		id: 'phone-ranks',
+		kind: 'slope',
+		title: 'Who sells the most phones',
+		sourceNote: 'IDC shipments, millions',
+		data: {
+			periods: [
+				{ id: 'y2019', label: '2019' },
+				{ id: 'y2020', label: '2020' },
+				{ id: 'y2021', label: '2021' },
+				{ id: 'y2022', label: '2022' },
+				{ id: 'y2023', label: '2023' }
+			],
+			entities: [
+				{ id: 'samsung', label: 'Samsung', values: [295.8, 266.7, 274.5, 260.9, 226.6] },
+				{ id: 'apple', label: 'Apple', values: [191.0, 206.1, 235.7, 226.4, 234.6] },
+				{ id: 'huawei', label: 'Huawei', values: [240.6, 189.0, 35.0, 30.0, 32.0] },
+				{ id: 'xiaomi', label: 'Xiaomi', values: [125.6, 147.8, 191.2, 153.1, 145.9] },
+				{ id: 'oppo', label: 'Oppo', values: [114.3, 111.2, 145.1, 103.3, 103.1] },
+				{ id: 'vivo', label: 'vivo', values: [110.1, 111.7, 129.9, 99.0, 91.7] }
+			],
+			valueFormat: { precision: 0, suffix: 'M' }
+		},
+		layout: { mode: 'rank' },
+		encoding: { lineColor: 'entity' },
+		moves: [
+			{ move: 'reveal', style: 'draw', start: 0.02, duration: 0.1 },
+			{ move: 'advance', from: 0, to: 4, start: 0.12, duration: 0.6 },
+			{ move: 'focus', targets: ['line:huawei'], start: 0.76, duration: 0.08 }
+		]
+	},
+	sankey: {
+		id: 'power',
+		kind: 'sankey',
+		title: 'Where the power goes',
+		data: {
+			nodes: [
+				{ id: 'gas', label: 'Natural gas' },
+				{ id: 'coal', label: 'Coal' },
+				{ id: 'nuclear', label: 'Nuclear' },
+				{ id: 'renewables', label: 'Renewables' },
+				{ id: 'grid', label: 'Electricity' },
+				{ id: 'homes', label: 'Homes' },
+				{ id: 'business', label: 'Business' },
+				{ id: 'industry', label: 'Industry' },
+				{ id: 'lost', label: 'Lost as heat' }
+			],
+			links: [
+				{ source: 'gas', target: 'grid', value: 12.6 },
+				{ source: 'coal', target: 'grid', value: 8.3 },
+				{ source: 'nuclear', target: 'grid', value: 8.1 },
+				{ source: 'renewables', target: 'grid', value: 8.0 },
+				{ source: 'grid', target: 'homes', value: 5.0 },
+				{ source: 'grid', target: 'business', value: 4.6 },
+				{ source: 'grid', target: 'industry', value: 3.4 },
+				{ source: 'grid', target: 'lost', value: 24.0 }
+			],
+			valueFormat: { precision: 1, suffix: ' quads' }
+		},
+		layout: { direction: 'right', nodeAlign: 'justify' },
+		layoutOrientationOverrides: { vertical: { direction: 'down', nodeAlign: 'justify' } },
+		encoding: { linkColor: 'source' },
+		moves: [
+			{ move: 'reveal', style: 'grow', start: 0.02, duration: 0.3 },
+			{ move: 'flow', start: 0.35, duration: 0.5, cycles: 3 },
+			{ move: 'focus', targets: ['link:grid>lost', 'node:lost'], start: 0.7, duration: 0.08 }
+		]
+	},
+	treemap: {
+		id: 'budget',
+		kind: 'treemap',
+		title: 'Where the federal budget goes',
+		sourceNote: 'CBO, FY2023 outlays, $ billions',
+		data: {
+			nodes: [
+				{ id: 'budget', label: 'Federal budget' },
+				{ id: 'mandatory', label: 'Mandatory', parent: 'budget' },
+				{ id: 'discretionary', label: 'Discretionary', parent: 'budget' },
+				{ id: 'interest', label: 'Net interest', parent: 'budget', value: 658 },
+				{ id: 'social-security', label: 'Social Security', parent: 'mandatory', value: 1348 },
+				{ id: 'medicare', label: 'Medicare', parent: 'mandatory', value: 839 },
+				{ id: 'medicaid', label: 'Medicaid', parent: 'mandatory', value: 616 },
+				{ id: 'other-mandatory', label: 'Other mandatory', parent: 'mandatory', value: 718 },
+				{ id: 'defense', label: 'Defense', parent: 'discretionary', value: 805 },
+				{ id: 'nondefense', label: 'Nondefense', parent: 'discretionary', value: 917 }
+			],
+			valueFormat: { prefix: '$', suffix: 'B', precision: 0 }
+		},
+		layout: { padding: 'airy', labels: 'leaves' },
+		encoding: { color: 'top-level' },
+		moves: [
+			{ move: 'reveal', style: 'grow', start: 0.02, duration: 0.25 },
+			{ move: 'focus', targets: ['node:mandatory'], zoom: true, start: 0.5, duration: 0.15 }
+		]
+	}
+};

@@ -1319,6 +1319,491 @@ export const ChartGroupSchema = z.strictObject({
 });
 export type ChartGroup = z.infer<typeof ChartGroupSchema>;
 
+// ---- Figures (ADR-0067) ----
+// A Figure is one declaration that generates its Marks through a deterministic
+// layout: kind-specific inline data, layout settings (shared or per
+// orientation), a small closed encoding, named Moves, and Pins. Structural
+// parsing owns wire shape and per-field bounds; cross-field rules (references,
+// acyclicity, move/kind compatibility, honest-motion eases, orphan Pins) live in
+// figure-validation.ts so every ingress reports precise semantic paths.
+
+/** How many Figures one Surface carries. */
+export const FIGURE_GROUP_LIMIT = 4;
+/** How many Moves one Figure carries. */
+export const FIGURE_MOVE_LIMIT = 16;
+/** How many Pins one Figure carries. */
+export const FIGURE_PIN_LIMIT = 64;
+/** How many Marks one Move may name. */
+export const FIGURE_MOVE_TARGET_LIMIT = 32;
+
+// Data ids become parts of Mark ids (`node:<id>`, `link:<a>><b>`), so the
+// separators `:` and `>` and whitespace are reserved.
+const FigureDataIdSchema = z
+	.string()
+	.min(1)
+	.max(64)
+	.regex(/^[A-Za-z0-9_.-]+$/, 'Figure data ids use letters, digits, "_", ".", and "-".');
+const FigureLabelSchema = z.string().min(1).max(80);
+const FigureDetailSchema = z.string().min(1).max(160);
+const FigureFiniteNumberSchema = z.number().finite();
+const FigureMarkIdSchema = z.string().min(1).max(160);
+
+/** How a Figure prints a quantity. `compact` abbreviates (12.4K, 3.1M, 2.0B, 1.1T). */
+export const FigureValueFormatSchema = z.strictObject({
+	prefix: z.string().max(8).optional(),
+	suffix: z.string().max(12).optional(),
+	precision: z.number().int().min(0).max(3),
+	compact: z.boolean().optional()
+});
+export type FigureValueFormat = z.infer<typeof FigureValueFormatSchema>;
+
+function figureLayoutOrientationOverridesSchema<Layout extends z.ZodType>(layout: Layout) {
+	return z
+		.strictObject({
+			horizontal: layout.optional(),
+			vertical: layout.optional()
+		})
+		.optional();
+}
+
+// --- neural-network ---
+export const FIGURE_NEURAL_NETWORK_LAYER_LIMIT = 8;
+export const FIGURE_NEURAL_NETWORK_LAYER_SIZE_LIMIT = 16;
+const FigureNeuralNetworkLayerSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: FigureLabelSchema.optional(),
+	size: z.number().int().min(1).max(FIGURE_NEURAL_NETWORK_LAYER_SIZE_LIMIT),
+	nodeLabels: z.array(z.string().max(24)).optional()
+});
+export const FigureNeuralNetworkDataSchema = z.strictObject({
+	layers: z.array(FigureNeuralNetworkLayerSchema).min(2).max(FIGURE_NEURAL_NETWORK_LAYER_LIMIT),
+	// One row per layer, one activation in [0, 1] per node.
+	activations: z.array(z.array(z.number().min(0).max(1))).optional(),
+	// Link weights in [-1, 1] are generated from this seed, never stored.
+	weightSeed: z.number().int().min(0).max(2_147_483_647)
+});
+export const FigureNeuralNetworkLayoutSchema = z.strictObject({
+	direction: z.enum(['right', 'down']),
+	nodeScale: z.number().min(0.5).max(2)
+});
+export const FigureNeuralNetworkEncodingSchema = z.strictObject({
+	nodeBrightness: z.enum(['activation', 'uniform']),
+	linkWidth: z.enum(['weight', 'uniform']),
+	linkColor: z.enum(['sign', 'uniform'])
+});
+
+// --- tree ---
+export const FIGURE_TREE_NODE_LIMIT = 80;
+const FigureTreeNodeSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: FigureLabelSchema,
+	parent: FigureDataIdSchema.optional(),
+	detail: FigureDetailSchema.optional()
+});
+export const FigureTreeDataSchema = z.strictObject({
+	nodes: z.array(FigureTreeNodeSchema).min(2).max(FIGURE_TREE_NODE_LIMIT)
+});
+export const FigureTreeLayoutSchema = z.strictObject({
+	direction: z.enum(['down', 'right', 'radial']),
+	nodeScale: z.number().min(0.5).max(2)
+});
+export const FigureTreeEncodingSchema = z.strictObject({
+	nodeColor: z.enum(['branch', 'uniform'])
+});
+
+// --- network ---
+export const FIGURE_NETWORK_NODE_LIMIT = 120;
+export const FIGURE_NETWORK_LINK_LIMIT = 400;
+const FigureNetworkNodeSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: FigureLabelSchema.optional(),
+	group: FigureDataIdSchema.optional(),
+	value: FigureFiniteNumberSchema.min(0).optional()
+});
+const FigureNetworkLinkSchema = z.strictObject({
+	source: FigureDataIdSchema,
+	target: FigureDataIdSchema,
+	value: FigureFiniteNumberSchema.min(0).optional()
+});
+export const FigureNetworkDataSchema = z.strictObject({
+	nodes: z.array(FigureNetworkNodeSchema).min(2).max(FIGURE_NETWORK_NODE_LIMIT),
+	links: z.array(FigureNetworkLinkSchema).min(1).max(FIGURE_NETWORK_LINK_LIMIT)
+});
+export const FigureNetworkLayoutSchema = z.strictObject({
+	seed: z.number().int().min(0).max(2_147_483_647),
+	spread: z.number().min(0.5).max(2),
+	labels: z.enum(['all', 'hubs', 'none'])
+});
+export const FigureNetworkEncodingSchema = z.strictObject({
+	nodeSize: z.enum(['value', 'degree', 'uniform']),
+	nodeColor: z.enum(['group', 'uniform']),
+	linkWidth: z.enum(['value', 'uniform'])
+});
+
+// --- cycle ---
+const FigureCycleStepSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: FigureLabelSchema,
+	detail: FigureDetailSchema.optional()
+});
+export const FigureCycleDataSchema = z.strictObject({
+	steps: z.array(FigureCycleStepSchema).min(3).max(8)
+});
+export const FigureCycleLayoutSchema = z.strictObject({
+	// Degrees clockwise from twelve o'clock where the first step sits.
+	startAngle: z.number().min(-180).max(180),
+	direction: z.enum(['clockwise', 'counterclockwise']),
+	aspect: z.enum(['circle', 'fit'])
+});
+export const FigureCycleEncodingSchema = z.strictObject({
+	stepColor: z.enum(['sequence', 'uniform'])
+});
+
+// --- bar-race ---
+export const FIGURE_BAR_RACE_ENTITY_LIMIT = 40;
+export const FIGURE_BAR_RACE_FRAME_LIMIT = 80;
+const FigureBarRaceEntitySchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: FigureLabelSchema,
+	group: FigureDataIdSchema.optional()
+});
+const FigureBarRaceValueSchema = z.strictObject({
+	entityId: FigureDataIdSchema,
+	value: FigureFiniteNumberSchema.min(0)
+});
+const FigureBarRaceFrameSchema = z.strictObject({
+	label: z.string().min(1).max(24),
+	values: z.array(FigureBarRaceValueSchema).min(1).max(FIGURE_BAR_RACE_ENTITY_LIMIT)
+});
+export const FigureBarRaceDataSchema = z.strictObject({
+	entities: z.array(FigureBarRaceEntitySchema).min(2).max(FIGURE_BAR_RACE_ENTITY_LIMIT),
+	frames: z.array(FigureBarRaceFrameSchema).min(2).max(FIGURE_BAR_RACE_FRAME_LIMIT),
+	valueFormat: FigureValueFormatSchema
+});
+export const FigureBarRaceLayoutSchema = z.strictObject({
+	visibleCount: z.number().int().min(3).max(12)
+});
+export const FigureBarRaceEncodingSchema = z.strictObject({
+	barColor: z.enum(['group', 'entity', 'uniform'])
+});
+
+// --- line ---
+export const FIGURE_LINE_SERIES_LIMIT = 6;
+export const FIGURE_LINE_POINT_LIMIT = 240;
+const FigureLinePointSchema = z.strictObject({
+	x: FigureFiniteNumberSchema,
+	y: FigureFiniteNumberSchema
+});
+const FigureLineSeriesSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: FigureLabelSchema,
+	points: z.array(FigureLinePointSchema).min(2).max(FIGURE_LINE_POINT_LIMIT)
+});
+const FigureLineThresholdSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	y: FigureFiniteNumberSchema,
+	label: FigureLabelSchema
+});
+const FigureLineBandSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	from: FigureFiniteNumberSchema,
+	to: FigureFiniteNumberSchema,
+	label: FigureLabelSchema
+});
+const FigureLineEventSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	x: FigureFiniteNumberSchema,
+	label: FigureLabelSchema
+});
+export const FigureLineDataSchema = z.strictObject({
+	series: z.array(FigureLineSeriesSchema).min(1).max(FIGURE_LINE_SERIES_LIMIT),
+	xFormat: z.enum(['number', 'year']),
+	yFormat: FigureValueFormatSchema,
+	yAxisLabel: FigureLabelSchema.optional(),
+	// Optional explicit y domain; data must fit inside it.
+	yMin: FigureFiniteNumberSchema.optional(),
+	yMax: FigureFiniteNumberSchema.optional(),
+	thresholds: z.array(FigureLineThresholdSchema).max(4).optional(),
+	bands: z.array(FigureLineBandSchema).max(4).optional(),
+	events: z.array(FigureLineEventSchema).max(8).optional()
+});
+export const FigureLineLayoutSchema = z.strictObject({
+	// `zero` keeps a zero baseline; `data` fits the y domain to the data.
+	baseline: z.enum(['zero', 'data'])
+});
+export const FigureLineEncodingSchema = z.strictObject({
+	seriesColor: z.enum(['series', 'lead'])
+});
+
+// --- slope ---
+const FigureSlopePeriodSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: z.string().min(1).max(24)
+});
+const FigureSlopeEntitySchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: FigureLabelSchema,
+	values: z.array(FigureFiniteNumberSchema).min(2).max(8)
+});
+export const FigureSlopeDataSchema = z.strictObject({
+	periods: z.array(FigureSlopePeriodSchema).min(2).max(8),
+	entities: z.array(FigureSlopeEntitySchema).min(2).max(12),
+	valueFormat: FigureValueFormatSchema
+});
+export const FigureSlopeLayoutSchema = z.strictObject({
+	// `value` plots values (a slope chart); `rank` plots rank order (a bump chart).
+	mode: z.enum(['value', 'rank'])
+});
+export const FigureSlopeEncodingSchema = z.strictObject({
+	lineColor: z.enum(['entity', 'uniform'])
+});
+
+// --- sankey ---
+const FigureSankeyNodeSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: FigureLabelSchema
+});
+const FigureSankeyLinkSchema = z.strictObject({
+	source: FigureDataIdSchema,
+	target: FigureDataIdSchema,
+	value: FigureFiniteNumberSchema.gt(0)
+});
+export const FigureSankeyDataSchema = z.strictObject({
+	nodes: z.array(FigureSankeyNodeSchema).min(2).max(30),
+	links: z.array(FigureSankeyLinkSchema).min(1).max(60),
+	valueFormat: FigureValueFormatSchema
+});
+export const FigureSankeyLayoutSchema = z.strictObject({
+	direction: z.enum(['right', 'down']),
+	nodeAlign: z.enum(['justify', 'left', 'right', 'center'])
+});
+export const FigureSankeyEncodingSchema = z.strictObject({
+	linkColor: z.enum(['source', 'target', 'uniform'])
+});
+
+// --- treemap ---
+export const FIGURE_TREEMAP_NODE_LIMIT = 120;
+const FigureTreemapNodeSchema = z.strictObject({
+	id: FigureDataIdSchema,
+	label: FigureLabelSchema,
+	parent: FigureDataIdSchema.optional(),
+	// Leaves carry a value; branches sum their children.
+	value: FigureFiniteNumberSchema.gt(0).optional()
+});
+export const FigureTreemapDataSchema = z.strictObject({
+	nodes: z.array(FigureTreemapNodeSchema).min(2).max(FIGURE_TREEMAP_NODE_LIMIT),
+	valueFormat: FigureValueFormatSchema
+});
+export const FigureTreemapLayoutSchema = z.strictObject({
+	padding: z.enum(['tight', 'airy']),
+	labels: z.enum(['leaves', 'top-level'])
+});
+export const FigureTreemapEncodingSchema = z.strictObject({
+	color: z.enum(['top-level', 'uniform'])
+});
+
+// --- Moves (ADR-0067 §6) ---
+const figureMoveWindow = {
+	start: FigureFiniteNumberSchema.min(0).max(1),
+	duration: FigureFiniteNumberSchema.gt(0).max(1),
+	ease: EaseSchema.optional()
+};
+const FigureMoveTargetsSchema = z.array(FigureMarkIdSchema).max(FIGURE_MOVE_TARGET_LIMIT);
+export const FigureMoveSchema = z.discriminatedUnion('move', [
+	z.strictObject({
+		...figureMoveWindow,
+		move: z.literal('reveal'),
+		style: z.enum(['cascade', 'grow', 'draw', 'fade'])
+	}),
+	z.strictObject({
+		...figureMoveWindow,
+		move: z.literal('propagate'),
+		// Network only: the node ids the signal travels through, in order.
+		path: z.array(FigureDataIdSchema).min(2).max(FIGURE_MOVE_TARGET_LIMIT).optional(),
+		repeat: z.number().int().min(1).max(8)
+	}),
+	z.strictObject({
+		...figureMoveWindow,
+		move: z.literal('pulse'),
+		targets: FigureMoveTargetsSchema.min(1),
+		repeat: z.number().int().min(1).max(8)
+	}),
+	z.strictObject({
+		...figureMoveWindow,
+		move: z.literal('flow'),
+		// Absent flows along every link.
+		targets: FigureMoveTargetsSchema.min(1).optional(),
+		cycles: z.number().int().min(1).max(24)
+	}),
+	z.strictObject({
+		...figureMoveWindow,
+		move: z.literal('advance'),
+		// bar-race: frame indices; slope: period indices; line: x values.
+		from: FigureFiniteNumberSchema,
+		to: FigureFiniteNumberSchema
+	}),
+	z.strictObject({
+		...figureMoveWindow,
+		move: z.literal('focus'),
+		// Empty releases an earlier focus.
+		targets: FigureMoveTargetsSchema,
+		// Treemap only: zoom the frame into the one targeted branch.
+		zoom: z.boolean().optional()
+	}),
+	z.strictObject({
+		...figureMoveWindow,
+		move: z.literal('annotate'),
+		targets: FigureMoveTargetsSchema.min(1)
+	}),
+	z.strictObject({
+		...figureMoveWindow,
+		move: z.literal('exit'),
+		style: z.enum(['fade', 'reverse'])
+	})
+]);
+export type FigureMove = z.infer<typeof FigureMoveSchema>;
+export type FigureMoveName = FigureMove['move'];
+export const FIGURE_MOVE_NAMES: readonly FigureMoveName[] = FigureMoveSchema.options.map(
+	(option) => option.shape.move.value
+);
+
+// --- Pins (ADR-0067 §3) ---
+const FigurePinChannelsSchema = z.strictObject({
+	opacity: createKeyframeTrackSchema(FractionSchema).optional(),
+	scale: createKeyframeTrackSchema(z.number().min(0.1).max(4)).optional()
+});
+export const FigurePinSchema = z.strictObject({
+	mark: FigureMarkIdSchema,
+	// Absent applies in both orientations.
+	orientation: VideoOrientationSchema.optional(),
+	// Frame-local fractions of the Figure frame.
+	position: z.strictObject({ x: FractionSchema, y: FractionSchema }).optional(),
+	label: z.string().max(80).optional(),
+	hidden: z.literal(true).optional(),
+	channels: FigurePinChannelsSchema.optional()
+});
+export type FigurePin = z.infer<typeof FigurePinSchema>;
+
+const figureBase = {
+	id: FigureDataIdSchema,
+	title: z.string().min(1).max(120).optional(),
+	sourceNote: z.string().min(1).max(160).optional(),
+	frame: ChartFrameRectSchema.optional(),
+	frameOrientationOverrides: z
+		.strictObject({
+			horizontal: ChartFrameRectSchema.optional(),
+			vertical: ChartFrameRectSchema.optional()
+		})
+		.optional(),
+	moves: z.array(FigureMoveSchema).min(1).max(FIGURE_MOVE_LIMIT),
+	pins: z.array(FigurePinSchema).max(FIGURE_PIN_LIMIT).optional()
+};
+
+export const NeuralNetworkFigureSchema = z.strictObject({
+	...figureBase,
+	kind: z.literal('neural-network'),
+	data: FigureNeuralNetworkDataSchema,
+	layout: FigureNeuralNetworkLayoutSchema,
+	layoutOrientationOverrides: figureLayoutOrientationOverridesSchema(
+		FigureNeuralNetworkLayoutSchema
+	),
+	encoding: FigureNeuralNetworkEncodingSchema
+});
+export const TreeFigureSchema = z.strictObject({
+	...figureBase,
+	kind: z.literal('tree'),
+	data: FigureTreeDataSchema,
+	layout: FigureTreeLayoutSchema,
+	layoutOrientationOverrides: figureLayoutOrientationOverridesSchema(FigureTreeLayoutSchema),
+	encoding: FigureTreeEncodingSchema
+});
+export const NetworkFigureSchema = z.strictObject({
+	...figureBase,
+	kind: z.literal('network'),
+	data: FigureNetworkDataSchema,
+	layout: FigureNetworkLayoutSchema,
+	layoutOrientationOverrides: figureLayoutOrientationOverridesSchema(FigureNetworkLayoutSchema),
+	encoding: FigureNetworkEncodingSchema
+});
+export const CycleFigureSchema = z.strictObject({
+	...figureBase,
+	kind: z.literal('cycle'),
+	data: FigureCycleDataSchema,
+	layout: FigureCycleLayoutSchema,
+	layoutOrientationOverrides: figureLayoutOrientationOverridesSchema(FigureCycleLayoutSchema),
+	encoding: FigureCycleEncodingSchema
+});
+export const BarRaceFigureSchema = z.strictObject({
+	...figureBase,
+	kind: z.literal('bar-race'),
+	data: FigureBarRaceDataSchema,
+	layout: FigureBarRaceLayoutSchema,
+	layoutOrientationOverrides: figureLayoutOrientationOverridesSchema(FigureBarRaceLayoutSchema),
+	encoding: FigureBarRaceEncodingSchema
+});
+export const LineFigureSchema = z.strictObject({
+	...figureBase,
+	kind: z.literal('line'),
+	data: FigureLineDataSchema,
+	layout: FigureLineLayoutSchema,
+	layoutOrientationOverrides: figureLayoutOrientationOverridesSchema(FigureLineLayoutSchema),
+	encoding: FigureLineEncodingSchema
+});
+export const SlopeFigureSchema = z.strictObject({
+	...figureBase,
+	kind: z.literal('slope'),
+	data: FigureSlopeDataSchema,
+	layout: FigureSlopeLayoutSchema,
+	layoutOrientationOverrides: figureLayoutOrientationOverridesSchema(FigureSlopeLayoutSchema),
+	encoding: FigureSlopeEncodingSchema
+});
+export const SankeyFigureSchema = z.strictObject({
+	...figureBase,
+	kind: z.literal('sankey'),
+	data: FigureSankeyDataSchema,
+	layout: FigureSankeyLayoutSchema,
+	layoutOrientationOverrides: figureLayoutOrientationOverridesSchema(FigureSankeyLayoutSchema),
+	encoding: FigureSankeyEncodingSchema
+});
+export const TreemapFigureSchema = z.strictObject({
+	...figureBase,
+	kind: z.literal('treemap'),
+	data: FigureTreemapDataSchema,
+	layout: FigureTreemapLayoutSchema,
+	layoutOrientationOverrides: figureLayoutOrientationOverridesSchema(FigureTreemapLayoutSchema),
+	encoding: FigureTreemapEncodingSchema
+});
+
+export const FigureSchema = z.discriminatedUnion('kind', [
+	NeuralNetworkFigureSchema,
+	TreeFigureSchema,
+	NetworkFigureSchema,
+	CycleFigureSchema,
+	BarRaceFigureSchema,
+	LineFigureSchema,
+	SlopeFigureSchema,
+	SankeyFigureSchema,
+	TreemapFigureSchema
+]);
+export type Figure = z.infer<typeof FigureSchema>;
+export type FigureKind = Figure['kind'];
+export type NeuralNetworkFigure = z.infer<typeof NeuralNetworkFigureSchema>;
+export type TreeFigure = z.infer<typeof TreeFigureSchema>;
+export type NetworkFigure = z.infer<typeof NetworkFigureSchema>;
+export type CycleFigure = z.infer<typeof CycleFigureSchema>;
+export type BarRaceFigure = z.infer<typeof BarRaceFigureSchema>;
+export type LineFigure = z.infer<typeof LineFigureSchema>;
+export type SlopeFigure = z.infer<typeof SlopeFigureSchema>;
+export type SankeyFigure = z.infer<typeof SankeyFigureSchema>;
+export type TreemapFigure = z.infer<typeof TreemapFigureSchema>;
+/** The layout settings of one Figure kind. */
+export type FigureLayoutFor<Kind extends FigureKind> = Extract<Figure, { kind: Kind }>['layout'];
+export const FIGURE_KINDS: readonly FigureKind[] = FigureSchema.options.map(
+	(option) => option.shape.kind.value
+);
+
+export const FigureGroupSchema = z.array(FigureSchema).min(1).max(FIGURE_GROUP_LIMIT);
+
 export const SurfaceTypeSchema = z.enum([
 	'paper',
 	'plain',
@@ -1482,6 +1967,9 @@ const SurfaceSchema = z.object({
 	// authoring. Rendering remains in the Block Layer; this is Surface-carried
 	// content, not a sixth Layer or a parallel chart document model.
 	chart: ChartGroupSchema.optional(),
+	// Figures (ADR-0067): generated visualizations on any Surface, several per
+	// composition, rendered by the single `figure` Block Pipeline.
+	figures: FigureGroupSchema.optional(),
 	// A Type Field is a bounded group of first-class Kinetic Word Blocks plus
 	// semantic phrases. Only the plain Surface may carry it (semantic gate).
 	typeField: KineticTypeFieldSchema.optional()

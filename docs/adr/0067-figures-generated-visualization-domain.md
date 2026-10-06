@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed (in progress).** Planned 2026-10-06 under Dex epic `qvyyiu9g`. Becomes Canon when the nine target Presets listed in §9 have shipped with human aesthetic approval and the migration review in §9 has recorded its per-part decisions.
+**Designed, not built** (in progress under Dex epic `qvyyiu9g`, planned 2026-10-06). Becomes Canon when the nine target Presets listed in §9 have shipped with human aesthetic approval and the migration review in §9 has recorded its per-part decisions.
 
 Date: 2026-10-06
 

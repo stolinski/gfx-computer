@@ -2,6 +2,7 @@ import type { z } from 'zod';
 
 import { validateChartGroupSemantics } from './chart-validation';
 import { validateKineticTypeFieldSemantics } from './kinetic-type-field-validation';
+import { validateFigureGroupSemantics } from './figure-validation';
 import { STAGE_POSED_OVERLAY_LIMIT, type Preset } from './engine-schema';
 import { findPack, listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
 import { PACK_SLUG_PATTERN } from './packs/types';
@@ -225,6 +226,18 @@ function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[])
 		preset.state.surface.diagram ?? [],
 		preset.state.surface.type
 	)) {
+		issues.push({
+			path: ['state', 'surface', ...issue.path],
+			message: issue.message
+		});
+	}
+
+	const surfaceBlockIds = new Set<string>([
+		...(preset.state.surface.diagram ?? []).map((primitive) => primitive.id),
+		...(preset.state.surface.chart?.items ?? []).map((item) => item.id),
+		...(preset.state.surface.typeField?.words ?? []).map((word) => word.id)
+	]);
+	for (const issue of validateFigureGroupSemantics(preset.state.surface.figures, surfaceBlockIds)) {
 		issues.push({
 			path: ['state', 'surface', ...issue.path],
 			message: issue.message
