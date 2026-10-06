@@ -158,20 +158,22 @@ function keepFigureTextInFrame(
 }
 
 /**
- * A Figure title broken into lines that each fit the frame width, greedily by
+ * Figure chrome text (a title or source note) broken into lines that each fit
+ * the frame width, greedily by
  * word. Type is never squeezed to fit; a word wider than the frame keeps its
  * own line and the frame clamp keeps it on screen.
  */
-export function wrapFigureTitle(
-	title: string,
+export function wrapFigureText(
+	text: string,
 	width: number,
+	role: FigureTextRole,
 	measure: (text: string, role: FigureTextRole) => { width: number }
 ): string[] {
 	const lines: string[] = [];
 	let current = '';
-	for (const word of title.split(/\s+/).filter((entry) => entry.length > 0)) {
+	for (const word of text.split(/\s+/).filter((entry) => entry.length > 0)) {
 		const candidate = current.length === 0 ? word : `${current} ${word}`;
-		if (current.length > 0 && measure(candidate, 'title').width > width) {
+		if (current.length > 0 && measure(candidate, role).width > width) {
 			lines.push(current);
 			current = word;
 		} else {
@@ -191,12 +193,18 @@ export function prepareFigure(figure: Figure, orientation: VideoOrientation): Pr
 	const frame = resolveFigureFrame(figure, orientation);
 	const measure = (text: string, role: FigureTextRole) =>
 		measureFigureText(text, role, orientation);
-	const titleLines = figure.title ? wrapFigureTitle(figure.title, frame.width, measure) : [];
+	const titleLines = figure.title
+		? wrapFigureText(figure.title, frame.width, 'title', measure)
+		: [];
 	// Wrapped lines get leading beyond the role's line box so descenders never
 	// sit on the next line's caps.
 	const titleLineHeight = figure.title ? measure(figure.title, 'title').height * 1.22 : 0;
 	const titleHeight = titleLines.length * titleLineHeight;
-	const sourceHeight = figure.sourceNote ? measure(figure.sourceNote, 'source').height : 0;
+	const sourceLines = figure.sourceNote
+		? wrapFigureText(figure.sourceNote, frame.width, 'source', measure)
+		: [];
+	const sourceLineHeight = figure.sourceNote ? measure(figure.sourceNote, 'source').height : 0;
+	const sourceHeight = sourceLines.length * sourceLineHeight;
 	const gap = Math.min(frame.width, frame.height) * 0.04;
 	const plot = insetFigureRect(frame, {
 		top: figure.title ? titleHeight + gap : 0,
@@ -230,21 +238,21 @@ export function prepareFigure(figure: Figure, orientation: VideoOrientation): Pr
 				})
 			);
 		});
-		if (figure.sourceNote) {
+		sourceLines.forEach((line, lineIndex) => {
 			items.push(
 				createFigureText(env, {
-					key: 'source',
+					key: lineIndex === 0 ? 'source' : `source#${lineIndex}`,
 					mark: 'source',
-					text: figure.sourceNote,
+					text: line,
 					role: 'source',
 					x: frame.x,
-					y: frame.y + frame.height - sourceHeight,
+					y: frame.y + frame.height - sourceHeight + lineIndex * sourceLineHeight,
 					anchor: 'start',
 					baseline: 'hanging',
 					opacity: chromeAlpha
 				})
 			);
-		}
+		});
 		return items;
 	};
 	return {

@@ -9,7 +9,7 @@ import {
 } from '$lib/platform/engine-schema';
 import { FIGURE_TARGET_DECLARATIONS } from '$lib/platform/figure-target-declarations.fixture';
 import type { FigureSceneItem } from './figure-scene';
-import { prepareFigure, wrapFigureTitle } from './figure-scene-prepare';
+import { prepareFigure, wrapFigureText } from './figure-scene-prepare';
 import { getVideoFrameSize, type VideoOrientation } from './video-frame';
 
 const ORIENTATIONS: readonly VideoOrientation[] = ['horizontal', 'vertical'];
@@ -177,14 +177,14 @@ describe('honest motion', () => {
 	});
 });
 
-describe('wrapFigureTitle', () => {
+describe('wrapFigureText', () => {
 	it('breaks a title into lines that fit the frame without splitting words', () => {
 		const measure = (text: string) => ({ width: text.length * 10 });
-		assert.deepEqual(wrapFigureTitle('The largest economies, 1990–2023', 160, measure), [
+		assert.deepEqual(wrapFigureText('The largest economies, 1990–2023', 160, 'title', measure), [
 			'The largest',
 			'economies,',
 			'1990–2023'
 		]);
-		assert.deepEqual(wrapFigureTitle('Short', 160, measure), ['Short']);
+		assert.deepEqual(wrapFigureText('Short', 160, 'title', measure), ['Short']);
 	});
 });

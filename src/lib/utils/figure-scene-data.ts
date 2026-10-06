@@ -759,8 +759,8 @@ export function prepareSankeyFigure(
 		direction === 'right'
 			? insetFigureRect(env.plot, { left: widestAt(0) + gap, right: widestAt(lastLayer) + gap })
 			: insetFigureRect(env.plot, {
-					top: labelHeight + captionHeight + gap,
-					bottom: labelHeight + captionHeight + gap
+					top: (labelHeight + captionHeight) * 2 + gap,
+					bottom: (labelHeight + captionHeight) * 2 + gap
 				});
 	const layout = layoutFigureSankey(nodes, links, box, options);
 	const nodeIndex = new Map(nodes.map((node, index) => [node.id, index]));
@@ -773,6 +773,23 @@ export function prepareSankeyFigure(
 					nodeIndex.get(figure.encoding.linkColor === 'source' ? source : target) ?? 0
 				);
 	const layerSpan = Math.max(1, layout.layerCount - 1);
+	// Down-direction end rows: stagger every other label when neighbours collide.
+	const staggeredNodes = new Set<string>();
+	if (direction === 'down') {
+		for (const layer of [0, layout.layerCount - 1]) {
+			const row = layout.nodes
+				.filter((node) => node.layer === layer)
+				.sort((a, b) => a.rect.x - b.rect.x);
+			const halfWidth = (id: string): number => labelWidthOf(id) / 2 + gap * 0.3;
+			row.forEach((node, index) => {
+				if (index === 0 || staggeredNodes.has(row[index - 1].id)) return;
+				const previous = row[index - 1];
+				const distance =
+					node.rect.x + node.rect.width / 2 - (previous.rect.x + previous.rect.width / 2);
+				if (distance < halfWidth(node.id) + halfWidth(previous.id)) staggeredNodes.add(node.id);
+			});
+		}
+	}
 
 	return {
 		stageCount: () => layout.layerCount,
@@ -821,7 +838,7 @@ export function prepareSankeyFigure(
 						fillOpacity: 0,
 						stroke: 'ink',
 						strokeWidth: streak,
-						opacity: 0.38 * flow.visibility * dim,
+						opacity: 0.24 * flow.visibility * dim,
 						dash: {
 							array: [streak * 2.2, period - streak * 2.2],
 							offset: -flow.phase * period * 4
@@ -861,11 +878,14 @@ export function prepareSankeyFigure(
 				} else {
 					anchor = 'middle';
 					x = node.rect.x + node.rect.width / 2;
+					// End-row labels that would collide with a neighbour step away from the
+					// node by one label block, alternating, so every label stays readable.
+					const block = (labelHeight + captionHeight) * (staggeredNodes.has(node.id) ? 1 : 0);
 					y =
 						node.layer === 0
-							? node.rect.y - gap * 0.4 - labelHeight - captionHeight
+							? node.rect.y - gap * 0.4 - labelHeight - captionHeight - block
 							: node.layer === lastLayer
-								? node.rect.y + node.rect.height + gap * 0.4
+								? node.rect.y + node.rect.height + gap * 0.4 + block
 								: node.rect.y + node.rect.height + gap * 0.3;
 				}
 				const textOpacity = clamp01(reveal) * dim;
