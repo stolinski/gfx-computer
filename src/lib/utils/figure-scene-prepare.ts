@@ -194,7 +194,7 @@ export function prepareFigure(figure: Figure, orientation: VideoOrientation): Pr
 	const titleLines = figure.title ? wrapFigureTitle(figure.title, frame.width, measure) : [];
 	// Wrapped lines get leading beyond the role's line box so descenders never
 	// sit on the next line's caps.
-	const titleLineHeight = figure.title ? measure(figure.title, 'title').height * 1.14 : 0;
+	const titleLineHeight = figure.title ? measure(figure.title, 'title').height * 1.22 : 0;
 	const titleHeight = titleLines.length * titleLineHeight;
 	const sourceHeight = figure.sourceNote ? measure(figure.sourceNote, 'source').height : 0;
 	const gap = Math.min(frame.width, frame.height) * 0.04;
