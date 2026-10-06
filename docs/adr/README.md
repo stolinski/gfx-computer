@@ -77,6 +77,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0064](0064-kinetic-type-word-fields.md)                                       | Canon (built 2026-10-03: word field, masked reveals, Motion Beats, verification authorities, and the approved `kinetic-type-field` reference) | Kinetic type as a bounded Block field with independent word tracks, masked glyph reveals, Motion Beats, and Pack-mapped variable weight |
 | [0065](0065-video-track-mosh-windows-and-alpha-footage.md)                     | Superseded (withdrawn 2026-10-05, never built)                                                                                                | Mosh windows on the Video track and opt-in alpha footage — scrapped                                                                     |
 | [0066](0066-preset-clips-and-render-in-place.md)                               | Superseded (withdrawn 2026-10-05, never built)                                                                                                | Preset clips rendered in place on the Video track — scrapped                                                                            |
+| [0067](0067-figures-generated-visualization-domain.md)                         | Designed (in progress, Dex epic `qvyyiu9g`)                                                                                                   | Figures: one declaration generates marks through live layouts, Pins, encodings, keyed data frames, and named Moves; amends 0036, 0048   |
 
 ## Supersession And Refinement
 
@@ -85,6 +86,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 - `0014` + `0015` -> `0019` -> appearance-only/core fallback in `0023` + `0024` -> Preset-side completion in `0038`.
 - `0004` -> superseded recipe cookbook -> shipped Starter-template fork model in `0032`.
 - `0021` -> flat multiplane mechanism in `0027` -> continuous dimensional mechanism in `0028` -> Pipeline-defined TypeGPU geometry expansion designed in `0051` -> ordered behind the filmed-canvas camera pose and posed planes of `0057` -> first body (the compiled screen model) landed by `0059`, which takes the one-asset-class revisit `0047` reserved -> the Stage made visible in the Workspace by `0060` (rows, inspectors, the body as an entity, the camera by hand) -> the first Overlay-owned body, dimensional type from compiled typefaces, by `0062` -> the 3D Canvas Upgrade closed 2026-09-03 (epic `sh9b6qxd`), with `0051` read as built.
+- `0036` hand-placed Diagram primitives + `0048` Chart Blocks -> generated Figures with Pins in `0067` (automatic layout allowed inside a Figure; Figures on any Surface).
 - `0022` -> shipped snapshot-and-wipe implementation in `0026`; live dual-tree remains deferred.
 - `0035` -> Effect params join the channel vocabulary in `0063` (schema-derived channels, one manifest evaluator, the frost ramps of `0044` as sugar); the camera and focus of `0057` stay one-move until they are its next consumer.
 - `0033`'s original Sound-kit section -> superseded by its 2026-07-02 amendment; engine defaults + per-motion overrides are current.

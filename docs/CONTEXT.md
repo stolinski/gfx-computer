@@ -190,6 +190,22 @@ _Avoid_: keyframeable param (restates a list the schema already owns), effect ra
 The five-**Block** vocabulary for art-directed, documentary-style diagrams — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living on any Surface, positioned explicitly (schema + GUI drag), revealed with stroke-draw + **Cascade** choreography, and reflowed through optional **Orientation geometry overrides**. Edge _route_ is authored geometry; edge _stroke_ is appearance (Pack-resolved Role). A map is a **composition** (primitives over an image substrate), not a primitive. Explicitly _not_ auto-layout: mermaid was rejected as the model (auto-layout reads as documentation, not documentary); at most a future compile-into-primitives authoring shortcut. Shipped in [ADR-0036](adr/0036-diagram-primitives.md).
 _Avoid_: mermaid Block (auto-layout is not the model), infographic, map primitive (a map is a composition, not a type).
 
+**Figure**:
+A Surface-carried declaration in `surface.figures[]` (one to four, on any Surface) whose `kind` — `neural-network`, `tree`, `network`, `cycle`, `bar-race`, `line`, `slope`, `sankey`, `treemap` — plus inline `data`, `layout`, and `encoding` generate its **Marks** through a deterministic layout; rendered by the single `figure` Block Pipeline ([ADR-0067](adr/0067-figures-generated-visualization-domain.md)). Authors keep control through the frame, per-orientation layout, **Moves**, and **Pins**.
+_Avoid_: chart (that is a Chart Block), diagram (that is a Diagram primitive), visualization, recipe, infographic.
+
+**Mark**:
+One generated piece of a **Figure** — a node, link, bar, band, rectangle, line, or label — with a stable id derived from the data (`node:<id>`, `link:<source>><target>`). The unit a **Pin** targets.
+_Avoid_: element, shape, primitive (Diagram primitives are something else).
+
+**Pin**:
+An author's override on one **Mark** of a **Figure** — position in frame-local fractions, label, visibility, or `opacity`/`scale` keyframe channels — for both orientations or one. Survives regeneration; a Pin whose Mark no longer exists fails validation.
+_Avoid_: override (too generic), lock, manual position.
+
+**Move**:
+A named motion on a **Figure** — `reveal`, `propagate`, `pulse`, `flow`, `advance`, `focus`, `annotate`, `exit` — with a composition-progress window and an ease. Moves that change a quantity never overshoot.
+_Avoid_: animation preset, effect (that is an Effect Layer entry), signal (a Signal is what `propagate` sends).
+
 **Chart group**:
 The optional `surface.chart` declaration that carries one to four **Chart Blocks** on a `plain` or `paper` Surface; other Surface types reject it semantically. `single` mode contains exactly one item; `sequence` mode contains two to four declaration-ordered items with non-overlapping visibility windows. It is one bounded composition mechanism, not a dashboard or a sixth Layer. Agents and the GUI author this same strict inline Preset model.
 _Avoid_: chart layer, dashboard, data source, ingestion model, orientation-specific chart Preset.
