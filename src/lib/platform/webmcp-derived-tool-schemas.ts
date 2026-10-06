@@ -28,6 +28,8 @@ import {
 	CHAT_MESSAGE_SIDES,
 	CHAT_MESSAGE_TAPBACKS,
 	ChartTypeSchema,
+	FIGURE_KINDS,
+	FIGURE_MOVE_NAMES,
 	DIAGRAM_ARROW_DIRECTIONS,
 	DIAGRAM_KEYFRAME_CHANNELS,
 	DIAGRAM_EDGE_ROUTES,
@@ -97,6 +99,8 @@ export type WebmcpDerivedEnumName =
 	| 'surface-chrome-mode'
 	| 'block-type'
 	| 'chart-block-type'
+	| 'figure-kind'
+	| 'figure-move'
 	| 'annotation-style'
 	| 'overlay-type'
 	| 'overlay-anchor'
@@ -230,6 +234,8 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'surface-chrome-mode': SURFACE_CHROME_MODES,
 		'block-type': REGISTERED_BLOCK_TYPES,
 		'chart-block-type': ChartTypeSchema.options,
+		'figure-kind': FIGURE_KINDS,
+		'figure-move': FIGURE_MOVE_NAMES,
 		'annotation-style': Object.values(PIPELINE_DEFINITION_REGISTRY.annotations).map(
 			(definition) => definition.style
 		),

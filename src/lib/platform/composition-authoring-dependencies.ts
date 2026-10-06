@@ -120,6 +120,9 @@ export function trackCompositionAuthoringDependencies(state: EngineState, packSl
 	// Type Field content, placement, and independent word channels all affect the
 	// native DOM capture and animation manifest.
 	if (state.surface.typeField) void JSON.stringify(state.surface.typeField);
+	// Figures (ADR-0067): the whole declaration drives layout, Moves, and Pins.
+	void state.surface.figures?.length;
+	for (const figure of state.surface.figures ?? []) void JSON.stringify(figure);
 
 	void state.marks.timings.length;
 	for (const timing of state.marks.timings) {

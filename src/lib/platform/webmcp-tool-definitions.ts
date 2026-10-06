@@ -24,6 +24,7 @@ import { listWebmcpCapabilityToolDefinitions } from './webmcp-capability-tools';
 import { listWebmcpCompositionToolDefinitions } from './webmcp-composition-tools';
 import { listWebmcpContentToolDefinitions } from './webmcp-content-tools';
 import { listWebmcpDeliveryToolDefinitions } from './webmcp-delivery-tools';
+import { listWebmcpFigureToolDefinitions } from './webmcp-figure-tools';
 import { listWebmcpLayerToolDefinitions } from './webmcp-layer-tools';
 import { listWebmcpMediaToolDefinitions } from './webmcp-media-tools';
 import { listWebmcpMotionToolDefinitions } from './webmcp-motion-tools';
@@ -44,6 +45,7 @@ export function listWebmcpToolDefinitions(): readonly WebmcpToolDefinition[] {
 		...listWebmcpTransportToolDefinitions(),
 		...listWebmcpLayerToolDefinitions(),
 		...listWebmcpContentToolDefinitions(),
+		...listWebmcpFigureToolDefinitions(),
 		...listWebmcpPlacementToolDefinitions(),
 		...listWebmcpAppearanceToolDefinitions(),
 		...listWebmcpMotionToolDefinitions(),

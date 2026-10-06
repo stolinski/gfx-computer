@@ -16,8 +16,14 @@
 	import { createTimelineTrackId } from './timeline-entity-identity';
 	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 	import { runAddCompositionKineticWordOperation } from './composition-kinetic-type-operations';
+	import { runAddCompositionFigureOperation } from './composition-figure-operations';
 	import { compositionEditHistory } from './composition-edit-history';
-	import { KINETIC_TYPE_WORD_LIMIT } from './engine-schema';
+	import {
+		FIGURE_GROUP_LIMIT,
+		FIGURE_KINDS,
+		KINETIC_TYPE_WORD_LIMIT,
+		type FigureKind
+	} from './engine-schema';
 
 	// The gutter footer's "Add layer" control: a top-layer popover menu of the
 	// addable layer types — the real add affordance, not a stray <select>. The
@@ -46,6 +52,20 @@
 			engineState.stage === undefined &&
 			(engineState.surface.typeField?.words.length ?? 0) < KINETIC_TYPE_WORD_LIMIT
 	);
+
+	// Figures (ADR-0067): one entry per kind, each starting from its starter.
+	const FIGURE_KIND_LABELS: Record<FigureKind, string> = {
+		'neural-network': 'Neural network',
+		tree: 'Tree',
+		network: 'Network graph',
+		cycle: 'Cycle',
+		'bar-race': 'Bar race',
+		line: 'Animated line',
+		slope: 'Slope / bump',
+		sankey: 'Sankey',
+		treemap: 'Treemap'
+	};
+	const canAddFigure = $derived((engineState.surface.figures?.length ?? 0) < FIGURE_GROUP_LIMIT);
 
 	const DIAGRAM_TYPES = [
 		{ type: 'node', label: 'Diagram node' },
@@ -195,6 +215,19 @@
 		}
 	}
 
+	async function pickFigure(kind: FigureKind): Promise<void> {
+		addOperationGuard.supersede();
+		const before = new Set((engineState.surface.figures ?? []).map((figure) => figure.id));
+		const outcome = await runAddCompositionFigureOperation({
+			expectedRevision: compositionEditHistory.revision,
+			kind
+		});
+		if (outcome.status !== 'applied') return;
+		const added = (engineState.surface.figures ?? []).find((figure) => !before.has(figure.id));
+		if (added) selectLayer(createTimelineTrackId({ kind: 'block', blockId: added.id }));
+		addMenuEl?.hidePopover();
+	}
+
 	function pickCaptions(): void {
 		addOperationGuard.supersede();
 		addCaptions();
@@ -253,6 +286,15 @@
 				type="button"
 				disabled={!canAddChart}
 				onclick={() => pickChart(entry.type)}>{entry.label}</button
+			>
+		{/each}
+		<div class="add-menu__divider" role="presentation"></div>
+		{#each FIGURE_KINDS as kind (kind)}
+			<button
+				class="add-menu__item"
+				type="button"
+				disabled={!canAddFigure}
+				onclick={() => pickFigure(kind)}>{FIGURE_KIND_LABELS[kind]}</button
 			>
 		{/each}
 		<div class="add-menu__divider" role="presentation"></div>

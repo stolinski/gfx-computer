@@ -252,6 +252,7 @@ describe('WebMCP operation inventory', () => {
 			'kinetic-word-addable',
 			'kinetic-word-present',
 			'chart-present',
+			'figure-present',
 			'captions-present',
 			'chat-surface-active',
 			'checklist-surface-active',

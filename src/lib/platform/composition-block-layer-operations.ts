@@ -373,7 +373,8 @@ export function listSurfaceBlockIds(surface: SurfaceState): readonly string[] {
 	return [
 		...(surface.diagram ?? []).map((primitive) => primitive.id),
 		...(surface.chart?.items ?? []).map((item) => item.id),
-		...(surface.typeField?.words ?? []).map((word) => word.id)
+		...(surface.typeField?.words ?? []).map((word) => word.id),
+		...(surface.figures ?? []).map((figure) => figure.id)
 	];
 }
 

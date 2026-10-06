@@ -122,6 +122,7 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'motion-beat-addable': false,
 	'motion-beat-present': false,
 	'chart-present': false,
+	'figure-present': false,
 	'captions-present': false,
 	'chat-surface-active': false,
 	'checklist-surface-active': false,
@@ -432,6 +433,38 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 	{
 		prompt: 'In the tall frame, move the bar chart into the upper half and make it narrower.',
 		toolName: 'gfx_placement_set_chart_frame'
+	},
+	{
+		prompt: 'Add a neural network Figure that shows a forward pass through its layers.',
+		toolName: 'gfx_layer_add_figure'
+	},
+	{
+		prompt: 'Remove that Figure from the Surface.',
+		toolName: 'gfx_layer_remove_figure'
+	},
+	{
+		prompt: 'Replace this Sankey Figure data with new nodes and links and a source note.',
+		toolName: 'gfx_content_set_figure_data'
+	},
+	{
+		prompt: 'Import this CSV file of GDP by year into the bar race Figure.',
+		toolName: 'gfx_content_import_figure_data'
+	},
+	{
+		prompt: 'Make the tree Figure grow left to right in the vertical orientation only.',
+		toolName: 'gfx_placement_set_figure_layout'
+	},
+	{
+		prompt: 'Pin this network node to the top left and give it a new label.',
+		toolName: 'gfx_placement_set_figure_pins'
+	},
+	{
+		prompt: 'Size each network node by its value and colour nodes by group.',
+		toolName: 'gfx_appearance_set_figure_encoding'
+	},
+	{
+		prompt: 'Make the signal propagate through the Figure twice, then focus the output node.',
+		toolName: 'gfx_motion_set_figure_moves'
 	},
 	{
 		prompt: 'Dress this Kinetic Word as display hierarchy using the Pack accent ink role.',

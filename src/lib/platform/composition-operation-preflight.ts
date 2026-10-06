@@ -237,3 +237,13 @@ export function refuseStaleCompositionRevision(
 
 	return null;
 }
+
+/**
+ * A refusal as one line for an inspector: the operation's message plus the
+ * first finding that blocked it, so a GUI author sees the actual cause (for
+ * example the Pin a data change would orphan) rather than only "not applied".
+ */
+export function describeCompositionOperationFailure(failure: CompositionOperationFailure): string {
+	const first = failure.findings.findings[0];
+	return first ? `${failure.message} ${first.message}` : failure.message;
+}

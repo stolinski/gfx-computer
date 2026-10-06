@@ -160,6 +160,7 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'motion-beat-addable': false,
 	'motion-beat-present': false,
 	'chart-present': false,
+	'figure-present': false,
 	'captions-present': false,
 	'chat-surface-active': false,
 	'checklist-surface-active': false,

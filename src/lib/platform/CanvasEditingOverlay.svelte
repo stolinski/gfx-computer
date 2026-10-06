@@ -52,7 +52,13 @@
 		runSetCompositionChartFrameOperation,
 		runSetCompositionChecklistCardOperation
 	} from './composition-placement-operations';
-	import type { ChartBlock, ChartFrameRect, ChecklistCardPlacement } from './engine-schema';
+	import type {
+		ChartBlock,
+		ChartFrameRect,
+		ChecklistCardPlacement,
+		Figure,
+		FigurePin
+	} from './engine-schema';
 	import {
 		runSetCompositionKineticWordPlacementOperation,
 		runSetCompositionKineticWordPositionKeyframeOperation
@@ -118,6 +124,13 @@
 		resolveChecklistCardLayout
 	} from '$lib/utils/checklist-card-placement';
 	import { resolveVisibleChartBlock } from '$lib/utils/chart-visibility';
+	import { listFigureMarkIds } from '$lib/utils/figure-mark-ids';
+	import { prepareFigure } from '$lib/utils/figure-scene-prepare';
+	import { resolveFigureFrame } from '$lib/utils/figure-scene';
+	import {
+		runSetCompositionFigureFrameOperation,
+		runSetCompositionFigurePinsOperation
+	} from './composition-figure-operations';
 	import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import {
@@ -1148,6 +1161,323 @@
 		return blockRenderedBounds(primitive)?.editorBounds ?? null;
 	}
 
+	// ─── Figures (ADR-0067) ──────────────────────────────────────────────────────
+	// A visible Figure is selectable by its frame: dragging the body moves the
+	// frame, the corner handle resizes it. A selected Figure shows a handle on
+	// each node Mark; dragging one writes a Pin for this orientation, because each
+	// orientation's layout is its own. Every gesture previews live and commits one
+	// operation.
+
+	const visibleFigures = $derived(
+		(engineState.surface.figures ?? []).filter(
+			(figure) =>
+				prepareFigure(figure, engineState.transport.orientation).scene(animState.globalProgress, 0)
+					.alpha > 0
+		)
+	);
+
+	function figureShownFrame(figure: Figure): ChartFrameRect {
+		const orientation = engineState.transport.orientation;
+		const bounds = resolveFigureFrame(figure, orientation);
+		const size = getVideoFrameSize(orientation);
+		return {
+			x: bounds.x / size.width,
+			y: bounds.y / size.height,
+			width: bounds.width / size.width,
+			height: bounds.height / size.height
+		};
+	}
+
+	function figureFrameRelRect(figure: Figure): CanvasInteractionRect | null {
+		void measureEpoch;
+		const frame = figureShownFrame(figure);
+		return (
+			currentCanvasInteractionGeometry()?.renderedBoundsForComposition(
+				{ left: frame.x, top: frame.y, width: frame.width, height: frame.height },
+				'surface'
+			)?.editorBounds ?? null
+		);
+	}
+
+	function figureFrameTarget(figure: Figure): 'shared' | 'horizontal' | 'vertical' {
+		const orientation = engineState.transport.orientation;
+		return figure.frameOrientationOverrides?.[orientation] ? orientation : 'shared';
+	}
+
+	interface FigureFrameDragState {
+		figure: Figure;
+		mode: 'move' | 'resize';
+		target: 'shared' | 'horizontal' | 'vertical';
+		expectedRevision: number;
+		startCompX: number;
+		startCompY: number;
+		origin: ChartFrameRect;
+		priorFrame: ChartFrameRect | undefined;
+		priorOverrides: Figure['frameOrientationOverrides'];
+		preview: ChartFrameRect;
+		snap: CanvasDragSnapGesture | null;
+	}
+
+	let figureFrameDrag: FigureFrameDragState | null = null;
+
+	function writeFigureFramePreview(drag: FigureFrameDragState, frame: ChartFrameRect): void {
+		drag.preview = frame;
+		if (drag.target === 'shared') drag.figure.frame = { ...frame };
+		else
+			drag.figure.frameOrientationOverrides = {
+				...drag.figure.frameOrientationOverrides,
+				[drag.target]: { ...frame }
+			};
+	}
+
+	function restoreFigureFrame(drag: FigureFrameDragState): void {
+		drag.figure.frame = drag.priorFrame;
+		drag.figure.frameOrientationOverrides = drag.priorOverrides;
+	}
+
+	function removeFigureFrameDragListeners(): void {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onFigureFramePointerMove);
+		window.removeEventListener('pointerup', commitFigureFrameDrag);
+		window.removeEventListener('pointercancel', cancelFigureFrameDrag);
+	}
+
+	function onFigureFramePointerDown(
+		event: PointerEvent,
+		figure: Figure,
+		mode: 'move' | 'resize'
+	): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const start = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!start) return;
+		const origin = figureShownFrame(figure);
+		figureFrameDrag = {
+			figure,
+			mode,
+			target: figureFrameTarget(figure),
+			expectedRevision: compositionEditHistory.revision,
+			startCompX: start.x,
+			startCompY: start.y,
+			origin,
+			priorFrame: figure.frame ? { ...figure.frame } : undefined,
+			priorOverrides: figure.frameOrientationOverrides
+				? $state.snapshot(figure.frameOrientationOverrides)
+				: undefined,
+			preview: origin,
+			snap: mode === 'move' ? createCanvasDragSnapGesture(`block:${figure.id}`, 'surface') : null
+		};
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', onFigureFramePointerMove);
+			window.addEventListener('pointerup', commitFigureFrameDrag);
+			window.addEventListener('pointercancel', cancelFigureFrameDrag);
+		}
+	}
+
+	function onFigureFramePointerMove(event: PointerEvent): void {
+		const drag = figureFrameDrag;
+		if (!drag) return;
+		const current = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!current) return;
+		const proposed = { x: current.x - drag.startCompX, y: current.y - drag.startCompY };
+		if (Math.abs(proposed.x) < 0.0005 && Math.abs(proposed.y) < 0.0005) return;
+		const { origin } = drag;
+		if (drag.mode === 'move') {
+			const delta = resolveCanvasGestureDelta(event, drag.snap, proposed);
+			writeFigureFramePreview(drag, {
+				...origin,
+				x: roundFraction(clampNumber(origin.x + delta.x, 0, 1 - origin.width)),
+				y: roundFraction(clampNumber(origin.y + delta.y, 0, 1 - origin.height))
+			});
+			return;
+		}
+		writeFigureFramePreview(drag, {
+			...origin,
+			width: roundFraction(clampNumber(origin.width + proposed.x, 0.1, 1 - origin.x)),
+			height: roundFraction(clampNumber(origin.height + proposed.y, 0.1, 1 - origin.y))
+		});
+	}
+
+	async function commitFigureFrameDrag(): Promise<void> {
+		const drag = figureFrameDrag;
+		figureFrameDrag = null;
+		activeCanvasSnapGuides = [];
+		removeFigureFrameDragListeners();
+		if (!drag) return;
+		restoreFigureFrame(drag);
+		const { preview, origin } = drag;
+		if (
+			preview.x === origin.x &&
+			preview.y === origin.y &&
+			preview.width === origin.width &&
+			preview.height === origin.height
+		) {
+			return;
+		}
+		await runSetCompositionFigureFrameOperation({
+			expectedRevision: drag.expectedRevision,
+			figureId: drag.figure.id,
+			scope: drag.target,
+			frame: preview
+		});
+	}
+
+	function cancelFigureFrameDrag(): void {
+		const drag = figureFrameDrag;
+		figureFrameDrag = null;
+		activeCanvasSnapGuides = [];
+		removeFigureFrameDragListeners();
+		if (drag) restoreFigureFrame(drag);
+	}
+
+	function nudgeFigureFrame(figure: Figure, event: KeyboardEvent): void {
+		const nativePixels = event.shiftKey ? 10 : 1;
+		const frame = figureShownFrame(figure);
+		const dx =
+			event.key === 'ArrowLeft' ? -nativePixels : event.key === 'ArrowRight' ? nativePixels : 0;
+		const dy =
+			event.key === 'ArrowUp' ? -nativePixels : event.key === 'ArrowDown' ? nativePixels : 0;
+		void runSetCompositionFigureFrameOperation({
+			expectedRevision: compositionEditHistory.revision,
+			figureId: figure.id,
+			scope: figureFrameTarget(figure),
+			frame: {
+				...frame,
+				x: roundFraction(
+					clampNumber(frame.x + dx / Math.max(1, compositionSize.width), 0, 1 - frame.width)
+				),
+				y: roundFraction(
+					clampNumber(frame.y + dy / Math.max(1, compositionSize.height), 0, 1 - frame.height)
+				)
+			}
+		});
+	}
+
+	interface FigureNodeHandle {
+		mark: string;
+		/** The node centre in composition fractions. */
+		x: number;
+		y: number;
+	}
+
+	/** Every node Mark of a Figure where it renders now, as composition fractions. */
+	function figureNodeHandles(figure: Figure): FigureNodeHandle[] {
+		const orientation = engineState.transport.orientation;
+		const size = getVideoFrameSize(orientation);
+		const positionable = listFigureMarkIds(figure).positionable;
+		const scene = prepareFigure(figure, orientation).scene(animState.globalProgress, 0);
+		// A plain record: a per-call lookup, never reactive state.
+		const handles: Record<string, FigureNodeHandle> = {};
+		for (const item of scene.items) {
+			if (!item.mark || !positionable.has(item.mark) || handles[item.mark]) continue;
+			if (item.shape === 'circle') {
+				handles[item.mark] = { mark: item.mark, x: item.cx / size.width, y: item.cy / size.height };
+			} else if (item.shape === 'rect') {
+				handles[item.mark] = {
+					mark: item.mark,
+					x: (item.x + item.width / 2) / size.width,
+					y: (item.y + item.height / 2) / size.height
+				};
+			}
+		}
+		return Object.values(handles);
+	}
+
+	function figureNodeHandleRect(handle: FigureNodeHandle): CanvasInteractionRect | null {
+		void measureEpoch;
+		const half = 0.006;
+		return (
+			currentCanvasInteractionGeometry()?.renderedBoundsForComposition(
+				{ left: handle.x - half, top: handle.y - half, width: half * 2, height: half * 2 },
+				'surface'
+			)?.editorBounds ?? null
+		);
+	}
+
+	interface FigurePinDragState {
+		figure: Figure;
+		mark: string;
+		expectedRevision: number;
+		priorPins: FigurePin[] | undefined;
+		/** The Pin position being previewed, in Figure-frame fractions. */
+		preview: { x: number; y: number } | null;
+	}
+
+	let figurePinDrag: FigurePinDragState | null = null;
+
+	/** The Pins with this Mark's current-orientation Pin moved to `position`. */
+	function figurePinsWithPosition(
+		pins: readonly FigurePin[],
+		mark: string,
+		position: { x: number; y: number }
+	): FigurePin[] {
+		const orientation = engineState.transport.orientation;
+		const index = pins.findIndex((pin) => pin.mark === mark && pin.orientation === orientation);
+		if (index < 0) return [...pins, { mark, orientation, position }];
+		return pins.map((pin, pinIndex) => (pinIndex === index ? { ...pin, position } : pin));
+	}
+
+	function removeFigurePinDragListeners(): void {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onFigurePinPointerMove);
+		window.removeEventListener('pointerup', commitFigurePinDrag);
+		window.removeEventListener('pointercancel', cancelFigurePinDrag);
+	}
+
+	function onFigurePinPointerDown(event: PointerEvent, figure: Figure, mark: string): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		figurePinDrag = {
+			figure,
+			mark,
+			expectedRevision: compositionEditHistory.revision,
+			priorPins: figure.pins ? $state.snapshot(figure.pins) : undefined,
+			preview: null
+		};
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', onFigurePinPointerMove);
+			window.addEventListener('pointerup', commitFigurePinDrag);
+			window.addEventListener('pointercancel', cancelFigurePinDrag);
+		}
+	}
+
+	function onFigurePinPointerMove(event: PointerEvent): void {
+		const drag = figurePinDrag;
+		if (!drag) return;
+		const point = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!point) return;
+		const frame = figureShownFrame(drag.figure);
+		const position = {
+			x: roundFraction(clampNumber((point.x - frame.x) / frame.width, 0, 1)),
+			y: roundFraction(clampNumber((point.y - frame.y) / frame.height, 0, 1))
+		};
+		drag.preview = position;
+		drag.figure.pins = figurePinsWithPosition(drag.priorPins ?? [], drag.mark, position);
+	}
+
+	async function commitFigurePinDrag(): Promise<void> {
+		const drag = figurePinDrag;
+		figurePinDrag = null;
+		removeFigurePinDragListeners();
+		if (!drag) return;
+		drag.figure.pins = drag.priorPins;
+		if (!drag.preview) return;
+		await runSetCompositionFigurePinsOperation({
+			expectedRevision: drag.expectedRevision,
+			figureId: drag.figure.id,
+			pins: figurePinsWithPosition(drag.priorPins ?? [], drag.mark, drag.preview)
+		});
+	}
+
+	function cancelFigurePinDrag(): void {
+		const drag = figurePinDrag;
+		figurePinDrag = null;
+		removeFigurePinDragListeners();
+		if (drag) drag.figure.pins = drag.priorPins;
+	}
+
 	// ─── The authored chart frame (ADR-0048 amendment) ───────────────────────────
 	// The visible chart is selectable by its frame. Dragging the body moves the
 	// frame; the corner handle resizes it. Both preview on the live chart and
@@ -2126,7 +2456,8 @@
 			if (
 				diagramPrimitiveDraggables.some((primitive) => primitive.id === blockId) ||
 				kineticWordDraggables.some((word) => word.id === blockId) ||
-				visibleChart?.id === blockId
+				visibleChart?.id === blockId ||
+				visibleFigures.some((figure) => figure.id === blockId)
 			) {
 				selectLayer(createTimelineTrackId({ kind: 'block', blockId }));
 			}
@@ -2189,7 +2520,12 @@
 				onBlockPointerDown(event, primitive);
 				return;
 			}
-			if (visibleChart?.id === blockId) onChartFramePointerDown(event, visibleChart, 'move');
+			if (visibleChart?.id === blockId) {
+				onChartFramePointerDown(event, visibleChart, 'move');
+				return;
+			}
+			const figure = visibleFigures.find((candidate) => candidate.id === blockId);
+			if (figure) onFigureFramePointerDown(event, figure, 'move');
 			return;
 		}
 		const messageIndex = canvasSelectionIndex(selectionKey, 'message:');
@@ -2261,6 +2597,14 @@
 			canvasElementSelection.keys.length === 1
 		) {
 			nudgeChartFrame(visibleChart, event);
+			return true;
+		}
+		const nudgedFigure =
+			identity?.kind === 'block'
+				? visibleFigures.find((figure) => figure.id === identity.id)
+				: undefined;
+		if (nudgedFigure && canvasElementSelection.keys.length === 1) {
+			nudgeFigureFrame(nudgedFigure, event);
 			return true;
 		}
 		if (kineticWord && canvasElementSelection.keys.length === 1) {
@@ -3095,6 +3439,97 @@
 			</div>
 		{/if}
 	{/each}
+	{#each visibleFigures as figure, figureIndex (figure.id)}
+		{@const rect = figureFrameRelRect(figure)}
+		{@const region = rect ? canvasHitRegion(rect) : null}
+		{@const selectionKey = `block:${figure.id}` as CanvasElementSelectionKey}
+		{@const selectionIdentity = { kind: 'block', blockId: figure.id } as const}
+		{#if region}
+			{@const isSelected = isCanvasElementSelected(selectionKey, selectionIdentity)}
+			{@const isPrimarySelected = isPrimaryCanvasElement(selectionKey, selectionIdentity)}
+			<div
+				class={[
+					'canvas-selection-target',
+					'overlay-hit',
+					'block-hit',
+					isSelected && 'canvas-selection-target--selected',
+					isPrimarySelected && 'canvas-selection-target--primary'
+				]}
+				data-canvas-selection-key={selectionKey}
+				data-canvas-selection-id={createTimelineTrackId(selectionIdentity)}
+				data-canvas-selection-layer="block"
+				data-canvas-paint-index={figureIndex}
+				data-canvas-stable-id={figure.id}
+				data-figure-frame-target={figure.id}
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
+				role="button"
+				tabindex="0"
+				aria-label={`Move ${figure.kind} Figure`}
+				aria-pressed={isSelected}
+				aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+				title={CANVAS_SELECTION_MODIFIER_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'block',
+					paintIndex: figureIndex,
+					stableId: figure.id
+				})}
+			>
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
+				{#if isPrimarySelected}
+					{@const handle = createCanvasHandleGeometry(
+						{
+							left: region.visibleBounds.left - region.pointerBounds.left,
+							top: region.visibleBounds.top - region.pointerBounds.top,
+							width: region.visibleBounds.width,
+							height: region.visibleBounds.height
+						},
+						CANVAS_FRAME_RESIZE_HANDLE_DESCRIPTOR
+					)}
+					<button
+						class="overlay-hit__handle"
+						type="button"
+						data-handle-position={handle.position}
+						data-handle-purpose={handle.purpose}
+						aria-label="Resize Figure frame"
+						onpointerdown={(event) => onFigureFramePointerDown(event, figure, 'resize')}
+						style:left="{handle.pointerBounds.left}px"
+						style:top="{handle.pointerBounds.top}px"
+						style:width="{handle.pointerBounds.width}px"
+						style:height="{handle.pointerBounds.height}px"
+						style:cursor={handle.cursor}
+					></button>
+					{#each figureNodeHandles(figure) as node (node.mark)}
+						{@const nodeRect = figureNodeHandleRect(node)}
+						{#if nodeRect}
+							<button
+								class="figure-node-handle"
+								type="button"
+								data-figure-node-handle={node.mark}
+								aria-label={`Pin ${node.mark}`}
+								onpointerdown={(event) => onFigurePinPointerDown(event, figure, node.mark)}
+								style:left="{nodeRect.left - region.pointerBounds.left}px"
+								style:top="{nodeRect.top - region.pointerBounds.top}px"
+								style:width="{nodeRect.width}px"
+								style:height="{nodeRect.height}px"
+							></button>
+						{/if}
+					{/each}
+				{/if}
+			</div>
+		{/if}
+	{/each}
 	{#if visibleChart}
 		{@const chart = visibleChart}
 		{@const rect = chartFrameRelRect(chart)}
@@ -3576,5 +4011,30 @@
 
 	.overlay-hit__rotate:active {
 		cursor: grabbing;
+	}
+
+	/* A Figure node Mark: drag to Pin it in this orientation (ADR-0067 §3). */
+	.figure-node-handle {
+		background: transparent;
+		border: 0;
+		cursor: move;
+		min-block-size: 16px;
+		min-inline-size: 16px;
+		padding: 0;
+		pointer-events: all;
+		position: absolute;
+		touch-action: none;
+	}
+
+	.figure-node-handle::before {
+		block-size: 8px;
+		border: 1.5px solid #ffd608;
+		border-radius: 50%;
+		box-sizing: border-box;
+		content: '';
+		inline-size: 8px;
+		inset-block-start: calc(50% - 4px);
+		inset-inline-start: calc(50% - 4px);
+		position: absolute;
 	}
 </style>

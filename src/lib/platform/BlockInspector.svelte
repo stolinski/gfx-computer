@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ChartInspector from './ChartInspector.svelte';
+	import FigureInspector from './FigureInspector.svelte';
 	import KineticWordInspector from './KineticWordInspector.svelte';
 	import CascadeSection from './CascadeSection.svelte';
 	import {
@@ -28,6 +29,9 @@
 
 	const chartBlock = $derived(
 		engineState.surface.chart?.items.find((entry) => entry.id === blockId) ?? null
+	);
+	const figure = $derived(
+		(engineState.surface.figures ?? []).find((entry) => entry.id === blockId) ?? null
 	);
 	const diagramPrimitive = $derived(
 		(engineState.surface.diagram ?? []).find((entry) => entry.id === blockId) ?? null
@@ -85,6 +89,8 @@
 
 {#if chartBlock}
 	<ChartInspector {blockId} />
+{:else if figure}
+	<FigureInspector {blockId} />
 {:else if kineticWord}
 	<KineticWordInspector />
 {:else if diagramPrimitive}

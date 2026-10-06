@@ -71,6 +71,7 @@ export type WebmcpOperationPrecondition =
 	| 'motion-beat-addable'
 	| 'motion-beat-present'
 	| 'chart-present'
+	| 'figure-present'
 	| 'captions-present'
 	| 'chat-surface-active'
 	| 'checklist-surface-active'
@@ -222,8 +223,13 @@ export const WEBMCP_ALWAYS_REGISTERED_CEILING = 9;
 /** Core operations visible with a composition open before a family is prepared. */
 export const WEBMCP_CORE_REGISTERED_CEILING = 20;
 
-/** Core operations plus the largest single on-demand authoring family. */
-export const WEBMCP_DISCLOSED_REGISTERED_CEILING = 35;
+/**
+ * Core operations plus the largest single on-demand authoring family. Raised
+ * from 35 to 37 for the Figure domain (ADR-0067; ADR-0054 2026-10-06 amendment):
+ * the layer and motion families were full, and each gains one Figure row. It
+ * returns to 35 if the ADR-0067 migration review retires the chart rows.
+ */
+export const WEBMCP_DISCLOSED_REGISTERED_CEILING = 37;
 
 /**
  * Corrective failure codes. Every failure names one of these, the exact target
@@ -330,7 +336,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/marks/timings', scope: 'membership' },
 			{ pointer: '/state/surface/diagram', scope: 'membership' },
 			{ pointer: '/state/surface/chart', scope: 'membership' },
-			{ pointer: '/state/surface/typeField', scope: 'membership' }
+			{ pointer: '/state/surface/typeField', scope: 'membership' },
+			{ pointer: '/state/surface/figures', scope: 'membership' }
 		]
 	},
 	{
@@ -347,6 +354,9 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/chart/items/*', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*', scope: 'value' },
 			{ pointer: '/state/surface/typeField/phrases', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/data', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/title', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/sourceNote', scope: 'value' },
 			{ pointer: '/state/captions', scope: 'value' }
 		]
 	},
@@ -375,7 +385,12 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/typeField/words/*/position', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/scale', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/rotation', scope: 'value' },
-			{ pointer: '/state/surface/typeField/words/*/orientationOverrides', scope: 'value' }
+			{ pointer: '/state/surface/typeField/words/*/orientationOverrides', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/frame', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/frameOrientationOverrides', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/layout', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/layoutOrientationOverrides', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/pins', scope: 'value' }
 		]
 	},
 	{
@@ -394,7 +409,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/stage/focus', scope: 'value' },
 			{ pointer: '/state/surface/backgroundVisibility', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/hierarchy', scope: 'value' },
-			{ pointer: '/state/surface/typeField/words/*/ink', scope: 'value' }
+			{ pointer: '/state/surface/typeField/words/*/ink', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/encoding', scope: 'value' }
 		]
 	},
 	{
@@ -418,6 +434,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/typeField/words/*/glyphStagger', scope: 'value' },
 			{ pointer: '/state/motionBeats', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*/motion', scope: 'value' },
+			{ pointer: '/state/surface/figures/*/moves', scope: 'value' },
 			{ pointer: '/transition', scope: 'value' }
 		]
 	},
@@ -1093,6 +1110,37 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		guiSurface: 'src/lib/platform/ChartInspector.svelte'
 	},
 
+	{
+		id: 'layer.add-figure',
+		family: 'layer',
+		toolName: 'gfx_layer_add_figure',
+		summary:
+			"Add a Figure to the Surface: either a complete Figure declaration (any kind, with its data, layout, encoding, Moves, and Pins) or just a kind, which starts from that kind's small starter.",
+		effect: 'write',
+		writes: ['/state/surface/figures'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/TimelineAddMenu.svelte'
+	},
+	{
+		id: 'layer.remove-figure',
+		family: 'layer',
+		toolName: 'gfx_layer_remove_figure',
+		summary: 'Remove one Figure from the Surface by id.',
+		effect: 'write',
+		writes: ['/state/surface/figures'],
+		precondition: 'figure-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FigureInspector.svelte'
+	},
 	// ---- content: the authored words, values, and data ----
 	{
 		id: 'content.set-surface-content',
@@ -1218,6 +1266,42 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['block'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/ChartDataSection.svelte'
+	},
+	{
+		id: 'content.set-figure-data',
+		family: 'content',
+		toolName: 'gfx_content_set_figure_data',
+		summary:
+			"Write one Figure's data — its nodes and links, layers, entities and frames, series, periods, or steps — and optionally its title and source note. Pins that no longer match a generated Mark are refused, not dropped.",
+		effect: 'write',
+		writes: [
+			'/state/surface/figures/*/data',
+			'/state/surface/figures/*/title',
+			'/state/surface/figures/*/sourceNote'
+		],
+		precondition: 'figure-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FigureInspector.svelte'
+	},
+	{
+		id: 'content.import-figure-data',
+		family: 'content',
+		toolName: 'gfx_content_import_figure_data',
+		summary:
+			"Replace one Figure's data by importing the text of a CSV or JSON file, copied inline.",
+		effect: 'write',
+		writes: ['/state/surface/figures/*/data'],
+		precondition: 'figure-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FigureDataImport.svelte'
 	},
 	{
 		id: 'content.set-captions',
@@ -1347,6 +1431,60 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['surface'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/ChecklistCardSection.svelte'
+	},
+	{
+		id: 'placement.set-figure-frame',
+		family: 'placement',
+		toolName: 'gfx_placement_set_figure_frame',
+		summary:
+			"Place and size one Figure's frame, shared or per orientation, or return it to the title-safe area. The Figure lays its Marks out inside the frame.",
+		effect: 'write',
+		writes: [
+			'/state/surface/figures/*/frame',
+			'/state/surface/figures/*/frameOrientationOverrides'
+		],
+		precondition: 'figure-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FigureFrameSection.svelte'
+	},
+	{
+		id: 'placement.set-figure-layout',
+		family: 'placement',
+		toolName: 'gfx_placement_set_figure_layout',
+		summary:
+			'Set how one Figure lays out: direction (left to right, top to bottom, radial), spacing, seed, and visible rows, shared or for one orientation only.',
+		effect: 'write',
+		writes: [
+			'/state/surface/figures/*/layout',
+			'/state/surface/figures/*/layoutOrientationOverrides'
+		],
+		precondition: 'figure-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FigureLayoutSection.svelte'
+	},
+	{
+		id: 'placement.set-figure-pins',
+		family: 'placement',
+		toolName: 'gfx_placement_set_figure_pins',
+		summary:
+			'Pin single Marks of a Figure: move a node to a position, give it a new label, or hide it, in both orientations or one. Pins survive layout regeneration.',
+		effect: 'write',
+		writes: ['/state/surface/figures/*/pins'],
+		precondition: 'figure-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FigurePinsSection.svelte'
 	},
 	{
 		id: 'placement.set-chart-frame',
@@ -1545,6 +1683,22 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['block'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/KineticWordInspector.svelte'
+	},
+	{
+		id: 'appearance.set-figure-encoding',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_figure_encoding',
+		summary:
+			"Set how one Figure's values drive its look (node size, brightness, link width, colour voice) from its kind's closed options.",
+		effect: 'write',
+		writes: ['/state/surface/figures/*/encoding'],
+		precondition: 'figure-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FigureEncodingSection.svelte'
 	},
 	{
 		id: 'appearance.set-mark-defaults',
@@ -1886,6 +2040,22 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['overlay', 'mark', 'text-animation', 'block', 'effect'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CascadeSection.svelte'
+	},
+	{
+		id: 'motion.set-figure-moves',
+		family: 'motion',
+		toolName: 'gfx_motion_set_figure_moves',
+		summary:
+			"Set one Figure's named Moves (reveal, propagate, pulse, flow, advance, focus, annotate, exit) and their windows. Moves that change a quantity accept only smooth or sharp eases.",
+		effect: 'write',
+		writes: ['/state/surface/figures/*/moves'],
+		precondition: 'figure-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FigureMovesSection.svelte'
 	},
 	{
 		id: 'motion.set-chart-motion',

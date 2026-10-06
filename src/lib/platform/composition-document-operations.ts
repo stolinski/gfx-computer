@@ -150,6 +150,9 @@ function summarizeCompositionLayers(document: Preset): CompositionLayerEntry[] {
 	for (const item of state.surface.chart?.items ?? []) {
 		entries.push({ kind: 'block', id: item.id, type: item.type });
 	}
+	for (const figure of state.surface.figures ?? []) {
+		entries.push({ kind: 'block', id: figure.id, type: `figure:${figure.kind}` });
+	}
 	state.marks.timings.forEach((_timing, index) => {
 		entries.push({ kind: 'mark', id: String(index), type: 'mark' });
 	});
