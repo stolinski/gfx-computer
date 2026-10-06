@@ -111,6 +111,13 @@
 		"height": 360,
 		"contentFraction": 0.9969
 	},
+	"co2-annotated-line": {
+		"contentKey": "770d6b5358622046",
+		"timestampSeconds": 9.6,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.2375
+	},
 	"column-us-population-1950-2020": {
 		"contentKey": "c4a2396a5f2b15f1",
 		"timestampSeconds": 5,

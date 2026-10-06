@@ -1,0 +1,389 @@
+{
+	"schema": "supers@1",
+	"name": "Carbon Dioxide in the Air",
+	"description": "A full-frame annotated line: the Mauna Loa CO₂ record draws itself from 1959 to 2025 at a steady pace, crossing the 350 ppm line and passing three climate milestones on the way. NOAA annual means.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 16,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"figures": [
+				{
+					"type": "figure",
+					"id": "co2",
+					"kind": "line",
+					"title": "Carbon dioxide in the air",
+					"sourceNote": "NOAA GML · Mauna Loa annual mean CO₂",
+					"data": {
+						"series": [
+							{
+								"id": "mauna-loa",
+								"label": "CO₂",
+								"points": [
+									{
+										"x": 1959,
+										"y": 315.98
+									},
+									{
+										"x": 1960,
+										"y": 316.91
+									},
+									{
+										"x": 1961,
+										"y": 317.64
+									},
+									{
+										"x": 1962,
+										"y": 318.45
+									},
+									{
+										"x": 1963,
+										"y": 318.99
+									},
+									{
+										"x": 1964,
+										"y": 319.62
+									},
+									{
+										"x": 1965,
+										"y": 320.04
+									},
+									{
+										"x": 1966,
+										"y": 321.37
+									},
+									{
+										"x": 1967,
+										"y": 322.18
+									},
+									{
+										"x": 1968,
+										"y": 323.05
+									},
+									{
+										"x": 1969,
+										"y": 324.62
+									},
+									{
+										"x": 1970,
+										"y": 325.68
+									},
+									{
+										"x": 1971,
+										"y": 326.32
+									},
+									{
+										"x": 1972,
+										"y": 327.46
+									},
+									{
+										"x": 1973,
+										"y": 329.68
+									},
+									{
+										"x": 1974,
+										"y": 330.19
+									},
+									{
+										"x": 1975,
+										"y": 331.13
+									},
+									{
+										"x": 1976,
+										"y": 332.03
+									},
+									{
+										"x": 1977,
+										"y": 333.84
+									},
+									{
+										"x": 1978,
+										"y": 335.41
+									},
+									{
+										"x": 1979,
+										"y": 336.84
+									},
+									{
+										"x": 1980,
+										"y": 338.76
+									},
+									{
+										"x": 1981,
+										"y": 340.12
+									},
+									{
+										"x": 1982,
+										"y": 341.48
+									},
+									{
+										"x": 1983,
+										"y": 343.15
+									},
+									{
+										"x": 1984,
+										"y": 344.87
+									},
+									{
+										"x": 1985,
+										"y": 346.35
+									},
+									{
+										"x": 1986,
+										"y": 347.61
+									},
+									{
+										"x": 1987,
+										"y": 349.31
+									},
+									{
+										"x": 1988,
+										"y": 351.69
+									},
+									{
+										"x": 1989,
+										"y": 353.2
+									},
+									{
+										"x": 1990,
+										"y": 354.45
+									},
+									{
+										"x": 1991,
+										"y": 355.7
+									},
+									{
+										"x": 1992,
+										"y": 356.54
+									},
+									{
+										"x": 1993,
+										"y": 357.21
+									},
+									{
+										"x": 1994,
+										"y": 358.96
+									},
+									{
+										"x": 1995,
+										"y": 360.97
+									},
+									{
+										"x": 1996,
+										"y": 362.74
+									},
+									{
+										"x": 1997,
+										"y": 363.88
+									},
+									{
+										"x": 1998,
+										"y": 366.84
+									},
+									{
+										"x": 1999,
+										"y": 368.54
+									},
+									{
+										"x": 2000,
+										"y": 369.71
+									},
+									{
+										"x": 2001,
+										"y": 371.32
+									},
+									{
+										"x": 2002,
+										"y": 373.45
+									},
+									{
+										"x": 2003,
+										"y": 375.98
+									},
+									{
+										"x": 2004,
+										"y": 377.7
+									},
+									{
+										"x": 2005,
+										"y": 379.98
+									},
+									{
+										"x": 2006,
+										"y": 382.09
+									},
+									{
+										"x": 2007,
+										"y": 384.02
+									},
+									{
+										"x": 2008,
+										"y": 385.83
+									},
+									{
+										"x": 2009,
+										"y": 387.64
+									},
+									{
+										"x": 2010,
+										"y": 390.1
+									},
+									{
+										"x": 2011,
+										"y": 391.85
+									},
+									{
+										"x": 2012,
+										"y": 394.06
+									},
+									{
+										"x": 2013,
+										"y": 396.74
+									},
+									{
+										"x": 2014,
+										"y": 398.81
+									},
+									{
+										"x": 2015,
+										"y": 401.01
+									},
+									{
+										"x": 2016,
+										"y": 404.41
+									},
+									{
+										"x": 2017,
+										"y": 406.76
+									},
+									{
+										"x": 2018,
+										"y": 408.72
+									},
+									{
+										"x": 2019,
+										"y": 411.65
+									},
+									{
+										"x": 2020,
+										"y": 414.21
+									},
+									{
+										"x": 2021,
+										"y": 416.41
+									},
+									{
+										"x": 2022,
+										"y": 418.53
+									},
+									{
+										"x": 2023,
+										"y": 421.08
+									},
+									{
+										"x": 2024,
+										"y": 424.61
+									},
+									{
+										"x": 2025,
+										"y": 427.35
+									}
+								]
+							}
+						],
+						"xFormat": "year",
+						"yFormat": {
+							"precision": 0,
+							"suffix": " ppm"
+						},
+						"yAxisLabel": "Parts per million",
+						"thresholds": [
+							{
+								"id": "safe",
+								"y": 350,
+								"label": "350 ppm"
+							}
+						],
+						"events": [
+							{
+								"id": "ipcc",
+								"x": 1988,
+								"label": "IPCC founded"
+							},
+							{
+								"id": "kyoto",
+								"x": 1997,
+								"label": "Kyoto Protocol"
+							},
+							{
+								"id": "paris",
+								"x": 2015,
+								"label": "Paris Agreement"
+							}
+						]
+					},
+					"layout": {
+						"baseline": "data"
+					},
+					"frameOrientationOverrides": {
+						"vertical": {
+							"x": 0.07,
+							"y": 0.1,
+							"width": 0.82,
+							"height": 0.7
+						}
+					},
+					"encoding": {
+						"seriesColor": "series"
+					},
+					"moves": [
+						{
+							"move": "reveal",
+							"style": "fade",
+							"start": 0.02,
+							"duration": 0.06
+						},
+						{
+							"move": "advance",
+							"from": 1959,
+							"to": 2025,
+							"start": 0.08,
+							"duration": 0.74
+						},
+						{
+							"move": "annotate",
+							"targets": ["threshold:safe"],
+							"start": 0.4,
+							"duration": 0.05
+						},
+						{
+							"move": "exit",
+							"style": "fade",
+							"start": 0.95,
+							"duration": 0.045
+						}
+					]
+				}
+			]
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

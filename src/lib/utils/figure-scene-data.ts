@@ -13,6 +13,7 @@ import {
 	lerpFigureRect,
 	roundFigurePixel,
 	type FigurePoint,
+	packFigureLabelRows,
 	type FigureRect
 } from './figure-geometry';
 import { figureSankeyRibbonPath, layoutFigureSankey } from './figure-layout-sankey';
@@ -262,19 +263,32 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 		),
 		...(data.thresholds ?? []).map((threshold) => env.measure(threshold.label, 'caption').width)
 	);
-	const eventsPresent = (data.events ?? []).length > 0;
+	const plotLeft = env.plot.x + yTickWidth + gap;
+	const plotRight = env.plot.x + env.plot.width - (endLabelWidth + gap * 1.5);
+	const xScale = createChartLinearScale({ min: minX, max: maxX, zero: 0 }, [plotLeft, plotRight]);
+	// Event labels stack into as many rows as they need to never overlap; the
+	// x scale does not depend on the top inset, so rows are packed first.
+	const eventLabels = (data.events ?? []).map((event) => {
+		const x = xScale.map(event.x);
+		const width = env.measure(event.label, 'caption').width;
+		const plotWidth = plotRight - plotLeft;
+		const anchor: 'start' | 'middle' | 'end' =
+			x > plotLeft + plotWidth * 0.8 ? 'end' : x < plotLeft + plotWidth * 0.2 ? 'start' : 'middle';
+		const anchorX = Math.min(Math.max(x, plotLeft), plotRight);
+		const left =
+			anchor === 'start' ? anchorX : anchor === 'end' ? anchorX - width : anchorX - width / 2;
+		return { x, anchor, anchorX, left, right: left + width };
+	});
+	const eventRows = packFigureLabelRows(eventLabels, gap * 0.75);
+	const eventRowCount = eventLabels.length === 0 ? 0 : Math.max(...eventRows) + 1;
 	const plot = insetFigureRect(env.plot, {
 		left: yTickWidth + gap,
 		right: endLabelWidth + gap * 1.5,
 		bottom: captionHeight + gap,
 		top:
 			(data.yAxisLabel ? captionHeight + gap * 0.5 : 0) +
-			(eventsPresent ? labelHeight * 2 + gap : gap * 0.5)
+			(eventRowCount > 0 ? labelHeight * eventRowCount + gap : gap * 0.5)
 	});
-	const xScale = createChartLinearScale({ min: minX, max: maxX, zero: 0 }, [
-		plot.x,
-		plot.x + plot.width
-	]);
 	const yScale = createChartLinearScale(yDomain, [plot.y + plot.height, plot.y]);
 	const yTicks = generateChartLinearTicks(yScale, plot.height);
 	const xTicks = generateChartLinearTicks(xScale, plot.width * 0.7).filter(
@@ -437,11 +451,11 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 				const id = `event:${event.id}`;
 				const reached = clamp01((cutoff - event.x) / Math.max(1e-9, (maxX - minX) * 0.02));
 				const visible = motion.isAnnotated(id) ? motion.annotate(id) : reached * chrome;
-				const x = xScale.map(event.x);
+				const { x, anchor, anchorX } = eventLabels[eventIndex];
 				const labelY =
 					env.plot.y +
 					(data.yAxisLabel ? captionHeight + gap * 0.5 : 0) +
-					(eventIndex % 2) * labelHeight;
+					eventRows[eventIndex] * labelHeight;
 				items.push({
 					shape: 'path',
 					key: id,
@@ -460,14 +474,9 @@ export function prepareLineFigure(figure: LineFigure, env: FigurePrepareEnv): Fi
 						labelOf: id,
 						text: event.label,
 						role: 'caption',
-						x: Math.min(Math.max(x, plot.x), plot.x + plot.width),
+						x: anchorX,
 						y: labelY,
-						anchor:
-							x > plot.x + plot.width * 0.8
-								? 'end'
-								: x < plot.x + plot.width * 0.2
-									? 'start'
-									: 'middle',
+						anchor,
 						baseline: 'hanging',
 						opacity: visible * motion.focusDim(id)
 					})

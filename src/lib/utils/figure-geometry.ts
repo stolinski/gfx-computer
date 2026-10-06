@@ -86,3 +86,32 @@ export function createFigureRandom(seed: number): () => number {
 export function roundFigurePixel(value: number): number {
 	return Math.round(value * 100) / 100;
 }
+
+/** A horizontal label span to stack: its left and right edges in pixels. */
+export interface FigureLabelSpan {
+	left: number;
+	right: number;
+}
+
+/**
+ * Stacks labels into rows so no two in a row overlap, scanning left to right
+ * and putting each label in the first row it fits. Returns each label's row
+ * index (0 is the top row) in input order.
+ */
+export function packFigureLabelRows(spans: readonly FigureLabelSpan[], gap: number): number[] {
+	const order = spans.map((_, index) => index).sort((a, b) => spans[a].left - spans[b].left);
+	const rowEnds: number[] = [];
+	const rows = new Array<number>(spans.length).fill(0);
+	for (const index of order) {
+		const span = spans[index];
+		let row = rowEnds.findIndex((end) => end + gap <= span.left);
+		if (row < 0) {
+			row = rowEnds.length;
+			rowEnds.push(span.right);
+		} else {
+			rowEnds[row] = span.right;
+		}
+		rows[index] = row;
+	}
+	return rows;
+}
