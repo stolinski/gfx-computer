@@ -4,8 +4,12 @@
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { resolveFigureVoiceColors, resolveFontTreatment } from '$lib/platform/packs/resolve';
-	import type { FigureVoice } from '$lib/utils/figure-scene';
-	import { figureReadableTextId } from '$lib/utils/figure-readable-text';
+	import type { FigureSceneItem, FigureSceneText, FigureVoice } from '$lib/utils/figure-scene';
+	import {
+		FIGURE_EDGE_COVERAGE_PX,
+		figureReadableTextId,
+		resolveFigureReadableRole
+	} from '$lib/utils/figure-readable-text';
 	import { prepareFigure } from '$lib/utils/figure-scene-prepare';
 	import { resolveFigureTextStyle, type FigureTextRole } from '$lib/utils/figure-text';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
@@ -33,6 +37,16 @@
 			animState.globalProgress * engineState.transport.durationSeconds * 1000
 		)
 	);
+	const visibleItems = $derived(scene.items.filter((item) => item.opacity > 0.001));
+	const shapes = $derived(
+		visibleItems.filter(
+			(item): item is Exclude<FigureSceneItem, FigureSceneText> => item.shape !== 'text'
+		)
+	);
+	const texts = $derived(
+		visibleItems.filter((item): item is FigureSceneText => item.shape === 'text')
+	);
+	const coverageFilterId = $derived(`figure-coverage-${block.id}`);
 
 	// `muted` shares the label ink at reduced strength.
 	function voiceAlpha(voice: FigureVoice | null): number {
@@ -59,9 +73,17 @@
 	style:font-family={fontFamily}
 	aria-hidden="true"
 >
+	<!-- Shapes carry a sub-pixel coverage band (rubric R4: smooth fractional
+	     coverage on every curved or diagonal edge; Chrome's exact box coverage can
+	     leave a curve row at 0% or 100%). Text stays crisp and paints above. -->
+	<defs>
+		<filter id={coverageFilterId} x="-2%" y="-2%" width="104%" height="104%">
+			<feGaussianBlur stdDeviation={FIGURE_EDGE_COVERAGE_PX} />
+		</filter>
+	</defs>
 	<g opacity={scene.alpha}>
-		{#each scene.items as item (item.key)}
-			{#if item.opacity > 0.001}
+		<g filter={`url(#${coverageFilterId})`}>
+			{#each shapes as item (item.key)}
 				{#if item.shape === 'circle'}
 					<circle
 						data-figure-mark={item.mark}
@@ -112,23 +134,25 @@
 								: undefined}
 						opacity={item.opacity}
 					/>
-				{:else}
-					<text
-						data-figure-text={item.key}
-						data-gfx-readable-id={figureReadableTextId(block.id, item.key)}
-						x={item.x}
-						y={item.y}
-						text-anchor={item.anchor}
-						dominant-baseline={item.baseline}
-						textLength={item.width}
-						lengthAdjust="spacingAndGlyphs"
-						fill={item.contrastWith ? voices.readableOn[item.contrastWith] : color(item.fill)}
-						fill-opacity={item.contrastWith ? 1 : voiceAlpha(item.fill)}
-						opacity={item.opacity}
-						style={textStyle(item.role)}>{item.text}</text
-					>
 				{/if}
-			{/if}
+			{/each}
+		</g>
+		{#each texts as item (item.key)}
+			<text
+				data-figure-text={item.key}
+				data-gfx-readable-id={figureReadableTextId(block.id, item.key)}
+				data-gfx-text-role={resolveFigureReadableRole(item.role)}
+				x={item.x}
+				y={item.y}
+				text-anchor={item.anchor}
+				dominant-baseline={item.baseline}
+				textLength={item.width}
+				lengthAdjust="spacingAndGlyphs"
+				fill={item.contrastWith ? voices.readableOn[item.contrastWith] : color(item.fill)}
+				fill-opacity={item.contrastWith ? 1 : voiceAlpha(item.fill)}
+				opacity={item.opacity}
+				style={textStyle(item.role)}>{item.text}</text
+			>
 		{/each}
 	</g>
 </svg>

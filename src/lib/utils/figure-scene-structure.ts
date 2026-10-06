@@ -3,6 +3,7 @@ import {
 	insetFigureRect,
 	lerpFigurePoint,
 	roundFigurePixel,
+	trimFigureSegment,
 	type FigurePoint
 } from './figure-geometry';
 import { layoutFigureCycle, figureCyclePointAt } from './figure-layout-cycle';
@@ -136,10 +137,18 @@ export function prepareNeuralNetworkFigure(
 	for (let k = 0; k < layers.length - 1; k += 1) {
 		for (let i = 0; i < layers[k].size; i += 1) {
 			for (let j = 0; j < layers[k + 1].size; j += 1) {
+				// Links stop at the node rims, so a transparent Figure over footage
+				// never shows a link passing under a node.
+				const trimmed = trimFigureSegment(
+					centers[k][i],
+					centers[k + 1][j],
+					layout.radius,
+					layout.radius
+				);
 				links.push({
 					id: neuralNetworkLinkMarkId(layers[k].id, i, layers[k + 1].id, j),
-					from: centers[k][i],
-					to: centers[k + 1][j],
+					from: trimmed.from,
+					to: trimmed.to,
 					weight: random() * 2 - 1,
 					stage: k,
 					sourceId: neuralNetworkNodeMarkId(layers[k].id, i),
@@ -241,19 +250,6 @@ export function prepareNeuralNetworkFigure(
 					const emphasis = motion.focusEmphasis(id);
 					const swell = 1 + 0.22 * motion.pulse(id) + 0.12 * glow + 0.1 * emphasis;
 					const nodeRadius = radius * swell * nodeRevealScale(motion, reveal);
-					// An opaque field-coloured disc under each node, so links stop at its rim.
-					items.push({
-						shape: 'circle',
-						key: `${id}#base`,
-						cx: center.x,
-						cy: center.y,
-						r: nodeRadius,
-						fill: 'field',
-						fillOpacity: 1,
-						stroke: null,
-						strokeWidth: 0,
-						opacity: clamp01(reveal)
-					});
 					items.push({
 						shape: 'circle',
 						key: id,

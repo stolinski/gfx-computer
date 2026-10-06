@@ -48,6 +48,28 @@ export function lerpFigureRect(from: FigureRect, to: FigureRect, t: number): Fig
 	};
 }
 
+/**
+ * The segment between two node centres trimmed back to their rims, so a link
+ * starts and ends at the circles instead of passing under them.
+ */
+export function trimFigureSegment(
+	from: FigurePoint,
+	to: FigurePoint,
+	fromRadius: number,
+	toRadius: number
+): { from: FigurePoint; to: FigurePoint } {
+	const dx = to.x - from.x;
+	const dy = to.y - from.y;
+	const length = Math.hypot(dx, dy);
+	if (length <= fromRadius + toRadius) return { from, to };
+	const ux = dx / length;
+	const uy = dy / length;
+	return {
+		from: { x: from.x + ux * fromRadius, y: from.y + uy * fromRadius },
+		to: { x: to.x - ux * toRadius, y: to.y - uy * toRadius }
+	};
+}
+
 /** A deterministic 32-bit PRNG (mulberry32) for seeded Figure data such as link weights. */
 export function createFigureRandom(seed: number): () => number {
 	let state = seed >>> 0;

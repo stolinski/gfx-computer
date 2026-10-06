@@ -21,6 +21,17 @@ const FIGURE_READABLE_ROLES: Readonly<Record<FigureTextRole, DeterministicReadab
 	source: 'surface-label'
 };
 
+/** The deterministic readable role of a Figure text role, declared on its element. */
+export function resolveFigureReadableRole(role: FigureTextRole): DeterministicReadableTextRole {
+	return FIGURE_READABLE_ROLES[role];
+}
+
+/**
+ * Standard deviation, in native pixels, of the coverage band Figure shapes are
+ * drawn with: a smooth fractional edge over about two pixels (rubric R4).
+ */
+export const FIGURE_EDGE_COVERAGE_PX = 0.6;
+
 export interface FigureReadableText {
 	id: string;
 	text: string;
