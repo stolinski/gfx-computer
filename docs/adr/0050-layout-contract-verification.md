@@ -78,3 +78,10 @@ Mathematics can prove safety, readability floors, determinism, and structural in
 - Existing deterministic runtime manifests become the migration seam; composited mask and PNG capture are omitted in Layout Contract mode.
 - Screenshot render matrices move to explicit release/diagnostic tooling and lose automatic routing authority.
 - Pixel-only quality and subjective aesthetics remain separate concerns with separate evidence and invocation policy.
+
+## Amendment — 2026-10-06 (Figures)
+
+- **Length-pinned SVG text.** SVG text pinned with `textLength` paints at that length, while a Range over it reports the font's natural glyph advances, which can be wider or narrower than what is drawn. The runtime audit measures such text by its painted element box.
+- **Readable ids.** Readable identities from every Pipeline, Figures included, use the lowercase domain-id format this contract's schema enforces; Figure data ids are lowercase so their derived ids always qualify.
+- **Shape-edge probes exclude text.** When the screenshot matrix probes a non-axis edge, readable text boxes inside the region are skipped: text is crisp on purpose and has its own softness check.
+- **Practice.** The Layout Contract stays the routine rendered-safety check: all nine Figure Presets ran through it in every Pack and orientation in about seven minutes. The full screenshot matrix (here 450 native-resolution cells, about three hours) is too heavy for the current development machine; run it only on hardware that can carry it, and after a fix re-run only the cells that failed, never the whole grid.

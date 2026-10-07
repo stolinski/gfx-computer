@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, not built** (in progress under Dex epic `qvyyiu9g`, planned 2026-10-06). Becomes Canon when the nine target Presets listed in §9 have shipped with human aesthetic approval and the migration review in §9 has recorded its per-part decisions.
+**Canon** (built 2026-10-06 under Dex epic `qvyyiu9g`). All nine target Presets in §9 shipped with human aesthetic approval, and the migration review in §9 recorded its per-part decisions.
 
 Date: 2026-10-06
 
@@ -24,7 +24,7 @@ Building one Pipeline per new chart would repeat ADR-0048's cost for every kind 
 
 `surface.figures` is an optional array of one to nine **Figures** on **any** Surface type (each with its own reveal and exit, so they can sequence), including a transparent Surface over footage. Each Figure has a stable `id`, a `kind`, kind-specific `data` and `layout`, a frame, **Moves**, and **Pins**.
 
-The engine expands a Figure into **Marks** (nodes, links, bars, bands, rectangles, lines, labels), and each Mark gets a stable id derived from the data, such as `node:<id>` or `link:<source>><target>`. Generation is a pure function of the declaration and the orientation. It uses no wall clock and no unseeded randomness, so preview and export produce the same pixels.
+The engine expands a Figure into **Marks** (nodes, links, bars, bands, rectangles, lines, labels), and each Mark gets a stable id derived from the data, such as `node:<id>` or `link:<source>><target>`. Data ids are lowercase letters, digits, `.`, and `-`, so every readable text id derived from them meets the Layout Contract's domain-id format (ADR-0050). Generation is a pure function of the declaration and the orientation. It uses no wall clock and no unseeded randomness, so preview and export produce the same pixels.
 
 The first kinds are: `neural-network`, `tree`, `network`, `cycle`, `bar-race`, `line`, `slope` (`value` or `rank` mode, so bump charts are included), `sankey`, and `treemap`. To add a kind, add a data schema, a layout, and a scene builder. It does not need a new Pipeline, mount, timeline identity, or Pack Role.
 
@@ -43,6 +43,7 @@ This amends ADR-0036. Automatic layout is allowed **inside a Figure**, because t
 - **`layout` + `layoutOrientationOverrides`.** Each orientation can have its own complete layout settings (direction, spacing, seed), so the vertical piece is composed, not derived (ADR-0039 §4).
 - **`frame` + `frameOrientationOverrides`.** The Figure lays itself out inside an authored normalized rect, with the same contract as the ADR-0048 chart frame.
 - **Pins.** A Pin names one Mark and overrides its position (in frame-local fractions), its label, or its visibility, either everywhere or in one orientation. It can also carry `opacity` and `scale` keyframe channels (ADR-0035). Pins survive regeneration. A Pin whose Mark no longer exists fails semantic validation with its path, and is never dropped silently.
+- **Safe zones.** An authored frame is placed as written; the rubric reports one that leaves the orientation's safe zone, including the vertical platform rails (G2), the same rule as Chart Block frames.
 
 Diagram primitives remain for single hand-placed callouts.
 
@@ -79,13 +80,24 @@ Every capability is a row in the operation inventory, owned by one family, with 
 
 ### 8. Appearance resolves through the chart Roles
 
-Figures resolve color and type through the existing `chart.*` Roles (`chart.mark`, `chart.series-2..4`, `chart.axis`, `chart.grid`, `chart.label`, `chart.annotation`) and the Pack's font treatment, so every registered Pack and every User Pack already styles Figures. Signals and emphasis use `chart.annotation`. Packs own no geometry and no motion.
+Figures resolve color and type through the existing `chart.*` Roles (`chart.mark`, `chart.series-2..4`, `chart.axis`, `chart.grid`, `chart.label`, `chart.annotation`) and the Pack's font treatment, so every registered Pack and every User Pack already styles Figures. Signals and emphasis use `chart.annotation`. Packs own no geometry and no motion. A filled Mark that carries text is shaded toward its ink's opposite, keeping the hue, until that text reaches 6:1 contrast, so Pack chrome that lowers measured contrast still leaves it readable.
 
 ### 9. The design target and the existing parts
 
-The domain is designed against nine pieces at once: neural network, tree, network graph, cycle loop, bar chart race, annotated line, slope/bump, Sankey, and treemap. Each ships as one listed Preset with both orientations art-directed, reads well under every Pack, and has human aesthetic approval.
+The domain is designed against nine pieces at once: neural network, tree, network graph, cycle loop, bar chart race, annotated line, slope/bump, Sankey, and treemap. Each ships as one listed Preset with both orientations art-directed, reads well under every Pack, and has human aesthetic approval. The nine shipped as `neural-network-forward-pass`, `gdp-bar-race`, `us-energy-sankey`, `indo-european-tree`, `co2-annotated-line`, `world-electricity-treemap`, `les-miserables-network`, `citric-acid-cycle`, and `population-rank-bump`, all approved 2026-10-06, and all nine pass the Layout Contract in every Pack and both orientations.
 
 After the nine ship, a migration review compares each Chart Block Pipeline and Diagram primitive with its Figure equivalent. A part moves onto Figures only if the Figure version renders at least as well. Old compositions keep loading, through a legacy reader that rewrites them. Each decision is recorded here.
+
+**Migration review (2026-10-06).** Every existing part was compared with its Figure equivalent. None moved, so no legacy reader was needed:
+
+| Part                                                                                 | Figure equivalent                                                                                                                                                       | Decision                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bar-chart`, `column-chart` Chart Blocks                                             | none — a `bar-race` needs data that changes over time; there is no static bar or column kind                                                                            | Keep                                                                                                                                                                                                                                                                                                                                                         |
+| `line-chart` Chart Block                                                             | `line` (numeric x)                                                                                                                                                      | Keep. The Block plots categories from the shared chart data model, sequences with up to three other items over shared highlights and callouts, and renders through the GPU analytic mark path where Pack `chart.mark-fill` recipes (gradient, ordered dither) apply. The Figure line has none of these, so it does not render at least as well in that role. |
+| `unit-grid-chart`, `dot-field-chart` Chart Blocks                                    | none — pictogram-like charts are out of scope (below)                                                                                                                   | Keep                                                                                                                                                                                                                                                                                                                                                         |
+| `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` Diagram primitives | none — Figure trees and networks lay themselves out and draw circles; Diagram primitives are hand-placed documentary parts (boxed flow steps, timelines, stat callouts) | Keep                                                                                                                                                                                                                                                                                                                                                         |
+
+Because no Chart Block retired, the WebMCP disclosed-tool ceiling stays at 37 (ADR-0054 amendment of 2026-10-06).
 
 ## Consequences
 

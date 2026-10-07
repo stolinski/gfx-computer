@@ -282,6 +282,69 @@ An optional `progressBar: true` draws a subtle Pack-colored ordered-dither strip
 
 The five motion windows are authored, Pack-invariant, and frame-deterministic. Omitted eases resolve to `smooth`, `smooth`, `sharp`, `smooth`, `smooth`; only `smooth | sharp` is accepted. Gaps hold state. By default shared layout reflows the one declaration natively in horizontal and vertical inside the title-safe area. An item may instead carry `frame: { x, y, width, height }` (normalized, each side at least 0.1, fitting the frame) and `frameOrientationOverrides: { horizontal?, vertical? }` with a complete rect that replaces `frame` in that orientation; the chart then lays itself out inside that rect. Text roles stay chart-owned, so a smaller frame packs the same type into less room. A frame is placed as written; the rubric reports one that leaves the platform safe area (G2). The canvas drags the visible chart's frame and resizes it from its corner, the Chart inspector's **Frame** section types it with **Customize horizontal / vertical**, and `gfx_placement_set_chart_frame` writes the same field. Layout owns factual scales, zero baselines, chrome, legends, labels, source notes, and callout geometry. Marks render analytically through one instanced WebGPU path with Pack-resolved solid, gradient, or ordered-dither recipes localized to mark masks. The GUI add menu and Chart inspector mutate this same `surface.chart.items[]` model through bounded authoring helpers; there is no CSV upload, URL fetch, or GUI-only chart state.
 
+### `surface.figures` — generated visualizations ([ADR-0067](adr/0067-figures-generated-visualization-domain.md))
+
+`surface.figures` is an optional array of one to nine **Figures** on **any** Surface, including a transparent one over footage. A Figure is one declaration that generates its **Marks** — nodes, links, bars, ribbons, cells, lines, labels — through a deterministic layout, rendered by the single `figure` Block Pipeline as an SVG scene on the Surface capture plane. Each Figure has its own reveal and exit, so several can sit side by side or follow each other.
+
+```jsonc
+"figures": [
+  {
+    "type": "figure",
+    "id": "us-energy",                     // unique; letters, digits, "_", ".", "-"
+    "kind": "sankey",                      // picks the data, layout, and encoding shapes below
+    "title": "Where America's energy goes", // optional, ≤120
+    "sourceNote": "EIA · 2023 · quadrillion Btu", // optional, ≤160; wraps at " · " first
+    "frame": { "x": 0.05, "y": 0.05, "width": 0.9, "height": 0.9 },          // optional; default title-safe area
+    "frameOrientationOverrides": { "vertical": { "x": 0.07, "y": 0.08, "width": 0.82, "height": 0.74 } },
+    "data": { /* kind-specific, inline */ },
+    "layout": { /* kind-specific */ },
+    "layoutOrientationOverrides": { "vertical": { /* complete layout for that orientation */ } },
+    "encoding": { /* kind-specific */ },
+    "moves": [ /* 1..16 named Moves */ ],
+    "pins": [ /* 0..64 Pins */ ]
+  }
+]
+```
+
+**Kinds.** Data ids become parts of Mark ids, so they use letters, digits, `_`, `.`, and `-` only.
+
+| `kind`           | `data`                                                                                                                                                     | `layout`                                                                                                                   | `encoding`                                                                                            | Mark ids                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `neural-network` | `layers[]` (2–8, `size` 1–16, optional `label`, `nodeLabels`), optional `activations` rows in [0, 1], `weightSeed`                                         | `direction: right \| down`, `nodeScale` 0.5–2                                                                              | `nodeBrightness: activation \| uniform`, `linkWidth: weight \| uniform`, `linkColor: sign \| uniform` | `node:<layer>:<i>`, `link:…`, `label:<layer>`            |
+| `tree`           | `nodes[]` (2–80; `id`, `label`, `parent`, optional `detail`; one root, acyclic)                                                                            | `direction: down \| right \| radial`, `nodeScale`                                                                          | `nodeColor: branch \| uniform`                                                                        | `node:<id>`, `link:<parent>><child>`                     |
+| `network`        | `nodes[]` (≤120; optional `label`, `group`, `value`), `links[]` (≤400; optional `value`)                                                                   | `seed`, `spread` 0.5–2, `labels: all \| hubs \| none`                                                                      | `nodeSize: value \| degree \| uniform`, `nodeColor: group \| uniform`, `linkWidth: value \| uniform`  | `node:<id>`, `link:<a>><b>`                              |
+| `cycle`          | `steps[]` (3–8; `id`, `label`, optional `detail`)                                                                                                          | `startAngle` −180–180 (degrees clockwise from twelve), `direction: clockwise \| counterclockwise`, `aspect: circle \| fit` | `stepColor: sequence \| uniform`                                                                      | `node:<id>`, `link:<a>><b>`                              |
+| `bar-race`       | `entities[]` (2–40; optional `group`), `frames[]` (2–80 keyed frames of non-negative `values`), `valueFormat`                                              | `visibleCount` 3–12                                                                                                        | `barColor: group \| entity \| uniform`                                                                | `bar:<id>`                                               |
+| `line`           | `series[]` (1–6, 2–240 points), `xFormat: number \| year`, `yFormat`, optional `yAxisLabel`, `yMin`/`yMax`, `thresholds` (≤4), `bands` (≤4), `events` (≤8) | `baseline: zero \| data`                                                                                                   | `seriesColor: series \| lead`                                                                         | `line:<id>`, `threshold:<id>`, `band:<id>`, `event:<id>` |
+| `slope`          | `periods[]` (2–8), `entities[]` (2–12, one value per period), `valueFormat`                                                                                | `mode: value \| rank` (rank draws a bump chart)                                                                            | `lineColor: entity \| uniform`                                                                        | `line:<id>`                                              |
+| `sankey`         | `nodes[]` (≤30), `links[]` (≤60, positive `value`, acyclic), `valueFormat`                                                                                 | `direction: right \| down`, `nodeAlign: justify \| left \| right \| center`                                                | `linkColor: source \| target \| uniform`                                                              | `node:<id>`, `link:<a>><b>`                              |
+| `treemap`        | `nodes[]` (2–120; leaves carry positive `value`, branches sum children), `valueFormat`                                                                     | `padding: tight \| airy`, `labels: leaves \| top-level`                                                                    | `color: top-level \| uniform`                                                                         | `node:<id>`                                              |
+
+`valueFormat` is `{ prefix?, suffix?, precision: 0..3, compact? }`; `compact` abbreviates (12.4K, 3.1M, 2.0B, 1.1T).
+
+**Moves** carry the motion. Each has a composition-progress window (`start` 0–1, `duration` > 0) and an optional ease:
+
+- `reveal` — `style: cascade | grow | draw | fade`; the order is kind-owned (largest first, root outward, along the loop).
+- `propagate` — a signal travels the links; a network may name its `path` of node ids; `repeat` 1–8.
+- `pulse` — named Marks swell and settle; `repeat` 1–8.
+- `flow` — dashes travel the named links (or every link); `cycles` 1–24.
+- `advance` — moves data through time: bar-race frame indices, slope period indices, or line x values; `from`/`to`.
+- `focus` — dims everything but the named Marks; an empty list releases; on a treemap, `zoom: true` re-tiles the one targeted branch to fill the frame.
+- `annotate` — reveals named thresholds, bands, events, or details at their own time.
+- `exit` — `style: fade | reverse`.
+
+A Move that changes a quantity (a bar length, a cell area, a line's progress) never takes an overshooting ease; validation reports one. An `advance` with no ease runs at a linear pace.
+
+**Pins** keep the author's hand on single Marks through regeneration: `{ mark, orientation?, position?: { x, y }, label?, hidden?: true, channels?: { opacity?, scale? } }`. `position` is in frame-local fractions; `channels` are keyframe tracks ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md)). A Pin whose Mark no longer exists fails semantic validation with its path; data import that would orphan a Pin is refused.
+
+**Layout and orientation.** Layout is computed once per declaration and orientation, and Moves are evaluated per frame. `layoutOrientationOverrides` and `frameOrientationOverrides` each give one orientation its complete own settings, so the vertical piece is composed, not derived ([ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) §4). A frame is placed as written; the rubric reports one that leaves the orientation's safe zone, including the vertical platform rails (G2). Labels are placed by the engine: tree inner labels wrap to their column, node labels on networks and cycles take the free side of their node, crossing line-end labels part, and treemap leaf labels wrap inside their cell or fall back to one caption line.
+
+**Appearance** resolves through the Pack's existing `chart.*` Roles and font treatment; Packs own no Figure geometry or motion. Text is always full-strength ink, and text on a filled Mark takes the ink that reads on that voice.
+
+**Data** comes from agents or from CSV/JSON import (`gfx_content_import_figure_data`, or the Figure inspector's import) — never fetched or live. CSV columns per kind: bar-race `frame,entity…`; line `x,series…`; slope `entity,period…`; sankey and network `source,target[,value]`; tree and treemap `name,parent[,value]`; cycle `step[,detail]`; neural-network takes JSON only.
+
+**Authoring.** The Figure inspector (Frame, Layout, Encoding, Moves, Pins, and data import), canvas frame and node-Pin dragging, and nine WebMCP operations — `gfx_layer_add_figure`, `gfx_layer_remove_figure`, `gfx_content_set_figure_data`, `gfx_content_import_figure_data`, `gfx_placement_set_figure_frame`, `gfx_placement_set_figure_layout`, `gfx_placement_set_figure_pins`, `gfx_appearance_set_figure_encoding`, `gfx_motion_set_figure_moves` — all write this same `surface.figures[]` model ([ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md)). Semantic validation in `figure-validation.ts` checks references, acyclicity, Move/kind compatibility, honest-motion eases, and orphan Pins at every ingress.
+
 ### `surface.typeField` — bounded Kinetic Word Blocks ([ADR-0064](adr/0064-kinetic-type-word-fields.md))
 
 `surface.typeField` is supported only on `plain`. It stores one static word pool plus ordered semantic phrases; phrase order never lays out or duplicates words. Kinetic Words are first-class Blocks rendered as crisp native DOM text on the existing Surface capture plane.
@@ -629,6 +692,7 @@ Pack immunity is declared by each Pipeline's Identity Spec and derived at runtim
 - **`paragraph`** — text run inside `content.body` (the bracket-tag string).
 - **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
 - **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers.
+- **`figure`** — the one shipped generated-visualization Block ([ADR-0067](adr/0067-figures-generated-visualization-domain.md)), carried in `surface.figures[]`; its `kind` (`neural-network`, `tree`, `network`, `cycle`, `bar-race`, `line`, `slope`, `sankey`, `treemap`) picks the scene builder (see the Figures section above).
 - **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0064](adr/0064-kinetic-type-word-fields.md)); static and orientation-specific placement, appearance, phrase semantics, Timeline identity, independently authored opacity/reveal/spatial/normalized-weight/tracking tracks, a bounded glyph stagger over the word's own line-box mask, nonzero-playhead direct manipulation, and shared GUI/WebMCP operations ship. Motion Beats and beat-relative keys remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
 
 ## Annotation styles
