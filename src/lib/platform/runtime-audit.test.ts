@@ -11,6 +11,7 @@ import {
 	deterministicFontCheckDescriptor,
 	hasDeterministicReadableCharacters,
 	inkRectForTextRect,
+	isLengthPinnedSvgText,
 	matchesDeterministicRenderedText,
 	nativeRectForElement,
 	parseDeterministicCssShadows,
@@ -402,5 +403,17 @@ describe('inkRectForTextRect', () => {
 		expect(inkRectForTextRect(rect, '')).toBe(rect);
 		expect(inkRectForTextRect(rect, '1 2 3')).toBe(rect);
 		expect(inkRectForTextRect(rect, '0 0 0 0 0')).toBe(rect);
+	});
+});
+
+describe('isLengthPinnedSvgText', () => {
+	it('measures SVG text pinned with textLength by its painted element box', () => {
+		const svgText = (pinned: boolean) => ({
+			getComputedTextLength: () => 100,
+			hasAttribute: (name: string) => pinned && name === 'textLength'
+		});
+		expect(isLengthPinnedSvgText(svgText(true))).toBe(true);
+		expect(isLengthPinnedSvgText(svgText(false))).toBe(false);
+		expect(isLengthPinnedSvgText({ hasAttribute: () => true })).toBe(false);
 	});
 });

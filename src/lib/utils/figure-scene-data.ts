@@ -1270,9 +1270,10 @@ export function prepareTreemapFigure(
 							...grown,
 							rx: 6,
 							fill: voice,
-							// Opaque, so the text ink chosen for the voice reads on the cell
-							// exactly; the padding gap separates neighbouring cells.
+							// Opaque and shaded for its text, so the ink chosen for the voice
+							// reads on the cell; the padding gap separates neighbouring cells.
 							fillOpacity: 1,
+							carriesText: true,
 							stroke: null,
 							strokeWidth: 0,
 							opacity: dim * zoomFade

@@ -139,6 +139,37 @@ export function resolveChartSeriesStrokeColor(manifest: PackManifest, seriesInde
 export interface FigureVoicePalette {
 	color: Record<FigureVoice, string>;
 	readableOn: Record<FigureVoice, string>;
+	/** The fill a Mark carrying text takes: its voice, shaded until `readableOn` reaches the text-fill contrast. */
+	textFill: Record<FigureVoice, string>;
+}
+
+/**
+ * The contrast a filled Mark keeps with the text on it. Above WCAG's 4.5:1 so
+ * Pack chrome that lowers measured contrast (scanlines, beam raster, grain)
+ * still leaves the text readable.
+ */
+export const FIGURE_TEXT_FILL_CONTRAST = 6;
+
+function mixCssColor(from: string, to: string, t: number): string {
+	const a = cssColorToRgbaFloat(from);
+	const b = cssColorToRgbaFloat(to);
+	const channel = (index: number): number =>
+		Math.round((a[index] + (b[index] - a[index]) * t) * 255);
+	return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
+}
+
+/**
+ * A voice shaded toward `away` (the ink's opposite) in 5% steps, up to 60%,
+ * until `ink` reaches FIGURE_TEXT_FILL_CONTRAST on it; the voice itself when it
+ * already does. The Pack keeps the hue; only the fill under text darkens or lightens.
+ */
+function shadeFigureFillForText(voice: string, ink: string, away: string): string {
+	if (cssWcagContrastRatio(ink, voice) >= FIGURE_TEXT_FILL_CONTRAST) return voice;
+	for (let step = 1; step <= 12; step += 1) {
+		const shaded = mixCssColor(voice, away, step * 0.05);
+		if (cssWcagContrastRatio(ink, shaded) >= FIGURE_TEXT_FILL_CONTRAST) return shaded;
+	}
+	return mixCssColor(voice, away, 0.6);
 }
 
 /**
@@ -170,7 +201,14 @@ export function resolveFigureVoiceColors(manifest: PackManifest): FigureVoicePal
 	const readableOn = Object.fromEntries(
 		Object.entries(color).map(([voice, value]) => [voice, readable(value)])
 	) as Record<FigureVoice, string>;
-	return { color, readableOn };
+	const textFill = Object.fromEntries(
+		Object.entries(color).map(([voice, value]) => {
+			const ink = readable(value);
+			const away = ink === chrome.label ? chrome.labelPlate : chrome.label;
+			return [voice, shadeFigureFillForText(value, ink, away)];
+		})
+	) as Record<FigureVoice, string>;
+	return { color, readableOn, textFill };
 }
 
 /** Resolve a semantic chart fill and its bounded declaration-order series voice through the Pack. */

@@ -807,14 +807,30 @@ export function inkRectForTextRect(
 }
 
 /** Measure painted text fragments rather than a block element's stretched layout box. */
+/**
+ * SVG text whose advance is pinned with `textLength` paints at that length, but
+ * a Range over it reports the font's natural glyph advances, which can be
+ * wider or narrower than what is drawn. Its element box is the painted one.
+ */
+export function isLengthPinnedSvgText(
+	element: Pick<Element, 'hasAttribute'> & { getComputedTextLength?: unknown }
+): boolean {
+	return typeof element.getComputedTextLength === 'function' && element.hasAttribute('textLength');
+}
+
 export function nativeReadableTextRect(
 	element: HTMLElement,
 	roots: readonly DeterministicNativeRootGeometry[]
 ): DeterministicRenderRect {
-	const range = document.createRange();
-	range.selectNodeContents(element);
-	const viewportRect = coveringDeterministicViewportRect([...range.getClientRects()]);
-	range.detach();
+	let viewportRect: Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom'> | null;
+	if (isLengthPinnedSvgText(element)) {
+		viewportRect = coveringDeterministicViewportRect([element.getBoundingClientRect()]);
+	} else {
+		const range = document.createRange();
+		range.selectNodeContents(element);
+		viewportRect = coveringDeterministicViewportRect([...range.getClientRects()]);
+		range.detach();
+	}
 	if (!viewportRect) return nativeRectForElement(element, roots);
 	const insets = getComputedStyle(element).getPropertyValue('--gfx-readable-ink-insets');
 	return nativeRectForViewportRect(

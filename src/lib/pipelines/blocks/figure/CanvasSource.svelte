@@ -104,7 +104,7 @@
 						width={Math.max(0, item.width)}
 						height={Math.max(0, item.height)}
 						rx={item.rx}
-						fill={color(item.fill)}
+						fill={item.carriesText && item.fill ? voices.textFill[item.fill] : color(item.fill)}
 						fill-opacity={item.fillOpacity * voiceAlpha(item.fill)}
 						stroke={color(item.stroke)}
 						stroke-width={item.strokeWidth}

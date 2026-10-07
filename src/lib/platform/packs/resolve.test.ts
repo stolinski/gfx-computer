@@ -7,9 +7,12 @@ import {
 	resolveAppearanceVars,
 	resolveBackgroundFill,
 	resolveFieldInkColor,
-	resolvePackRoleColor
+	resolvePackRoleColor,
+	FIGURE_TEXT_FILL_CONTRAST,
+	resolveFigureVoiceColors
 } from './resolve.ts';
 import type { PackManifest } from './types.ts';
+import { cssWcagContrastRatio } from '$lib/utils/color';
 
 describe('resolveBackgroundFill (ADR-0039 §3)', () => {
 	it('passes an absent fill through — presence stays the transparent/opaque signal', () => {
@@ -115,5 +118,17 @@ describe('resolveFieldInkColor', () => {
 		const pack = structuredClone(PACK_REGISTRY['clean-light']);
 		delete pack.roles['field-ink-treatment'];
 		assert.equal(resolveFieldInkColor(pack), '#16181d');
+	});
+});
+
+describe('resolveFigureVoiceColors', () => {
+	it('shades every series fill that carries text until its ink reaches the text-fill contrast', () => {
+		for (const pack of Object.values(PACK_REGISTRY)) {
+			const voices = resolveFigureVoiceColors(pack);
+			for (const voice of ['series-0', 'series-1', 'series-2', 'series-3'] as const) {
+				const ratio = cssWcagContrastRatio(voices.readableOn[voice], voices.textFill[voice]);
+				assert.ok(ratio >= FIGURE_TEXT_FILL_CONTRAST, `${pack.slug} ${voice}: ${ratio.toFixed(2)}`);
+			}
+		}
 	});
 });

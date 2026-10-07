@@ -71,6 +71,8 @@ export interface FigureSceneRect extends FigureSceneItemBase {
 	fillOpacity: number;
 	stroke: FigureVoice | null;
 	strokeWidth: number;
+	/** Text sits on this fill: the renderer draws the voice's text fill, shaded so that text reads. */
+	carriesText?: true;
 }
 
 export interface FigureScenePath extends FigureSceneItemBase {

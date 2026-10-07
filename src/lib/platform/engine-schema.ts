@@ -1337,13 +1337,18 @@ export const FIGURE_PIN_LIMIT = 64;
 /** How many Marks one Move may name. */
 export const FIGURE_MOVE_TARGET_LIMIT = 32;
 
-// Data ids become parts of Mark ids (`node:<id>`, `link:<a>><b>`), so the
-// separators `:` and `>` and whitespace are reserved.
+// Data ids become parts of Mark ids (`node:<id>`, `link:<a>><b>`) and of
+// readable text ids, which follow the platform's lowercase domain-id format
+// (layout contract, ADR-0050). So ids are lowercase letters, digits, ".", and
+// "-"; the separators `:`, `>`, and `#` stay reserved for Mark structure.
 const FigureDataIdSchema = z
 	.string()
 	.min(1)
 	.max(64)
-	.regex(/^[A-Za-z0-9_.-]+$/, 'Figure data ids use letters, digits, "_", ".", and "-".');
+	.regex(
+		/^[a-z0-9][a-z0-9.-]*$/,
+		'Figure data ids use lowercase letters, digits, ".", and "-", starting with a letter or digit.'
+	);
 const FigureLabelSchema = z.string().min(1).max(80);
 const FigureDetailSchema = z.string().min(1).max(160);
 const FigureFiniteNumberSchema = z.number().finite();

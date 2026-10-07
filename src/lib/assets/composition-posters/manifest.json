@@ -105,11 +105,11 @@
 		"contentFraction": 0.4721
 	},
 	"citric-acid-cycle": {
-		"contentKey": "b06a26fcfc228470",
+		"contentKey": "36682bc50ffbb2ef",
 		"timestampSeconds": 8,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.242
+		"contentFraction": 0.241
 	},
 	"cloth-bend-demo": {
 		"contentKey": "43bb32bec02d632f",
@@ -343,7 +343,7 @@
 		"contentFraction": 0.1429
 	},
 	"indo-european-tree": {
-		"contentKey": "0cc5bd15c7f6f29b",
+		"contentKey": "f3158e7e1d5aa438",
 		"timestampSeconds": 7,
 		"width": 640,
 		"height": 360,
@@ -385,7 +385,7 @@
 		"contentFraction": 0.3981
 	},
 	"les-miserables-network": {
-		"contentKey": "fa9b125f43dfc70d",
+		"contentKey": "45fe058d4403b17d",
 		"timestampSeconds": 8,
 		"width": 640,
 		"height": 360,
@@ -483,7 +483,7 @@
 		"contentFraction": 1
 	},
 	"population-rank-bump": {
-		"contentKey": "dfecaa435ddb616c",
+		"contentKey": "2d0d25f008448e3a",
 		"timestampSeconds": 9,
 		"width": 640,
 		"height": 360,
@@ -700,11 +700,11 @@
 		"contentFraction": 0.9996
 	},
 	"us-energy-sankey": {
-		"contentKey": "34c7e21fc44ad8d9",
+		"contentKey": "e6677bb754f51403",
 		"timestampSeconds": 8,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.6299
+		"contentFraction": 0.6286
 	},
 	"wake-conversation-flow": {
 		"contentKey": "dc19d054e6faabfc",
@@ -819,11 +819,11 @@
 		"contentFraction": 0.6978
 	},
 	"world-electricity-treemap": {
-		"contentKey": "8f45d75e581ff7ca",
+		"contentKey": "7558008bc4eaacbe",
 		"timestampSeconds": 7,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.7591
+		"contentFraction": 0.7598
 	},
 	"youtube-subscribe": {
 		"contentKey": "e51305a3d9ccab10",

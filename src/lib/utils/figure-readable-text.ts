@@ -38,8 +38,14 @@ export interface FigureReadableText {
 	role: DeterministicReadableTextRole;
 }
 
+/**
+ * The readable identity of one Figure text item, in the platform's lowercase
+ * domain-id format (`[a-z0-9][a-z0-9._:-]*`, ADR-0050). Data ids are already
+ * lowercase; the scene key's structural `#` (text of a Mark) becomes `:` and a
+ * link's `>` becomes `:to:`, so `link:a>b#value` reads `link:a:to:b:value`.
+ */
 export function figureReadableTextId(figureId: string, itemKey: string): string {
-	return `block:${figureId}:${itemKey}`;
+	return `block:${figureId}:${itemKey.replaceAll('#', ':').replaceAll('>', ':to:')}`;
 }
 
 export function resolveFigureReadableText(

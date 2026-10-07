@@ -1060,7 +1060,8 @@ export function prepareCycleFigure(figure: CycleFigure, env: FigurePrepareEnv): 
 					cy: center.y,
 					r: r * nodeRevealScale(motion, reveal),
 					fill: voice,
-					fillOpacity: 0.22,
+					// A light tint, so the step number keeps its contrast on the fill.
+					fillOpacity: 0.14,
 					stroke: glow > 0.3 || emphasis > 0 ? 'accent' : voice,
 					strokeWidth: 8 + 6 * Math.max(glow, emphasis),
 					opacity: clamp01(reveal) * motion.focusDim(id)
