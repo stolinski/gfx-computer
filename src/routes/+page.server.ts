@@ -2,7 +2,11 @@ import { committedCompositionPosterUrl } from '$lib/platform/composition-posters
 import { listPosterKeys } from '$lib/platform/poster-store.server';
 import { posterKeyForPreset } from '$lib/platform/posters';
 import { listFixtures, listPresets, type CataloguedPreset } from '$lib/platform/preset-catalog';
-import { areDevelopmentOnlySurfacesServed } from '$lib/platform/public-runtime-profile.server';
+import {
+	areDevelopmentOnlySurfacesServed,
+	servedRelease
+} from '$lib/platform/public-runtime-profile.server';
+import { gfxSourceUrl } from '$lib/utils/gfx-source-url';
 
 import type { PageServerLoad } from './$types';
 
@@ -36,10 +40,18 @@ function homepagePresetCard(entry: CataloguedPreset) {
 // gets the deliverable library and nothing else. Library posters are not the
 // store's: they are committed assets, so the public library shows them too.
 export const load: PageServerLoad = async () => {
+	// AGPL section 13: every origin offers the source of the build it serves (ADR-0069 §4).
+	const sourceUrl = gfxSourceUrl(servedRelease());
 	if (!areDevelopmentOnlySurfacesServed()) {
-		return { posterKeys: [], presets: listPresets().map(homepagePresetCard), fixtures: [] };
+		return {
+			sourceUrl,
+			posterKeys: [],
+			presets: listPresets().map(homepagePresetCard),
+			fixtures: []
+		};
 	}
 	return {
+		sourceUrl,
 		posterKeys: await listPosterKeys(),
 		presets: listPresets().map(homepagePresetCard),
 		fixtures: listFixtures().map(homepagePresetCard)
