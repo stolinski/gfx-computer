@@ -51,11 +51,10 @@ pnpm verify-presets  # render and measure the Preset corpus
 Copyright 2026 Break Code LLC.
 
 Except for third-party components that carry their own license notices, GFX is
-available under the [GNU Affero General Public License, version 3 or
-later](LICENSE.md) (`AGPL-3.0-or-later`), with an additional permission to combine
-it with GSAP. Versions made available before 2026-10-08 were offered under
-`FSL-1.1-ALv2`, and that grant stands for those versions. Why:
-[ADR-0069](docs/adr/0069-agpl-licence-for-the-strudel-score.md).
+available under the [Functional Source License 1.1 with an Apache 2.0 Future
+License](LICENSE.md) (`FSL-1.1-ALv2`). The source is Fair Source rather than Open
+Source while the FSL terms apply. Each version gains Apache 2.0 as an additional
+license on the second anniversary of the date that version was made available.
 
 ## Where to read next
 

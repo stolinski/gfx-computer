@@ -426,7 +426,6 @@
 			<kbd class="topbar__search-hint">⌘K</kbd>
 		</div>
 		<div class="topbar__actions">
-			<a class="topbar__action" href={data.sourceUrl} rel="external">Source</a>
 			<label class="topbar__action topbar__import">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -742,7 +741,6 @@
 		gap: 0.4375rem;
 		letter-spacing: 0.02em;
 		padding: 0 0.8125rem;
-		text-decoration: none;
 		transition:
 			background 120ms ease,
 			border-color 120ms ease;

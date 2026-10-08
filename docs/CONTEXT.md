@@ -90,7 +90,7 @@ _Avoid_: transition for the boundary itself (a transition effect is what a bound
 A shared element travelling in one continuous motion from its place in the outgoing **Scene** to its place in the incoming one, across a **Scene boundary**. Pairs are authored on the boundary; matching kind and id is only a suggestion.
 _Avoid_: morph (shape does not change), FLIP (the technique, not the term), shared-element transition, match cut.
 
-**Score** (designed, not built — ADR-0068, licence in [ADR-0069](adr/0069-agpl-licence-for-the-strudel-score.md)):
+**Score** (designed, not built — ADR-0068, local builds only per [ADR-0069](adr/0069-strudel-score-ships-in-local-builds-only.md)):
 A **Film**'s music: Strudel pattern code, one tempo, and named sections measured in bars. Its bars place Scenes; its pattern yields **Hit lanes**; its sound is baked once to PCM so preview and export match.
 _Avoid_: soundtrack, bed (one looping asset in `audioCues`), track, song, music cue (a **cue** is one placed sound).
 
