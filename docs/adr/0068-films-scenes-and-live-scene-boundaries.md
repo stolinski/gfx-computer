@@ -10,7 +10,7 @@ Builds on: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one Preset engi
 
 Supersedes when built: [ADR-0032](0032-gui-agent-parity-authoring.md) §3–4 (fork-on-edit, the User composition as a standalone Preset), the two-endpoint form of [ADR-0022](0022-multi-state-composition.md), and the frozen endpoints of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md)
 
-Depends on: [ADR-0069](0069-agpl-licence-for-the-strudel-score.md) (the licence that lets the Score bundle Strudel)
+Depends on: [ADR-0069](0069-strudel-score-ships-in-local-builds-only.md) (Strudel ships in local builds only; GFX is not relicensed)
 
 ## Context
 
@@ -95,7 +95,7 @@ A **magic move** carries a shared element from where it sits in the outgoing Sce
 A Film may carry one **Score**: music written as Strudel pattern code, a tempo, and named sections measured in bars.
 
 - **Bars place Scenes.** With a Score, a Scene start and a boundary snap to bars. The Score, not a seconds field, is then the clock the author reads. V1 has one tempo per Film, so every bar is the same length.
-- **Hits come from the pattern.** Strudel's `queryArc` returns the pattern's events for any time span without playing sound. GFX queries it and derives **Hit lanes**: named, ordered lists of hit times (kick, snare, hats, bass, or whatever the pattern labels). Lanes are derived, never stored, the way sound cues are derived from motion today.
+- **Hits come from the pattern.** Strudel's `queryArc` returns the pattern's events for any time span without playing sound. GFX queries it and derives **Hit lanes**: named, ordered lists of hit times (kick, snare, hats, bass, or whatever the pattern labels). Lanes are derived from the pattern, never hand-authored, the way sound cues are derived from motion today. They are kept with the bake so a build without Strudel can read them (ADR-0069).
 - **Sound is baked.** Strudel's synthesis uses `Math.random` for noise, reverb, and oscillator phase, so two renders of one pattern differ. GFX requires preview and export to match. So a Score is rendered once, offline, at 48 kHz stereo, to PCM keyed by a hash of the pattern, tempo, and sample set. The mix and every export use that bake. Changing the pattern makes the bake stale, and the GUI shows it. Live Strudel playback is for writing the pattern; the bake is what ships.
 - **The bake joins the existing mix.** It enters `renderAudioMix` as one more PCM source, summed by the same hand-written loop that keeps the mix byte-stable. Scene sound cues are offset into Film time and summed with it.
 - **Pattern code runs in a sandbox.** Strudel evaluates a pattern with `Function()`, so a pattern is arbitrary JavaScript. A Film can arrive from a file or from an agent. GFX therefore evaluates patterns, queries hits, and bakes audio inside a sandboxed frame with no access to the app's origin, storage, or network, and takes back only JSON hits and PCM.
@@ -138,7 +138,7 @@ These are visual work. Each is shown to Scott as frames before it is verified, a
 - Shatter and dissolve will show moving content inside their shards. Whether that reads well is Scott's call per effect.
 - Export inside a boundary window costs two Scene renders per frame, roughly two to three times the per-frame time there.
 - Until phase 6, playback through a boundary is a proxy. Paused frames and exports are exact.
-- GFX ships a music engine it does not own, under ADR-0069's licence, and a sandbox to hold it.
+- GFX uses a music engine it does not own, in local builds only (ADR-0069), and a sandbox to hold it. Where Strudel is absent a Film plays and exports from its bake.
 
 ## Rejected
 
@@ -147,7 +147,7 @@ These are visual work. Each is shown to Scott as frames before it is verified, a
 - **Rendering a Scene to footage** (ADR-0066's render in place). A boundary needs live motion on both sides and a magic move needs live geometry.
 - **Starting with two mounted Scene trees.** It is the right end state and a 136-file refactor. The per-frame swap proves the model, the effects, and magic move first, and is already how the snapshot controller and the audit loop work.
 - **Caching boundary frames on the GPU.** One 3840×2160 frame is 33 MB; a half-second window is about 1 GB per boundary.
-- **A music engine of our own, or Strudel as a separate program.** Scott chose to bundle Strudel and take its licence (ADR-0069).
+- **A music engine of our own, or Strudel as a separate program.** Scott chose to bundle Strudel, in local builds only (ADR-0069).
 - **Detecting hits from an imported audio file.** Hits would be guesses that the author then corrects by hand.
 - **Using Strudel's live output in export.** It is not repeatable; the bake is.
 - **Stacked tracks, Films inside Films, footage that spans Scenes.** GFX is not an editor. After Effects is the quality ceiling, not the architecture.
