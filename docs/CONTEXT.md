@@ -60,7 +60,7 @@ _Avoid_: response, diff, patch, changelog.
 
 **Preset**:
 A JSON document declaring a **composition recipe** — motion, content, Pipeline choices, and appearance-role references — against the `gfx@1` schema (a Legacy Supers `supers@1` document is accepted and folded at ingress). A Preset is _Pack-neutral_: it names the Surface, Blocks, Annotations, Overlays, timings, text, optional composition-wide Effects, and one default **Pack**. `typography.paperColor` / `inkColor` may be explicit hex overrides, but absent colors resolve from the active Pack; edge, depth, light, material, font, and Pack chrome remain Pack-owned. The unit of authoring.
-_Avoid_: tool, scene, template (when referring to a finished composition).
+_Avoid_: tool, template (when referring to a finished composition); scene for a Preset on its own (a **Scene** is a Preset's state used inside a **Film**).
 
 **Starter template** (formerly _Recipe_):
 A curated starting point — Preset + Pack — that a human (GUI) or an agent begins a new composition from, varying rather than authoring from scratch; not itself a deliverable. In the GUI this is concretely a **corpus Preset opened read-only as a fork-base**: the first edit forks a new **User composition**, never mutating the original. **Shipped** through the fork-on-edit GUI parity model ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)); this replaced the never-built recipe cookbook from superseded [ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md).
@@ -73,6 +73,30 @@ _Avoid_: document, override, patch, project (all imply a non-Preset or base-boun
 **Corpus** vs **user store**:
 The two places a **Preset** lives. The **corpus** is the git-tracked set under `src/lib/presets/` — Critic-accepted, build-harness reference artifacts, **read-only from the GUI** (they serve as Starter templates). The **user store** is a separate user-writable location holding **User compositions**. Both hold the same Preset format. Pre-parity, everything lived in the corpus; the store split is what lets GUI authoring coexist with the proof corpus without polluting it.
 _Avoid_: conflating the two; calling the user store a "database" or "project" (it is a Preset store).
+
+**Film** (designed, not built — [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md)):
+The one artifact a user makes: an ordered list of **Scenes**, a **Scene boundary** between each pair of neighbours, one Pack, one transport, and one optional **Score**, in the `gfx-film@1` format. A one-off piece is a Film with one Scene. It replaces the **User composition** and fork-on-edit when its epic (`70u0qn13`) lands; until then those remain current. Scenes play strictly in order and share the frame only inside a boundary.
+_Avoid_: project, sequence (a chart mode and the `title-sequence` Surface), timeline (one **Timeline** belongs to one Scene), video, edit; "filmed" (the filmed canvas of ADR-0057 is a camera framing, unrelated).
+
+**Scene** (designed, not built — ADR-0068):
+One Preset's complete state, owned by a **Film**. It is seeded from a Preset, records that origin, and never changes when the source Preset does. It keeps its own duration, so every timing inside it means what it meant in the Preset.
+_Avoid_: shot, clip (a **Video clip** is footage), slide, fork, instance (nothing links back to the Preset). In Stage and Figure code, "scene" still means the lit 3D scene and the Figure scene; say **Stage** or **Figure scene** there.
+
+**Scene boundary** (designed, not built — ADR-0068):
+What happens between two neighbouring **Scenes**: a cut, a fade, or a registered transition effect, optionally with a **magic move**. Both Scenes keep animating through its window. It replaces the two-endpoint `transition` Preset form, whose endpoints are frozen stills.
+_Avoid_: transition for the boundary itself (a transition effect is what a boundary runs), wipe, cut point.
+
+**Magic move** (designed, not built — ADR-0068):
+A shared element travelling in one continuous motion from its place in the outgoing **Scene** to its place in the incoming one, across a **Scene boundary**. Pairs are authored on the boundary; matching kind and id is only a suggestion.
+_Avoid_: morph (shape does not change), FLIP (the technique, not the term), shared-element transition, match cut.
+
+**Score** (designed, not built — ADR-0068, licence in [ADR-0069](adr/0069-agpl-licence-for-the-strudel-score.md)):
+A **Film**'s music: Strudel pattern code, one tempo, and named sections measured in bars. Its bars place Scenes; its pattern yields **Hit lanes**; its sound is baked once to PCM so preview and export match.
+_Avoid_: soundtrack, bed (one looping asset in `audioCues`), track, song, music cue (a **cue** is one placed sound).
+
+**Hit lane** / **Hit reaction** (designed, not built — ADR-0068):
+A Hit lane is a named, ordered list of hit times derived from the **Score**'s pattern (kick, snare, bass). A Hit reaction binds one lane to one animatable channel of one element, so the channel takes a short impulse on every hit. A **Motion Beat** is one moment an author places by hand; a Hit lane is many moments the Score supplies.
+_Avoid_: beat (reserved for **Motion Beat**), marker (Resolve), cue (audio), onset, trigger.
 
 **Poster**:
 The rendered still that stands for a composition on the home page, keyed by a content hash of the Preset so it can never describe another version of it. A **corpus** Preset's poster is a **committed** asset under `src/lib/assets/composition-posters/`, written by `pnpm capture:posters` at the frame that shows the most (or the authored `transport.posterSeconds`) and shipped with the app on every origin; `composition-posters.test.ts` fails while a deliverable's poster is missing or stale. A **User composition**'s poster is captured on view into the development-only `.posters/` store, and a frame that shows nothing is never kept. A **Surface default** (`static/surface-posters/<type>.webp`) stands in only until a composition has a poster of its own ([ADR-0061](adr/0061-committed-composition-posters.md)).
