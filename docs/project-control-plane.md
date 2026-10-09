@@ -28,9 +28,10 @@ these commands, so the meaning of "green" does not depend on who ran the work.
 ## Type-check memory and time
 
 Every type-aware tool builds its own full TypeScript program, and several
-worktrees checking at once exhausted the 8 GB host. `pnpm check` therefore runs
-its two type-aware steps one after the other, never together, and the first of
-them runs on the native compiler with a cache.
+worktrees checking at once exhausted the 8 GB host. `pnpm check` therefore
+builds exactly one: svelte-check's, on the native compiler with a cache. ESLint
+runs without type information, and a suite that already passed on a tree is not
+run on it twice (next section).
 
 **Two TypeScript versions are installed on purpose.** `typescript` stays at 6
 because SvelteKit, typescript-eslint, and the editor load it as a library.
@@ -66,7 +67,7 @@ single process, not the sum of a step's processes:
 | `svelte-check`, nothing cached        | 12 s / 1.76 GB     | 5 s / 1.22 GB      |
 | `svelte-check`, nothing changed       | 12 s / 1.76 GB     | 1.6 s / 0.46 GB    |
 | `svelte-check`, after an edit         | 12 s / 1.76 GB     | 2–3 s / 0.5–1.2 GB |
-| `eslint .`                            | 80–125 s / 3.05 GB | unchanged          |
+| `eslint .`                            | 80–125 s / 3.05 GB | 17–25 s / 1.27 GB  |
 | discoverability, names, spawn hygiene | 3 s / 0.18 GB      | unchanged          |
 | `pnpm test`                           | 23 s / 1.17 GB     | unchanged          |
 | `pnpm test:structural`                | 2 s / 0.21 GB      | unchanged          |
@@ -79,14 +80,69 @@ one, and with errors planted in a `.ts` module, a `.svelte.ts` module, a
 an export renamed under four importing components — both report the same
 diagnostics at the same lines and columns, compiler warnings included.
 
-**ESLint keeps its type information, and that is now the expensive step.** The
-`projectService` block in `eslint.config.js` builds a second program for the
-Svelte files. Two enabled rules read it: `svelte/no-unused-props` reports
-nothing at all without types, and `svelte/no-navigation-without-resolve` uses
-them to accept a value typed as a resolved pathname. Without the block the same
-run takes 14 s and 1.3 GB and still passes today's tree, but an unused prop goes
-unreported. Never add `eslint --cache`: a type-aware rule's result for one file
-depends on types in other files, so a per-file cache is unsound.
+**ESLint runs without type information.** `eslint.config.js` used to set
+`projectService` for the Svelte files, which built a second TypeScript program
+on every run and cost about 70–110 s and 1.75 GB. Two enabled rules read it, and
+dropping it changed both on purpose:
+
+- `svelte/no-unused-props` reports nothing at all without types, so it is
+  switched off by name rather than left enabled and silent. An unused prop is no
+  longer reported by any check.
+- `svelte/no-navigation-without-resolve` still runs. It can no longer accept a
+  link because its value is _typed_ as a resolved pathname; it needs to see the
+  `resolve()` call. The tree had no link that relied on the type, so the change
+  reported nothing new.
+
+Do not restore `projectService`, or add any rule that requires type information,
+without weighing that cost. `eslint --cache` is not used.
+
+## One run per tree
+
+`pnpm check` and `pnpm test` go through `scripts/verified-suite-stamp.mjs`. A
+suite that passes leaves a stamp, and the same suite asked for again on exactly
+the same tree prints one line and exits 0 without running:
+
+```
+check: skipped — already passed on tree 793891a178c6 at 2026-10-09T17:20:11.000Z. …
+```
+
+This exists for one repeat in particular. The factory's implement stage runs
+both suites until green and commits; its verify stage then asks for both again
+on that commit. Because `gfx-verify.run_checks` calls `pnpm run check` and
+`pnpm run test`, the stamp sits behind those two scripts and no factory or
+workflow definition changes.
+
+The stamp is reused only when all of these match the passing run:
+
+- **The content of the worktree** as git would commit it now — tracked,
+  modified, and untracked files, hashed through a throwaway copy of the index.
+  Uncommitted work and the commit made from it share one key, which is what
+  lets the verify stage reuse the implement stage's pass. Any edit, new file,
+  deletion, or `pnpm-lock.yaml` change produces a different key.
+- **The lockfile pnpm installed from** (`node_modules/.pnpm/lock.yaml`), so a
+  worktree whose `node_modules` lags its lockfile never matches.
+- **The suite, the Node version, the platform, and the worktree's path.** A
+  passed `check` says nothing about `test`.
+
+Only a pass is stamped, and only if the tree is still what it was when the suite
+started. A failure or an interruption records nothing. Stamps live in
+`node_modules/.cache/gfx-verified-suites/`, which is ignored and belongs to one
+worktree.
+
+The key does not cover ignored files (`.env`, build output) or environment
+variables. To run a suite for real regardless of its stamp:
+
+| To                           | Run                                               |
+| ---------------------------- | ------------------------------------------------- |
+| Force one real run           | `GFX_FORCE_SUITE_RUN=1 pnpm check`                |
+| Call the suite with no stamp | `pnpm check:run`, `pnpm test:run`                 |
+| Forget every stamp           | delete `node_modules/.cache/gfx-verified-suites/` |
+
+CI always runs for real: with `CI` set the stamp is neither read nor written.
+The same holds when extra arguments narrow the run, as in
+`pnpm test src/lib/one.test.ts`. `pnpm test:structural` and
+`pnpm verify-presets` are not stamped: together they take about three seconds,
+so a stamp would save nothing worth the extra state.
 
 ## Planning-drift audit
 
