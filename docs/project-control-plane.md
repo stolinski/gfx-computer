@@ -25,6 +25,69 @@ CI (`.github/workflows/quality.yml`) runs exactly these plus build and the
 browser render test. Direct delivery, factory-assisted delivery, and CI share
 these commands, so the meaning of "green" does not depend on who ran the work.
 
+## Type-check memory and time
+
+Every type-aware tool builds its own full TypeScript program, and several
+worktrees checking at once exhausted the 8 GB host. `pnpm check` therefore runs
+its two type-aware steps one after the other, never together, and the first of
+them runs on the native compiler with a cache.
+
+**Two TypeScript versions are installed on purpose.** `typescript` stays at 6
+because SvelteKit, typescript-eslint, and the editor load it as a library.
+`@typescript/native` is TypeScript 7 — the Go compiler — installed under that
+alias (`npm:typescript@7.0.2`) because svelte-check looks for the native
+compiler by that package name, then by `@typescript/native-preview`. Nothing
+else imports it. There is no patch step: this project does not use a compiler
+plugin, so the TypeScript 7 binary runs as published. Keep svelte-check at
+4.7.6 or later: 4.7.2 looked only for `@typescript/native-preview`.
+
+**`svelte-check --tsgo --incremental`** is what `pnpm check` and
+`pnpm check:watch` run. `--tsgo` writes each `.svelte` file out as TypeScript
+and hands the whole project to the TypeScript 7 binary instead of holding a
+TypeScript 6 language service in Node. `--incremental` keeps those written
+files and the compiler's build info in `.svelte-kit/.svelte-check/`, so the
+next run rechecks only what changed. That directory is ignored with the rest of
+`.svelte-kit`, belongs to one worktree, and is safe to delete — the next run is
+a cold one. `check:watch` uses the same mode because the default watcher keeps
+the language service resident (1.8 GB idle here, 2.9 GB after two edits) where
+this one idles near 0.5 GB and starts the compiler per change.
+
+Run it from the checkout's real path. Reached through a symlink, a type error
+in a `.svelte` file is still reported and still fails the run, but it names the
+generated `++Name.svelte.ts` file and that file's line instead of the source.
+
+Measured on main at `ae085989`, on a 10-core Apple-silicon MacBook, with
+`/usr/bin/time -l` — wall time and the peak resident memory of the largest
+single process, not the sum of a step's processes:
+
+| Step                                  | Before             | After              |
+| ------------------------------------- | ------------------ | ------------------ |
+| `svelte-kit sync`                     | 1 s / 0.4 GB       | unchanged          |
+| `svelte-check`, nothing cached        | 12 s / 1.76 GB     | 5 s / 1.22 GB      |
+| `svelte-check`, nothing changed       | 12 s / 1.76 GB     | 1.6 s / 0.46 GB    |
+| `svelte-check`, after an edit         | 12 s / 1.76 GB     | 2–3 s / 0.5–1.2 GB |
+| `eslint .`                            | 80–125 s / 3.05 GB | unchanged          |
+| discoverability, names, spawn hygiene | 3 s / 0.18 GB      | unchanged          |
+| `pnpm test`                           | 23 s / 1.17 GB     | unchanged          |
+| `pnpm test:structural`                | 2 s / 0.21 GB      | unchanged          |
+| `pnpm verify-presets`                 | 0.5 s / 0.21 GB    | unchanged          |
+| `pnpm build`                          | 11 s / 2.2 GB      | unchanged          |
+
+The two checkers were compared on the same tree: both report nothing on a clean
+one, and with errors planted in a `.ts` module, a `.svelte.ts` module, a
+`+server.ts` route, a component's script, its markup, and its styles — and with
+an export renamed under four importing components — both report the same
+diagnostics at the same lines and columns, compiler warnings included.
+
+**ESLint keeps its type information, and that is now the expensive step.** The
+`projectService` block in `eslint.config.js` builds a second program for the
+Svelte files. Two enabled rules read it: `svelte/no-unused-props` reports
+nothing at all without types, and `svelte/no-navigation-without-resolve` uses
+them to accept a value typed as a resolved pathname. Without the block the same
+run takes 14 s and 1.3 GB and still passes today's tree, but an unused prop goes
+unreported. Never add `eslint --cache`: a type-aware rule's result for one file
+depends on types in other files, so a per-file cache is unsound.
+
 ## Planning-drift audit
 
 `pnpm audit:planning` (`scripts/audit-planning-state.ts`; pure check logic in
