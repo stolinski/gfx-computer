@@ -1606,7 +1606,7 @@ try {
 	launchSanctionedChrome(STANDARD_PORT, 'standard');
 	const plainPage = await openScenarioPage(STANDARD_PORT);
 	try {
-		await plainPage.navigate(`${ORIGIN}/p/lower-third?source=builtin`);
+		await plainPage.navigate(`${ORIGIN}/p/lower-third`);
 		interface CapabilityGateReading {
 			ready: boolean;
 			noticeText: string;

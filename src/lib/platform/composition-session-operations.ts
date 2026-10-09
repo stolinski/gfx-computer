@@ -81,8 +81,8 @@ export type CompositionSessionOutcome = CompositionLifecycleReceipt | Compositio
 
 /**
  * The session composition currently open — the one that would autosave itself
- * back into the store. A Starter opened read-only is not one: nothing of it is
- * in the session until an edit creates a Film from it.
+ * back into the store. An open Starter is not one: nothing of it is in the
+ * session until `composition.create-film-from-open` stores it as a Film.
  */
 function readOpenSessionCompositionSlug(): string | null {
 	return compositionMeta.isUserComposition ? readOpenCompositionSlug() : null;

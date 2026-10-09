@@ -237,6 +237,7 @@ describe('WebMCP operation inventory', () => {
 			'always',
 			'composition-open',
 			'composition-editable',
+			'composition-unsaved',
 			'session-composition-present',
 			'user-pack-store-served',
 			'user-pack-present',

@@ -4,7 +4,7 @@
 
 **Designed, not built — phase 1 in progress: schema, readers, open document, writers landed** (planned 2026-10-08 with Scott; Dex epic `70u0qn13`). Built: §1–2 as a one-Scene Film, §3's first two points (fork-on-edit is gone and both stores write Films), and §8's transaction core. The rest of this record is not engine truth until its phase lands. Until then the frozen-endpoint transitions of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md) remain current, and a stored document that carries a two-endpoint `transition` keeps the legacy Preset record shape.
 
-Two things differ from §3 as written. Shadow records an older build left in a disk store are re-keyed by a one-time script, `scripts/migrate-user-composition-shadow-records.ts`, not at runtime. `?source=builtin` no longer selects a document, but the preset route still reads it to mean "never save", which the verification scripts rely on.
+One thing differs from §3 as written. Shadow records an older build left in a disk store are re-keyed by a one-time script, `scripts/migrate-user-composition-shadow-records.ts`, not at runtime.
 
 Date: 2026-10-08
 
@@ -57,7 +57,7 @@ Scenes play strictly in order. Two Scenes share the frame only inside a boundary
 
 ### 3. Forking and the two-endpoint transition Preset retire
 
-- **Fork-on-edit goes.** The first edit to an opened corpus Preset creates a new Film with that Preset as its one Scene, under a new slug. Shadowing a Starter under its own slug, `?source=builtin`, and revert-to-starter all go, together with their operation rows, tools, and GUI.
+- **Fork-on-edit goes, and a Preset's page never saves.** Opening a corpus Preset and editing it changes only the open document: undo, redo, and revisions work, nothing is stored, and leaving the page discards the changes. A Film is made on purpose, by one operation that stores the open document, edits included, as a new Film under a new slug with that Preset as its one Scene. Shadowing a Starter under its own slug, `?source=builtin`, and revert-to-starter all go, together with their operation rows, tools, and GUI. _Changed by Scott on 2026-10-09. This bullet first said the first edit to an opened corpus Preset creates the Film. His reason: "we don't want modifications of presets to trigger new films now that a film is several presets"; for a built-in Preset, "try freely, add to film or create new film from changes". Adding the open document to an existing Film belongs to the Scene operations (§8) and is not built._
 - **User compositions become Films.** Both stores (disk and browser) read the old `{ meta, preset }` record and the new `{ meta, film }` record, and lift an old record to a one-Scene Film. Readers ship before writers (ADR-0053). Writers then emit Films only.
 - **Transition Presets become two-Scene Films.** The top-level `transition { from, to, effect, durationMs, params }` form is read as a two-Scene Film with one boundary. This waits for §4, because under hard cuts the effect would be lost.
 - **Corpus Presets do not change.** A Preset under `src/lib/presets/` stays a single Preset with its checks, matrix lanes, and committed poster. It is the catalogue a Film draws Scenes from.

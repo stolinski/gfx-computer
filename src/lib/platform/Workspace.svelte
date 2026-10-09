@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick, untrack } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	import GfxMarkHomeLink from '$lib/identity/GfxMarkHomeLink.svelte';
@@ -56,6 +58,7 @@
 	import { getPresetBySlug } from './preset-catalog';
 	import { presetBase } from './preset-base.svelte';
 	import { serializeCompositionState } from './preset-pure';
+	import { runCreateFilmFromOpenCompositionOperation } from './composition-lifecycle-operations';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getAuthoringPackOption } from './packs/catalog';
 	import { getPack } from './packs/registry';
@@ -383,6 +386,20 @@
 
 	// Composition history and transport keys. Native field/button editing keeps
 	// its own keyboard behavior; canvas commands use the shared authoring history.
+	// `composition.create-film-from-open`: the one way an edited corpus Preset is
+	// kept. The operation stores the open document as a new Film and opens it;
+	// this replaces the URL so the route is the Film's own (ADR-0068 §3).
+	async function createFilmFromOpenDocument(): Promise<void> {
+		const outcome = await runCreateFilmFromOpenCompositionOperation();
+		if (outcome.status !== 'applied') {
+			compositionMeta.persistenceError = outcome.message;
+			return;
+		}
+		if (outcome.slug) {
+			await goto(resolve('/p/[slug]', { slug: outcome.slug }), { replaceState: true });
+		}
+	}
+
 	function handleKeydown(event: KeyboardEvent): void {
 		const target = event.target as HTMLElement | null;
 		const tag = target?.tagName;
@@ -1244,8 +1261,10 @@
 			return { elements };
 		};
 		window.__configureGfxDeterministicRenderCell = async (input) => {
-			if (new URLSearchParams(window.location.search).get('source') !== 'builtin') {
-				throw new Error('Deterministic render cells require the built-in Preset route.');
+			// A render cell replaces the open document. A stored Film autosaves, so
+			// a cell configured there would be saved over the author's work.
+			if (compositionMeta.isUserComposition) {
+				throw new Error('Deterministic render cells require a corpus Preset route.');
 			}
 			if (!deterministicRenderAuditMode) {
 				deterministicRenderAuditMode = true;
@@ -1490,6 +1509,11 @@
 		<span class="topbar__chip topbar__chip--pack">
 			<i aria-hidden="true"></i>{getAuthoringPackOption(packState.slug).label}
 		</span>
+		{#if !compositionMeta.isUserComposition}
+			<button type="button" class="topbar__new-film" onclick={createFilmFromOpenDocument}
+				>New Film</button
+			>
+		{/if}
 		<span class="topbar__spacer"></span>
 		<div class="topbar__orientation" role="group" aria-label="Orientation">
 			<button
@@ -1757,7 +1781,8 @@
 		overflow: hidden;
 	}
 
-	.topbar__orientation button {
+	.topbar__orientation button,
+	.topbar__new-film {
 		background: transparent;
 		border: 0;
 		color: var(--chrome-muted);
@@ -1776,9 +1801,18 @@
 		color: var(--chrome-text);
 	}
 
-	.topbar__orientation button:focus-visible {
+	.topbar__orientation button:focus-visible,
+	.topbar__new-film:focus-visible {
 		outline: 2px solid #ffd608;
 		outline-offset: -2px;
+	}
+
+	/* The orientation buttons take their frame from their group; a lone action
+	   carries the same one itself. */
+	.topbar__new-film {
+		border: 1px solid var(--chrome-hairline);
+		border-radius: 6px;
+		flex-shrink: 0;
 	}
 
 	.topbar__resolution {

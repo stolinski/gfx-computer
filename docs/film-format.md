@@ -121,7 +121,7 @@ The document open in the Workspace is a Film with exactly one Scene (ADR-0068 §
 
 - A corpus Preset opens as an unsaved one-Scene Film through `filmFromPreset`. Its Scene's `origin` is `{ slug, contentKey }`, with the content key the Preset's poster uses.
 - A stored composition opens as the Film its record holds, with each Scene's real `origin`. A legacy Preset record is lifted to a one-Scene Film first; its Scene's `origin` is `{ slug: meta.forkedFrom, contentKey: null }`.
-- The first edit to an opened corpus Preset stores the edited document as a new Film under a new slug. Nothing is ever stored under the corpus Preset's own slug.
+- An opened corpus Preset is never saved from its own page. `composition.create-film-from-open` (New Film) stores the open document, edits included, as a new Film under a new slug. Nothing is ever stored under the corpus Preset's own slug.
 - The selected Scene's state is live in engine state. The Film keeps the Scene list, each `origin`, and the boundaries beside it.
 - `kind` and `transition` are not Film fields. They travel beside the open Film as the legacy Preset envelope. `kind` stays because the open document is also how a corpus Preset is shown, and a stored Film opens as a `deliverable`. `transition` goes when a transition Preset is read as a two-Scene Film.
 - What is saved is the Film (`readOpenFilmAsUserCompositionDocument`). `readOpenFilmAsSavedPreset` is the same Film as one Preset, for inspection and verification.

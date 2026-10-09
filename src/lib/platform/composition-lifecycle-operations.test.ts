@@ -4,6 +4,8 @@ import blankPresetJson from '$lib/presets/blank.json';
 
 import { ACCEPTED_COMPOSITION_SCHEMA_IDS } from '../utils/legacy-supers-compatibility';
 import { CompositionSessionStorageError } from './browser-user-composition-store';
+import { runSetCompositionIdentityOperation } from './composition-document-operations';
+import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PRESET_SCHEMA_ID } from './engine-schema';
@@ -20,8 +22,8 @@ import {
 	runCreateBlankCompositionOperation,
 	runCreateCompositionFromStarterOperation,
 	runImportCompositionJsonOperation,
+	runCreateFilmFromOpenCompositionOperation,
 	runOpenCompositionOperation,
-	storeUserCompositionUnderNewSlug,
 	type CompositionLifecycleOutcome,
 	type CompositionLifecycleReceipt
 } from './composition-lifecycle-operations';
@@ -472,43 +474,94 @@ describe('importing a composition document', () => {
 	});
 });
 
-// What the preset route does on the first edit to a Starter it opened
-// (ADR-0068 §3): the edited document becomes a new Film under a new slug, and
-// the route replaces its URL with that slug.
-describe('the first edit to an opened Starter', () => {
-	it('stores the edited document as a new Film under a new slug, never the Starter slug', async () => {
-		const starter = getPresetBySlug(STARTER_SLUG);
-		if (!starter) throw new Error(`Expected the corpus to ship "${STARTER_SLUG}".`);
-		sessionStore.listUserCompositions.mockResolvedValue([sessionEntry('lower-third-2', starter)]);
-		const edited = {
-			film: filmFromPreset(
-				{ ...starter, state: { ...starter.state, overlays: [] } },
-				{ slug: STARTER_SLUG, contentKey: posterKeyForPreset(starter) }
-			),
-			legacyPresetEnvelope: { kind: starter.kind }
-		};
+// ADR-0068 §3 (as changed 2026-10-09): a corpus Preset's page never saves by
+// itself. Edits stay in the open document until `composition.create-film-from-open`
+// stores them as a new Film.
+describe('making a Film from the open document', () => {
+	async function openStarterAndRenameIt(): Promise<void> {
+		expectApplied(await runOpenCompositionOperation({ slug: STARTER_SLUG }));
+		const edit = await runSetCompositionIdentityOperation({
+			expectedRevision: 0,
+			name: 'My edited lower third'
+		});
+		expect(edit.status).toBe('applied');
+	}
 
-		const slug = await storeUserCompositionUnderNewSlug(edited);
+	it('leaves the store untouched and the slug unchanged when a Starter is edited', async () => {
+		await openStarterAndRenameIt();
 
-		// Named after the Starter, and numbered past the corpus slug and the stored one.
-		expect(slug).toBe('lower-third-3');
-		expect(sessionStore.createUserComposition).toHaveBeenCalledTimes(1);
-		expect(sessionStore.createUserComposition).toHaveBeenCalledWith('lower-third-3', edited);
+		expect(presetBase.name).toBe('My edited lower third');
+		expect(compositionEditHistory.revision).toBe(1);
+		expect(compositionMeta.userCompositionSlug).toBe(STARTER_SLUG);
+		expect(compositionMeta.isUserComposition).toBe(false);
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 		expect(sessionStore.saveUserComposition).not.toHaveBeenCalled();
-		expect(edited.film.scenes[0].origin?.slug).toBe(STARTER_SLUG);
+		expect(sessionStore.listUserCompositions).not.toHaveBeenCalled();
 	});
 
-	it('lets a store refusal reach the route, which reports it', async () => {
+	it('stores the edited document as a new Film under a new slug and reports it', async () => {
+		const starter = getPresetBySlug(STARTER_SLUG);
+		if (!starter) throw new Error(`Expected the corpus to ship "${STARTER_SLUG}".`);
+		sessionStore.listUserCompositions.mockResolvedValue([
+			sessionEntry('my-edited-lower-third', starter)
+		]);
+		await openStarterAndRenameIt();
+
+		const receipt = expectApplied(await runCreateFilmFromOpenCompositionOperation());
+
+		// Named after the document, numbered past the stored slug it would collide with.
+		expect(receipt.operationId).toBe('composition.create-film-from-open');
+		expect(receipt.slug).toBe('my-edited-lower-third-2');
+		expect(receipt.name).toBe('My edited lower third');
+		expect(receipt.forkedFrom).toBe(STARTER_SLUG);
+		expect(receipt.revision).toBe(0);
+		expect(sessionStore.createUserComposition).toHaveBeenCalledTimes(1);
+		const [slug, stored] = sessionStore.createUserComposition.mock.calls[0];
+		expect(slug).toBe('my-edited-lower-third-2');
+		// The edit is in what was stored, and the Scene still says where it came from.
+		expect(stored.film.name).toBe('My edited lower third');
+		expect(stored.film.scenes[0].state).toEqual(starter.state);
+		expect(stored.film.scenes[0].origin).toEqual({
+			slug: STARTER_SLUG,
+			contentKey: posterKeyForPreset(starter)
+		});
+		// The Film is now the open document, and it is a stored one.
+		expect(compositionMeta.isUserComposition).toBe(true);
+		expect(compositionMeta.userCompositionSlug).toBe('my-edited-lower-third-2');
+		expect(presetBase.name).toBe('My edited lower third');
+		expect(sessionStore.saveUserComposition).not.toHaveBeenCalled();
+	});
+
+	it('refuses when the open composition is already a stored Film', async () => {
+		compositionMeta.isUserComposition = true;
+		compositionMeta.userCompositionSlug = 'untitled';
+
+		const failure = expectFailed(await runCreateFilmFromOpenCompositionOperation());
+
+		expect(failure.code).toBe('precondition_unmet');
+		expect(failure.rejected).toBe('untitled');
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
+	});
+
+	it('refuses when no composition is open', async () => {
+		expect(expectFailed(await runCreateFilmFromOpenCompositionOperation()).code).toBe(
+			'no_composition_open'
+		);
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
+	});
+
+	it('reports a store refusal and leaves the edited Starter open and unsaved', async () => {
 		sessionStore.createUserComposition.mockRejectedValue(
 			new CompositionSessionStorageError('quota_exceeded', 'This browser session is full.')
 		);
-		const blank = parsePresetIngress(blankPresetJson);
+		await openStarterAndRenameIt();
 
-		await expect(
-			storeUserCompositionUnderNewSlug({
-				film: filmFromPreset(blank, { slug: 'blank', contentKey: null }),
-				legacyPresetEnvelope: { kind: blank.kind }
-			})
-		).rejects.toThrow('This browser session is full.');
+		const failure = expectFailed(await runCreateFilmFromOpenCompositionOperation());
+
+		expect(failure.code).toBe('quota_exceeded');
+		expect(compositionMeta.isUserComposition).toBe(false);
+		expect(compositionMeta.userCompositionSlug).toBe(STARTER_SLUG);
+		expect(presetBase.name).toBe('My edited lower third');
+		expect(compositionEditHistory.revision).toBe(1);
 	});
 });

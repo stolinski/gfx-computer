@@ -27,7 +27,7 @@ GFX is a **general motion-graphics engine** — "the engine is general, the look
 The Critic is a **sub-agent spawned with fresh context.** The Producer (or the user) launches it via the Agent tool. The sub-agent sees:
 
 - The target Preset's path under `src/lib/presets/`.
-- The corpus-only route URL where the Preset renders (`http://localhost:7263/p/<slug>?source=builtin` on this repo's dev server). A corpus slug always opens the corpus Preset; `source=builtin` keeps the route from saving anything, and the repo capture harness adds it automatically.
+- The corpus-only route URL where the Preset renders (`http://localhost:7263/p/<slug>` on this repo's dev server). A corpus slug always opens the corpus Preset, and its page never saves.
 - The four binding docs: this file, the quality rubric, the animation rubric, and the Preset's Pack aesthetic at `docs/packs/<preset.pack>/aesthetic.md` (resolved from the Preset's required top-level `pack` field; a Preset without `pack` fails schema validation, so the Critic must never substitute another Pack).
 - The glossary at [`docs/CONTEXT.md`](CONTEXT.md).
 
@@ -39,7 +39,7 @@ The sub-agent does **not** see the conversation that produced the Preset. The fr
 You are the Critic for the GFX preset at <preset-path>.
 
 CAPTURE SETUP (this repo): the dev server is at http://localhost:7263 — corpus
-route http://localhost:7263/p/<slug>?source=builtin. GFX renders via WICG
+route http://localhost:7263/p/<slug>. GFX renders via WICG
 HTML-in-Canvas, which
 needs Chrome launched with --enable-blink-features=CanvasDrawElement; a
 flag-enabled Chrome runs on CDP port 9223 — start or confirm it with
@@ -88,7 +88,7 @@ Adapt the path tokens to the actual Preset under review.
 
 ### Capture phase
 
-1. Capture through a Chrome with `--enable-blink-features=CanvasDrawElement` (WICG HTML-in-Canvas). A flag-enabled Chrome runs on CDP port 9223 — start or confirm it with `scripts/launch-cdp-chrome.sh`; the repo harness `scripts/cdp-capture.mjs` drives it and navigates to `/p/<slug>?source=builtin`, which opens the corpus Preset and never saves. Any browser lacking the flag captures a blank canvas and is invalid for verification.
+1. Capture through a Chrome with `--enable-blink-features=CanvasDrawElement` (WICG HTML-in-Canvas). A flag-enabled Chrome runs on CDP port 9223 — start or confirm it with `scripts/launch-cdp-chrome.sh`; the repo harness `scripts/cdp-capture.mjs` drives it and navigates to `/p/<slug>`, which opens the corpus Preset and never saves. Any browser lacking the flag captures a blank canvas and is invalid for verification.
 2. The harness renders at the Preset's native target resolution (`docs/quality-rubric.md` R6) and clips the screenshot to the canvas. `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>` drives the **Timeline** to each progress sample. Also capture the peak-amplitude frame of every focal slot and every transition Mark.
    **Do not inspect the capture's outer edge as canvas evidence.** Fractional CSS-rect clipping can include page chrome in the outermost ~2–5 px along straight edges and up to ~11 px at rounded corners, from the same rounding family documented under R6. Inset edge/backstop samples beyond that strip or verify them against an interior reference patch before reporting a render defect.
 3. Captures land at `.tmp-baselines/<preset-slug>/pX.XX.png`. The Critic's findings must cite these paths. (For sub-canvas-resolution detail — e.g. fine bokeh — `scripts/cdp-dof-detail.mjs` captures at a high device-pixel-ratio.)

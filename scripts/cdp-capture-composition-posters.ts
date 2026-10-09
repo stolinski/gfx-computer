@@ -356,7 +356,7 @@ interface WorkspaceReadiness {
  * of whatever the tab was showing before.
  */
 async function awaitWorkspace(page: CdpPage, subject: CataloguedPosterSubject): Promise<void> {
-	const pageUrl = `${posterCaptureOrigin}/p/${subject.slug}?source=builtin`;
+	const pageUrl = `${posterCaptureOrigin}/p/${subject.slug}`;
 	const expectedPathname = new URL(pageUrl).pathname;
 	await page.send('Page.navigate', { url: pageUrl });
 

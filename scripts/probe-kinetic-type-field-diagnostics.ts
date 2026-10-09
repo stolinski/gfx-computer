@@ -148,7 +148,7 @@ function leastScaledEdgeRun(frame: FrameProbe, wordIds: readonly string[]): numb
 const browser = await connectCdpRenderBrowser(cdpUrl);
 const reports: unknown[] = [];
 try {
-	await browser.page.goto(`${baseUrl}/p/${presetSlug}?source=builtin`, {
+	await browser.page.goto(`${baseUrl}/p/${presetSlug}`, {
 		waitUntil: 'load',
 		timeout: 30_000
 	});

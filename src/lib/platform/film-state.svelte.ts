@@ -121,9 +121,9 @@ export function readOpenFilmAsSavedPreset(): Preset {
 
 /**
  * The open Film as the document both stores accept, detached from live state:
- * the Film and the legacy Preset envelope. Autosave, the Film a first edit
- * creates, standalone JSON export, and the poster content key read the open
- * document here.
+ * the Film and the legacy Preset envelope. Autosave, the Film
+ * `composition.create-film-from-open` stores, standalone JSON export, and the
+ * poster content key read the open document here.
  */
 export function readOpenFilmAsUserCompositionDocument(): UserCompositionDocument {
 	return {

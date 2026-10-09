@@ -779,6 +779,36 @@ describe('WebMCP tool arguments', () => {
 		});
 	});
 
+	it('registers the new-Film tool for an open corpus Preset and never for a stored Film', async () => {
+		const toolName = rowFor('composition.create-film-from-open').toolName;
+		const registeredNames = (host: FakeModelContext): string[] =>
+			[...host.getTools()].map((tool) => tool.name);
+
+		compositionMeta.userCompositionSlug = 'lower-third';
+		compositionMeta.isUserComposition = false;
+		const corpusHost = new FakeModelContext();
+		await startController(corpusHost).synchronize(
+			readWebmcpCompositionPreconditions(),
+			'/p/lower-third'
+		);
+		expect(registeredNames(corpusHost)).toContain(toolName);
+
+		compositionMeta.userCompositionSlug = 'untitled';
+		compositionMeta.isUserComposition = true;
+		const storedHost = new FakeModelContext();
+		await startController(storedHost).synchronize(
+			readWebmcpCompositionPreconditions(),
+			'/p/untitled'
+		);
+		expect(registeredNames(storedHost)).not.toContain(toolName);
+
+		const coldHost = new FakeModelContext();
+		compositionMeta.userCompositionSlug = null;
+		compositionMeta.isUserComposition = false;
+		await startController(coldHost).synchronize(readWebmcpCompositionPreconditions(), '/');
+		expect(registeredNames(coldHost)).not.toContain(toolName);
+	});
+
 	it('refuses a JSON import body that is not JSON, without importing anything', async () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);

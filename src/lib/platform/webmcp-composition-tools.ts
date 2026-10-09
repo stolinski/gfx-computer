@@ -31,6 +31,7 @@ import {
 import {
 	runCreateBlankCompositionOperation,
 	runCreateCompositionFromStarterOperation,
+	runCreateFilmFromOpenCompositionOperation,
 	runImportCompositionJsonOperation,
 	runOpenCompositionOperation
 } from './composition-lifecycle-operations';
@@ -77,6 +78,11 @@ export function listWebmcpCompositionToolDefinitions(): readonly WebmcpToolDefin
 				)
 		},
 		{
+			operationId: 'composition.create-film-from-open',
+			inputSchema: WEBMCP_NO_ARGUMENTS_SCHEMA,
+			run: () => runCreateFilmFromOpenCompositionOperation()
+		},
+		{
 			operationId: 'composition.open',
 			inputSchema: {
 				type: 'object',
@@ -84,7 +90,7 @@ export function listWebmcpCompositionToolDefinitions(): readonly WebmcpToolDefin
 					slug: {
 						type: 'string',
 						description:
-							'A composition slug from this browser session, or a Starter slug to open read-only.',
+							'A composition slug from this browser session, or a Starter slug. A Starter opens unsaved.',
 						minLength: 1
 					}
 				},

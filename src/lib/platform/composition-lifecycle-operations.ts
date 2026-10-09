@@ -12,9 +12,12 @@
  * Film's first Scene is seeded from
  * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §3):
  * `composition.open` on a Starter loads it without writing anything to the
- * session, and the first edit creates a new Film from it under a new slug.
- * `composition.create-from-starter` creates that Film up front. Either way the
- * Starter itself is never modified, and nothing is ever stored under its slug.
+ * session, and editing it changes only the open document. Nothing is stored
+ * until a Film is asked for: `composition.create-film-from-open` stores the
+ * open document, edits included, as a new Film, and
+ * `composition.create-from-starter` stores a pristine Starter as one. Either way
+ * the Starter itself is never modified, and nothing is ever stored under its
+ * slug.
  *
  * Opening a composition puts it in engine state and moves the visible focus.
  * Keeping the route URL in step with the document these operations opened
@@ -23,9 +26,11 @@
  */
 import {
 	COMPOSITION_RECEIPT_FINDING_LIMIT,
+	readOpenCompositionSlug,
 	refuseCompositionOperation,
 	refuseCompositionSessionStoreFailure,
 	refuseDuringCompositionTransitionCapture,
+	refuseUnlessCompositionOpen,
 	requireCompositionOperationRow,
 	type CompositionOperationFailure
 } from './composition-operation-preflight';
@@ -43,6 +48,7 @@ import { createCompositionSessionSlug } from '../utils/composition-session-slug'
 import { ensureCompositionRenderersLoaded } from './composition-renderer-readiness';
 import { filmFromPreset, FilmIngressSchema, FilmSceneCountUnsupportedError } from './film-ingress';
 import { FILM_SCHEMA_ID } from './film-schema';
+import { readOpenFilmAsUserCompositionDocument } from './film-state.svelte';
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
 import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
 import {
@@ -83,7 +89,7 @@ export interface CompositionLifecycleReceipt {
 	name: string | null;
 	/**
 	 * The Starter this Film's first Scene was seeded from, or null when it began
-	 * blank or arrived as JSON without one. Null for a Starter opened read-only.
+	 * blank or arrived as JSON without one. Null for an open Starter, which is not stored.
 	 */
 	forkedFrom: string | null;
 	/** The Composition revision of the document now open; opening one restarts it at 0. */
@@ -173,8 +179,8 @@ async function refuseUnloadableCompositionRenderers(
  * never stored under a Starter's own slug (ADR-0068 §3).
  *
  * Every way a Film comes to exist uses this: the blank composition, a Starter,
- * an imported document, and the first edit to a Starter opened on its route.
- * Throws whatever the store throws.
+ * an imported document, and the open document. Throws whatever the store
+ * throws.
  */
 export async function storeUserCompositionUnderNewSlug(
 	document: UserCompositionDocument
@@ -315,7 +321,45 @@ export async function runCreateCompositionFromStarterOperation(
 }
 
 /**
- * Open an existing session composition, or a Starter template read-only. A
+ * Store the open document as a new Film: the corpus Preset that is open, with
+ * every edit made to it since, under a new slug. This is the one way an edited
+ * Starter is kept; its own page never saves (ADR-0068 §3). The Film is then
+ * the open document, so the history and the Composition revision restart, and
+ * the receipt's `slug` is the new one.
+ *
+ * `composition.create-from-starter` is a different decision: it takes a Starter
+ * by slug from the catalogue, pristine, whatever is or is not open.
+ */
+export async function runCreateFilmFromOpenCompositionOperation(): Promise<CompositionLifecycleOutcome> {
+	const row = requireCompositionOperationRow('composition.create-film-from-open');
+	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
+	if (captureRefusal) return captureRefusal;
+	const openRefusal = refuseUnlessCompositionOpen(row);
+	if (openRefusal) return openRefusal;
+
+	if (compositionMeta.isUserComposition) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'precondition_unmet',
+			'The open composition is already a stored Film and saves itself; there is nothing unsaved to make a Film from.',
+			{ rejected: readOpenCompositionSlug() ?? '' }
+		);
+	}
+
+	const document = readOpenFilmAsUserCompositionDocument();
+	let slug: string;
+	try {
+		slug = await storeUserCompositionUnderNewSlug(document);
+	} catch (cause) {
+		return refuseCompositionSessionStoreFailure(row, cause);
+	}
+
+	return openCompositionDocument(row, slug, document, true);
+}
+
+/**
+ * Open an existing session composition, or a Starter template, unsaved. A
  * corpus Preset's slug is never a session composition's, matching how the
  * preset route resolves the same slug: it always opens the pristine Starter.
  */
@@ -331,8 +375,8 @@ export async function runOpenCompositionOperation(
 		const starterRendererRefusal = await refuseUnloadableCompositionRenderers(row, starter);
 		if (starterRendererRefusal) return starterRendererRefusal;
 
-		// Read-only: nothing is written here. The first edit creates a new Film
-		// from it under a new slug.
+		// Nothing is written here, and editing it writes nothing either:
+		// `composition.create-film-from-open` is what stores it as a Film.
 		return openCompositionDocument(
 			row,
 			request.slug,

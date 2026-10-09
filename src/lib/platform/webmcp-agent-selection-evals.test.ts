@@ -109,6 +109,7 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	always: true,
 	'composition-open': false,
 	'composition-editable': false,
+	'composition-unsaved': false,
 	'undo-available': false,
 	'redo-available': false,
 	'overlay-present': false,

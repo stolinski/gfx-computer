@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
 	import { GFX_PRODUCT_NAME } from '$lib/identity/gfx-brand';
 	import GfxMarkHomeLink from '$lib/identity/GfxMarkHomeLink.svelte';
 	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
-	import { storeUserCompositionUnderNewSlug } from '$lib/platform/composition-lifecycle-operations';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
 	import {
@@ -40,7 +39,7 @@
 
 	let { data }: PageProps = $props();
 
-	const routeKey = $derived(JSON.stringify([data.slug, data.source]));
+	const routeKey = $derived(data.slug);
 
 	// What this route resolved to. The corpus half arrives from the server load;
 	// the session half is read here, out of the store this build is configured
@@ -60,49 +59,36 @@
 	// `filmState`, so the snapshot covers composition, metadata, and Scene-list
 	// edits alike.
 	let loadSnapshot = '';
-	// The route key the open document was loaded at. The Workspace is keyed on it,
-	// so it stays mounted when the first edit of a Starter moves the URL.
 	let appliedRouteKey = $state<string | null>(null);
-	// The route key of the Film the first edit of a Starter created. The URL is
-	// replaced with it, and the document that is open is already that Film, so
-	// arriving there loads nothing.
-	let createdFilmRouteKey = $state<string | null>(null);
 	let rendererLoadError = $state<string | null>(null);
 	let routeLoadGeneration = 0;
-
-	// Whether the open document is the one this URL names.
-	const isOpenDocumentRoute = $derived(
-		routeKey === appliedRouteKey || routeKey === createdFilmRouteKey
-	);
 
 	// The tab follows the composition the moment its name is edited, so a stack of
 	// open pieces stays tellable apart.
 	const documentTitle = $derived(
-		isOpenDocumentRoute && presetBase.name
+		appliedRouteKey === routeKey && presetBase.name
 			? `${presetBase.name} · ${GFX_PRODUCT_NAME}`
 			: GFX_PRODUCT_NAME
 	);
 
-	// The slug the open document is stored under, or null while it is a Starter
-	// nobody has edited. A stored Film autosaves there; a Starter's first edit
-	// creates a new Film under a new slug (ADR-0068 §3).
-	let storedSlug = $state<string | null>(null);
-	let isCreatingFilm = false;
+	// The slug the open document is stored under, or null for a corpus Preset.
+	// A stored Film autosaves there. A corpus Preset's page never saves: edits
+	// stay in memory until `composition.create-film-from-open` (New Film) stores
+	// them as a new Film, and leaving the page discards them (ADR-0068 §3).
+	let storedSlug: string | null = null;
 
 	afterNavigate(() => {
-		if (createdFilmRouteKey !== null && routeKey === createdFilmRouteKey) return;
 		void loadNavigatedPreset();
 	});
 
 	async function loadNavigatedPreset(): Promise<void> {
 		const generation = ++routeLoadGeneration;
 		const nextData = data;
-		const nextRouteKey = JSON.stringify([nextData.slug, nextData.source]);
+		const nextRouteKey = nextData.slug;
 		const isCurrentLoad = (): boolean =>
 			isCurrentPresetRouteRendererLoad(generation, routeLoadGeneration, nextRouteKey, routeKey);
 
 		appliedRouteKey = null;
-		createdFilmRouteKey = null;
 		rendererLoadError = null;
 		resolutionStatus = 'loading';
 		posterKey = null;
@@ -115,7 +101,7 @@
 		compositionMeta.forkedFrom = null;
 		compositionMeta.persistenceError = null;
 
-		// A corpus Preset's slug always opens the pristine Starter: nothing is ever
+		// A corpus Preset's slug always opens the corpus Preset: nothing is ever
 		// stored under it (ADR-0068 §3), so the store is asked only for other slugs.
 		let sessionComposition: UserCompositionDocument | null = null;
 		if (!nextData.corpusPreset) {
@@ -206,45 +192,39 @@
 
 	// Autosave: run on any change to the open Film — engineState, presetBase,
 	// the pack, or filmState.
-	// Skips explicit built-in source mode, when state matches the post-load snapshot, and
-	// while the transition snapshot path is mid-capture — engineState is a
-	// scratch buffer holding a swapped-in from/to state during that window.
+	// Skips a corpus Preset, which is never saved from its own page, when state
+	// matches the post-load snapshot, and while the transition snapshot path is
+	// mid-capture — engineState is a scratch buffer holding a swapped-in from/to
+	// state during that window.
 	$effect(() => {
-		// Read first, so the effect runs again when a Starter's first edit has
-		// become a stored Film and can save whatever changed meanwhile.
-		const currentStoredSlug = storedSlug;
+		const currentRouteKey = routeKey;
 		if (
 			resolutionStatus !== 'ready' ||
-			data.source === 'builtin' ||
 			transitionState.capturing ||
-			!isOpenDocumentRoute
+			appliedRouteKey !== currentRouteKey
 		) {
 			return;
 		}
 
 		const currentSnap = snapshotState();
 
-		if (currentSnap === loadSnapshot || isCreatingFilm) return;
+		if (currentSnap === loadSnapshot || storedSlug === null) return;
 
-		const generation = routeLoadGeneration;
+		const capturedSlug = storedSlug;
 		// Serialize before the debounce so this save cannot observe a later route's state.
 		const document = readOpenFilmAsUserCompositionDocument();
 
 		const timer = setTimeout(() => {
-			if (!isCurrentOpenDocument(generation)) return;
+			if (!isCurrentAppliedRoute(currentRouteKey)) return;
 
-			if (currentStoredSlug === null) {
-				void createFilmFromEditedStarter(generation, document, currentSnap);
-				return;
-			}
 			userCompositionStore
-				.saveUserComposition(currentStoredSlug, document)
+				.saveUserComposition(capturedSlug, document)
 				.then(() => {
-					if (!isCurrentOpenDocument(generation)) return;
+					if (!isCurrentAppliedRoute(currentRouteKey)) return;
 					compositionMeta.persistenceError = null;
 				})
 				.catch((error: unknown) => {
-					if (!isCurrentOpenDocument(generation)) return;
+					if (!isCurrentAppliedRoute(currentRouteKey)) return;
 					console.error('Autosave failed', error);
 					compositionMeta.persistenceError =
 						error instanceof Error ? error.message : 'Autosave failed.';
@@ -253,43 +233,6 @@
 
 		return () => clearTimeout(timer);
 	});
-
-	// The first edit to a Starter (ADR-0068 §3): store the edited document as a
-	// new Film under a new slug, minted the way a new composition's is, and
-	// replace the URL with it. The Starter's own route keeps showing the Starter.
-	async function createFilmFromEditedStarter(
-		generation: number,
-		document: UserCompositionDocument,
-		documentSnapshot: string
-	): Promise<void> {
-		isCreatingFilm = true;
-		try {
-			const slug = await storeUserCompositionUnderNewSlug(document);
-			if (!isCurrentOpenDocument(generation)) return;
-			compositionMeta.persistenceError = null;
-			compositionMeta.isUserComposition = true;
-			compositionMeta.userCompositionSlug = slug;
-			compositionMeta.forkedFrom = document.film.scenes[0]?.origin?.slug ?? null;
-			posterKey = posterKeyForPreset(storedPresetViewOfUserComposition(document));
-			// What is stored is `documentSnapshot`; anything edited since differs
-			// from it and is saved when `storedSlug` makes the autosave run again.
-			loadSnapshot = documentSnapshot;
-			createdFilmRouteKey = JSON.stringify([slug, null]);
-			storedSlug = slug;
-			await goto(resolve('/p/[slug]', { slug }), {
-				replaceState: true,
-				keepFocus: true,
-				noScroll: true
-			});
-		} catch (error) {
-			if (!isCurrentOpenDocument(generation)) return;
-			console.error('Creating a Film from the edited Starter failed', error);
-			compositionMeta.persistenceError =
-				error instanceof Error ? error.message : 'Autosave failed.';
-		} finally {
-			isCreatingFilm = false;
-		}
-	}
 
 	function snapshotState(): string {
 		return (
@@ -302,8 +245,8 @@
 		);
 	}
 
-	function isCurrentOpenDocument(generation: number): boolean {
-		return generation === routeLoadGeneration && isOpenDocumentRoute;
+	function isCurrentAppliedRoute(expectedRouteKey: string): boolean {
+		return appliedRouteKey === expectedRouteKey && routeKey === expectedRouteKey;
 	}
 </script>
 
@@ -340,8 +283,8 @@
 		</header>
 		<p role="status">Loading…</p>
 	</main>
-{:else if isOpenDocumentRoute}
-	{#key appliedRouteKey}
+{:else if appliedRouteKey === routeKey}
+	{#key routeKey}
 		<Workspace {posterKey} />
 	{/key}
 {/if}

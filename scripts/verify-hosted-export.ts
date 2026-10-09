@@ -466,7 +466,7 @@ async function verifyHostedExportCase(
 	exportCase: HostedExportCase,
 	scratchDirectory: string
 ): Promise<HostedExportCaseEvidence> {
-	const pageUrl = `${hostedOrigin}/p/${encodeURIComponent(exportCase.slug)}?source=builtin`;
+	const pageUrl = `${hostedOrigin}/p/${encodeURIComponent(exportCase.slug)}`;
 	await page.goto(pageUrl, { timeout: WORKSPACE_READY_TIMEOUT_MS });
 	await page.waitForFunction(
 		(slug) =>

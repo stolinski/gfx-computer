@@ -15,13 +15,12 @@ import type { PageServerLoad } from './$types';
  * (ADR-0039), so its slug resolves to nothing there rather than opening a
  * composition the homepage does not list.
  */
-export const load = (async ({ params, url }) => {
+export const load = (async ({ params }) => {
 	const slug = params.slug;
-	const source = url.searchParams.get('source') === 'builtin' ? ('builtin' as const) : null;
 	const corpusPreset = getPresetBySlug(slug);
 	const served =
 		corpusPreset !== null &&
 		(corpusPreset.kind !== 'fixture' || areDevelopmentOnlySurfacesServed());
 
-	return { slug, source, corpusPreset: served ? corpusPreset : null };
+	return { slug, corpusPreset: served ? corpusPreset : null };
 }) satisfies PageServerLoad;

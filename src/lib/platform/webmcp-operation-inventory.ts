@@ -55,6 +55,7 @@ export type WebmcpOperationPrecondition =
 	| 'always'
 	| 'composition-open'
 	| 'composition-editable'
+	| 'composition-unsaved'
 	| 'session-composition-present'
 	| 'user-pack-store-served'
 	| 'user-pack-present'
@@ -598,11 +599,27 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
+		id: 'composition.create-film-from-open',
+		family: 'composition',
+		toolName: 'gfx_composition_create_film_from_open',
+		summary:
+			'Store the open Starter, with every edit made to it, as a new Film under a new slug and open that Film. Until this runs, edits to a Starter are not saved.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'composition-unsaved',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/Workspace.svelte'
+	},
+	{
 		id: 'composition.open',
 		family: 'composition',
 		toolName: 'gfx_composition_open',
 		summary:
-			'Open an existing session composition, or a Starter template read-only. The first edit to a Starter creates a new Film from it under a new slug.',
+			'Open an existing session composition, or a Starter template. Edits to a Starter stay unsaved until gfx_composition_create_film_from_open stores them as a new Film.',
 		effect: 'lifecycle',
 		writes: [],
 		precondition: 'always',

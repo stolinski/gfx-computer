@@ -10,14 +10,14 @@ The local server is always `http://localhost:7263`. All examples below operate o
 
 A Film holds one Scene today. The Scene is an owned copy of the Preset it was seeded from, and its `origin` records that Preset's slug. Nothing links back: editing a corpus Preset never changes a Film.
 
-- **Open a Starter and edit it.** `/p/<corpus-slug>` always shows the pristine corpus Preset. The first edit stores the edited document as a new Film under a new slug and replaces the URL with `/p/<new-slug>`. The slug comes from the Starter's name and is numbered past every stored slug and every corpus slug: editing `lower-third` makes `lower-third-2`, then `lower-third-3`.
+- **Open a Starter, try things, then choose New Film.** `/p/<corpus-slug>` always shows the corpus Preset, and its page never saves. Edits change only the open document, with full undo and redo, and leaving the page discards them. **New Film** in the top bar stores the open document, edits included, as a new Film under a new slug and replaces the URL with `/p/<new-slug>`. The slug comes from the document's name and is numbered past every stored slug and every corpus slug: `lower-third` becomes `lower-third-2`, then `lower-third-3`.
 - **New composition** on the home screen stores a Film seeded from the `blank` Preset, named Untitled, as `untitled`, `untitled-2`, and so on.
 - **Import JSON** on the home screen stores a new Film from a standalone document (see [GUI interchange](#gui-interchange)).
-- Agents use `gfx_composition_create_from_starter`, `gfx_composition_create_blank`, and `gfx_composition_import_json`. Each receipt reports the new slug.
+- Agents use `gfx_composition_create_film_from_open` (the open Starter with its edits), `gfx_composition_create_from_starter` (a pristine Starter by slug), `gfx_composition_create_blank`, and `gfx_composition_import_json`. Each receipt reports the new slug. `gfx_composition_create_film_from_open` is registered only while the open document is an unsaved corpus Preset.
 
-Nothing is ever stored under a corpus Preset's slug. Both stores refuse a create or a save there (the disk store answers **409**). There is no fork of a Starter, no revert to a Starter, and no `?source=builtin` view of one: the Starter's own route is always the Starter. To discard a Film, delete it from the home screen.
+Nothing is ever stored under a corpus Preset's slug. Both stores refuse a create or a save there (the disk store answers **409**). There is no fork of a Starter and no revert to one. To discard a Film, delete it from the home screen.
 
-Every edit after the first autosaves to the Film's own slug.
+A stored Film autosaves every edit to its own slug.
 
 **Older records.** A record an older build saved as a standalone Preset (`{ meta, preset }`) still opens: it is read as a one-Scene Film whose `origin` is the Starter the record was forked from. Reading never rewrites it. The first save writes it as a Film. One case keeps the old shape: a composition that still carries a two-endpoint `transition` is saved as `{ meta, preset }`, because a Film cannot hold that recipe until Scene boundaries are live (ADR-0068 §3–4).
 
@@ -45,7 +45,7 @@ For every record whose slug equals a corpus Preset slug, the script:
 
 It prints each move, and each record it skipped with the reason: a record this engine cannot read is left exactly where it is. A second run finds nothing to do. It refuses a directory that holds no stored record or holds other JSON. No sidecar needs moving: the slug index is rebuilt from the directory by a running server, and posters are keyed by content, not by slug. Restart the server afterwards so its index is fresh.
 
-The browser-scoped store of a Public demo session cannot be reached by a script. A record a visitor's browser holds under a corpus slug is still listed on the home screen and can be deleted there, but its card opens the Starter, and the store will not save over it.
+The browser-scoped store of a Public demo session is not migrated: a record a visitor's browser holds under a corpus slug stays listed on the home screen and can be deleted there, but its card opens the corpus Preset and the store will not save over it.
 
 ## Agent store access
 
@@ -172,7 +172,7 @@ curl -fsS \
 npm run gfx -- render --preset episode-title --out ./out/episode-title.mov
 ```
 
-`GET`, `PUT`, GUI JSON import/export, the first edit to a Starter, and CLI file-Preset import all preserve each Scene's `state.media`. IDs, names, URLs, clip placement, Source time, and clip audio are stable composition data. Readiness and probe details are computed from bytes when listing/opening and are not written into `state.media`. GET remains available when previously stored referenced bytes go missing so the composition can be repaired; writes and export reject a referenced missing or undecodable Media asset. An unused Media library entry may remain in the composition, including while unavailable, because it does not participate in rendering.
+`GET`, `PUT`, GUI JSON import/export, New Film, and CLI file-Preset import all preserve each Scene's `state.media`. IDs, names, URLs, clip placement, Source time, and clip audio are stable composition data. Readiness and probe details are computed from bytes when listing/opening and are not written into `state.media`. GET remains available when previously stored referenced bytes go missing so the composition can be repaired; writes and export reject a referenced missing or undecodable Media asset. An unused Media library entry may remain in the composition, including while unavailable, because it does not participate in rendering.
 
 Standalone JSON does not embed or copy video bytes. It is standalone composition data, not a media bundle or Project artifact. Moving a composition to another local GFX workspace therefore requires ingesting each Media asset there and updating the corresponding library entry's `assetUrl` to the content address returned by that workspace. Multiple compositions or entries may reference one deduplicated URL; removing membership never deletes those shared bytes.
 
