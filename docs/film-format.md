@@ -1,6 +1,6 @@
 # GFX Film format (`gfx-film@1`)
 
-> **Stored, opened, selected, and played with hard cuts.** This format implements [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §1–3 and §8. The schema, ingress, and frame maths exist and are tested. A User composition is a Film: both stores read and write Film records (see [Stored records](#stored-records)), standalone JSON export writes a Film, and import reads one. The document open in the Workspace is a Film, and the edit transaction core, undo, and the Composition revision work on that Film (see [The open Film](#the-open-film)). A Film of several Scenes opens with its first Scene selected, any Scene can be selected, and playback runs through all of them with a hard cut at each boundary (ADR-0068 §4). Not built yet: a Scene GUI, operations that add, remove, or reorder Scenes, export of more than the selected Scene, and any boundary but a cut. A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`.
+> **Stored, opened, selected, and played with hard cuts.** This format implements [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §1–3 and §8. The schema, ingress, and frame maths exist and are tested. A User composition is a Film: both stores read and write Film records (see [Stored records](#stored-records)), standalone JSON export writes a Film, and import reads one. The document open in the Workspace is a Film, and the edit transaction core, undo, and the Composition revision work on that Film (see [The open Film](#the-open-film)). A Film of several Scenes opens with its first Scene selected, any Scene can be selected, and playback runs through all of them with a hard cut at each boundary (ADR-0068 §4). Not built yet: a Scene GUI, operations that add, remove, or reorder Scenes, and any boundary but a cut. Export renders the whole Film (see [Export](#export)). A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`.
 
 A **Film** is an ordered list of **Scenes** with a **Scene boundary** between each pair of neighbours. A Scene is one Preset's complete state, owned by the Film. A one-off piece is a Film with one Scene. Terms: [`CONTEXT.md`](CONTEXT.md).
 
@@ -104,6 +104,20 @@ For example, three Scenes of 0.36 seconds at 24 fps are 9 frames each, so the Fi
 Every timing inside a Scene (0 to 1 windows, Motion Beats, captions, `posterSeconds`) means what it meant in the Preset, because it is measured against the Scene's own duration.
 
 `src/lib/platform/film-playhead.ts` holds the frame maths: `filmFrameCount`, `filmSceneFrameOffsets`, `resolveFilmFrame` (Film frame to Scene and local frame), and `filmFrameForSceneFrame` (the inverse). A frame outside the Film is an error, not a clamp.
+
+Film time in seconds is a Scene's first Film frame as exact seconds, plus Scene time (`filmSecondsAtSceneTime` in `film-transport.ts`). The Film's duration in seconds is that reading at the end of its last Scene (`filmDurationSeconds`). A one-Scene Film runs exactly its Scene's `durationSeconds`. Frame counts, never seconds, decide how many frames a Film has.
+
+## Export
+
+An export is the whole Film in one file ([ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §2, §9; [`engine-architecture.md`](engine-architecture.md#film-export) has the mechanism).
+
+- **Picture.** Every Scene is rendered in order at the Film's rate, orientation, and format. The file has `filmFrameCount` frames, and each frame is the frame its Scene shows at that Scene time. A cut is exact: the last frame of one Scene is followed by the first frame of the next.
+- **Sound.** One track for the Film. Each Scene's cues and Video-clip audio start where its Scene starts and stop where its Scene stops. Nothing rings over a cut.
+- **Output class.** The file is opaque only when every Scene is opaque. A Film with one transparent Scene exports transparent (`gfx-overlay`), and its opaque Scenes paint their fill inside that file.
+- **Length.** A `development` host exports up to 600 seconds. The `public` and `hosted` profiles keep 15 seconds.
+- **The Workspace afterwards.** The export leaves the Scene, the frame, and the Composition revision as they were, and saves nothing.
+
+A one-Scene Film exports exactly as its Scene did as a lone composition.
 
 ## Validation
 

@@ -244,7 +244,7 @@ The one primary **Video track** lives beneath all five Layers in the Timeline. D
 
 ## Automated rendering
 
-`gfx render` and `gfx batch` drive the Workspace's existing `CompositionExportController`, so command-line rendering uses the same frame request seam, exact rational frame stepping, native target size, audio mix, and encoder as GUI export.
+`gfx render` and `gfx batch` drive the Workspace's existing `CompositionExportController`, so command-line rendering uses the same frame request seam, exact rational frame stepping, native target size, audio mix, and encoder as GUI export. An export is the whole Film: every Scene in order, with one sound track, in one file ([`film-format.md`](film-format.md#export)).
 
 The command never starts a server or browser. Before running it, the existing dev server must answer at port `7263`, and the sanctioned CanvasDrawElement browser must answer at CDP port `9223` (`scripts/launch-cdp-chrome.sh` starts or confirms that browser).
 
@@ -281,4 +281,4 @@ The batch continues after a failed job and exits non-zero with every failed inpu
 
 Jobs may reference different Media assets, multiple Video clips, repeated assets, and gaps. Batch still runs serially through one reused Workspace page; every referenced clip asset in each Preset's `state.media` is confirmed before export.
 
-GUI and CLI exports use the same local export-session protocol. The browser uploads the optional final WAV once, then one indexed PNG at a time; each request waits for ffmpeg stdin backpressure before the next frame is rendered. Only a successfully closed disk output becomes downloadable. Abort, encoder/request failure, explicit cancellation, inactivity expiry, download cancellation/completion, and dev-server startup orphan cleanup kill live ffmpeg where applicable and remove the private session directory. The browser never retains an all-frame array or downloads the complete output through `response.blob()`.
+GUI and CLI exports use the same local export-session protocol. The browser uploads the optional final WAV in ordered parts, then one indexed PNG at a time; each request waits for ffmpeg stdin backpressure before the next frame is rendered. Only a successfully closed disk output becomes downloadable. Abort, encoder/request failure, explicit cancellation, inactivity expiry, download cancellation/completion, and dev-server startup orphan cleanup kill live ffmpeg where applicable and remove the private session directory. The browser never retains an all-frame array or downloads the complete output through `response.blob()`.

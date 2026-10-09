@@ -75,6 +75,10 @@ export interface ExportSessionRequest {
 
 export interface CreatedExportSession {
 	sessionId: string;
+	/**
+	 * Where the audio bed is `PUT`, one ordered part per request, each at
+	 * `?offset=<byte it starts on>`. With no `offset` a part starts at byte 0.
+	 */
 	audioUrl: string;
 	frameUrlTemplate: string;
 	completeUrl: string;
