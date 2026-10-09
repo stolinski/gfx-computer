@@ -32,6 +32,7 @@ export type PublicExportLimitName =
 	| 'frameCount'
 	| 'durationSeconds'
 	| 'audioBytes'
+	| 'audioPartBytes'
 	| 'frameBytes'
 	| 'sessionUploadBytes'
 	| 'outputBytes'
@@ -140,6 +141,45 @@ export function findExportEnvelopeRejection(
 			limit: 'outputBytes',
 			status: 413,
 			message: `A ${request.frameCount}-frame ${request.format} export is projected at ${projectedOutputBytes} bytes; the limit is ${limits.maxOutputBytes}.`
+		};
+	}
+	return null;
+}
+
+/**
+ * Bytes of the audio bed the page puts in one upload request. The bed is
+ * uploaded in ordered parts, because a Film-length bed is larger than the one
+ * request body the Node adapter admits (`BODY_SIZE_LIMIT`, which every profile
+ * sets to `maxFrameBytes`). Half that ceiling, so a part fits with room to
+ * spare; `public-export-limits.test.ts` holds it under every profile's ceiling.
+ */
+export const EXPORT_AUDIO_UPLOAD_PART_BYTES = 32 * 1024 * 1024;
+
+/**
+ * Whether one more part of the audio bed still fits: on its own, under the
+ * per-request ceiling, and against the total the session declared when it
+ * opened, which admission already held to `maxAudioBytes`. Called once with the
+ * declared `Content-Length` before the body is read, then again as bytes
+ * arrive, so a caller that lies about its length is cut off at the same bound.
+ */
+export function findExportAudioPartRejection(
+	partBytes: number,
+	session: { audioBytesReceived: number; request: { audioBytes: number } },
+	limits: PublicExportRuntimeLimits = PUBLIC_EXPORT_RUNTIME_LIMITS
+): PublicExportLimitRejection | null {
+	if (partBytes > limits.maxFrameBytes) {
+		return {
+			limit: 'audioPartBytes',
+			status: 413,
+			message: `Export audio part is ${partBytes} bytes; the limit is ${limits.maxFrameBytes} per request.`
+		};
+	}
+	const audioBytes = session.audioBytesReceived + partBytes;
+	if (audioBytes > session.request.audioBytes) {
+		return {
+			limit: 'audioBytes',
+			status: 413,
+			message: `Export session has uploaded ${audioBytes} bytes of audio; it declared ${session.request.audioBytes}.`
 		};
 	}
 	return null;

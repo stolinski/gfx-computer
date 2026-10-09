@@ -4,7 +4,9 @@ import { describe, it } from 'vitest';
 
 import {
 	EXPORT_CONTROL_DOCUMENT_MAX_BYTES,
+	EXPORT_AUDIO_UPLOAD_PART_BYTES,
 	exportSessionUploadCeilingBytes,
+	findExportAudioPartRejection,
 	findExportConcurrencyRejection,
 	findExportControlDocumentRejection,
 	findExportEnvelopeRejection,
@@ -12,7 +14,10 @@ import {
 	findExportOutputRejection,
 	findExportSessionExpiryRejection
 } from '$lib/platform/public-export-limits';
-import { PUBLIC_EXPORT_RUNTIME_LIMITS } from '$lib/platform/public-runtime-contract';
+import {
+	DEVELOPMENT_EXPORT_RUNTIME_LIMITS,
+	PUBLIC_EXPORT_RUNTIME_LIMITS
+} from '$lib/platform/public-runtime-contract';
 
 const LIMITS = PUBLIC_EXPORT_RUNTIME_LIMITS;
 
@@ -101,7 +106,13 @@ describe('public export envelope boundaries', () => {
 
 describe('public export admission control', () => {
 	it('admits up to the concurrency ceiling and turns the next caller away', () => {
-		assert.equal(findExportConcurrencyRejection(LIMITS.maxConcurrentSessions - 1, LIMITS.maxConcurrentSessions), null);
+		assert.equal(
+			findExportConcurrencyRejection(
+				LIMITS.maxConcurrentSessions - 1,
+				LIMITS.maxConcurrentSessions
+			),
+			null
+		);
 		const rejection = findExportConcurrencyRejection(
 			LIMITS.maxConcurrentSessions,
 			LIMITS.maxConcurrentSessions
@@ -158,6 +169,51 @@ describe('public export upload and output ceilings', () => {
 		assert.ok(rejection);
 		assert.equal(rejection.limit, 'outputBytes');
 		assert.equal(rejection.status, 413);
+	});
+});
+
+describe('export audio uploaded in parts', () => {
+	const session = { audioBytesReceived: 100, request: { audioBytes: 300 } };
+
+	it('sends parts that fit one request on every runtime profile', () => {
+		for (const limits of [PUBLIC_EXPORT_RUNTIME_LIMITS, DEVELOPMENT_EXPORT_RUNTIME_LIMITS]) {
+			assert.ok(EXPORT_AUDIO_UPLOAD_PART_BYTES <= limits.maxFrameBytes);
+			assert.equal(
+				findExportAudioPartRejection(
+					EXPORT_AUDIO_UPLOAD_PART_BYTES,
+					{
+						audioBytesReceived: 0,
+						request: { audioBytes: limits.maxAudioBytes }
+					},
+					limits
+				)?.limit ?? null,
+				EXPORT_AUDIO_UPLOAD_PART_BYTES > limits.maxAudioBytes ? 'audioBytes' : null
+			);
+		}
+		assert.equal(EXPORT_AUDIO_UPLOAD_PART_BYTES, 32 * 1024 * 1024);
+	});
+
+	it('holds the running total to exactly what the session declared', () => {
+		assert.equal(findExportAudioPartRejection(200, session), null);
+		const rejection = findExportAudioPartRejection(201, session);
+		assert.equal(rejection?.limit, 'audioBytes');
+		assert.equal(rejection?.status, 413);
+		assert.equal(
+			rejection?.message,
+			'Export session has uploaded 301 bytes of audio; it declared 300.'
+		);
+	});
+
+	it('holds one part to the per-request ceiling before the total', () => {
+		const limits = { ...DEVELOPMENT_EXPORT_RUNTIME_LIMITS, maxFrameBytes: 150 };
+		assert.equal(findExportAudioPartRejection(150, session, limits), null);
+		const rejection = findExportAudioPartRejection(151, session, limits);
+		assert.equal(rejection?.limit, 'audioPartBytes');
+		assert.equal(rejection?.status, 413);
+		assert.equal(
+			rejection?.message,
+			'Export audio part is 151 bytes; the limit is 150 per request.'
+		);
 	});
 });
 

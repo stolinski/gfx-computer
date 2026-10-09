@@ -4,6 +4,7 @@ import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
 import { framesToSeconds, resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
 
 import { fontsReady } from './fonts';
+import { EXPORT_AUDIO_UPLOAD_PART_BYTES } from './public-export-limits';
 import {
 	parseExportRuntimeLimits,
 	PUBLIC_EXPORT_RUNTIME_LIMITS,
@@ -101,7 +102,10 @@ declare global {
  * the per-composition dimension for "which pieces are slow to export" charts.
  */
 export function exportSpanAttributes(
-	options: Pick<TransparentVideoExportOptions, 'fps' | 'durationSeconds' | 'hasBackground' | 'audio'>
+	options: Pick<
+		TransparentVideoExportOptions,
+		'fps' | 'durationSeconds' | 'hasBackground' | 'audio'
+	>
 ): Record<string, string | number | boolean> {
 	return {
 		'export.fps': options.fps,
@@ -234,14 +238,21 @@ async function exportCanvasVideo(
 		});
 		const activeSession = session;
 		if (wavBytes) {
-			const audioResponse = await fetch(activeSession.audioUrl, {
-				method: 'PUT',
-				signal,
-				headers: { 'Content-Type': 'audio/wav' },
-				body: new Blob([wavBytes], { type: 'audio/wav' })
-			});
-			if (!audioResponse.ok) {
-				throw await responseFailure(audioResponse, 'Export audio upload failed');
+			// The bed goes up in ordered parts, each under the origin's per-request
+			// body ceiling: a Film-length bed is larger than one request may be. Each
+			// part names the byte it starts on, and the origin appends them in order.
+			const wav = new Blob([wavBytes], { type: 'audio/wav' });
+			for (let offset = 0; offset < wav.size; offset += EXPORT_AUDIO_UPLOAD_PART_BYTES) {
+				signal?.throwIfAborted();
+				const audioResponse = await fetch(`${activeSession.audioUrl}?offset=${offset}`, {
+					method: 'PUT',
+					signal,
+					headers: { 'Content-Type': 'audio/wav' },
+					body: wav.slice(offset, offset + EXPORT_AUDIO_UPLOAD_PART_BYTES, 'audio/wav')
+				});
+				if (!audioResponse.ok) {
+					throw await responseFailure(audioResponse, 'Export audio upload failed');
+				}
 			}
 		}
 
