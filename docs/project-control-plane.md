@@ -167,6 +167,21 @@ in the same change. `pnpm audit:planning` and the structural checks catch the
 machine-checkable drift; the implementing agent must also resolve narrative
 documentation impact before reporting the change as complete.
 
+## Dex landing check
+
+Task state rides in the branch that does the work (`docs/roadmap.md` § How this
+gets executed), so every branch carries its own copy of `.dex/tasks.jsonl`.
+`pnpm check:dex-landing` (`scripts/check-dex-landing.ts`, fixture-tested)
+compares the copy on `main` with the one on `HEAD` and exits 1 when the landing
+would lose ground: a task dropped, a closed task reopened, a task rolled back to
+an older copy, a close that cites a commit the branch does not contain, or a
+`.dex/` change left uncommitted. Run it in the worktree after the last rebase
+and before the fast-forward; `--base` and `--candidate` name other refs. It
+imports nothing outside Node, so `node --experimental-strip-types
+scripts/check-dex-landing.ts` runs in a worktree that has had no install. It is
+not in the table above because it judges a landing, not a tree: on `main` itself
+there is nothing to compare.
+
 ## Name-disposition check
 
 `pnpm check:names` (`scripts/check-legacy-name-dispositions.mjs`,

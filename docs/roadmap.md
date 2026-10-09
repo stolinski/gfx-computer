@@ -21,12 +21,15 @@ Aligned to the north star (see [`../AGENTS.md`](../AGENTS.md)): an opinionated, 
 The default answer to "what's next?" — an agent self-serves this instead of asking the human to adjudicate every time:
 
 1. **Pick:** `dex list --ready` → take the highest-priority unblocked task in the current epic.
-2. **Do it, then close it:** `dex complete <id> --result "<what changed + how verified>" --commit <sha>`; re-run `dex list --ready` and continue.
-3. **Within an epic, work autonomously** — no check-in task to task.
-4. **At the end of each epic, STOP and check in with the human** — summarize what the epic delivered + anything learned, and get a go-ahead _before_ starting the next epic. **This is the leash: epic-by-epic, not fully autonomous.**
-5. **Also stop mid-epic and ask** before: removing any pipeline/feature (the prove-or-remove epic), resolving a design fork (a 0006-style tension), starting an undesigned arc, or when a task's intent is ambiguous against the docs/code.
-6. **Critical path:** the engine arc, reference corpus, GUI schema/persistence parity, GUI authoring interface, and operational GUI/agent parity are shipped. Standalone interchange, GUI validation/verification, shared agent store access, and deterministic automated rendering landed under Dex task `9hl3hqv7`.
-7. **Activating a roadmap arc** = break its epic into dex tasks. The corpus remains demand-pulled: author one ship-grade deliverable per family through the Critic loop as the engine supports it.
+2. **Track it where you work.** Write a task's state with `dex` in the worktree that does its work, not in the primary checkout: `dex start <id>` when you begin, and commit `.dex/tasks.jsonl` with the work it describes. Task changes ride in the feature's commits.
+3. **Close it as the branch's last commit.** Rebase onto `main` first. Then `dex complete <id> --result "<what changed + how verified>" --commit <sha of the feature commit>` and commit that on its own. If `main` moves and you rebase again, the feature commit has a new id: re-point the close with `dex edit <id> --commit <sha>` and commit again.
+4. **Land it in one fast-forward.** Run `pnpm check:dex-landing` in the worktree: it stops a landing that would drop, reopen, or roll back a task, close one against a commit the branch does not hold, or leave a `.dex/` change uncommitted. Then fast-forward from the primary checkout (`git merge --ff-only work/<name>`), re-run `dex list --ready`, and continue. Never commit a close on `main` by hand.
+5. **A Dex commit goes straight on `main`, from the primary checkout, only when no feature carries it** — planning an epic, recording the human's approval, filing a bug found on the way. Branches in flight rebase over it. The two automation lanes are the other exception: a `gfx-factory` run and the Sentry repair lane each close their work item after their own integration step ([the factory skill](../.claude/skills/gfx-factory/SKILL.md), [`sentry-dev-flow.md`](sentry-dev-flow.md)).
+6. **Within an epic, work autonomously** — no check-in task to task.
+7. **At the end of each epic, STOP and check in with the human** — summarize what the epic delivered + anything learned, and get a go-ahead _before_ starting the next epic. **This is the leash: epic-by-epic, not fully autonomous.**
+8. **Also stop mid-epic and ask** before: removing any pipeline/feature (the prove-or-remove epic), resolving a design fork (a 0006-style tension), starting an undesigned arc, or when a task's intent is ambiguous against the docs/code.
+9. **Critical path:** the engine arc, reference corpus, GUI schema/persistence parity, GUI authoring interface, and operational GUI/agent parity are shipped. Standalone interchange, GUI validation/verification, shared agent store access, and deterministic automated rendering landed under Dex task `9hl3hqv7`.
+10. **Activating a roadmap arc** = break its epic into dex tasks. The corpus remains demand-pulled: author one ship-grade deliverable per family through the Critic loop as the engine supports it.
 
 **Aligned with the goals** = engine arc done ✅ **+** ≥1 ship-grade deliverable per surface/overlay family **+** core GUI authoring shipped ✅ **+** operational GUI/agent parity shipped ✅. The arcs below are the scoreboard.
 
@@ -34,7 +37,7 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 **A clean agent starts with one instruction** (the same every time): _"Read `AGENTS.md` and `docs/roadmap.md` § How this gets executed, run `dex list --ready`, and start the top task; check in with me at each epic boundary."_ `AGENTS.md` (auto-loaded) carries the north star + rules; **dex + git carry all state** — so the agent resumes from where dex says, not from the operator's memory. A brand-new agent and a returning one get the identical kickoff.
 
-**At each epic boundary the agent stops and reports:** what the epic delivered, how it was verified, the commit SHA(s), anything it learned that changes the plan, and any decision it needs — then waits for a go-ahead before the next epic. Each finished task must already be `dex complete`d with a `--result` + `--commit`, code committed, and any in-progress task's description updated — so the next session is resumable by a _different_ clean agent.
+**At each epic boundary the agent stops and reports:** what the epic delivered, how it was verified, the commit SHA(s), anything it learned that changes the plan, and any decision it needs — then waits for a go-ahead before the next epic. Each finished task must already be `dex complete`d with a `--result` + `--commit` and its branch landed — so the next session is resumable by a _different_ clean agent. Task state rides in the branch, so an in-progress task's start and updated description show on `main` only once that branch lands: if you stop with work unlanded, name the worktree and branch in the report.
 
 ---
 
