@@ -182,12 +182,12 @@ export interface OpenFilmExportBracket {
  *
  * The Composition revision is the same after `close` as before this call, no
  * undo entry is recorded, and the Film itself is never changed: every swap
- * parks the Scene it leaves exactly as it stood. From the first Scene the
- * bracket shows until `close` has put the author's Scene back,
- * `filmState.isSwappingScene` stays true, so autosave, every operation, and
- * tool registration stay off the composition (`isOpenFilmEngineStateInTransit`)
- * and selecting another Scene is refused. A Film the export never has to swap
- * (a one-Scene Film) is never in transit.
+ * parks the Scene it leaves exactly as it stood. For a Film of several Scenes
+ * `filmState.isSwappingScene` is true from this call until `close` has put the
+ * author's Scene back, so autosave, every operation, and tool registration
+ * stay off the composition (`isOpenFilmEngineStateInTransit`); selecting
+ * another Scene is refused throughout. A one-Scene Film has no Scene to swap
+ * to, so it is never in transit and exports as a lone composition always did.
  *
  * Throws an `Error` when a bracket is already open.
  */
@@ -201,6 +201,10 @@ export function beginOpenFilmExportBracket(): OpenFilmExportBracket {
 		authorSceneId,
 		timelineHandle.current?.time ?? 0
 	);
+	// Held across the gaps between swaps too: for the whole export, engine state
+	// may be a Scene the author did not open.
+	const holdsEngineStateInTransit = filmState.scenes.length > 1;
+	if (holdsEngineStateInTransit) filmState.isSwappingScene = true;
 	isOpenFilmExportBracketOpen = true;
 	let hasShownAnotherScene = false;
 	let closing: Promise<void> | null = null;
@@ -212,9 +216,6 @@ export function beginOpenFilmExportBracket(): OpenFilmExportBracket {
 					throw new Error(`Scene "${sceneId}" cannot be shown: the export bracket has closed.`);
 				}
 				if (sceneId === filmState.selectedSceneId) return;
-				// Held from here until `close`, across the gaps between swaps: engine
-				// state is a Scene the author did not open.
-				filmState.isSwappingScene = true;
 				hasShownAnotherScene = true;
 				await swapOpenFilmToScene(sceneId, 0, 'export-render');
 			}),
@@ -225,7 +226,7 @@ export function beginOpenFilmExportBracket(): OpenFilmExportBracket {
 						await swapOpenFilmToScene(authorSceneId, authorSceneFrame, 'export-render');
 					}
 				} finally {
-					if (hasShownAnotherScene) filmState.isSwappingScene = false;
+					if (holdsEngineStateInTransit) filmState.isSwappingScene = false;
 					isOpenFilmExportBracketOpen = false;
 				}
 			});

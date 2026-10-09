@@ -520,6 +520,48 @@ describe('WebMCP tool calls', () => {
 		expect(compositionEditHistory.revision).toBe(revision);
 	});
 
+	it('speaks Film time on both playhead tools, naming the Scene and Scene frame', async () => {
+		openEditableComposition();
+		timelineHandle.current = new Timeline({
+			durationSeconds: engineState.transport.durationSeconds,
+			fps: engineState.transport.fps,
+			tick: () => {}
+		});
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		const film = readOpenFilm();
+		const plan = buildCompositionExportPlan({ film, transition: null });
+
+		const inspected = readPayload(await host.call(rowFor('playhead.inspect').toolName, {}));
+		const moved = readPayload(
+			await host.call(rowFor('playhead.seek-frame').toolName, { frame: plan.frameCount - 1 })
+		);
+
+		// The same frame count and duration an export of this Film plans.
+		expect(inspected).toMatchObject({
+			status: 'inspected',
+			frame: 0,
+			frameCount: plan.frameCount,
+			durationSeconds: plan.durationSeconds,
+			sceneId: film.scenes[0].id,
+			sceneFrame: 0
+		});
+		expect(moved).toMatchObject({
+			status: 'moved',
+			frame: plan.frameCount - 1,
+			sceneId: film.scenes[0].id,
+			sceneFrame: plan.frameCount - 1
+		});
+		for (const operationId of ['playhead.inspect', 'playhead.seek-frame']) {
+			expect(rowFor(operationId).summary).toContain('whole Film');
+		}
+		const seekDefinition = listWebmcpToolDefinitions().find(
+			(definition) => definition.operationId === 'playhead.seek-frame'
+		);
+		expect(JSON.stringify(seekDefinition?.inputSchema)).toContain('whole Film');
+	});
+
 	it('art-directs the piece through the appearance family', async () => {
 		compositionMeta.userCompositionSlug = 'untitled';
 		compositionMeta.isUserComposition = true;

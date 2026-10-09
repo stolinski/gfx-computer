@@ -550,7 +550,7 @@ describe('the export bracket', () => {
 		expect(timeline.time).toBe(0.5);
 	});
 
-	it('holds observers off from the first Scene it shows until it has put the author Scene back', async () => {
+	it('holds observers off a Film of several Scenes until it has put the author Scene back', async () => {
 		openTwoSceneCutFilm();
 		mountTimelineAt(0);
 		const ledger = autosaveLedgerOfOpenFilm();
@@ -562,9 +562,10 @@ describe('the export bracket', () => {
 		};
 
 		const bracket = beginOpenFilmExportBracket();
-		// The author's own Scene is already live: nothing is borrowed yet.
+		// Held from the start, while the author's own Scene is still the live one.
+		expect(isOpenFilmEngineStateInTransit()).toBe(true);
 		await bracket.showScene(HERO);
-		expect(isOpenFilmEngineStateInTransit()).toBe(false);
+		expect(isOpenFilmEngineStateInTransit()).toBe(true);
 
 		await bracket.showScene(LOWER_THIRD);
 		// Between swaps too, not only while one settles.

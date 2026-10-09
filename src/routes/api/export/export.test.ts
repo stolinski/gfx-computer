@@ -977,7 +977,7 @@ describe('export audio uploaded in parts', () => {
 			() => store.uploadFrame(session.sessionId, 0, frameRequest(session)),
 			isLimitStatus(409, /^Upload export audio before the first frame\.$/)
 		);
-		assert.deepEqual(encoder.spawnedArguments, []);
+		assert.equal(encoder.spawnedArguments.length, 0);
 		await store.uploadAudio(session.sessionId, 8, audioRequest(session, PARTS[2]));
 
 		assert.deepEqual(await readBed(directory, session), WAV);

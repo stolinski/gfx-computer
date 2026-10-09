@@ -8,9 +8,13 @@
  * looking at the same picture; measuring what that picture actually contains is
  * the `verification` family, which stays internal-only.
  *
- * Neither tool takes an observed revision. A seek writes no composition pointer,
- * records no undo entry, and moves no revision — which is exactly why `playhead`
- * is its own family rather than a corner of `transport`.
+ * Both tools speak Film time: frames and seconds of the whole open Film, with
+ * the Scene and the frame inside it named in every receipt.
+ *
+ * Neither tool takes an observed revision. A seek writes no composition pointer
+ * and records no undo entry — which is exactly why `playhead` is its own family
+ * rather than a corner of `transport`. A seek into another Scene opens that
+ * Scene, and that advances the revision as any change of Scene does.
  */
 import {
 	runInspectCompositionPlayheadOperation,
@@ -34,7 +38,7 @@ export function listWebmcpPlayheadToolDefinitions(): readonly WebmcpToolDefiniti
 				type: 'object',
 				properties: {
 					frame: webmcpFrameTimeProperty(
-						'The position to park on: exact frame, seconds, milliseconds, or editor timecode.'
+						'The position in the whole Film to park on: exact Film frame, seconds, milliseconds, or editor timecode. A position in another Scene opens that Scene.'
 					)
 				},
 				required: ['frame'],

@@ -100,6 +100,7 @@ import { listWebmcpToolDefinitions } from './webmcp-tool-definitions';
 import { parsePresetIngress } from './preset-ingress';
 import { readWebmcpCompositionPreconditions } from './webmcp-tool-preconditions';
 import { readWebmcpToolExposure, WebmcpToolController } from './webmcp-tool-controller';
+import { Timeline } from './timeline.svelte';
 import { timelineHandle } from './timeline-handle.svelte';
 import { userCompositionStore } from './user-composition-store';
 import { WEBMCP_OPERATION_INVENTORY } from './webmcp-operation-inventory';
@@ -773,6 +774,86 @@ describe('WebMCP authoring without an interface', () => {
 		await call('composition.undo');
 		expect((await inspectScenes()).ids).toEqual([third, first, second]);
 		expect(sessionStore.createUserComposition).toHaveBeenCalledTimes(1);
+	});
+
+	it('walks a Film on Film time, and an edit planned before a seek crossed a cut lands nowhere', async () => {
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/');
+		const call = async (
+			operationId: string,
+			args: Record<string, unknown> = {}
+		): Promise<Record<string, unknown>> => {
+			const payload = readPayload(await host.call(rowFor(operationId).toolName, args));
+			await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+			return payload;
+		};
+
+		// A Film of two Scenes, with the first one open.
+		await call('composition.create-from-starter', { starterSlug: 'lower-third' });
+		await call('composition.add-scene-from-starter', {
+			expectedRevision: compositionEditHistory.revision,
+			starterSlug: 'chapter-card-descent'
+		});
+		const inspection = await call('composition.inspect');
+		const [first, second] = (inspection.scenes as { entries: { id: string }[] }).entries.map(
+			(scene) => scene.id
+		);
+		if (inspection.sceneId !== first) {
+			await call('composition.select-scene', { sceneId: first });
+		}
+		// The Workspace's transport, mirroring the open Scene as it does on screen.
+		timelineHandle.current = new Timeline({
+			durationSeconds: engineState.transport.durationSeconds,
+			fps: engineState.transport.fps,
+			tick: () => {}
+		});
+
+		// The playhead reports the whole Film, and which Scene it is in.
+		const playhead = await call('playhead.inspect');
+		const film = readOpenFilm();
+		const plan = buildCompositionExportPlan({ film, transition: null });
+		expect(playhead).toMatchObject({
+			status: 'inspected',
+			frame: 0,
+			frameCount: plan.frameCount,
+			durationSeconds: plan.durationSeconds,
+			sceneId: first,
+			sceneFrame: 0
+		});
+		expect(plan.scenes).toHaveLength(2);
+
+		// What the agent read while the first Scene was open.
+		const observed = compositionEditHistory.revision;
+
+		// One Film frame past the cut is the second Scene's frame 1.
+		const cutFrame = plan.scenes[1].startFrame;
+		const moved = await call('playhead.seek-frame', { frame: cutFrame + 1 });
+		expect(moved).toMatchObject({
+			status: 'moved',
+			frame: cutFrame + 1,
+			sceneId: second,
+			sceneFrame: 1,
+			focus: 'timeline-playhead'
+		});
+		expect(moved.revision).toBe(observed + 1);
+		expect(engineState.surface.type).toBe('chapter-card');
+
+		// The edit it planned for the first Scene must not land in the second.
+		const before = JSON.stringify(readOpenFilm());
+		const stale = await call('composition.set-identity', {
+			expectedRevision: observed,
+			description: 'Planned while the first Scene was open.'
+		});
+		expect(stale).toMatchObject({ status: 'failed', code: 'stale_revision' });
+		expect(JSON.stringify(readOpenFilm())).toBe(before);
+
+		// Continuing from the revision the seek returned works.
+		const applied = await call('composition.set-identity', {
+			expectedRevision: moved.revision,
+			description: 'Planned after the seek.'
+		});
+		expect(applied.status).toBe('applied');
 	});
 
 	it('reports a focus its own inventory row declares on every edit it applied', async () => {
