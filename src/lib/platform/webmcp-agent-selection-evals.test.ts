@@ -110,6 +110,8 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'composition-open': false,
 	'composition-editable': false,
 	'composition-unsaved': false,
+	'film-stored': false,
+	'film-multi-scene': false,
 	'undo-available': false,
 	'redo-available': false,
 	'overlay-present': false,
@@ -143,6 +145,7 @@ const SESSION_ENTRY: UserCompositionMeta = {
 	savedAt: '2026-08-29T12:00:00.000Z',
 	posterKey: null,
 	durationSeconds: 6,
+	sceneCount: 1,
 	surfaceType: 'plain',
 	media: { assets: [], videoTrack: { clips: [] } },
 	mediaStatus: 'ready'
@@ -371,6 +374,26 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 		toolName: 'gfx_composition_create_from_starter'
 	},
 	{
+		prompt: 'Add a Scene to this Film as a copy of the chapter card Starter template.',
+		toolName: 'gfx_composition_add_scene_from_starter'
+	},
+	{
+		prompt: 'Remove the second Scene from the Film.',
+		toolName: 'gfx_composition_remove_scene'
+	},
+	{
+		prompt: 'Reorder the Film: move the last Scene to another place in its order.',
+		toolName: 'gfx_composition_reorder_scene'
+	},
+	{
+		prompt: 'Select the second Scene and open it for editing.',
+		toolName: 'gfx_composition_select_scene'
+	},
+	{
+		prompt: 'Add the open Starter, edits included, to a Film this session already holds.',
+		toolName: 'gfx_composition_add_open_to_film'
+	},
+	{
 		prompt: 'List the compositions held in this browser session and how much quota is left.',
 		toolName: 'gfx_session_inspect'
 	},
@@ -541,11 +564,21 @@ function rowFor(toolName: string): WebmcpOperationRow {
 /**
  * The registration state in which one row's tool can succeed. Every precondition
  * except `always` and the two session ones implies an open composition, which is
- * also what keeps this off the cold-page ceiling.
+ * also what keeps this off the cold-page ceiling. Adding the open Starter to a
+ * Film is the one precondition the store and the open document answer together:
+ * an unsaved Starter is open, and the session holds a Film.
  */
 function stateThatEnables(row: WebmcpOperationRow): WebmcpCompositionPreconditions {
 	if (row.precondition === 'always' || row.precondition === 'session-composition-present') {
 		return CLOSED_PAGE;
+	}
+	if (row.precondition === 'open-addable-to-film') {
+		return {
+			...CLOSED_PAGE,
+			'composition-open': true,
+			'composition-editable': true,
+			'composition-unsaved': true
+		};
 	}
 	return { ...CLOSED_PAGE, 'composition-open': true, [row.precondition]: true };
 }
@@ -732,7 +765,10 @@ describe('WebMCP operation parity across every row', () => {
 		async ({ toolName }) => {
 			const row = rowFor(toolName);
 			sessionStore.listUserCompositions.mockResolvedValue(
-				row.precondition === 'session-composition-present' ? [SESSION_ENTRY] : []
+				row.precondition === 'session-composition-present' ||
+					row.precondition === 'open-addable-to-film'
+					? [SESSION_ENTRY]
+					: []
 			);
 			const host = new FakeModelContext();
 			const controller = startController(host);

@@ -23,7 +23,7 @@ import {
 	readOpenCompositionDocument,
 	readOpenCompositionSlug
 } from './composition-operation-preflight';
-import { isOpenFilmEngineStateInTransit } from './film-state.svelte';
+import { filmState, isOpenFilmEngineStateInTransit } from './film-state.svelte';
 import { parseCompositionSessionStoreConfig } from './public-runtime-contract';
 import { userCompositionStore } from './user-composition-store';
 import { userPackStore } from './user-pack-store';
@@ -40,7 +40,10 @@ import type { WebmcpOperationPrecondition } from './webmcp-operation-inventory';
 
 /** The preconditions only a store can answer: the browser session catalog and the origin's User Pack store. */
 export type WebmcpStorePreconditionName =
-	'session-composition-present' | 'user-pack-store-served' | 'user-pack-present';
+	| 'session-composition-present'
+	| 'open-addable-to-film'
+	| 'user-pack-store-served'
+	| 'user-pack-present';
 
 /** Every precondition the open composition answers without touching a store. */
 export type WebmcpCompositionPreconditionName = Exclude<
@@ -108,6 +111,8 @@ function closedCompositionPreconditions(): WebmcpCompositionPreconditions {
 		'composition-open': false,
 		'composition-editable': false,
 		'composition-unsaved': false,
+		'film-stored': false,
+		'film-multi-scene': false,
 		'undo-available': false,
 		'redo-available': false,
 		'overlay-present': false,
@@ -156,6 +161,10 @@ export function readWebmcpCompositionPreconditions(): WebmcpCompositionPrecondit
 		// A corpus Preset is open and nothing of it is stored: the one state in
 		// which the open document can be made into a new Film.
 		'composition-unsaved': !compositionMeta.isUserComposition,
+		// A stored Film takes more Scenes; an unsaved Starter has no Film to grow.
+		'film-stored': editable && compositionMeta.isUserComposition,
+		// Removing, reordering, and selecting need a second Scene to act on.
+		'film-multi-scene': editable && filmState.scenes.length > 1,
 		'undo-available': editable && compositionEditHistory.canUndo,
 		'redo-available': editable && compositionEditHistory.canRedo,
 		'overlay-present': editable && state.overlays.length > 0,
@@ -237,6 +246,12 @@ export function completeWebmcpRegistrationState(
 	return {
 		...composition,
 		'session-composition-present': sessionCompositionPresent,
+		// The open Starter joins a Film the session already holds, so both halves
+		// have to be true: something unsaved is open, and a Film exists to take it.
+		'open-addable-to-film':
+			composition['composition-editable'] &&
+			composition['composition-unsaved'] &&
+			sessionCompositionPresent,
 		'user-pack-store-served': open && userPacks.served,
 		'user-pack-present': open && userPacks.present
 	};

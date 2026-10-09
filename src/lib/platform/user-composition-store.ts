@@ -51,6 +51,8 @@ const UserCompositionMetaSchema = z.strictObject({
 	savedAt: z.string(),
 	posterKey: z.string().nullable(),
 	durationSeconds: z.number().positive(),
+	/** How many Scenes the Film holds; `surfaceType` and `posterKey` are its first Scene's. */
+	sceneCount: z.number().int().positive(),
 	surfaceType: SurfaceTypeSchema,
 	media: MediaSchema,
 	mediaStatus: UserCompositionMediaStatusSchema,

@@ -19,6 +19,7 @@ import {
 	readOpenFilmFrame,
 	readOpenFilmFrameCount,
 	seekOpenFilmFrame,
+	stepOpenFilmFrames,
 	selectOpenFilmScene
 } from './film-scene-selection';
 import {
@@ -505,6 +506,37 @@ describe('Film time of the open Film', () => {
 
 		await expect(seekOpenFilmFrame(filmFrameCount(film))).rejects.toBeInstanceOf(RangeError);
 		expect(filmState.selectedSceneId).toBe(LOWER_THIRD);
+	});
+
+	it('steps Film time across the cut and holds a step at either end of the Film', async () => {
+		const film = openTwoSceneCutFilm();
+		// Film time is read from the Timeline's Scene time, so a step needs one.
+		timelineHandle.current = new Timeline({
+			durationSeconds: engineState.transport.durationSeconds,
+			fps: engineState.transport.fps,
+			tick: () => undefined
+		});
+		const [, lowerThirdOffset] = filmSceneFrameOffsets(film);
+		const lastFilmFrame = filmFrameCount(film) - 1;
+		await seekOpenFilmFrame(lowerThirdOffset - 1);
+
+		// One frame forward from the last frame of a Scene is the next Scene's first.
+		expect(await stepOpenFilmFrames(1)).toMatchObject({ sceneId: LOWER_THIRD, localFrame: 0 });
+		expect(readOpenFilmFrame()).toBe(lowerThirdOffset);
+		// And one back is the Scene before it again.
+		expect(await stepOpenFilmFrames(-1)).toMatchObject({
+			sceneId: HERO,
+			localFrame: lowerThirdOffset - 1
+		});
+		expect(filmState.selectedSceneId).toBe(HERO);
+
+		// A step past either end lands on that end.
+		expect(await stepOpenFilmFrames(-filmFrameCount(film))).toMatchObject({
+			sceneId: HERO,
+			localFrame: 0
+		});
+		expect(await stepOpenFilmFrames(filmFrameCount(film))).toMatchObject({ sceneId: LOWER_THIRD });
+		expect(readOpenFilmFrame()).toBe(lastFilmFrame);
 	});
 });
 

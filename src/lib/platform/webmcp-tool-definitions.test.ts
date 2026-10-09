@@ -44,6 +44,7 @@ import { timelineHandle } from './timeline-handle.svelte';
 import { userCompositionStore } from './user-composition-store';
 import {
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
+	WEBMCP_CORE_REGISTERED_CEILING,
 	WEBMCP_OPERATION_INVENTORY
 } from './webmcp-operation-inventory';
 import { WebmcpToolController } from './webmcp-tool-controller';
@@ -172,6 +173,7 @@ const sessionEntry: UserCompositionMeta = {
 	savedAt: '2026-08-29T12:00:00.000Z',
 	posterKey: null,
 	durationSeconds: 6,
+	sceneCount: 1,
 	surfaceType: 'plain',
 	media: { assets: [], videoTrack: { clips: [] } },
 	mediaStatus: 'ready'
@@ -811,6 +813,63 @@ describe('WebMCP tool arguments', () => {
 		compositionMeta.isUserComposition = false;
 		await startController(coldHost).synchronize(readWebmcpCompositionPreconditions(), '/');
 		expect(registeredNames(coldHost)).not.toContain(toolName);
+	});
+
+	it('registers each Scene tool only in the state it can succeed in, inside the core ceiling', async () => {
+		const names = (operationIds: readonly string[]): string[] =>
+			operationIds.map((operationId) => rowFor(operationId).toolName);
+		const addScene = names(['composition.add-scene-from-starter']);
+		const multiScene = names([
+			'composition.remove-scene',
+			'composition.reorder-scene',
+			'composition.select-scene'
+		]);
+		const addOpenToFilm = names(['composition.add-open-to-film']);
+		const registered = async (route: string): Promise<readonly string[]> => {
+			const host = new FakeModelContext();
+			const summary = await startController(host).synchronize(
+				readWebmcpCompositionPreconditions(),
+				route
+			);
+			expect(summary.registered.length).toBeLessThanOrEqual(WEBMCP_CORE_REGISTERED_CEILING);
+			return summary.registered;
+		};
+
+		// An unsaved Starter with no Film in the session: none of the five.
+		compositionMeta.userCompositionSlug = 'lower-third';
+		compositionMeta.isUserComposition = false;
+		let tools = await registered('/p/lower-third');
+		for (const toolName of [...addScene, ...multiScene, ...addOpenToFilm]) {
+			expect(tools, `${toolName} on an unsaved Starter`).not.toContain(toolName);
+		}
+
+		// The session holds a Film: the open Starter can join it.
+		sessionStore.listUserCompositions.mockResolvedValue([sessionEntry]);
+		tools = await registered('/p/lower-third');
+		expect(tools).toEqual(expect.arrayContaining(addOpenToFilm));
+		expect(tools).not.toEqual(expect.arrayContaining(addScene));
+
+		// A stored one-Scene Film: Scenes can be added, and there is nothing yet to
+		// remove, reorder, or select.
+		compositionMeta.userCompositionSlug = 'untitled';
+		compositionMeta.isUserComposition = true;
+		tools = await registered('/p/untitled');
+		expect(tools).toEqual(expect.arrayContaining(addScene));
+		for (const toolName of [...multiScene, ...addOpenToFilm]) {
+			expect(tools, `${toolName} on a one-Scene Film`).not.toContain(toolName);
+		}
+
+		// A second Scene brings the other three.
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		const added = await host.call(addScene[0], {
+			expectedRevision: compositionEditHistory.revision,
+			starterSlug: 'lower-third'
+		});
+		expect(readPayload(added)).toMatchObject({ status: 'applied' });
+		tools = await registered('/p/untitled');
+		expect(tools).toEqual(expect.arrayContaining([...addScene, ...multiScene]));
 	});
 
 	it('moves the page to the Film a tool created, and nowhere when the tool fails', async () => {

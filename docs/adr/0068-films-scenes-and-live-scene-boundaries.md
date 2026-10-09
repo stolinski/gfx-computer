@@ -2,13 +2,21 @@
 
 ## Status
 
-**Designed, not built — phase 1 in progress: schema, readers, open document, writers, and hard-cut playback landed** (planned 2026-10-08 with Scott; Dex epic `70u0qn13`). Built: §1–2, §3's first two points (fork-on-edit is gone and both stores write Films), §4's hard cut (a Film of several Scenes opens, any Scene can be selected, and play and scrub run through every Scene with a cut at each boundary), and §8's transaction core. The rest of this record is not engine truth until its phase lands. Until then the frozen-endpoint transitions of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md) remain current, and a stored document that carries a two-endpoint `transition` keeps the legacy Preset record shape.
+**Designed, not built — phase 1 in progress: schema, readers, open document, writers, hard-cut playback, the Scene operations, and the Scene strip landed** (planned 2026-10-08 with Scott; Dex epic `70u0qn13`). Built: §1–2, §3's first two points (fork-on-edit is gone and both stores write Films) with adding the open document to an existing Film, §4's hard cut (a Film of several Scenes opens, any Scene can be selected, and play and scrub run through every Scene with a cut at each boundary), §8's transaction core and its `composition` Scene operations, and §10's Scene strip. The rest of this record is not engine truth until its phase lands. Until then the frozen-endpoint transitions of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md) remain current, and a stored document that carries a two-endpoint `transition` keeps the legacy Preset record shape.
 
 One thing differs from §3 as written. Shadow records an older build left in a disk store are re-keyed by a one-time script, `scripts/migrate-user-composition-shadow-records.ts`, not at runtime.
 
-Three notes on the cut as built (2026-10-09). Selecting a Scene is a platform function, not yet an operation; §8's `select` row lands with the Scene strip, and §8 says what selection does to the revision. Film time is not stored; it is read from the selected Scene and the Timeline's Scene time. A cut in live preview holds play while the incoming Scene mounts and settles, so playback is not real time across a cut; a paused frame is exact, and `scripts/cdp-film-cut-frames.mjs` is the check. Export still renders the selected Scene only.
+Three notes on the cut as built (2026-10-09). Selecting a Scene is `composition.select-scene`, over the platform function `selectOpenFilmScene`; §8 says what selection does to the revision. Film time is not stored; it is read from the selected Scene and the Timeline's Scene time. A cut in live preview holds play while the incoming Scene mounts and settles, so playback is not real time across a cut; a paused frame is exact, and `scripts/cdp-film-cut-frames.mjs` is the check. Export still renders the selected Scene only.
 
-A Scene has an optional `name` (2026-10-09), which §1 did not list. A Scene made from a corpus Preset takes the Preset's name; [`../film-format.md`](../film-format.md#scene-names) says what is shown for a Scene without one. The Scene strip (§10) and the Scene operations (§8) are not built.
+A Scene has an optional `name` (2026-10-09), which §1 did not list. A Scene made from a corpus Preset takes the Preset's name; [`../film-format.md`](../film-format.md#scene-names) says what is shown for a Scene without one.
+
+The Scene operations and the Scene strip as built (2026-10-09, look chosen by Scott from mock-ups). [`../engine-architecture.md`](../engine-architecture.md#the-scene-strip-and-scene-operations) is the current description.
+
+- **Five operations in `composition`, all core tools.** Add a Scene from a Starter, remove, reorder, select, and add the open Starter to a stored Film. They did not fit the WebMCP ceilings, so Scott raised them ([ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md) 2026-10-09 amendment).
+- **Select is a `view` operation**, not a write: it advances the revision and records no undo entry, as §8 decided. **Adding the open document to a Film is a lifecycle operation**, like New Film: it replaces the open document, so the history restarts and there is no undo entry.
+- **Boundary rules, to revisit when a boundary can be more than a cut (§4).** A new Scene brings one `cut` on its leading side (trailing side when it is added first). Removing a Scene drops the boundary on its leading side (trailing side when it was first). Reordering leaves the boundary list alone, so kinds stay by position.
+- **The `+` picker is visual.** Scott, 2026-10-09: "since presets are so visual we need a way to represent that". It shows the Starters as the home library's poster cards with one search field.
+- **Not built from §8 and §10:** `sound` and `motion` rows for the Score, Hit reactions, and magic-move pairs; boundaries shown in the strip as anything but the line between two segments; the arrangement, step grid, and pattern editor.
 
 Date: 2026-10-08
 

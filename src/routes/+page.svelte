@@ -7,13 +7,21 @@
 	import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 	import gfxLogotype from '$lib/assets/identity/gfx-logotype.svg';
 	import gfxMark from '$lib/assets/identity/gfx-mark.svg';
-	import PosterCard from './PosterCard.svelte';
-	import { SURFACE_LABELS } from './surface-labels';
+	import {
+		libraryPresetCompositorBadge,
+		libraryPresetFamilyLabel,
+		type LibraryPresetCard
+	} from '$lib/platform/library-preset-card';
+	import PosterCard from '$lib/platform/PosterCard.svelte';
+	import { SURFACE_LABELS } from '$lib/platform/surface-labels';
+	import {
+		matchesCompositionSearchQuery,
+		normalizeCompositionSearchQuery
+	} from '$lib/utils/composition-search';
 
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
-	type HomepagePresetCard = PageProps['data']['presets'][number];
 	/** The fields a session composition's card renders; the store types the rest. */
 	type UserCompositionCardMeta = Pick<
 		UserCompositionMeta,
@@ -26,47 +34,16 @@
 	// from the load itself (ADR-0061).
 	const posterKeys = $derived(new Set(data.posterKeys));
 
-	// Which compositor a Preset drives, resolved the same way Workspace does:
-	// `state.stage` → the dimensional depth stage (real WebGPU 3D, ADR-0028);
-	// a `depth-of-field` Effect → the flat multiplane DOF (2.5D, ADR-0027);
-	// otherwise the plain flat composite. Only the non-default (3D / 2.5D) ones
-	// get a badge so they're discoverable — flat is the unmarked default.
-	function compositorBadge(entry: HomepagePresetCard): string | null {
-		if (entry.hasDepthStage) return '3D depth stage';
-		if (entry.hasDepthOfField) return '2.5D multiplane DOF';
-		return null;
-	}
-
 	const presets = $derived(data.presets);
 	const fixtures = $derived(data.fixtures);
 	const presetCardsBySlug = $derived(
 		new Map([...presets, ...fixtures].map((entry) => [entry.slug, entry]))
 	);
 
-	// Content families cut across the generic `plain` Surface. Charts are a semantic
-	// family — every Chart Block and Figure declaration — grouped without slug heuristics;
-	// legacy content families still use prefixes before falling back to Surface type.
-	const TEMPLATE_FAMILIES: readonly { label: string; prefixes: readonly string[] }[] = [
-		{ label: 'Captions', prefixes: ['captions-'] },
-		{ label: 'Flowcharts', prefixes: ['docu-flowchart', 'wake-conversation-flow'] },
-		{ label: 'Docu', prefixes: ['docu-'] },
-		{ label: 'Lower thirds', prefixes: ['lower-third'] },
-		{ label: 'Social beats', prefixes: ['youtube-', 'instagram-'] },
-		{ label: 'Title cards', prefixes: ['title-card-'] }
-	];
-
-	function templateGroupLabel(entry: HomepagePresetCard): string {
-		if (entry.hasChart) return 'Charts';
-		const family = TEMPLATE_FAMILIES.find((candidate) =>
-			candidate.prefixes.some((prefix) => entry.slug.startsWith(prefix))
-		);
-		return family ? family.label : SURFACE_LABELS[entry.surfaceType];
-	}
-
 	const templateGroups = $derived.by(() => {
-		const byLabel: Record<string, HomepagePresetCard[]> = {};
+		const byLabel: Record<string, LibraryPresetCard[]> = {};
 		for (const entry of presets) {
-			const label = templateGroupLabel(entry);
+			const label = libraryPresetFamilyLabel(entry);
 			(byLabel[label] ??= []).push(entry);
 		}
 		return Object.entries(byLabel)
@@ -114,16 +91,9 @@
 	// the pack-neutral doctrine surfaced at the library level.
 	let previewAspect = $state<'wide' | 'tall'>('wide');
 
-	const normalizedQuery = $derived(query.trim().toLowerCase());
+	const normalizedQuery = $derived(normalizeCompositionSearchQuery(query));
 
-	function matchesQuery(name: string, slug: string): boolean {
-		if (normalizedQuery === '') return true;
-		return (
-			name.toLowerCase().includes(normalizedQuery) || slug.toLowerCase().includes(normalizedQuery)
-		);
-	}
-
-	function sortEntries(entries: readonly HomepagePresetCard[]): HomepagePresetCard[] {
+	function sortEntries(entries: readonly LibraryPresetCard[]): LibraryPresetCard[] {
 		const copy = [...entries];
 		if (sortKey === 'duration') {
 			copy.sort((a, b) => a.durationSeconds - b.durationSeconds);
@@ -136,7 +106,9 @@
 	const visibleUserCompositions = $derived.by(() => {
 		if (activeFilter !== 'all' && activeFilter !== 'user') return [];
 		return userCompositions
-			.filter((userComposition) => matchesQuery(userComposition.name, userComposition.slug))
+			.filter((userComposition) =>
+				matchesCompositionSearchQuery(normalizedQuery, userComposition.name, userComposition.slug)
+			)
 			.toSorted((a, b) => b.savedAt.localeCompare(a.savedAt));
 	});
 
@@ -146,7 +118,11 @@
 			.filter((group) => activeFilter === 'all' || group.label === activeFilter)
 			.map((group) => ({
 				label: group.label,
-				entries: sortEntries(group.entries.filter((entry) => matchesQuery(entry.name, entry.slug)))
+				entries: sortEntries(
+					group.entries.filter((entry) =>
+						matchesCompositionSearchQuery(normalizedQuery, entry.name, entry.slug)
+					)
+				)
 			}))
 			.filter((group) => group.entries.length > 0);
 	});
@@ -156,7 +132,11 @@
 	const visibleFixtures = $derived.by(() => {
 		if (activeFilter !== 'fixtures' && !(activeFilter === 'all' && normalizedQuery !== ''))
 			return [];
-		return sortEntries(fixtures.filter((entry) => matchesQuery(entry.name, entry.slug)));
+		return sortEntries(
+			fixtures.filter((entry) =>
+				matchesCompositionSearchQuery(normalizedQuery, entry.name, entry.slug)
+			)
+		);
 	});
 
 	const nothingVisible = $derived(
@@ -281,14 +261,14 @@
 	}}
 />
 
-{#snippet presetCard(entry: HomepagePresetCard, groupLabel: string)}
+{#snippet presetCard(entry: LibraryPresetCard, groupLabel: string)}
 	<li>
 		<PosterCard
 			slug={entry.slug}
 			thumbSrc={entry.posterUrl}
 			name={entry.name}
 			type={entry.surfaceType}
-			badge={compositorBadge(entry)}
+			badge={libraryPresetCompositorBadge(entry)}
 			kindLabel={groupLabel}
 			durationSeconds={entry.durationSeconds}
 			reflow={entry.kind !== 'fixture'}
@@ -309,7 +289,7 @@
 				: null}
 			name={userComposition.name}
 			type={userComposition.surfaceType}
-			badge={starterTemplate ? compositorBadge(starterTemplate) : null}
+			badge={starterTemplate ? libraryPresetCompositorBadge(starterTemplate) : null}
 			kindLabel={SURFACE_LABELS[userComposition.surfaceType]}
 			durationSeconds={userComposition.durationSeconds}
 			reflow={true}
@@ -567,7 +547,7 @@
 					)}
 					<ul class="home__grid" class:is-tall={previewAspect === 'tall'}>
 						{#each visibleFixtures as entry (entry.slug)}
-							{@render presetCard(entry, templateGroupLabel(entry))}
+							{@render presetCard(entry, libraryPresetFamilyLabel(entry))}
 						{/each}
 					</ul>
 				</section>

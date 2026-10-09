@@ -3,10 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { addOverlay, removeOverlay, transitionState } from './engine-state.svelte';
-import { applyPreset } from './preset';
+import { applyFilm, applyPreset } from './preset';
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { compositionMeta } from './composition-meta.svelte';
+import { filmFromPreset } from './film-ingress';
 import { filmState } from './film-state.svelte';
 import { parsePresetIngress } from './preset-ingress';
 import { presetBase } from './preset-base.svelte';
@@ -40,6 +41,7 @@ const SESSION_ENTRY: UserCompositionMeta = {
 	savedAt: '2026-08-29T12:00:00.000Z',
 	posterKey: null,
 	durationSeconds: 6,
+	sceneCount: 1,
 	surfaceType: 'plain',
 	media: { assets: [], videoTrack: { clips: [] } },
 	mediaStatus: 'ready'
@@ -116,6 +118,35 @@ describe('WebMCP preconditions with a composition open', () => {
 		compositionMeta.isUserComposition = false;
 	});
 
+	it('opens the Scene tools for a stored Film, and the multi-Scene ones only past one Scene', () => {
+		compositionMeta.isUserComposition = false;
+		expect(readWebmcpCompositionPreconditions()['film-stored']).toBe(false);
+		expect(readWebmcpCompositionPreconditions()['film-multi-scene']).toBe(false);
+
+		compositionMeta.isUserComposition = true;
+		expect(readWebmcpCompositionPreconditions()['film-stored']).toBe(true);
+		// One Scene: nothing to remove, reorder, or select.
+		expect(readWebmcpCompositionPreconditions()['film-multi-scene']).toBe(false);
+
+		const blank = parsePresetIngress(blankPresetJson);
+		const film = filmFromPreset(blank, null);
+		applyFilm(
+			{
+				...film,
+				scenes: [...film.scenes, { id: 'scene-2', origin: null, state: blank.state }],
+				boundaries: [{ kind: 'cut' }]
+			},
+			{ kind: 'deliverable' }
+		);
+		expect(readWebmcpCompositionPreconditions()['film-multi-scene']).toBe(true);
+
+		filmState.isSwappingScene = true;
+		expect(readWebmcpCompositionPreconditions()['film-stored']).toBe(false);
+		expect(readWebmcpCompositionPreconditions()['film-multi-scene']).toBe(false);
+		filmState.isSwappingScene = false;
+		compositionMeta.isUserComposition = false;
+	});
+
 	it('closes editing while a transition snapshot owns engine state', () => {
 		transitionState.capturing = true;
 		const state = readWebmcpCompositionPreconditions();
@@ -183,5 +214,31 @@ describe('WebMCP session presence', () => {
 	it('completes the registration state with the catalog answer', () => {
 		const state = completeWebmcpRegistrationState(readWebmcpCompositionPreconditions(), true);
 		expect(state['session-composition-present']).toBe(true);
+	});
+
+	it('offers adding the open Starter to a Film only when one is unsaved and a Film exists', () => {
+		openBlankComposition();
+		compositionMeta.isUserComposition = false;
+		const unsaved = readWebmcpCompositionPreconditions();
+		expect(completeWebmcpRegistrationState(unsaved, true)['open-addable-to-film']).toBe(true);
+		// No Film to add it to.
+		expect(completeWebmcpRegistrationState(unsaved, false)['open-addable-to-film']).toBe(false);
+
+		// A stored Film is not added to another Film.
+		compositionMeta.isUserComposition = true;
+		expect(
+			completeWebmcpRegistrationState(readWebmcpCompositionPreconditions(), true)[
+				'open-addable-to-film'
+			]
+		).toBe(false);
+		compositionMeta.isUserComposition = false;
+
+		// Nothing open.
+		compositionMeta.userCompositionSlug = null;
+		expect(
+			completeWebmcpRegistrationState(readWebmcpCompositionPreconditions(), true)[
+				'open-addable-to-film'
+			]
+		).toBe(false);
 	});
 });

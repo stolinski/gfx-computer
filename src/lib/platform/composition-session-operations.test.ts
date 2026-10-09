@@ -43,6 +43,7 @@ function sessionEntry(slug: string, name: string, preset: Preset): UserCompositi
 		savedAt: '2026-08-28T12:00:00.000Z',
 		posterKey: null,
 		durationSeconds: preset.state.transport.durationSeconds,
+		sceneCount: 1,
 		surfaceType: preset.state.surface.type,
 		media: preset.state.media,
 		mediaStatus: 'ready'

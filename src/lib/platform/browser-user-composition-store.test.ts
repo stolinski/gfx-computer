@@ -484,6 +484,7 @@ describe('browser-scoped composition session reading both stored record shapes',
 						savedAt: fixture.meta.savedAt,
 						posterKey: posterKeyForPreset(preset),
 						durationSeconds: filmDurationSeconds(filmFromPreset(preset, null)),
+						sceneCount: 1,
 						surfaceType: preset.state.surface.type,
 						media: preset.state.media,
 						mediaStatus: 'ready'
@@ -516,6 +517,7 @@ describe('browser-scoped composition session reading both stored record shapes',
 						// The card stands for the Scene the Film opens on.
 						posterKey: posterKeyForPreset(firstScenePreset),
 						durationSeconds: filmDurationSeconds(film),
+						sceneCount: film.scenes.length,
 						surfaceType: firstScenePreset.state.surface.type,
 						media: firstScenePreset.state.media,
 						mediaStatus: 'ready'
