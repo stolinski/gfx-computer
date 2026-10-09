@@ -150,7 +150,7 @@ The shell out of which any engine change is verified.
 | `npm run check:discoverability`                              | Focused source-searchability audit                                                       | exits 0                            |
 | `npm run verify-presets`                                     | Schema + semantic + Pack/Identity gates; static safety/readability lint for deliverables | All `✓`, exits 0                   |
 | `npm run verify:layout-contract`                             | Full numeric Preset × Pack × orientation × critical-frame safety matrix; no screenshots  | JSON `passed: true`, exits 0       |
-| `npm run gen:schema`                                         | Regenerate `docs/preset-format.schema.json` from the Zod schema                          | `Wrote …preset-format.schema.json` |
+| `npm run gen:schema`                                         | Regenerate the Preset and Film `docs/*-format.schema.json` files from the Zod schemas    | `Wrote …preset-format.schema.json` |
 | `npm run build`                                              | Smoke-test the production build                                                          | `✓ built in <N>s`                  |
 | `npm run gfx -- render --preset <slug-or-path> --out <file>` | Deterministic automated render through the Workspace export seam                         | output path, exits 0               |
 
