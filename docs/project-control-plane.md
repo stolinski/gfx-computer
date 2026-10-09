@@ -21,9 +21,12 @@ never an admission or verification concern):
 | `pnpm verify-presets`   | Preset schema/semantic/lint — `--affected` scoped to changed paths  |
 | `pnpm audit:planning`   | planning-state drift audit (below)                                  |
 
-CI (`.github/workflows/quality.yml`) runs exactly these plus build and the
-browser render test. Direct delivery, factory-assisted delivery, and CI share
-these commands, so the meaning of "green" does not depend on who ran the work.
+CI (`.github/workflows/quality.yml`) runs exactly these plus build. It does not
+run the browser render test (`pnpm test:browser`): on a GitHub-hosted runner the
+WebGPU capture came back blank (2026-10-09), most likely because the runner has
+no GPU, so that test runs on a machine with one. Direct delivery,
+factory-assisted delivery, and CI share these commands, so the meaning of
+"green" does not depend on who ran the work.
 
 ## Planning-drift audit
 
