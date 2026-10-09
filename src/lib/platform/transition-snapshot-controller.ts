@@ -4,6 +4,10 @@ import type {
 	CompositionFrameRenderResult,
 	CachedTransitionFrame
 } from './composition-frame-renderer';
+import {
+	settleSwappedCompositionState,
+	type CompositionStateSwapSettleDependencies
+} from './composition-state-swap-settle';
 import type { Preset } from './engine-schema';
 import type { ResolvedTransition } from './engine-state.svelte';
 import type { GpuHost } from './gpu-host';
@@ -21,7 +25,11 @@ import {
 
 const TRANSITION_SNAPSHOT_PROGRESS = 0.5;
 
-export interface TransitionSnapshotControllerDependencies {
+/**
+ * The settle steps (`CompositionStateSwapSettleDependencies`) run once per
+ * swapped-in endpoint, before its frame is rendered.
+ */
+export interface TransitionSnapshotControllerDependencies extends CompositionStateSwapSettleDependencies {
 	host: GpuHost;
 	width: number;
 	height: number;
@@ -29,16 +37,6 @@ export interface TransitionSnapshotControllerDependencies {
 	applyCompositionState(preset: Preset): void;
 	readCapturing(): boolean;
 	writeCapturing(value: boolean): void;
-	flushDom(): Promise<void>;
-	waitForFonts(): Promise<void>;
-	waitForLayout(): Promise<void>;
-	/** Acknowledge one composition paint of the swapped-in endpoint before its
-	 *  frame is rendered. A layout flush is not a paint: in the standard-browser
-	 *  rasterization lane nothing has captured the endpoint's DOM yet, and in
-	 *  either lane the frame renderer's paint-generation gate would otherwise
-	 *  keep the previous endpoint's resident DOM texture. */
-	settlePaint(): Promise<void>;
-	settleAnimation(progress: number): void;
 	renderFrame(outputView: GPUTextureView, timestamp: number): CompositionFrameRenderResult;
 	isActiveTransition(transition: ResolvedTransition): boolean;
 	seekTimeline(timestamp: number): void;
@@ -340,18 +338,9 @@ export class TransitionSnapshotController {
 		const capturePreset = cloneJsonValue(preset);
 		capturePreset.state.transport.orientation = orientation;
 		dependencies.applyCompositionState(capturePreset);
-		await dependencies.flushDom();
-		this.#assertCurrent(revision);
-		await dependencies.waitForFonts();
-		await dependencies.waitForLayout();
-		this.#assertCurrent(revision);
-
-		dependencies.settleAnimation(TRANSITION_SNAPSHOT_PROGRESS);
-		await dependencies.flushDom();
-		await dependencies.waitForLayout();
-		this.#assertCurrent(revision);
-		await dependencies.settlePaint();
-		this.#assertCurrent(revision);
+		await settleSwappedCompositionState(dependencies, TRANSITION_SNAPSHOT_PROGRESS, () =>
+			this.#assertCurrent(revision)
+		);
 		const result = dependencies.renderFrame(
 			target,
 			TRANSITION_SNAPSHOT_PROGRESS * preset.state.transport.durationSeconds

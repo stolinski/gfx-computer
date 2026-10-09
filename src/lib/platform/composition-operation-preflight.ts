@@ -22,6 +22,7 @@ import {
 	type CompositionValidationFinding
 } from './composition-validation-findings';
 import { engineState, packState, transitionState } from './engine-state.svelte';
+import { filmState } from './film-state.svelte';
 import { presetBase } from './preset-base.svelte';
 import { serializeCompositionState } from './preset-pure';
 import {
@@ -175,32 +176,45 @@ export function refuseUnlessCompositionOpen(
 }
 
 /**
- * The one window in which no operation may touch the composition: the
- * transition snapshot path swaps a scratch composition into engine state, so an
- * edit landing there would be applied to a document the author never opened.
+ * The windows in which no operation may touch the composition, because engine
+ * state is not the open document at rest. The transition snapshot path swaps a
+ * scratch composition into engine state, so an edit landing there would be
+ * applied to a document the author never opened. A Scene swap has made another
+ * Scene live that the Workspace has not settled yet, so an operation that
+ * reads the canvas there would read the previous Scene's frame.
  */
-export function refuseDuringCompositionTransitionCapture(
+export function refuseWhileCompositionStateIsSwapped(
 	row: WebmcpOperationRow
 ): CompositionOperationFailure | null {
-	if (!transitionState.capturing) return null;
-	return refuseCompositionOperation(
-		row,
-		compositionEditHistory.revision,
-		'precondition_unmet',
-		'The composition is mid transition capture; retry once the snapshot finishes.'
-	);
+	if (transitionState.capturing) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'precondition_unmet',
+			'The composition is mid transition capture; retry once the snapshot finishes.'
+		);
+	}
+	if (filmState.isSwappingScene) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'precondition_unmet',
+			'The Film is changing Scene; retry once the Scene has settled.'
+		);
+	}
+	return null;
 }
 
 /**
  * An open composition the caller may edit right now. Every open composition is
  * editable — a corpus Preset is edited in memory and never saved from its own
  * page (ADR-0068 §3) — so
- * this is openness plus the transition-capture window.
+ * this is openness plus the windows in which engine state is swapped.
  */
 export function refuseUnlessCompositionEditable(
 	row: WebmcpOperationRow
 ): CompositionOperationFailure | null {
-	return refuseUnlessCompositionOpen(row) ?? refuseDuringCompositionTransitionCapture(row);
+	return refuseUnlessCompositionOpen(row) ?? refuseWhileCompositionStateIsSwapped(row);
 }
 
 /**

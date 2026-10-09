@@ -51,7 +51,7 @@ import {
 import {
 	COMPOSITION_RECEIPT_FINDING_LIMIT,
 	refuseCompositionOperation,
-	refuseDuringCompositionTransitionCapture,
+	refuseWhileCompositionStateIsSwapped,
 	refuseStaleCompositionRevision,
 	requireCompositionOperationRow,
 	type CompositionOperationFailure
@@ -361,8 +361,8 @@ async function runOpenFilmTransaction(
 		);
 	}
 
-	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
-	if (captureRefusal) return captureRefusal;
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
 
 	const staleRefusal = refuseStaleCompositionRevision(row, request.expectedRevision);
 	if (staleRefusal) return staleRefusal;
@@ -393,9 +393,17 @@ async function runOpenFilmTransaction(
 			);
 		}
 
-		// A Film-level edit may change nothing but which Scene is open; that is
-		// still a change to the open document.
-		if (changedPointers.length === 0 && next.selectedSceneId === previous.selectedSceneId) {
+		// Selecting a Scene is not an edit (ADR-0068 §8). A Film-level edit may
+		// move the selection as part of what it changes, such as removing the
+		// selected Scene. One that changes nothing else would be a second way for
+		// selection to move the revision, with an undo entry selection never has.
+		if (changedPointers.length === 0 && next.selectedSceneId !== previous.selectedSceneId) {
+			throw new TypeError(
+				`Composition edit transaction ${row.id} changed only which Scene is selected. Selection is not an edit; select a Scene with selectOpenFilmScene.`
+			);
+		}
+
+		if (changedPointers.length === 0) {
 			moveCompositionWorkspaceFocus(request.focus);
 			return buildReceipt(
 				row,
@@ -515,8 +523,9 @@ export async function runCompositionEditTransaction(
  * engine can open, with nothing applied.
  *
  * Throws `TypeError` for the same defects `runCompositionEditTransaction`
- * does, and when the mutation leaves a Scene selected that the draft Film does
- * not hold.
+ * does, when the mutation leaves a Scene selected that the draft Film does not
+ * hold, and when it changes nothing but which Scene is selected: selection is
+ * not an edit, and `selectOpenFilmScene` is the one way to make it.
  */
 export async function runFilmEditTransaction(
 	request: FilmEditTransactionRequest
@@ -589,8 +598,8 @@ export function runCompositionHistoryTransaction(
 	const row = requireCompositionHistoryRow(direction);
 	const focus: CompositionWorkspaceFocus = { target: 'composition-root' };
 
-	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
-	if (captureRefusal) return captureRefusal;
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
 
 	const staleRefusal = refuseStaleCompositionRevision(row, expectedRevision);
 	if (staleRefusal) return staleRefusal;

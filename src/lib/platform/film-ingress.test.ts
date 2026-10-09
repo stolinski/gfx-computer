@@ -13,9 +13,9 @@ import {
 	FilmIngressSchema,
 	filmFromPreset,
 	filmToWireFormat,
-	isFilmSceneCountUnsupportedError,
 	parseFilm,
 	parseFilmIngress,
+	presetFromFilmScene,
 	presetFromSingleSceneFilm,
 	sceneStateForPlayback,
 	validateFilmSemantics
@@ -321,18 +321,36 @@ describe('presetFromSingleSceneFilm', () => {
 		assert.equal('description' in restored, false);
 	});
 
-	it('refuses a Film of more than one Scene, naming the limit', () => {
+	it('refuses a Film of more than one Scene, which is not one Preset', () => {
 		const film = parseFilmIngress(filmDocument([sceneDocument('intro'), sceneDocument('outro')]));
 
 		assert.throws(
 			() => presetFromSingleSceneFilm(film),
-			(cause) => {
-				assert.ok(isFilmSceneCountUnsupportedError(cause));
-				assert.equal(cause.sceneCount, 2);
-				assert.match(cause.message, /this build opens one-Scene Films/);
-				return true;
-			}
+			(cause) =>
+				cause instanceof RangeError && /has 2 Scenes, so it is not one Preset/.test(cause.message)
 		);
+	});
+});
+
+describe('presetFromFilmScene', () => {
+	it("makes each Scene of a longer Film the Preset it would be alone, under the Film's transport", () => {
+		const film = parseFilmIngress(filmDocument([sceneDocument('intro'), sceneDocument('outro')]));
+		film.orientation = 'vertical';
+
+		const outro = presetFromFilmScene(film, 'outro');
+
+		assert.equal(outro.name, film.name);
+		assert.equal(outro.pack, film.pack);
+		assert.equal(outro.kind, 'deliverable');
+		assert.equal(outro.state.transport.orientation, 'vertical');
+		assert.deepEqual(outro.state, sceneStateForPlayback(film, 'outro'));
+		assert.notEqual(outro.state, film.scenes[1].state);
+	});
+
+	it('refuses a Scene the Film does not hold', () => {
+		const film = parseFilmIngress(filmDocument([sceneDocument('intro')]));
+
+		assert.throws(() => presetFromFilmScene(film, 'missing'), RangeError);
 	});
 });
 

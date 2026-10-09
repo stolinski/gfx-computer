@@ -30,7 +30,7 @@ import {
 	readOpenCompositionSlug,
 	refuseCompositionOperation,
 	refuseCompositionSessionStoreFailure,
-	refuseDuringCompositionTransitionCapture,
+	refuseWhileCompositionStateIsSwapped,
 	refuseUnlessCompositionOpen,
 	requireCompositionOperationRow,
 	type CompositionOperationFailure
@@ -46,8 +46,8 @@ import { applyFilm } from './preset';
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { createCompositionSessionSlug } from '../utils/composition-session-slug';
-import { ensureCompositionRenderersLoaded } from './composition-renderer-readiness';
-import { filmFromPreset, FilmIngressSchema, FilmSceneCountUnsupportedError } from './film-ingress';
+import { ensureFilmRenderersLoaded } from './composition-renderer-readiness';
+import { filmFromPreset, FilmIngressSchema } from './film-ingress';
 import { FILM_SCHEMA_ID } from './film-schema';
 import { readOpenFilmAsUserCompositionDocument } from './film-state.svelte';
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
@@ -153,23 +153,25 @@ function describeOperationFailureCause(cause: unknown, fallback: string): string
 }
 
 /**
- * Load the Pipeline renderers a composition needs before anything commits to
- * it. A document this browser cannot draw never enters the session and never
- * replaces the one the author is looking at.
+ * The refusal a lifecycle operation returns when this browser cannot load the
+ * Pack or a renderer some Scene of `document` needs. Every Scene is readied
+ * here, before anything commits to the document, so a cut never waits on a
+ * module load (ADR-0068 §4). A document this browser cannot draw never enters
+ * the session and never replaces the one the author is looking at.
  */
-async function refuseUnloadableCompositionRenderers(
+async function refuseUnloadableFilmRenderers(
 	row: WebmcpOperationRow,
-	preset: Preset
+	document: UserCompositionDocument
 ): Promise<CompositionOperationFailure | null> {
 	try {
-		await ensureCompositionRenderersLoaded(preset);
+		await ensureFilmRenderersLoaded(document);
 		return null;
 	} catch (cause) {
 		return refuseCompositionOperation(
 			row,
 			compositionEditHistory.revision,
 			'render_failed',
-			`This browser could not load the renderers "${preset.name}" needs: ${describeOperationFailureCause(cause, 'a renderer module failed to load')}.`
+			`This browser could not load the renderers "${document.film.name}" needs: ${describeOperationFailureCause(cause, 'a renderer module failed to load')}.`
 		);
 	}
 }
@@ -215,7 +217,9 @@ function userCompositionDocumentFromPreset(
 /**
  * Open `document`, record where it came from, and move the page to its
  * address. `applyFilm` clears the shared history, so the revision restarts
- * here; the receipt reports the revision the page then arrives with.
+ * here; the receipt reports the revision the page then arrives with. A Film of
+ * several Scenes opens on its first, and the receipt's findings are that
+ * Scene's, in its own pointers, as every Scene-scoped receipt's are.
  */
 async function openCompositionDocument(
 	row: WebmcpOperationRow,
@@ -259,10 +263,7 @@ async function createFilmInSession(
 	document: UserCompositionDocument,
 	legacyUpgrades: readonly CompositionLegacyUpgrade[] = []
 ): Promise<CompositionLifecycleOutcome> {
-	const rendererRefusal = await refuseUnloadableCompositionRenderers(
-		row,
-		savedPresetFromOpenFilm(openFilmDocumentFromFilm(document.film, document.legacyPresetEnvelope))
-	);
+	const rendererRefusal = await refuseUnloadableFilmRenderers(row, document);
 	if (rendererRefusal) return rendererRefusal;
 
 	let slug: string;
@@ -278,8 +279,8 @@ async function createFilmInSession(
 /** Create a composition from the blank Preset and open it for editing. */
 export async function runCreateBlankCompositionOperation(): Promise<CompositionLifecycleOutcome> {
 	const row = requireCompositionOperationRow('composition.create-blank');
-	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
-	if (captureRefusal) return captureRefusal;
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
 
 	const blank = getPresetBySlug(BLANK_COMPOSITION_SLUG);
 	if (!blank) {
@@ -307,8 +308,8 @@ export async function runCreateCompositionFromStarterOperation(
 	request: CreateCompositionFromStarterRequest
 ): Promise<CompositionLifecycleOutcome> {
 	const row = requireCompositionOperationRow('composition.create-from-starter');
-	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
-	if (captureRefusal) return captureRefusal;
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
 
 	const starter = findStarterTemplate(request.starterSlug);
 	if (!starter) {
@@ -336,8 +337,8 @@ export async function runCreateCompositionFromStarterOperation(
  */
 export async function runCreateFilmFromOpenCompositionOperation(): Promise<CompositionLifecycleOutcome> {
 	const row = requireCompositionOperationRow('composition.create-film-from-open');
-	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
-	if (captureRefusal) return captureRefusal;
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
 	const openRefusal = refuseUnlessCompositionOpen(row);
 	if (openRefusal) return openRefusal;
 
@@ -371,22 +372,18 @@ export async function runOpenCompositionOperation(
 	request: OpenCompositionRequest
 ): Promise<CompositionLifecycleOutcome> {
 	const row = requireCompositionOperationRow('composition.open');
-	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
-	if (captureRefusal) return captureRefusal;
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
 
 	const starter = findStarterTemplate(request.slug);
 	if (starter) {
-		const starterRendererRefusal = await refuseUnloadableCompositionRenderers(row, starter);
+		const starterDocument = userCompositionDocumentFromPreset(starter, request.slug);
+		const starterRendererRefusal = await refuseUnloadableFilmRenderers(row, starterDocument);
 		if (starterRendererRefusal) return starterRendererRefusal;
 
 		// Nothing is written here, and editing it writes nothing either:
 		// `composition.create-film-from-open` is what stores it as a Film.
-		return openCompositionDocument(
-			row,
-			request.slug,
-			userCompositionDocumentFromPreset(starter, request.slug),
-			false
-		);
+		return openCompositionDocument(row, request.slug, starterDocument, false);
 	}
 
 	let sessionComposition: UserCompositionDocument | null = null;
@@ -410,12 +407,7 @@ export async function runOpenCompositionOperation(
 		);
 	}
 
-	const rendererRefusal = await refuseUnloadableCompositionRenderers(
-		row,
-		savedPresetFromOpenFilm(
-			openFilmDocumentFromFilm(sessionComposition.film, sessionComposition.legacyPresetEnvelope)
-		)
-	);
+	const rendererRefusal = await refuseUnloadableFilmRenderers(row, sessionComposition);
 	if (rendererRefusal) return rendererRefusal;
 	return openCompositionDocument(row, request.slug, sessionComposition, true);
 }
@@ -468,8 +460,8 @@ export async function runImportCompositionJsonOperation(
 	request: ImportCompositionJsonRequest
 ): Promise<CompositionLifecycleOutcome> {
 	const row = requireCompositionOperationRow('composition.import-json');
-	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
-	if (captureRefusal) return captureRefusal;
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
 
 	const revision = compositionEditHistory.revision;
 
@@ -493,16 +485,6 @@ export async function runImportCompositionJsonOperation(
 				'semantic_invalid',
 				describeUnloadableCompositionCause(filmFindings),
 				{ findings: filmFindings }
-			);
-		}
-		// The Workspace plays one Scene, so a longer Film is refused, not cut.
-		if (parsedFilm.data.scenes.length !== 1) {
-			return refuseCompositionOperation(
-				row,
-				revision,
-				'precondition_unmet',
-				new FilmSceneCountUnsupportedError(parsedFilm.data.name, parsedFilm.data.scenes.length)
-					.message
 			);
 		}
 		return createFilmInSession(row, {

@@ -112,6 +112,19 @@ describe('composition revision', () => {
 		expect(history.editsSince(3)).toEqual([]);
 	});
 
+	it('advances for a Scene selection without recording an undo entry or dropping the redo branch', () => {
+		const history = new CompositionEditHistory();
+		record(history, 'Add Overlay');
+		history.undo();
+
+		history.recordSceneSelection('outro');
+
+		expect(history.revision).toBe(3);
+		expect(history.canUndo).toBe(false);
+		expect(history.canRedo).toBe(true);
+		expect(history.editsSince(2)).toEqual([{ revision: 3, label: 'Select Scene "outro"' }]);
+	});
+
 	it('restarts the counter when a different composition loads', () => {
 		const history = new CompositionEditHistory();
 		record(history, 'Add Overlay');

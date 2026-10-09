@@ -7,6 +7,7 @@ import { applyPreset } from './preset';
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { compositionMeta } from './composition-meta.svelte';
+import { filmState } from './film-state.svelte';
 import { parsePresetIngress } from './preset-ingress';
 import { presetBase } from './preset-base.svelte';
 import {
@@ -118,6 +119,15 @@ describe('WebMCP preconditions with a composition open', () => {
 	it('closes editing while a transition snapshot owns engine state', () => {
 		transitionState.capturing = true;
 		const state = readWebmcpCompositionPreconditions();
+
+		expect(state['composition-open']).toBe(true);
+		expect(state['composition-editable']).toBe(false);
+	});
+
+	it('closes editing while a Scene swap has not settled', () => {
+		filmState.isSwappingScene = true;
+		const state = readWebmcpCompositionPreconditions();
+		filmState.isSwappingScene = false;
 
 		expect(state['composition-open']).toBe(true);
 		expect(state['composition-editable']).toBe(false);

@@ -9,7 +9,7 @@ import {
 	isCompositionSessionStorageError,
 	type CompositionSessionStorageFailureCode
 } from './browser-user-composition-store';
-import { filmFromPreset, filmToWireFormat } from './film-ingress';
+import { filmFromPreset, filmToWireFormat, parseFilm } from './film-ingress';
 import { posterKeyForPreset } from './posters';
 import { parsePresetIngress } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
@@ -489,6 +489,46 @@ describe('browser-scoped composition session reading both stored record shapes',
 						mediaStatus: 'ready'
 					}
 				]);
+			});
+			continue;
+		}
+
+		if (fixture.outcome === 'opens-several-scenes') {
+			it(`opens, lists, and saves the ${fixture.slug} record with every Scene`, async () => {
+				const film = parseFilm((fixture.document as { film: unknown }).film);
+				const firstScenePreset: Preset = {
+					...parsePresetIngress(fixture.presetDocument),
+					kind: 'deliverable'
+				};
+				storage.entries.set(key, storedEnvelope);
+				const store = createStore();
+
+				const loaded = await store.loadUserComposition(fixture.slug);
+
+				assert.ok(film.scenes.length > 1);
+				assert.deepEqual(loaded, { film, legacyPresetEnvelope: { kind: 'deliverable' } });
+				assert.deepEqual(await store.listUserCompositions(), [
+					{
+						slug: fixture.slug,
+						name: film.name,
+						forkedFrom: fixture.firstSceneOrigin?.slug ?? null,
+						savedAt: fixture.meta.savedAt,
+						// The card stands for the Scene the Film opens on.
+						posterKey: posterKeyForPreset(firstScenePreset),
+						durationSeconds: filmDurationSeconds(film),
+						surfaceType: firstScenePreset.state.surface.type,
+						media: firstScenePreset.state.media,
+						mediaStatus: 'ready'
+					}
+				]);
+
+				await store.saveUserComposition(fixture.slug, loaded);
+
+				const written = JSON.parse(storage.entries.get(key) ?? 'null') as {
+					film: { scenes: unknown[] };
+				};
+				assert.equal(written.film.scenes.length, film.scenes.length);
+				assert.deepEqual((await store.loadUserComposition(fixture.slug))?.film, film);
 			});
 			continue;
 		}

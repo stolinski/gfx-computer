@@ -70,6 +70,19 @@ export function collectPresetRendererRequirements(
 	preset: Preset,
 	options: PresetRendererRequirementOptions
 ): PipelineRendererRequirements {
+	return collectScenePresetRendererRequirements([preset], options);
+}
+
+/**
+ * The union of what several Presets need to render. A Film's Scenes are read
+ * through this when the Film opens (ADR-0068 §4), each as its Preset-shaped
+ * view, so every renderer any Scene uses is loaded before playback reaches the
+ * cut to it. `options.pack` is the one Pack they all render under.
+ */
+export function collectScenePresetRendererRequirements(
+	scenePresets: readonly Preset[],
+	options: PresetRendererRequirementOptions
+): PipelineRendererRequirements {
 	const requirements = {
 		surfaces: new Set<string>(),
 		blocks: new Set<string>(),
@@ -78,6 +91,9 @@ export function collectPresetRendererRequirements(
 		effects: new Set<string>(),
 		transitions: new Set<string>()
 	};
-	addPresetRequirements(preset, options, requirements, new Set());
+	const visitedPresets = new Set<Preset>();
+	for (const scenePreset of scenePresets) {
+		addPresetRequirements(scenePreset, options, requirements, visitedPresets);
+	}
 	return requirements;
 }

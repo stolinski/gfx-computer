@@ -5,7 +5,12 @@ import { afterEach, beforeAll, beforeEach, describe, it, vi } from 'vitest';
 
 import validPreset from '$lib/presets/blank.json';
 import type { Preset } from '$lib/platform/engine-schema';
-import { filmFromPreset, filmToWireFormat, parseFilmIngress } from '$lib/platform/film-ingress';
+import {
+	filmFromPreset,
+	filmToWireFormat,
+	parseFilm,
+	parseFilmIngress
+} from '$lib/platform/film-ingress';
 import type { FilmSceneOrigin } from '$lib/platform/film-schema';
 import { parsePresetIngress } from '$lib/platform/preset-ingress';
 import {
@@ -783,18 +788,58 @@ describe('user composition handlers reading both stored record shapes', () => {
 			continue;
 		}
 
+		if (fixture.outcome === 'opens-several-scenes') {
+			it(`opens, lists, and saves the ${fixture.slug} record with every Scene`, async () => {
+				const film = parseFilm((fixture.document as { film: unknown }).film);
+				const filmWire = JSON.parse(JSON.stringify(filmToWireFormat(film))) as {
+					scenes: unknown[];
+				};
+				const firstScenePreset = {
+					...parsePresetIngress(fixture.presetDocument),
+					kind: 'deliverable' as const
+				};
+				fsMocks.readFile.mockResolvedValue(storedFile);
+				fsMocks.readdir.mockResolvedValue([`${fixture.slug}.json`]);
+
+				const loaded = await slugHandlers.GET(slugEvent(fixture.slug));
+				const listed = await collectionHandlers.GET(
+					{} as Parameters<(typeof collectionHandlers)['GET']>[0]
+				);
+
+				assert.ok(filmWire.scenes.length > 1);
+				assert.deepEqual(await loaded.json(), filmWire);
+				assert.deepEqual(await listed.json(), [
+					{
+						slug: fixture.slug,
+						name: film.name,
+						forkedFrom: fixture.firstSceneOrigin?.slug ?? null,
+						savedAt: fixture.meta.savedAt,
+						// The card stands for the Scene the Film opens on.
+						posterKey: posterKeyForPreset(firstScenePreset),
+						durationSeconds: filmDurationSeconds(film),
+						surfaceType: firstScenePreset.state.surface.type,
+						media: firstScenePreset.state.media,
+						mediaStatus: 'ready'
+					}
+				]);
+
+				await slugHandlers.PUT(putEvent(fixture.slug, filmWire));
+
+				const written = JSON.parse(fsMocks.writeFile.mock.calls.at(-1)?.[1] ?? 'null') as {
+					film: unknown;
+				};
+				assert.deepEqual(written.film, filmWire);
+			});
+			continue;
+		}
+
 		it(`refuses the ${fixture.slug} record as a stored composition, not a server fault`, async () => {
 			fsMocks.readFile.mockResolvedValue(storedFile);
 			fsMocks.readdir.mockResolvedValue([`${fixture.slug}.json`]);
 
 			await assert.rejects(
 				async () => slugHandlers.GET(slugEvent(fixture.slug)),
-				expectHttpError(
-					409,
-					fixture.outcome === 'scene-count-refused'
-						? 'this build opens one-Scene Films'
-						: `Stored composition "${fixture.slug}" is not one this engine accepts`
-				)
+				expectHttpError(409, `Stored composition "${fixture.slug}" is not one this engine accepts`)
 			);
 			const listed = await collectionHandlers.GET(
 				{} as Parameters<(typeof collectionHandlers)['GET']>[0]

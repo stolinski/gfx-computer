@@ -17,10 +17,9 @@
  */
 import {
 	filmFromPreset,
-	FilmSceneCountUnsupportedError,
 	filmToWireFormat,
-	isFilmSceneCountUnsupportedError,
 	parseFilm,
+	presetFromFilmScene,
 	presetFromSingleSceneFilm
 } from './film-ingress';
 import { filmFrameCount } from './film-playhead';
@@ -157,9 +156,8 @@ export function readStoredUserCompositionMeta(value: unknown): StoredUserComposi
  * Preset (the disk store passes `packScope: 'stored'`); a Film's Scenes are
  * checked under the same ones.
  *
- * Throws `StoredUserCompositionRecordError`. A Film with more than one Scene is
- * a valid record and reads here; `userCompositionDocumentFromReading` is what
- * refuses to open it.
+ * Throws `StoredUserCompositionRecordError`. A Film of any number of Scenes
+ * reads here.
  */
 export function readStoredUserCompositionRecord(
 	value: unknown,
@@ -235,8 +233,7 @@ function readCompositionDocumentBody(
  * Read the body of a write request, `{ film }` or `{ preset }`
  * (`userCompositionDocumentWireBody`), into the document it stores.
  *
- * Throws `StoredUserCompositionRecordError`, and `FilmSceneCountUnsupportedError`
- * for a Film of more than one Scene.
+ * Throws `StoredUserCompositionRecordError`.
  */
 export function readUserCompositionDocumentWireBody(
 	value: unknown,
@@ -258,17 +255,13 @@ export function readUserCompositionDocumentWireBody(
  * The document a read record opens as.
  *
  * A Film record opens as its Film. A legacy record opens as the Film it lifts
- * to, with the `kind` and `transition` its Preset stated in the envelope. The
- * Workspace plays one Scene, so a Film with more than one is refused with
- * `FilmSceneCountUnsupportedError`; each store reports that the way it reports
- * a stored composition it does not accept.
+ * to, with the `kind` and `transition` its Preset stated in the envelope. A
+ * Film of several Scenes opens whole, with its first Scene selected
+ * (`openFilmDocumentFromFilm`).
  */
 export function userCompositionDocumentFromReading(
 	reading: StoredUserCompositionReading
 ): UserCompositionDocument {
-	if (reading.film.scenes.length !== 1) {
-		throw new FilmSceneCountUnsupportedError(reading.film.name, reading.film.scenes.length);
-	}
 	return {
 		film: reading.film,
 		legacyPresetEnvelope:
@@ -294,7 +287,8 @@ export function userCompositionWriteShape(
 	// Scene boundaries change reads a transition Preset as a two-Scene Film. A
 	// document whose legacy envelope still carries a `transition` is therefore
 	// kept in the legacy `{ meta, preset }` shape, with its `kind`, so the recipe
-	// is not lost. This branch goes with that change.
+	// is not lost. This branch goes with that change. Such a document is always
+	// one Scene long: the recipe only ever arrives on a legacy Preset.
 	if (document.legacyPresetEnvelope.transition !== undefined) {
 		const scenePreset = presetFromSingleSceneFilm(document.film);
 		return {
@@ -353,8 +347,7 @@ export function standaloneUserCompositionDocument(document: UserCompositionDocum
  * lifted to a one-Scene Film that came from no Starter. The inverse of
  * `standaloneUserCompositionDocument`.
  *
- * Throws `StoredUserCompositionRecordError`, and `FilmSceneCountUnsupportedError`
- * for a Film of more than one Scene.
+ * Throws `StoredUserCompositionRecordError`.
  */
 export function readStandaloneUserCompositionDocument(
 	value: unknown,
@@ -367,18 +360,37 @@ export function readStandaloneUserCompositionDocument(
 }
 
 /**
- * A one-Scene User composition as the one Preset it is, exactly as it would be
- * stored: a Film has no `kind`, so it reads as a `deliverable`. The poster
- * content key (`posterKeyForPreset`) and media inspection read this, on both
- * sides of the network, so a poster captured in the Workspace is the one the
- * listing asks for. An unchanged one-Scene Film whose content equals a
- * `deliverable` Preset keeps that Preset's poster key.
- *
- * Throws `FilmSceneCountUnsupportedError` for a Film that is not one Scene long.
+ * Every Scene of a User composition as the Preset it would be alone, exactly
+ * as it would be stored, in Scene order: a Film has no `kind`, so each reads as
+ * a `deliverable`. The disk store proves the media of every Scene servable
+ * through this before it accepts a write.
+ */
+export function storedScenePresetViewsOfUserComposition(
+	document: UserCompositionDocument
+): Preset[] {
+	const shape = userCompositionWriteShape(document);
+	return shape.recordShape === 'preset'
+		? [shape.preset]
+		: shape.film.scenes.map((scene) => presetFromFilmScene(shape.film, scene.id));
+}
+
+/**
+ * The first Scene of a User composition as the Preset it would be alone
+ * (`storedScenePresetViewsOfUserComposition`). A Film opens on its first Scene,
+ * so that is the Scene its card stands for: the poster content key
+ * (`posterKeyForPreset`) and the listing's media read this, on both sides of
+ * the network, so a poster captured in the Workspace is the one the listing
+ * asks for. An unchanged one-Scene Film whose content equals a `deliverable`
+ * Preset keeps that Preset's poster key.
  */
 export function storedPresetViewOfUserComposition(document: UserCompositionDocument): Preset {
 	const shape = userCompositionWriteShape(document);
-	return shape.recordShape === 'preset' ? shape.preset : presetFromSingleSceneFilm(shape.film);
+	if (shape.recordShape === 'preset') return shape.preset;
+	const [firstScene] = shape.film.scenes;
+	if (firstScene === undefined) {
+		throw new RangeError(`The Film "${shape.film.name}" has no Scene.`);
+	}
+	return presetFromFilmScene(shape.film, firstScene.id);
 }
 
 /**
@@ -395,8 +407,5 @@ export function filmDurationSeconds(film: Film): number {
  * open it. Both stores answer the two kinds differently.
  */
 export function isStoredUserCompositionRefusal(cause: unknown): cause is Error {
-	return (
-		isFilmSceneCountUnsupportedError(cause) ||
-		(isStoredUserCompositionRecordError(cause) && cause.code === 'composition_refused')
-	);
+	return isStoredUserCompositionRecordError(cause) && cause.code === 'composition_refused';
 }
