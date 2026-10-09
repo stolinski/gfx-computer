@@ -36,6 +36,7 @@ import {
 	installOpenCompositionAddressNavigator
 } from './open-composition-address';
 import { engineState, transitionState } from './engine-state.svelte';
+import { readOpenFilm } from './film-state.svelte';
 import { listWebmcpToolDefinitions } from './webmcp-tool-definitions';
 import { parsePresetIngress } from './preset-ingress';
 import { readWebmcpCompositionPreconditions } from './webmcp-tool-preconditions';
@@ -568,7 +569,7 @@ describe('WebMCP validation and delivery', () => {
 		compositionExportHandle.current = () =>
 			Promise.resolve({
 				status: 'delivered',
-				plan: buildCompositionExportPlan({ state: engineState, transition: null }),
+				plan: buildCompositionExportPlan({ film: readOpenFilm(), transition: null }),
 				videoByteLength: 4096,
 				wavFilename: null
 			});

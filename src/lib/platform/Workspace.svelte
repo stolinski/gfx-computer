@@ -72,11 +72,13 @@
 		type CompositionStateSwapSettleDependencies
 	} from './composition-state-swap-settle';
 	import {
+		beginOpenFilmExportBracket,
 		cutOpenFilmPlaybackToNextScene,
 		openFilmSceneSettlerHandle,
 		seekOpenFilmFrame,
 		stepOpenFilmFrames
 	} from './film-scene-selection';
+	import { readOpenFilm } from './film-state.svelte';
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import {
 		COMPOSITION_EXPORT_FORMAT_LABELS,
@@ -232,12 +234,15 @@
 	// mounted its GPU host and the route has resolved a content key, force one
 	// settled paint and snapshot the canvas to a content-keyed WebP; guarded to
 	// once per key. Library Presets pass no key: their posters are committed
-	// stills rendered by `pnpm capture:posters` (ADR-0061).
+	// stills rendered by `pnpm capture:posters` (ADR-0061). Nothing is captured
+	// while an export runs: the canvas then holds whichever Scene and frame the
+	// export is on, not the open Film at rest. The capture starts again when the
+	// export ends.
 	$effect(() => {
 		const key = posterKey;
 		const localCanvas = canvas;
 		const localCompositionElement = compositionElement;
-		if (!key || !localCanvas || !host || !localCompositionElement) {
+		if (!key || !localCanvas || !host || !localCompositionElement || isExporting) {
 			posterCaptureController.update(null);
 			return;
 		}
@@ -1488,8 +1493,11 @@
 		await transitionSnapshotPreparation;
 		return compositionExportController.export(
 			{
-				readState: () => engineState,
+				// Detached: the export makes each Scene live in turn, so the Film it
+				// plans and mixes from must not follow engine state.
+				readFilm: () => cloneJsonValue(readOpenFilm()),
 				readTransition: () => transitionState.active,
+				beginFilmExportBracket: beginOpenFilmExportBracket,
 				readCanvas: () => canvas,
 				isFrameRendererReady: () => canvas !== null && renderResourceSet !== null,
 				readSeparateWav: () => separateWav,

@@ -95,6 +95,7 @@ import { compositionExportHandle } from './composition-export-handle.svelte';
 import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, transitionState } from './engine-state.svelte';
+import { readOpenFilm } from './film-state.svelte';
 import { listWebmcpToolDefinitions } from './webmcp-tool-definitions';
 import { parsePresetIngress } from './preset-ingress';
 import { readWebmcpCompositionPreconditions } from './webmcp-tool-preconditions';
@@ -562,7 +563,7 @@ describe('WebMCP authoring without an interface', () => {
 		compositionExportHandle.current = () =>
 			Promise.resolve({
 				status: 'delivered',
-				plan: buildCompositionExportPlan({ state: engineState, transition: null }),
+				plan: buildCompositionExportPlan({ film: readOpenFilm(), transition: null }),
 				videoByteLength: 4096,
 				wavFilename: null
 			});

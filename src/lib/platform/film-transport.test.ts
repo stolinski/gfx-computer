@@ -9,9 +9,11 @@ import { parseFilmIngress } from './film-ingress';
 import { filmFrameCount } from './film-playhead';
 import { FILM_SCHEMA_ID, type Film } from './film-schema';
 import {
+	filmDurationSeconds,
 	filmFrameAtSceneTime,
 	filmSceneAfterForPlayback,
 	filmSceneFrameAtSceneTime,
+	filmSecondsAtSceneTime,
 	filmTransportPositionAtFrame
 } from './film-transport';
 
@@ -151,6 +153,46 @@ describe('Film time to Scene time', () => {
 		assert.throws(() => filmFrameAtSceneTime(film, 'missing', 0), RangeError);
 		assert.throws(() => filmSceneFrameAtSceneTime(film, 'scene-1', -0.1), RangeError);
 		assert.throws(() => filmSceneFrameAtSceneTime(film, 'scene-1', Number.NaN), RangeError);
+	});
+});
+
+describe('Film time in seconds', () => {
+	for (const { fps, frameCounts } of RATES) {
+		const [firstCount, secondCount] = frameCounts;
+		const rate = resolveFrameRate(fps);
+
+		it(`counts each Scene start in frames and adds Scene time at ${fps} fps`, () => {
+			const film = filmOfSceneDurations(fps, SCENE_DURATIONS_SECONDS);
+
+			assert.equal(filmSecondsAtSceneTime(film, 'scene-1', 0.25), 0.25);
+			assert.equal(
+				filmSecondsAtSceneTime(film, 'scene-2', 0.25),
+				framesToSeconds(firstCount, rate) + 0.25
+			);
+			assert.equal(
+				filmSecondsAtSceneTime(film, 'scene-3', 0),
+				framesToSeconds(firstCount + secondCount, rate)
+			);
+			assert.equal(
+				filmDurationSeconds(film),
+				framesToSeconds(firstCount + secondCount, rate) + 10.01
+			);
+		});
+	}
+
+	it('is Scene time itself, and the Scene duration, for a one-Scene Film', () => {
+		const film = filmOfSceneDurations(29.97, [4]);
+
+		assert.equal(filmSecondsAtSceneTime(film, 'scene-1', 1.2345), 1.2345);
+		// 4 s is 119.88 frames at 30000/1001: the authored duration is kept, not
+		// the 120 frames it rounds to.
+		assert.equal(filmDurationSeconds(film), 4);
+	});
+
+	it('refuses a Scene the Film does not hold', () => {
+		const film = filmOfSceneDurations(30, [1, 1]);
+
+		assert.throws(() => filmSecondsAtSceneTime(film, 'missing', 0), RangeError);
 	});
 });
 

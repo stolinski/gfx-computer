@@ -68,6 +68,11 @@ class OpenFilmState {
 	 * are still the previous Scene's. Autosave, edit operations, and tool
 	 * registration stay off for that window, as they do for
 	 * `transitionState.capturing`.
+	 *
+	 * An export of a Film of several Scenes holds it true for longer: from the
+	 * first Scene it shows until it has put the author's Scene back
+	 * (`beginOpenFilmExportBracket`). Engine state is a Scene the author did not
+	 * open for that whole time.
 	 */
 	isSwappingScene = $state(false);
 }
