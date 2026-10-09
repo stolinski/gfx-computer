@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { onDestroy, tick, untrack } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	import GfxMarkHomeLink from '$lib/identity/GfxMarkHomeLink.svelte';
@@ -387,17 +385,11 @@
 	// Composition history and transport keys. Native field/button editing keeps
 	// its own keyboard behavior; canvas commands use the shared authoring history.
 	// `composition.create-film-from-open`: the one way an edited corpus Preset is
-	// kept. The operation stores the open document as a new Film and opens it;
-	// this replaces the URL so the route is the Film's own (ADR-0068 §3).
+	// kept. The operation stores the open document as a new Film, opens it, and
+	// moves the page to the Film's own URL (ADR-0068 §3).
 	async function createFilmFromOpenDocument(): Promise<void> {
 		const outcome = await runCreateFilmFromOpenCompositionOperation();
-		if (outcome.status !== 'applied') {
-			compositionMeta.persistenceError = outcome.message;
-			return;
-		}
-		if (outcome.slug) {
-			await goto(resolve('/p/[slug]', { slug: outcome.slug }), { replaceState: true });
-		}
+		if (outcome.status !== 'applied') compositionMeta.persistenceError = outcome.message;
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {

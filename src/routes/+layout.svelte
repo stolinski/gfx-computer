@@ -11,7 +11,8 @@
 	import archivo400Url from '@fontsource/archivo/files/archivo-latin-400-normal.woff2?url';
 	import archivo600Url from '@fontsource/archivo/files/archivo-latin-600-normal.woff2?url';
 	import { browser } from '$app/environment';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onDestroy } from 'svelte';
 	import { page, updated } from '$app/state';
 
@@ -28,6 +29,7 @@
 		CANVAS_DRAW_ELEMENT_LAUNCH_COMMAND,
 		isCanvasDrawElementCaptureAvailable
 	} from '$lib/platform/standard-browser-dom-capture';
+	import { installOpenCompositionAddressNavigator } from '$lib/platform/open-composition-address';
 	import { readWebmcpCompositionPreconditions } from '$lib/platform/webmcp-tool-preconditions';
 	import { startWebmcpToolController } from '$lib/platform/webmcp-tool-controller';
 	import { listWebmcpToolDefinitions } from '$lib/platform/webmcp-tool-definitions';
@@ -61,6 +63,20 @@
 	if (webmcpStart) window.__gfxWebmcpExposureRefusal = webmcpStart.refusal;
 
 	onDestroy(() => webmcpLifetime.abort());
+
+	// The page follows the open document, and this is the one place that moves
+	// it. A lifecycle operation — from a GUI action or a WebMCP tool, on the home
+	// page or in the Workspace — reports the address of the document it opened,
+	// and the page goes there. From a composition page the URL is replaced: it is
+	// the same page with a different document. From anywhere else it is a new
+	// history entry, so Back returns to where the author was.
+	if (browser) {
+		onDestroy(
+			installOpenCompositionAddressNavigator(({ slug }) =>
+				goto(resolve('/p/[slug]', { slug }), { replaceState: page.route.id === '/p/[slug]' })
+			)
+		);
+	}
 
 	// A tab that outlived an integration rebuild leaves the client router: the
 	// origin no longer serves the chunks this build would import, so its next

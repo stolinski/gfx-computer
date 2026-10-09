@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
+	import { onDestroy } from 'svelte';
 	import { resolve } from '$app/paths';
 
 	import { GFX_PRODUCT_NAME } from '$lib/identity/gfx-brand';
@@ -17,6 +18,11 @@
 		openFilmDocumentFromFilm,
 		savedPresetFromOpenFilm
 	} from '$lib/platform/open-film-document';
+	import {
+		discardOpenCompositionArrival,
+		isOpenCompositionArrivingAt,
+		takeOpenCompositionArrival
+	} from '$lib/platform/open-composition-address';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { collectPresetRendererRequirements } from '$lib/platform/pipelines/preset-renderer-requirements';
 	import { pipelineRendererRuntime } from '$lib/platform/pipelines/runtime-context.svelte';
@@ -62,11 +68,22 @@
 	let appliedRouteKey = $state<string | null>(null);
 	let rendererLoadError = $state<string | null>(null);
 	let routeLoadGeneration = 0;
+	// Counts the documents this route loaded itself. The Workspace is keyed on
+	// it, so it remounts for a document the route fetched and stays mounted when
+	// a lifecycle operation moved the page with its document already open.
+	let loadedDocumentCount = $state(0);
+
+	// Whether the open document is the one this URL names: the route applied it,
+	// or the page has just moved here with it open and the arrival is about to be
+	// taken (`open-composition-address.ts`).
+	const isOpenDocumentRoute = $derived(
+		appliedRouteKey === routeKey || isOpenCompositionArrivingAt(routeKey)
+	);
 
 	// The tab follows the composition the moment its name is edited, so a stack of
 	// open pieces stays tellable apart.
 	const documentTitle = $derived(
-		appliedRouteKey === routeKey && presetBase.name
+		isOpenDocumentRoute && presetBase.name
 			? `${presetBase.name} · ${GFX_PRODUCT_NAME}`
 			: GFX_PRODUCT_NAME
 	);
@@ -78,8 +95,41 @@
 	let storedSlug: string | null = null;
 
 	afterNavigate(() => {
+		// A lifecycle operation opened the document that lives at this slug and
+		// moved the page here: the open document is already the right one.
+		if (
+			takeOpenCompositionArrival(data.slug) &&
+			compositionMeta.userCompositionSlug === data.slug
+		) {
+			keepOpenDocument();
+			return;
+		}
 		void loadNavigatedPreset();
 	});
+
+	onDestroy(discardOpenCompositionArrival);
+
+	// Arriving with the document already open: nothing is fetched and nothing is
+	// applied, so the undo history and the Composition revision the operation's
+	// receipt reported stay as they are. The operation loaded the Pack and the
+	// renderers before it applied the document. What is set here is only this
+	// route's own bookkeeping: any load still in flight is abandoned, the poster
+	// key and the autosave target are read off the open document, and the
+	// snapshot autosave compares against is taken now.
+	function keepOpenDocument(): void {
+		routeLoadGeneration += 1;
+		rendererLoadError = null;
+		const isStoredFilm = compositionMeta.isUserComposition;
+		posterKey = isStoredFilm
+			? posterKeyForPreset(
+					storedPresetViewOfUserComposition(readOpenFilmAsUserCompositionDocument())
+				)
+			: null;
+		storedSlug = isStoredFilm ? data.slug : null;
+		loadSnapshot = snapshotState();
+		resolutionStatus = 'ready';
+		appliedRouteKey = data.slug;
+	}
 
 	async function loadNavigatedPreset(): Promise<void> {
 		const generation = ++routeLoadGeneration;
@@ -169,6 +219,7 @@
 			compositionMeta.isUserComposition = sessionComposition !== null;
 			compositionMeta.userCompositionSlug = nextData.slug;
 			compositionMeta.forkedFrom = sessionComposition?.film.scenes[0]?.origin?.slug ?? null;
+			loadedDocumentCount += 1;
 			appliedRouteKey = nextRouteKey;
 		} catch (cause) {
 			if (!isCurrentLoad()) return;
@@ -208,14 +259,28 @@
 
 		const currentSnap = snapshotState();
 
-		if (currentSnap === loadSnapshot || storedSlug === null) return;
+		// The open document must still be this route's Film. A lifecycle operation
+		// that just opened another one has not moved the page yet, and that
+		// document is not saved under this slug.
+		if (
+			currentSnap === loadSnapshot ||
+			storedSlug === null ||
+			compositionMeta.userCompositionSlug !== storedSlug
+		) {
+			return;
+		}
 
 		const capturedSlug = storedSlug;
 		// Serialize before the debounce so this save cannot observe a later route's state.
 		const document = readOpenFilmAsUserCompositionDocument();
 
 		const timer = setTimeout(() => {
-			if (!isCurrentAppliedRoute(currentRouteKey)) return;
+			if (
+				!isCurrentAppliedRoute(currentRouteKey) ||
+				compositionMeta.userCompositionSlug !== capturedSlug
+			) {
+				return;
+			}
 
 			userCompositionStore
 				.saveUserComposition(capturedSlug, document)
@@ -283,8 +348,8 @@
 		</header>
 		<p role="status">Loading…</p>
 	</main>
-{:else if appliedRouteKey === routeKey}
-	{#key routeKey}
+{:else if isOpenDocumentRoute}
+	{#key loadedDocumentCount}
 		<Workspace {posterKey} />
 	{/key}
 {/if}

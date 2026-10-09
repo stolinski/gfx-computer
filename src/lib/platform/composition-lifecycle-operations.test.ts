@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
 
@@ -11,6 +11,12 @@ import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PRESET_SCHEMA_ID } from './engine-schema';
 import { filmFromPreset, filmToWireFormat } from './film-ingress';
 import { filmState } from './film-state.svelte';
+import {
+	discardOpenCompositionArrival,
+	installOpenCompositionAddressNavigator,
+	takeOpenCompositionArrival,
+	type OpenCompositionAddress
+} from './open-composition-address';
 import { posterKeyForPreset } from './posters';
 import { applyPreset } from './preset';
 import { getPresetBySlug } from './preset-catalog';
@@ -563,5 +569,178 @@ describe('making a Film from the open document', () => {
 		expect(compositionMeta.userCompositionSlug).toBe(STARTER_SLUG);
 		expect(presetBase.name).toBe('My edited lower third');
 		expect(compositionEditHistory.revision).toBe(1);
+	});
+});
+
+// The page follows the open document (`open-composition-address.ts`). The root
+// layout installs the one navigator; here a fake stands in for it and for the
+// preset route arriving, which is the level this rule is testable at without a
+// rendered route.
+describe('moving the page to the document a lifecycle operation opened', () => {
+	/** What the navigator saw, and what the preset route would find on arrival. */
+	interface ArrivalReading {
+		slug: string;
+		revisionOnArrival: number;
+		openNameOnArrival: string;
+		keptOpenDocument: boolean;
+	}
+
+	let arrivals: ArrivalReading[];
+	let removeNavigator: () => void;
+
+	beforeEach(() => {
+		arrivals = [];
+		removeNavigator = installOpenCompositionAddressNavigator(
+			async ({ slug }: OpenCompositionAddress) => {
+				arrivals.push({
+					slug,
+					revisionOnArrival: compositionEditHistory.revision,
+					openNameOnArrival: presetBase.name,
+					// The route's own question on arrival: was this document just
+					// opened here, so that it is kept and nothing is loaded?
+					keptOpenDocument:
+						takeOpenCompositionArrival(slug) && compositionMeta.userCompositionSlug === slug
+				});
+			}
+		);
+	});
+
+	afterEach(() => {
+		removeNavigator();
+		discardOpenCompositionArrival();
+	});
+
+	const storedDocument = {
+		film: filmFromPreset(
+			parsePresetIngress({ ...blankPresetJson, kind: 'deliverable', name: 'My stored film' }),
+			null
+		),
+		legacyPresetEnvelope: { kind: 'deliverable' as const }
+	};
+
+	const operations: readonly {
+		name: string;
+		arrange?: () => Promise<void> | void;
+		run: () => Promise<CompositionLifecycleOutcome>;
+		slug: string;
+		isStoredFilm: boolean;
+	}[] = [
+		{
+			name: 'composition.create-blank',
+			run: () => runCreateBlankCompositionOperation(),
+			slug: 'untitled',
+			isStoredFilm: true
+		},
+		{
+			name: 'composition.create-from-starter',
+			run: () => runCreateCompositionFromStarterOperation({ starterSlug: STARTER_SLUG }),
+			slug: 'lower-third-2',
+			isStoredFilm: true
+		},
+		{
+			name: 'composition.create-film-from-open',
+			arrange: async () => {
+				expectApplied(await runOpenCompositionOperation({ slug: STARTER_SLUG }));
+				arrivals = [];
+			},
+			run: () => runCreateFilmFromOpenCompositionOperation(),
+			slug: 'lower-third-2',
+			isStoredFilm: true
+		},
+		{
+			name: 'composition.import-json',
+			run: () =>
+				runImportCompositionJsonOperation({
+					document: { ...blankPresetJson, name: 'Imported piece' }
+				}),
+			slug: 'imported-piece',
+			isStoredFilm: true
+		},
+		{
+			name: 'composition.open on a stored Film',
+			arrange: () => {
+				sessionStore.loadUserComposition.mockResolvedValue(storedDocument);
+			},
+			run: () => runOpenCompositionOperation({ slug: 'my-stored-film' }),
+			slug: 'my-stored-film',
+			isStoredFilm: true
+		},
+		{
+			name: 'composition.open on a Starter',
+			run: () => runOpenCompositionOperation({ slug: STARTER_SLUG }),
+			slug: STARTER_SLUG,
+			isStoredFilm: false
+		}
+	];
+
+	for (const operation of operations) {
+		it(`${operation.name} moves the page once, to the document it opened`, async () => {
+			await operation.arrange?.();
+			sessionStore.loadUserComposition.mockClear();
+			const loadsBefore = operation.name.startsWith('composition.open on a stored') ? 1 : 0;
+
+			const receipt = expectApplied(await operation.run());
+
+			expect(receipt.slug).toBe(operation.slug);
+			expect(arrivals).toEqual([
+				{
+					slug: operation.slug,
+					// The document was already open, at the revision the receipt reports,
+					// when the page moved; the route keeps it and loads nothing.
+					revisionOnArrival: receipt.revision,
+					openNameOnArrival: receipt.name,
+					keptOpenDocument: true
+				}
+			]);
+			expect(compositionEditHistory.revision).toBe(receipt.revision);
+			expect(compositionMeta.isUserComposition).toBe(operation.isStoredFilm);
+			expect(sessionStore.loadUserComposition).toHaveBeenCalledTimes(loadsBefore);
+			// The arrival is taken: a later visit to this slug is an ordinary load.
+			expect(takeOpenCompositionArrival(operation.slug)).toBe(false);
+		});
+	}
+
+	it('keeps the history after arriving, so an edit against the receipt revision is accepted', async () => {
+		const receipt = expectApplied(await runCreateBlankCompositionOperation());
+		expect(arrivals[0]?.keptOpenDocument).toBe(true);
+
+		// A Scene-scoped edit against the revision the receipt reported is accepted,
+		// which it would not be had the route re-applied the document and reset it.
+		const edit = await runSetCompositionIdentityOperation({
+			expectedRevision: receipt.revision,
+			name: 'Renamed after arriving'
+		});
+
+		expect(edit.status).toBe('applied');
+		expect(compositionEditHistory.revision).toBe(receipt.revision + 1);
+		expect(compositionEditHistory.canUndo).toBe(true);
+		expect(compositionMeta.userCompositionSlug).toBe('untitled');
+		expect(arrivals).toHaveLength(1);
+	});
+
+	it('moves nowhere when the store write fails', async () => {
+		sessionStore.createUserComposition.mockRejectedValue(new Error('The store went away'));
+
+		expectFailed(await runCreateBlankCompositionOperation());
+		expectFailed(await runCreateCompositionFromStarterOperation({ starterSlug: STARTER_SLUG }));
+		expectFailed(
+			await runImportCompositionJsonOperation({ document: { ...blankPresetJson, name: 'Piece' } })
+		);
+		compositionMeta.userCompositionSlug = STARTER_SLUG;
+		expectFailed(await runCreateFilmFromOpenCompositionOperation());
+
+		expect(arrivals).toEqual([]);
+	});
+
+	it('moves nowhere when the operation refuses', async () => {
+		sessionStore.loadUserComposition.mockRejectedValue(new Error('The store went away'));
+
+		expectFailed(await runOpenCompositionOperation({ slug: 'my-stored-film' }));
+		expectFailed(await runCreateCompositionFromStarterOperation({ starterSlug: 'not-a-starter' }));
+		expectFailed(
+			await runImportCompositionJsonOperation({ document: { schema: 'gfx@1', name: 'No state' } })
+		);
+
+		expect(arrivals).toEqual([]);
 	});
 });

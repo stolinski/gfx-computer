@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	import { GFX_PRODUCT_NAME } from '$lib/identity/gfx-brand';
@@ -196,9 +194,7 @@
 		const outcome = await runCreateBlankCompositionOperation();
 		if (outcome.status === 'failed') {
 			importIssues = [documentImportIssue(outcome.message), ...outcome.findings.findings];
-			return;
 		}
-		if (outcome.slug) await goto(resolve('/p/[slug]', { slug: outcome.slug }));
 	}
 
 	/**
@@ -234,9 +230,7 @@
 			const outcome = await runImportCompositionJsonOperation({ document: value });
 			if (outcome.status === 'failed') {
 				importIssues = [documentImportIssue(outcome.message), ...outcome.findings.findings];
-				return;
 			}
-			if (outcome.slug) await goto(resolve('/p/[slug]', { slug: outcome.slug }));
 		} catch (cause) {
 			importIssues = [
 				documentImportIssue(cause instanceof Error ? cause.message : 'Import failed.')

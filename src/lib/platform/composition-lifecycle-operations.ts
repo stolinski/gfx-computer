@@ -19,10 +19,11 @@
  * the Starter itself is never modified, and nothing is ever stored under its
  * slug.
  *
- * Opening a composition puts it in engine state and moves the visible focus.
- * Keeping the route URL in step with the document these operations opened
- * belongs to the transport shell that called them — the preset route already
- * owns renderer resolution and autosave arming for whatever it navigated to.
+ * Opening a composition puts it in engine state, moves the visible focus, and
+ * moves the page to the document's address (`./open-composition-address.ts`).
+ * The shell's one navigator does the navigating, so the GUI and a WebMCP tool
+ * land on the same URL; the preset route then keeps the document it finds open
+ * and arms autosave for it.
  */
 import {
 	COMPOSITION_RECEIPT_FINDING_LIMIT,
@@ -51,6 +52,7 @@ import { FILM_SCHEMA_ID } from './film-schema';
 import { readOpenFilmAsUserCompositionDocument } from './film-state.svelte';
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
 import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
+import { moveToOpenCompositionAddress } from './open-composition-address';
 import {
 	legacyPresetEnvelopeFromPreset,
 	openFilmDocumentFromFilm,
@@ -211,16 +213,17 @@ function userCompositionDocumentFromPreset(
 }
 
 /**
- * Open `document` and record where it came from. `applyFilm` clears the shared
- * history, so the revision restarts here.
+ * Open `document`, record where it came from, and move the page to its
+ * address. `applyFilm` clears the shared history, so the revision restarts
+ * here; the receipt reports the revision the page then arrives with.
  */
-function openCompositionDocument(
+async function openCompositionDocument(
 	row: WebmcpOperationRow,
 	slug: string,
 	document: UserCompositionDocument,
 	isSessionComposition: boolean,
 	legacyUpgrades: readonly CompositionLegacyUpgrade[] = []
-): CompositionLifecycleReceipt {
+): Promise<CompositionLifecycleReceipt> {
 	const forkedFrom = isSessionComposition ? (document.film.scenes[0]?.origin?.slug ?? null) : null;
 	applyFilm(document.film, document.legacyPresetEnvelope);
 	compositionMeta.isUserComposition = isSessionComposition;
@@ -228,6 +231,7 @@ function openCompositionDocument(
 	compositionMeta.forkedFrom = forkedFrom;
 	compositionMeta.persistenceError = null;
 	moveCompositionWorkspaceFocus({ target: 'composition-root' });
+	await moveToOpenCompositionAddress({ slug });
 
 	return {
 		status: 'applied',
