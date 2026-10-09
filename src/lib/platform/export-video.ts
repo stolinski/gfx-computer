@@ -1,8 +1,13 @@
 import * as Sentry from '@sentry/sveltekit';
 
+import { waitForAbortableDelay } from '$lib/utils/abortable-delay';
 import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
 import { framesToSeconds, resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
 
+import {
+	exportSessionDeliveryFailureMessage,
+	parseExportSessionDeliveryStatus
+} from './export-session-delivery-status';
 import { fontsReady } from './fonts';
 import { EXPORT_AUDIO_UPLOAD_PART_BYTES } from './public-export-limits';
 import {
@@ -52,14 +57,20 @@ export interface SyncExportRequest {
 
 /**
  * Where an encoded export is, which is decided by which lane encoded it. The
- * origin lane leaves the file on the Node origin, to be fetched exactly once;
- * the browser lane (`browser-webm-export.ts`, the hosted origin's only lane)
- * already holds the file in this page. `downloadVideoExport` delivers either.
+ * origin lane leaves the file on the Node origin, to be downloaded exactly
+ * once; the browser lane (`browser-webm-export.ts`, the hosted origin's only
+ * lane) already holds the file in this page. `downloadVideoExport` delivers
+ * either.
  */
 export type VideoExportDownload =
 	| {
 			transport: 'origin';
 			downloadUrl: string;
+			/**
+			 * Where this page reads how the download went. The browser saves the
+			 * output itself, so the origin is the only one that knows when it landed.
+			 */
+			deliveryStatusUrl: string;
 			/**
 			 * The session's own cancel URL. Carried out of the encode so a download
 			 * that never lands releases the encoded file now rather than at the
@@ -285,7 +296,11 @@ async function exportCanvasVideo(
 		const response = await fetch(activeSession.completeUrl, { method: 'POST', signal });
 		if (!response.ok) throw await responseFailure(response, `${format} export failed`);
 		const value: unknown = await response.json();
-		if (!isRecord(value) || typeof value.downloadUrl !== 'string') {
+		if (
+			!isRecord(value) ||
+			typeof value.downloadUrl !== 'string' ||
+			typeof value.deliveryStatusUrl !== 'string'
+		) {
 			throw new Error('Export completion returned an invalid download document.');
 		}
 		signal?.throwIfAborted();
@@ -293,6 +308,7 @@ async function exportCanvasVideo(
 		return {
 			transport: 'origin',
 			downloadUrl: value.downloadUrl,
+			deliveryStatusUrl: value.deliveryStatusUrl,
 			cancelUrl: activeSession.cancelUrl
 		};
 	} finally {
@@ -386,27 +402,64 @@ export async function exportTransparentProRes({
 }
 
 /**
- * Hand the encoded output to the browser, and answer only once the browser
- * really has it. Returns the number of bytes it received.
+ * How often the page asks the origin how an export download is going. The
+ * browser reports nothing about a download it is saving, so this is the
+ * resolution at which a finished one is noticed.
+ */
+export const EXPORT_DELIVERY_STATUS_POLL_MS = 500;
+
+/**
+ * Wait until the origin says this session's one download ended, and answer with
+ * the bytes it sent. Anything but a delivered file is the export's failure.
  *
- * The output is fetched rather than linked. An `<a download>` pointed at the
- * session URL starts a transfer the page cannot observe: it has no status, no
- * byte count, and no way to be stopped, so an export would report a delivered
- * file while the download was still running — or had already been refused —
- * which is the receipt [ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §7
- * forbids. Fetching gives the transfer all three, including the caller's
- * `AbortSignal`, and the server's own refusal text becomes the export's failure
- * message instead of a silent non-download.
+ * The reads are not activity on the session (`ExportSessionStore.deliveryStatus`),
+ * so this loop cannot keep an output alive that the browser never came for: the
+ * session's idle timeout ends it, and the next read says it expired.
+ */
+async function waitForExportDelivery(
+	deliveryStatusUrl: string,
+	signal?: AbortSignal
+): Promise<number> {
+	while (true) {
+		await waitForAbortableDelay(EXPORT_DELIVERY_STATUS_POLL_MS, signal);
+		const response = await fetch(deliveryStatusUrl, { signal, cache: 'no-store' });
+		if (!response.ok) {
+			throw await responseFailure(response, 'Export delivery status request failed');
+		}
+		const status = parseExportSessionDeliveryStatus(await response.json());
+		if (!status) throw new Error('Export delivery status returned an invalid document.');
+		if (status.state === 'delivered') return status.outputBytes;
+		if (status.state !== 'pending' && status.state !== 'downloading') {
+			throw new Error(exportSessionDeliveryFailureMessage(status.state));
+		}
+	}
+}
+
+/**
+ * Hand the encoded output to the browser, and answer only once the whole file
+ * was delivered. Returns the number of bytes delivered.
  *
- * `Response.blob()` is what keeps this affordable: the bytes live in the
- * browser's blob storage, which spills to disk, rather than in the page's heap.
- * A full-length public export runs to `PUBLIC_EXPORT_RUNTIME_LIMITS.maxOutputBytes`,
- * and a development host's Film-length one to
- * `DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxOutputBytes` — both far past what an
- * in-page buffer should hold.
+ * An origin-encoded export is never held in this page. The session's output URL
+ * is handed to the browser as a download, so the bytes go from the network to
+ * disk: a 4K ProRes Film is gigabytes per few seconds, and a Blob of it is more
+ * than a browser's blob store holds (a 1.45 GB file failed with
+ * `net::ERR_BLOB_OUT_OF_MEMORY` in an off-the-record context on an 8 GB machine,
+ * 2026-10-09). The request is same-origin, so it carries the session credential
+ * cookie exactly as a fetch did.
  *
- * A browser-encoded export is already a Blob in that storage, so it is handed
- * over directly; there is no session to cancel and no transfer to observe.
+ * A browser download is a transfer the page cannot observe, and a receipt for a
+ * file that has not landed is what
+ * [ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §7
+ * forbids. So the page asks the one party that can see it: the origin answers
+ * `delivered` only after it sent every byte and disposed of the session, and
+ * until then this function has not returned. A download the browser refused,
+ * the person stopped, or that never started ends the session on the origin's own
+ * clocks and is this export's failure. The caller's `AbortSignal` stops the wait
+ * and cancels the session, which ends a transfer still in flight.
+ *
+ * A browser-encoded export is already a Blob in the browser's blob storage, so
+ * it is handed over directly; there is no session to cancel and no transfer to
+ * observe.
  */
 export async function downloadVideoExport(
 	exportedVideo: VideoExportDownload,
@@ -421,31 +474,27 @@ export async function downloadVideoExport(
 	let isDelivered = false;
 	try {
 		signal?.throwIfAborted();
-		const response = await fetch(exportedVideo.downloadUrl, { signal });
-		if (!response.ok) throw await responseFailure(response, 'Export download failed');
-		const declaredLength = response.headers.get('content-length');
-		const file = await response.blob();
-		// The output response declares its exact size, so a transfer that ended
-		// early is a torn file — never a delivered one.
-		if (declaredLength !== null && file.size !== Number(declaredLength)) {
-			throw new Error(`Export download ended at ${file.size} bytes; expected ${declaredLength}.`);
-		}
-		signal?.throwIfAborted();
-		downloadBlob(file, filename);
+		startBrowserDownload(exportedVideo.downloadUrl, filename);
+		const deliveredBytes = await waitForExportDelivery(exportedVideo.deliveryStatusUrl, signal);
 		isDelivered = true;
-		return file.size;
+		return deliveredBytes;
 	} finally {
 		if (!isDelivered) await cancelExportSession(exportedVideo.cancelUrl);
 	}
 }
 
+/** Ask the browser to save `url` under `filename`, through its own download machinery. */
+function startBrowserDownload(url: string, filename: string): void {
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = filename;
+	link.click();
+}
+
 export function downloadBlob(blob: Blob, filename: string): void {
 	const url = URL.createObjectURL(blob);
 	try {
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = filename;
-		link.click();
+		startBrowserDownload(url, filename);
 	} finally {
 		URL.revokeObjectURL(url);
 	}

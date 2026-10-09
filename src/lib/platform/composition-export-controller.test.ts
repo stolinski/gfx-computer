@@ -428,6 +428,7 @@ function createHarness(options?: {
 		return {
 			transport: 'origin',
 			downloadUrl: '/api/export/sessions/test/output',
+			deliveryStatusUrl: '/api/export/sessions/test',
 			cancelUrl: '/api/export/sessions/test'
 		};
 	};
@@ -839,6 +840,7 @@ describe('composition export outcome', () => {
 				return {
 					transport: 'origin',
 					downloadUrl: '/api/export/sessions/test/output',
+					deliveryStatusUrl: '/api/export/sessions/test',
 					cancelUrl: '/api/export/sessions/test'
 				};
 			}
@@ -966,6 +968,7 @@ describe('composition export of a Film of several Scenes', () => {
 			return {
 				transport: 'origin',
 				downloadUrl: '/api/export/sessions/test/output',
+				deliveryStatusUrl: '/api/export/sessions/test',
 				cancelUrl: '/api/export/sessions/test'
 			};
 		};

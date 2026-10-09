@@ -236,11 +236,15 @@ export const PUBLIC_EXPORT_RESPONSE_HEADERS: Readonly<Record<string, string>> = 
  * resuming would mean retaining rendered content, which the public runtime
  * never does.
  *
- * Intentionally absent: `Content-Disposition`. The browser names the file from
- * the `download` attribute the app sets, which is where the ADR-0042 sync
- * filename comes from; a server-supplied name would silently override it.
+ * `Content-Disposition: attachment` makes the response a file to save however
+ * the URL was reached, so the browser streams it to disk and never renders it.
+ * It deliberately names no file: the browser takes the name from the `download`
+ * attribute the app sets, which is where the ADR-0042 sync filename comes from.
+ * A server-supplied name would silently override that one, and the origin would
+ * have to be told the name in a URL that logs can see.
  */
 export const PUBLIC_EXPORT_DOWNLOAD_HEADERS: Readonly<Record<string, string>> = {
 	...PUBLIC_EXPORT_RESPONSE_HEADERS,
-	'Accept-Ranges': 'none'
+	'Accept-Ranges': 'none',
+	'Content-Disposition': 'attachment'
 };

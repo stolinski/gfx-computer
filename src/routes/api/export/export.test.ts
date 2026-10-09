@@ -19,6 +19,7 @@ import {
 	parseExportFrameIndex,
 	parseExportSessionRequest
 } from '$lib/platform/export-session.server';
+import { EXPORT_SESSION_DELIVERY_OUTCOME_HISTORY } from '$lib/platform/export-session-delivery-status';
 import { findExportCleanupLeaks } from '$lib/platform/public-export-cleanup';
 import { EXPORT_CONTROL_DOCUMENT_MAX_BYTES } from '$lib/platform/public-export-limits';
 import {
@@ -35,6 +36,7 @@ import {
 
 import * as exportLimitsRoute from './limits/+server';
 import * as sessionsCollectionRoute from './sessions/+server';
+import * as exportSessionRoute from './sessions/[sessionId]/+server';
 import * as exportAudioRoute from './sessions/[sessionId]/audio/+server';
 
 const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
@@ -853,7 +855,8 @@ describe('bounded public export limit enforcement', () => {
 		assert.equal(encoder.children[0].killed, false);
 		releaseFlush();
 		assert.deepEqual(await completed, {
-			downloadUrl: `/api/export/sessions/${session.sessionId}/output`
+			downloadUrl: `/api/export/sessions/${session.sessionId}/output`,
+			deliveryStatusUrl: `/api/export/sessions/${session.sessionId}`
 		});
 	});
 
@@ -1540,6 +1543,10 @@ describe('public export request security', () => {
 		assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
 		assert.equal(response.headers.get('accept-ranges'), 'none');
 		assert.equal(response.headers.get('vary'), 'Cookie');
+		// A file to save, sized exactly, and named by the page's `download`
+		// attribute rather than by the origin.
+		assert.equal(response.headers.get('content-disposition'), 'attachment');
+		assert.equal(response.headers.get('content-length'), String('encoded-video'.length));
 		await response.text();
 	});
 
@@ -1739,5 +1746,303 @@ describe('public export cleanup and zero retention', () => {
 	it('has nothing to release on a host that was signalled while idle', async () => {
 		const { store } = await createStore();
 		assert.deepEqual(await store.disposeOpenSessions(), []);
+	});
+});
+
+/**
+ * ADR-0052 (amended 2026-10-09): the browser saves the output itself, so the
+ * session's owner learns how the download went from the origin. The status read
+ * answers only to that owner, says `delivered` only once the output drained, and
+ * is never a reason to keep a session alive.
+ */
+describe('export delivery status', () => {
+	/** The status read a page makes: a same-origin fetch carrying the session credential. */
+	function statusRequest(
+		session: Pick<OpenedTestSession, 'sessionId' | 'cookie'>,
+		headers: Record<string, string> = {}
+	): Request {
+		return new Request(`${TEST_ORIGIN}/api/export/sessions/${session.sessionId}`, {
+			headers: { Cookie: session.cookie, 'Sec-Fetch-Site': 'same-origin', ...headers }
+		});
+	}
+
+	async function encodedSession(store: ExportSessionStore): Promise<OpenedTestSession> {
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.complete(session.sessionId, controlRequest(session));
+		return session;
+	}
+
+	it('names the status URL beside the download URL when the encode completes', async () => {
+		const { store } = await createStore();
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		assert.deepEqual(await store.complete(session.sessionId, controlRequest(session)), {
+			downloadUrl: `/api/export/sessions/${session.sessionId}/output`,
+			deliveryStatusUrl: `/api/export/sessions/${session.sessionId}`
+		});
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('reports pending, then downloading, and delivered only once the output drained', async () => {
+		const { store, directory } = await createStore();
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+			state: 'pending'
+		});
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.complete(session.sessionId, controlRequest(session));
+		assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+			state: 'pending'
+		});
+
+		const response = await store.outputResponse(session.sessionId, downloadRequest(session));
+		// The response exists and nothing has read it: started is not delivered.
+		assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+			state: 'downloading'
+		});
+
+		assert.equal(await response.text(), 'encoded-video');
+		assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+			state: 'delivered',
+			outputBytes: 'encoded-video'.length
+		});
+		// The session is gone; only its outcome is remembered, and asking again
+		// neither changes the answer nor brings anything back.
+		assert.equal(store.openSessionCount, 0);
+		assert.deepEqual(await readdir(directory), []);
+		assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+			state: 'delivered',
+			outputBytes: 'encoded-video'.length
+		});
+		await assert.rejects(
+			() => store.outputResponse(session.sessionId, downloadRequest(session)),
+			isLimitStatus(404, /not found/)
+		);
+	});
+
+	it('reports a download the browser stopped, and one its owner cancelled, as cancelled', async () => {
+		const { store } = await createStore();
+		const stopped = await encodedSession(store);
+		const response = await store.outputResponse(stopped.sessionId, downloadRequest(stopped));
+		assert.ok(response.body);
+		await response.body.cancel('download stopped');
+		assert.deepEqual(await store.deliveryStatus(stopped.sessionId, statusRequest(stopped)), {
+			state: 'cancelled'
+		});
+
+		const abandoned = await encodedSession(store);
+		await store.cancel(abandoned.sessionId, controlRequest(abandoned, 'DELETE'));
+		assert.deepEqual(await store.deliveryStatus(abandoned.sessionId, statusRequest(abandoned)), {
+			state: 'cancelled'
+		});
+	});
+
+	it('reports a download cut off by a stopping host as failed', async () => {
+		const { store } = await createStore();
+		const session = await encodedSession(store);
+		await store.outputResponse(session.sessionId, downloadRequest(session));
+		await store.disposeOpenSessions();
+		assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+			state: 'failed'
+		});
+	});
+
+	it('reports an output nobody downloaded as expired, however often its status was read', async () => {
+		let now = 1_000;
+		const { store, directory } = await createStore(
+			{},
+			{ ttlMs: 100, maxLifetimeMs: 10_000, now: () => now }
+		);
+		const session = await encodedSession(store);
+		// Reads all the way up to the idle timeout: none of them is activity, so
+		// none of them moves the clock a page could otherwise hold open forever.
+		for (now = 1_010; now < 1_100; now += 10) {
+			assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+				state: 'pending'
+			});
+		}
+		now = 1_100;
+		assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+			state: 'expired'
+		});
+		assert.equal(store.openSessionCount, 0);
+		assert.equal(store.cleanupReceipts.at(-1)?.reason, 'idle-expired');
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('does not idle-expire a download that is still streaming, and ends it at the hard lifetime', async () => {
+		let now = 1_000;
+		const { store } = await createStore({}, { ttlMs: 100, maxLifetimeMs: 500, now: () => now });
+		const session = await encodedSession(store);
+		await store.outputResponse(session.sessionId, downloadRequest(session));
+		now = 1_400;
+		assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+			state: 'downloading'
+		});
+		now = 1_499;
+		assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+			state: 'downloading'
+		});
+		// The read at the lifetime disposes the session, as any request would, and
+		// the outcome is forgotten at that same moment.
+		now = 1_500;
+		await assert.rejects(
+			() => store.deliveryStatus(session.sessionId, statusRequest(session)),
+			isLimitStatus(404, /not found/)
+		);
+		assert.equal(store.openSessionCount, 0);
+		assert.equal(store.cleanupReceipts.at(-1)?.reason, 'lifetime-expired');
+	});
+
+	it('forgets an outcome when the session lifetime would have ended', async () => {
+		let now = 1_000;
+		const { store } = await createStore({}, { ttlMs: 10_000, maxLifetimeMs: 500, now: () => now });
+		const session = await encodedSession(store);
+		await (await store.outputResponse(session.sessionId, downloadRequest(session))).text();
+		now = 1_499;
+		assert.equal(
+			(await store.deliveryStatus(session.sessionId, statusRequest(session))).state,
+			'delivered'
+		);
+		now = 1_500;
+		await assert.rejects(
+			() => store.deliveryStatus(session.sessionId, statusRequest(session)),
+			isLimitStatus(404, /not found/)
+		);
+	});
+
+	it('answers a session that expired before its encode as every other request does', async () => {
+		let now = 1_000;
+		const { store, directory } = await createStore(
+			{},
+			{ ttlMs: 100, maxLifetimeMs: 10_000, now: () => now }
+		);
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		now = 1_100;
+		await assert.rejects(
+			() => store.deliveryStatus(session.sessionId, statusRequest(session)),
+			isLimitStatus(410, /idle longer than 100 ms/)
+		);
+		// It never had a download, so there is no outcome to remember.
+		await assert.rejects(
+			() => store.deliveryStatus(session.sessionId, statusRequest(session)),
+			isLimitStatus(404, /not found/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('refuses a status read without the session credential, open or ended', async () => {
+		const { store } = await createStore();
+		const mine = await encodedSession(store);
+		const theirs = await openSession(store, WEBM_SINGLE_FRAME);
+		const forged = `gfx_export_${mine.sessionId}=${theirs.cookie.split('=')[1]}`;
+		const refusals = async (): Promise<void> => {
+			await assert.rejects(
+				() =>
+					store.deliveryStatus(
+						mine.sessionId,
+						new Request(`${TEST_ORIGIN}/api/export/sessions/${mine.sessionId}`, {
+							headers: { 'Sec-Fetch-Site': 'same-origin' }
+						})
+					),
+				isLimitStatus(403, /credential is missing/)
+			);
+			await assert.rejects(
+				() =>
+					store.deliveryStatus(
+						mine.sessionId,
+						statusRequest({ sessionId: mine.sessionId, cookie: theirs.cookie })
+					),
+				isLimitStatus(403, /credential is missing/)
+			);
+			await assert.rejects(
+				() =>
+					store.deliveryStatus(
+						mine.sessionId,
+						statusRequest({ sessionId: mine.sessionId, cookie: forged })
+					),
+				isLimitStatus(403, /another browser session/)
+			);
+			await assert.rejects(
+				() =>
+					store.deliveryStatus(
+						mine.sessionId,
+						statusRequest(mine, { 'Sec-Fetch-Site': 'cross-site' })
+					),
+				isLimitStatus(403, /must come from this origin/)
+			);
+		};
+
+		await refusals();
+		// None of it disturbed the session, which its owner then drains.
+		assert.equal(
+			await (await store.outputResponse(mine.sessionId, downloadRequest(mine))).text(),
+			'encoded-video'
+		);
+		// The ended session answers to its owner and to nobody else.
+		await refusals();
+		assert.equal(
+			(await store.deliveryStatus(mine.sessionId, statusRequest(mine))).state,
+			'delivered'
+		);
+		await assert.rejects(
+			() => store.deliveryStatus('../../etc/passwd', statusRequest(mine)),
+			isLimitStatus(404, /not found/)
+		);
+		await store.cancel(theirs.sessionId, controlRequest(theirs, 'DELETE'));
+	});
+
+	it('keeps a bounded number of ended outcomes, dropping the oldest', async () => {
+		const { store } = await createStore();
+		const sessions: OpenedTestSession[] = [];
+		for (let index = 0; index <= EXPORT_SESSION_DELIVERY_OUTCOME_HISTORY; index += 1) {
+			const session = await encodedSession(store);
+			await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+			sessions.push(session);
+		}
+		await assert.rejects(
+			() => store.deliveryStatus(sessions[0].sessionId, statusRequest(sessions[0])),
+			isLimitStatus(404, /not found/)
+		);
+		for (const session of [sessions[1], sessions[sessions.length - 1]]) {
+			assert.deepEqual(await store.deliveryStatus(session.sessionId, statusRequest(session)), {
+				state: 'cancelled'
+			});
+		}
+	});
+
+	it('answers the status read through the session route, uncached, and refuses a stranger', async () => {
+		assert.deepEqual(Object.keys(exportSessionRoute).sort(), ['DELETE', 'GET']);
+		const opened = await exportSessionStore.create(createSessionRequest(WEBM_SINGLE_FRAME));
+		const session: OpenedTestSession = {
+			...opened.document,
+			cookie: opened.credentialCookie.split(';', 1)[0]
+		};
+		const get = (request: Request): Promise<Response> =>
+			Promise.resolve(
+				exportSessionRoute.GET({
+					params: { sessionId: session.sessionId },
+					request
+				} as unknown as Parameters<typeof exportSessionRoute.GET>[0])
+			);
+		try {
+			const response = await get(statusRequest(session));
+			assert.equal(response.status, 200);
+			assert.equal(response.headers.get('cache-control'), 'no-store');
+			assert.equal(response.headers.get('vary'), 'Cookie');
+			assert.deepEqual(await response.json(), { state: 'pending' });
+
+			const refused = await get(
+				new Request(`${TEST_ORIGIN}/api/export/sessions/${session.sessionId}`, {
+					headers: { 'Sec-Fetch-Site': 'same-origin' }
+				})
+			);
+			assert.equal(refused.status, 403);
+			assert.equal(refused.headers.get('cache-control'), 'no-store');
+			assert.match(await refused.text(), /credential is missing/);
+		} finally {
+			await exportSessionStore.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+		}
 	});
 });

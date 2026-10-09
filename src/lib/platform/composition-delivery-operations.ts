@@ -50,7 +50,7 @@ export interface CompositionDeliveryReceipt {
 	frameCount: number;
 	durationSeconds: number;
 	videoFilename: string;
-	/** Bytes of that file the browser received. Only a completed download reports one. */
+	/** Bytes of that file delivered to the browser. Only a completed download reports one. */
 	videoByteLength: number;
 	/** The sidecar WAV the browser also received, or null when audio stayed in the video. */
 	wavFilename: string | null;
