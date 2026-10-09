@@ -28,10 +28,11 @@
 //     still paints its fill (alpha full on that side of the cut), and each
 //     one-Scene Film classifies as its Scene always did.
 //
-// The page runs in the browser's profile context, on the jail's own profile,
-// not an off-the-record one: the export path holds the whole output as a Blob,
-// and the first Scene alone is a 1.45 GB file, which an off-the-record context's
-// memory-only blob store could not hold on an 8 GB machine.
+// The page runs in an off-the-record browser context, like every other render
+// run. The first Scene alone is a 1.45 GB file, more than that context's
+// memory-only blob store holds on an 8 GB machine, so this run also holds the
+// export to its delivery rule: the browser streams the output to disk, and the
+// page never holds it.
 //
 // When an export produces no file, the report carries what the page saw
 // (failed requests with Chrome's own error, refused responses, console errors)
@@ -598,6 +599,14 @@ async function exportStoredFilm(
 		faults.push(`the browser never handed the file over: ${download.error.message}`);
 		return withoutFile(outcome, exportMillis, faults);
 	}
+	// The origin names no file; the name is the one the page asked the browser
+	// to save the output under.
+	const suggestedFilename = download.download.suggestedFilename();
+	if (suggestedFilename !== outcome.plan?.videoFilename) {
+		faults.push(
+			`the browser would save the file as "${suggestedFilename}"; the plan names it "${outcome.plan?.videoFilename}"`
+		);
+	}
 	const path = join(scratchDirectory, `${exportCase.label}.mov`);
 	await download.download.saveAs(path);
 	const fileBytes = (await stat(path)).size;
@@ -828,14 +837,7 @@ async function main(): Promise<void> {
 	try {
 		server = await startJailedDevServer(jail);
 		launchHarnessBrowser(jail);
-		// The profile context, not an off-the-record one: the export path holds the
-		// whole output as a Blob, and only a profile's blob store spills to disk.
-		// The hero Scene alone is a 1.4 GB file, which an off-the-record context on
-		// an 8 GB machine cannot hold. The profile is the jail's own, so the run is
-		// still isolated.
-		browser = await connectCdpRenderBrowser(`http://localhost:${CDP_PORT}`, {
-			browserContext: 'profile'
-		});
+		browser = await connectCdpRenderBrowser(`http://localhost:${CDP_PORT}`);
 		const diagnosticsSource: ExportDiagnosticsSource = {
 			pageFaults: null,
 			serverOutput: server.output

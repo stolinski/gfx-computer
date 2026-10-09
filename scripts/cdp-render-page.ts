@@ -134,21 +134,22 @@ interface CdpDownloadProgress {
 
 interface CdpDownloadWillBegin {
 	guid?: string;
+	/** The name the browser would save the file under, were it not named by guid. */
+	suggestedFilename?: string;
 }
 
 class CdpRenderPage {
 	readonly #browserSession: CdpSession;
 	readonly #pageSession: CdpSession;
 	readonly #targetId: string;
-	/** `null` for a page in the browser's own profile context. */
-	readonly #browserContextId: string | null;
+	readonly #browserContextId: string;
 	readonly #downloadDirectory: string;
 
 	constructor(options: {
 		browserSession: CdpSession;
 		pageSession: CdpSession;
 		targetId: string;
-		browserContextId: string | null;
+		browserContextId: string;
 		downloadDirectory: string;
 	}) {
 		this.#browserSession = options.browserSession;
@@ -166,7 +167,7 @@ class CdpRenderPage {
 				behavior: 'allowAndName',
 				downloadPath: this.#downloadDirectory,
 				eventsEnabled: true,
-				...(this.#browserContextId === null ? {} : { browserContextId: this.#browserContextId })
+				browserContextId: this.#browserContextId
 			})
 		]);
 	}
@@ -220,9 +221,12 @@ class CdpRenderPage {
 		const timeoutMs = options.timeout ?? 30_000;
 		const pending = new Promise<Download>((resolvePromise, reject) => {
 			let guid = '';
+			let suggestedFilename = '';
 			const offBegin = this.#browserSession.on('Browser.downloadWillBegin', (params) => {
 				const eventValue = params as CdpDownloadWillBegin;
-				if (eventValue.guid) guid = eventValue.guid;
+				if (!eventValue.guid) return;
+				guid = eventValue.guid;
+				suggestedFilename = eventValue.suggestedFilename ?? '';
 			});
 			const offProgress = this.#browserSession.on('Browser.downloadProgress', (params) => {
 				const eventValue = params as CdpDownloadProgress;
@@ -235,6 +239,7 @@ class CdpRenderPage {
 				}
 				const downloadedPath = join(this.#downloadDirectory, guid);
 				resolvePromise({
+					suggestedFilename: () => suggestedFilename,
 					saveAs: (destination: string) => moveFile(downloadedPath, destination)
 				} as Download);
 			});
@@ -265,34 +270,9 @@ async function pageTarget(cdpHttpUrl: string, targetId: string): Promise<CdpTarg
 	throw new Error(`CDP page target ${targetId} did not become available.`);
 }
 
-export interface CdpRenderBrowserOptions {
-	/**
-	 * Which browser context the page opens in.
-	 *
-	 * `isolated` (the default) is a new off-the-record context: no cookies,
-	 * storage, or cache from any other run. Its blob store is memory-only and
-	 * small. The export download path holds the whole output as a Blob
-	 * (`downloadVideoExport`), so a large export cannot be received in this
-	 * context: on an 8 GB machine a 1.45 GB ProRes file failed with
-	 * `net::ERR_FAILED` on the download, and the frame uploads after it with
-	 * `net::ERR_BLOB_OUT_OF_MEMORY` (`scripts/probe-film-export-decode.ts`,
-	 * 2026-10-09).
-	 *
-	 * `profile` is the browser's own profile context, whose blob store spills
-	 * to disk as it does for a person using the app. A caller that asks for it
-	 * gives the browser a profile directory of its own
-	 * (`createVerificationServerJail().chromeProfileDirectory`), which is what
-	 * isolates the run instead.
-	 */
-	browserContext?: 'isolated' | 'profile';
-}
-
 /** Attach through the sanctioned CDP endpoint without Playwright's browser-context
  * bootstrap, which is incompatible with some newer system-Chrome builds. */
-export async function connectCdpRenderBrowser(
-	cdpUrl: string,
-	options: CdpRenderBrowserOptions = {}
-): Promise<CdpRenderBrowser> {
+export async function connectCdpRenderBrowser(cdpUrl: string): Promise<CdpRenderBrowser> {
 	const cdpHttpUrl = cdpUrl.replace(/\/$/, '');
 	const versionResponse = await fetch(`${cdpHttpUrl}/json/version`);
 	if (!versionResponse.ok) {
@@ -302,14 +282,12 @@ export async function connectCdpRenderBrowser(
 	if (!version.webSocketDebuggerUrl) throw new Error('CDP browser endpoint omitted its WebSocket URL.');
 
 	const browserSession = await CdpSession.connect(version.webSocketDebuggerUrl);
-	const browserContextId =
-		options.browserContext === 'profile'
-			? null
-			: (await browserSession.send<{ browserContextId: string }>('Target.createBrowserContext'))
-					.browserContextId;
+	const { browserContextId } = await browserSession.send<{ browserContextId: string }>(
+		'Target.createBrowserContext'
+	);
 	const created = await browserSession.send<{ targetId: string }>('Target.createTarget', {
 		url: 'about:blank',
-		...(browserContextId === null ? {} : { browserContextId })
+		browserContextId
 	});
 	const target = await pageTarget(cdpHttpUrl, created.targetId);
 	const pageSession = await CdpSession.connect(target.webSocketDebuggerUrl!);
@@ -328,13 +306,9 @@ export async function connectCdpRenderBrowser(
 	return {
 		page: page as unknown as Page,
 		disconnect: async () => {
-			// An isolated context is disposed with its page. The profile context is
-			// the browser's own, so only the page this run opened is closed.
-			await (
-				browserContextId === null
-					? browserSession.send('Target.closeTarget', { targetId: created.targetId })
-					: browserSession.send('Target.disposeBrowserContext', { browserContextId })
-			).catch(() => undefined);
+			await browserSession
+				.send('Target.disposeBrowserContext', { browserContextId })
+				.catch(() => undefined);
 			browserSession.close();
 			await rm(downloadDirectory, { recursive: true, force: true });
 		}

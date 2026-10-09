@@ -101,15 +101,17 @@ export interface CompositionExportUiState {
  * What one export invocation really did. The GUI reads this as status text; the
  * `delivery` family turns it into a receipt or a corrective refusal, which is
  * why every way an export can end has its own case rather than collapsing into
- * "finished". A `delivered` outcome means the browser received the whole encoded
- * file — never that an encode was queued or a download was merely started
+ * "finished". A `delivered` outcome means the whole encoded file was delivered
+ * to the browser — never that an encode was queued or a download was merely
+ * started. For an origin-encoded export the origin is the witness: the browser
+ * saves the file itself, and the origin says when it has sent every byte
  * ([ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §7).
  */
 export type CompositionExportOutcome =
 	| {
 			status: 'delivered';
 			plan: CompositionExportPlan;
-			/** Bytes the browser actually received — the proof the download landed. */
+			/** Bytes delivered to the browser — the proof the download landed. */
 			videoByteLength: number;
 			/** The sidecar WAV filename, or null when audio stayed in the video. */
 			wavFilename: string | null;
@@ -165,7 +167,7 @@ export interface CompositionExportControllerServices {
 	renderAudio(request: FilmAudioMixRenderRequest): Promise<AudioBuffer | null>;
 	exportWebM(options: TransparentVideoExportOptions): Promise<VideoExportDownload>;
 	exportProRes(options: TransparentVideoExportOptions): Promise<VideoExportDownload>;
-	/** Resolves with the delivered byte count once the browser holds the file. */
+	/** Resolves with the delivered byte count once the whole file was delivered. */
 	downloadVideo(video: VideoExportDownload, filename: string, signal: AbortSignal): Promise<number>;
 	downloadBlob(blob: Blob, filename: string): void;
 	encodeWav(audio: AudioBuffer): Uint8Array;
@@ -448,7 +450,7 @@ export class CompositionExportController {
 			});
 			signal.throwIfAborted();
 			// The receipt below is only reachable once this resolves, so a download
-			// the browser never completed cannot be reported as a delivered file.
+			// that never completed cannot be reported as a delivered file.
 			const videoByteLength = await this.#services.downloadVideo(video, plan.videoFilename, signal);
 
 			let wavFilename: string | null = null;

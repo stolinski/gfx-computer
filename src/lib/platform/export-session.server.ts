@@ -9,6 +9,11 @@ import * as Sentry from '@sentry/sveltekit';
 import { createReadableStream } from '@sveltejs/kit/node';
 
 import {
+	EXPORT_SESSION_DELIVERY_OUTCOME_HISTORY,
+	exportSessionDeliveryStatusForCleanup,
+	type ExportSessionDeliveryStatus
+} from '$lib/platform/export-session-delivery-status';
+import {
 	EXPORT_CLEANUP_RECEIPT_HISTORY,
 	exportCleanupReasonForExpiry,
 	findExportCleanupLeak,
@@ -97,6 +102,8 @@ export interface OpenedExportSession {
 
 export interface CompletedExportSession {
 	downloadUrl: string;
+	/** Where the session's owner reads how its one download went. */
+	deliveryStatusUrl: string;
 }
 
 interface ExportEncoder {
@@ -143,6 +150,23 @@ interface ExportSession {
 	closeDownload: (() => Promise<void>) | null;
 	cleanupPromise: Promise<ExportCleanupReceipt> | null;
 	encodeStartedAt: number | null;
+	/** Size of the encoded output, known once `complete` has measured it. */
+	outputBytes: number | null;
+}
+
+/**
+ * How one ended session's download went, kept for its owner's next status read.
+ *
+ * The session itself is gone by the time its owner asks, so the outcome and the
+ * credential that authorizes reading it are all that is kept: no path, no
+ * output, nothing a new request could act on. `forgetAt` is the moment the
+ * session's hard lifetime would have ended it anyway, which is also when the
+ * browser stops presenting the credential cookie.
+ */
+interface EndedExportDelivery {
+	credential: string;
+	status: ExportSessionDeliveryStatus;
+	forgetAt: number;
 }
 
 /**
@@ -528,6 +552,7 @@ export function exportSessionEncodeTelemetry(
 export class ExportSessionStore {
 	readonly #sessions = new Map<string, ExportSession>();
 	readonly #cleanupReceipts: ExportCleanupReceipt[] = [];
+	readonly #endedDeliveries = new Map<string, EndedExportDelivery>();
 	readonly #temporaryDirectory: string;
 	readonly #ffmpegPath: string;
 	readonly #ttlMs: number;
@@ -649,7 +674,8 @@ export class ExportSessionStore {
 			lifetimeTimer: null,
 			closeDownload: null,
 			cleanupPromise: null,
-			encodeStartedAt: null
+			encodeStartedAt: null,
+			outputBytes: null
 		};
 		this.#sessions.set(id, session);
 		try {
@@ -880,8 +906,12 @@ export class ExportSessionStore {
 					output.size
 				)
 			);
+			session.outputBytes = output.size;
 			session.status = 'ready';
-			return { downloadUrl: `/api/export/sessions/${id}/output` };
+			return {
+				downloadUrl: `/api/export/sessions/${id}/output`,
+				deliveryStatusUrl: `/api/export/sessions/${id}`
+			};
 		} catch (cause) {
 			const failure = classifyExportSessionFailure(session, request, cause);
 			await this.#dispose(session, 'failed');
@@ -965,6 +995,51 @@ export class ExportSessionStore {
 				'Content-Type': outputDetails(session.request.format).contentType
 			}
 		});
+	}
+
+	/**
+	 * Tell a session's owner how its one download is going, or how it ended.
+	 *
+	 * The browser saves the output itself, so the page that started the download
+	 * cannot see it land; this is where it learns. `delivered` is answered only
+	 * after the output response drained and the session was disposed for it.
+	 *
+	 * A status read is not activity. It never touches the session, so a page that
+	 * keeps asking cannot hold an output nobody is downloading past the idle
+	 * timeout, and both clocks are applied before a live session is answered for —
+	 * an expired one is disposed here, exactly as any other request would find it.
+	 * A streaming download is exempt from the idle clock on its own account.
+	 *
+	 * A caller is authorized as on every other session route: same origin, then
+	 * this session's credential. One who cannot prove the session is theirs
+	 * learns nothing about it, ended or not.
+	 */
+	async deliveryStatus(id: string, request: Request): Promise<ExportSessionDeliveryStatus> {
+		const presented = this.#presentedCredential(id, request);
+		const now = this.#now();
+		const session = this.#sessions.get(id);
+		if (session) {
+			if (!isMatchingExportCredential(presented, session.credential)) {
+				throw securityError(FOREIGN_EXPORT_SESSION_CREDENTIAL_REFUSAL);
+			}
+			const expired = this.#findExpiry(session, now);
+			if (!expired) {
+				return { state: session.status === 'downloading' ? 'downloading' : 'pending' };
+			}
+			await this.#dispose(session, exportCleanupReasonForExpiry(expired.limit));
+			// A session that expired before its encode finished never had a download
+			// to report on, so it answers as it would to any other request.
+			if (session.outputBytes === null) throw limitError(expired);
+		}
+		const ended = this.#endedDeliveries.get(id);
+		if (!ended || now >= ended.forgetAt) {
+			this.#endedDeliveries.delete(id);
+			throw new ExportSessionError(404, 'Export session not found.');
+		}
+		if (!isMatchingExportCredential(presented, ended.credential)) {
+			throw securityError(FOREIGN_EXPORT_SESSION_CREDENTIAL_REFUSAL);
+		}
+		return ended.status;
 	}
 
 	/**
@@ -1132,6 +1207,19 @@ export class ExportSessionStore {
 	 * belonging to a different session is refused rather than honoured.
 	 */
 	async #authorize(id: string, request: Request): Promise<ExportSession> {
+		const presented = this.#presentedCredential(id, request);
+		const session = await this.#get(id);
+		if (!isMatchingExportCredential(presented, session.credential)) {
+			throw securityError(FOREIGN_EXPORT_SESSION_CREDENTIAL_REFUSAL);
+		}
+		return session;
+	}
+
+	/**
+	 * The credential a same-origin request presents for a well-formed session
+	 * identity — every check `#authorize` makes before it looks a session up.
+	 */
+	#presentedCredential(id: string, request: Request): string {
 		const refusal = findExportRequestOriginRefusal(exportRequestOrigins(request));
 		if (refusal) throw securityError(refusal);
 		if (!isExportSessionIdentity(id)) {
@@ -1139,11 +1227,7 @@ export class ExportSessionStore {
 		}
 		const presented = readExportSessionCredentialCookie(request.headers.get('cookie'), id);
 		if (presented === null) throw securityError(MISSING_EXPORT_SESSION_CREDENTIAL_REFUSAL);
-		const session = await this.#get(id);
-		if (!isMatchingExportCredential(presented, session.credential)) {
-			throw securityError(FOREIGN_EXPORT_SESSION_CREDENTIAL_REFUSAL);
-		}
-		return session;
+		return presented;
 	}
 
 	/** Everything private this session owns, removed from a diagnostic before it is logged. */
@@ -1211,6 +1295,7 @@ export class ExportSessionStore {
 		const startedAt = Date.now();
 		session.cleanupPromise = (async () => {
 			this.#sessions.delete(session.id);
+			this.#rememberEndedDelivery(session, reason);
 			if (session.idleTimer) clearTimeout(session.idleTimer);
 			if (session.lifetimeTimer) clearTimeout(session.lifetimeTimer);
 			session.abortController.abort(new DOMException('Export session cancelled.', 'AbortError'));
@@ -1231,6 +1316,31 @@ export class ExportSessionStore {
 			return receipt;
 		})();
 		return session.cleanupPromise;
+	}
+
+	/**
+	 * Keep how an encoded session's download ended, for its owner's status read.
+	 * Recorded in the same tick the session leaves the live set, so a read never
+	 * finds a session that is neither open nor ended. A session that ended before
+	 * its encode finished had no download, and its caller was already told why by
+	 * the request that ended it.
+	 */
+	#rememberEndedDelivery(session: ExportSession, reason: ExportCleanupReason): void {
+		if (session.outputBytes === null) return;
+		const now = this.#now();
+		for (const [id, ended] of this.#endedDeliveries) {
+			if (now >= ended.forgetAt) this.#endedDeliveries.delete(id);
+		}
+		this.#endedDeliveries.set(session.id, {
+			credential: session.credential,
+			status: exportSessionDeliveryStatusForCleanup(reason, session.outputBytes),
+			forgetAt: session.createdAt + this.#maxLifetimeMs
+		});
+		while (this.#endedDeliveries.size > EXPORT_SESSION_DELIVERY_OUTCOME_HISTORY) {
+			const oldest = this.#endedDeliveries.keys().next();
+			if (oldest.done) break;
+			this.#endedDeliveries.delete(oldest.value);
+		}
 	}
 
 	async #closeDownload(session: ExportSession): Promise<boolean> {
