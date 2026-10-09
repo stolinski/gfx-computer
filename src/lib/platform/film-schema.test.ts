@@ -70,6 +70,21 @@ describe('FilmSchema', () => {
 		assert.deepEqual(film.boundaries, [{ kind: 'cut' }, { kind: 'cut' }]);
 	});
 
+	it('accepts an origin with no content key, which a lifted legacy record has', () => {
+		const document = filmDocument(['intro']);
+		document['scenes'] = [
+			{ ...sceneDocument('intro'), origin: { slug: 'blank', contentKey: null } }
+		];
+
+		assert.deepEqual(FilmSchema.parse(document).scenes[0].origin, {
+			slug: 'blank',
+			contentKey: null
+		});
+		// Still required: a writer states that it has none.
+		document['scenes'] = [{ ...sceneDocument('intro'), origin: { slug: 'blank' } }];
+		assert.equal(FilmSchema.safeParse(document).success, false);
+	});
+
 	it('refuses a boundary list that is not one per pair of neighbours', () => {
 		const tooFew = { ...filmDocument(['intro', 'proof', 'outro']), boundaries: [{ kind: 'cut' }] };
 		const tooMany = { ...filmDocument(['intro']), boundaries: [{ kind: 'cut' }] };

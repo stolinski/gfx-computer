@@ -11,7 +11,9 @@ import {
 	type FilmScene,
 	type FilmSceneOrigin
 } from './film-schema';
+import { engineStateToWireFormat } from './preset-pure';
 import {
+	formatPresetSemanticIssues,
 	validatePresetSemantics,
 	type PresetSemanticIssue,
 	type PresetSemanticValidationOptions
@@ -153,6 +155,79 @@ export function filmFromPreset(preset: Preset, origin: FilmSceneOrigin | null): 
 }
 
 /**
+ * The refusal `presetFromSingleSceneFilm` raises for a Film that is not exactly
+ * one Scene long. Everything downstream of the stores still works on one
+ * Preset, so this build opens one-Scene Films only; the limit goes when the
+ * Workspace opens a Film (ADR-0068 §3).
+ */
+export class FilmSceneCountUnsupportedError extends Error {
+	readonly sceneCount: number;
+
+	constructor(filmName: string, sceneCount: number) {
+		super(
+			`The Film "${filmName}" has ${sceneCount} Scenes, and this build opens one-Scene Films only.`
+		);
+		this.name = 'FilmSceneCountUnsupportedError';
+		this.sceneCount = sceneCount;
+	}
+}
+
+export function isFilmSceneCountUnsupportedError(
+	value: unknown
+): value is FilmSceneCountUnsupportedError {
+	return value instanceof FilmSceneCountUnsupportedError;
+}
+
+/**
+ * The Preset a one-Scene Film is, for the callers that still work on one
+ * Preset: the inverse of `filmFromPreset`. The Preset takes the Film's name,
+ * description, and Pack, and a copy of the Scene's state under the Film's
+ * transport.
+ *
+ * `kind` is `deliverable`. A Film does not carry the field, and `deliverable`
+ * is the kind of user work (`PresetSchema` defaults to it). A Film holds no
+ * `transition` recipe either, so the Preset has none. The Scene's `origin` is
+ * not part of a Preset; a caller that needs it reads it off the Film.
+ *
+ * Throws `FilmSceneCountUnsupportedError` for any other number of Scenes.
+ */
+export function presetFromSingleSceneFilm(film: Film): Preset {
+	const [scene] = film.scenes;
+	if (scene === undefined || film.scenes.length !== 1) {
+		throw new FilmSceneCountUnsupportedError(film.name, film.scenes.length);
+	}
+	return {
+		schema: PRESET_SCHEMA_ID,
+		name: film.name,
+		...(film.description !== undefined ? { description: film.description } : {}),
+		pack: film.pack,
+		kind: 'deliverable',
+		state: cloneJsonValue(sceneStateUnderFilmTransport(film, scene))
+	};
+}
+
+/**
+ * Converts a Film to a JSON-serializable plain object, the way
+ * `presetToWireFormat` does for a Preset. An in-memory Film holds parsed
+ * annotation bodies in every Scene, exactly as a Preset does, so each Scene's
+ * state is written through the same `engineStateToWireFormat` and
+ * `FilmIngressSchema` can parse the result again without data loss.
+ *
+ * Each Scene is written under the Film's transport, so a Film edited in memory
+ * never stores a Scene value its own `orientation`, `fps`, or `format`
+ * overrides.
+ */
+export function filmToWireFormat(film: Film): unknown {
+	return {
+		...film,
+		scenes: film.scenes.map((scene) => ({
+			...scene,
+			state: engineStateToWireFormat(sceneStateUnderFilmTransport(film, scene))
+		}))
+	};
+}
+
+/**
  * Registry and cross-domain checks for a parsed Film, in the shape Preset
  * validation reports (`PresetSemanticIssue`).
  *
@@ -209,4 +284,28 @@ export function validateFilmSemantics(
 	}
 
 	return issues;
+}
+
+/**
+ * Parse a Film document and check its meaning: `FilmIngressSchema`, then
+ * `validateFilmSemantics`. Throws one `Error` naming every finding, the way
+ * `parsePreset` does for a Preset.
+ *
+ * Unlike `parsePreset`, nothing is resolved against the Preset catalogue unless
+ * the caller passes `resolvePreset`: this module is read by the stores on both
+ * sides of the network and must not pull the whole corpus in with it.
+ */
+export function parseFilm(value: unknown, options: PresetSemanticValidationOptions = {}): Film {
+	const result = FilmIngressSchema.safeParse(value);
+	if (!result.success) {
+		const issues = result.error.issues
+			.map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
+			.join('\n');
+		throw new Error(`Invalid GFX film:\n${issues}`);
+	}
+	const semanticIssues = validateFilmSemantics(result.data, options);
+	if (semanticIssues.length > 0) {
+		throw new Error(`Invalid GFX film:\n${formatPresetSemanticIssues(semanticIssues)}`);
+	}
+	return result.data;
 }

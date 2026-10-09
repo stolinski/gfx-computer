@@ -6,6 +6,8 @@ The local server is always `http://localhost:7263`. All examples below operate o
 
 **This whole surface is development-only.** `PUBLIC_GFX_COMPOSITION_STORE` picks which store a build serves: `origin` is the disk-backed store documented here, and `browser` is the Public demo session, which keeps every composition in the visitor's own browser and never sends one to the origin ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). A build configured for `browser` answers 404 to every request below, so none of these commands is a way to read or write a visitor's work on the public origin. In the browser-scoped store the same compositions are reached through the GUI and through the WebMCP `session` and `composition` families, which act on exactly the store the GUI does.
 
+**The store also reads Film records.** A stored record holds a Preset (`{ meta, preset }`) or a Film (`{ meta, film }`), and both stores read either one ([ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §3, [`film-format.md`](film-format.md#stored-records)). Nothing below changes yet: every route still returns and accepts a standalone Preset, and every write still saves a Preset record. A one-Scene Film opens as its Preset. A Film with more than one Scene cannot be opened yet: `GET /api/user-compositions/<slug>` answers **409**, and the listing leaves it out.
+
 ## Agent store access
 
 List User composition metadata:

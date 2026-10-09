@@ -18,30 +18,13 @@ import {
 	inspectUserCompositionMedia
 } from '$lib/platform/user-composition-media.server';
 import { requireUserCompositionStoreLocation } from '$lib/platform/user-composition-store-location.server';
+import {
+	presetForStoredUserComposition,
+	readStoredUserCompositionRecord,
+	type StoredPresetUserCompositionRecord
+} from '$lib/platform/user-composition-record';
 import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 import { COMPOSITION_SESSION_SLUG_PATTERN } from '$lib/utils/composition-session-slug';
-
-/** Disk format wrapping the Preset so metadata stays out of the Preset JSON. */
-interface StoredUserComposition {
-	meta: { forkedFrom: string | null; savedAt: string };
-	preset: unknown;
-}
-
-function isStoredUserComposition(value: unknown): value is StoredUserComposition {
-	if (typeof value !== 'object' || value === null) return false;
-	const v = value as Record<string, unknown>;
-	const meta = v['meta'];
-	return (
-		typeof meta === 'object' &&
-		meta !== null &&
-		'forkedFrom' in meta &&
-		'savedAt' in meta &&
-		(meta.forkedFrom === null || typeof meta.forkedFrom === 'string') &&
-		typeof meta.savedAt === 'string' &&
-		typeof v['preset'] === 'object' &&
-		v['preset'] !== null
-	);
-}
 
 type UserCompositionCardMetadata = Pick<
 	UserCompositionMeta,
@@ -75,27 +58,31 @@ export const GET: RequestHandler = async (event) => {
 		try {
 			const raw = await readFile(join(storeDirectory, entry), 'utf-8');
 			const storedUserComposition: unknown = JSON.parse(raw);
-			if (!isStoredUserComposition(storedUserComposition)) continue;
-			const result = PresetIngressSchema.safeParse(storedUserComposition.preset);
-			if (!result.success) continue;
-			if (validatePresetSemantics(result.data, { packScope: 'stored' }).length > 0) continue;
+			// Either record shape reads as a Film (ADR-0068 §3). A record this
+			// build cannot open throws here and is skipped with the unreadable
+			// ones below, which includes a Film of more than one Scene.
+			const reading = readStoredUserCompositionRecord(storedUserComposition, {
+				packScope: 'stored'
+			});
+			const preset = presetForStoredUserComposition(reading);
+			const [firstScene] = reading.film.scenes;
 			const cardMetadata = {
 				slug: userCompositionSlug,
-				name: result.data.name,
-				forkedFrom: storedUserComposition.meta.forkedFrom,
-				savedAt: storedUserComposition.meta.savedAt,
-				posterKey: posterKeyForPreset(result.data),
-				durationSeconds: result.data.state.transport.durationSeconds,
-				surfaceType: result.data.state.surface.type
+				name: reading.film.name,
+				forkedFrom: reading.meta.forkedFrom,
+				savedAt: reading.meta.savedAt,
+				posterKey: posterKeyForPreset(preset),
+				durationSeconds: firstScene.state.transport.durationSeconds,
+				surfaceType: firstScene.state.surface.type
 			};
 			if (cardView) {
 				userCompositionMetadata.push(cardMetadata);
 				continue;
 			}
-			const mediaInspection = await inspectUserCompositionMedia(result.data);
+			const mediaInspection = await inspectUserCompositionMedia(preset);
 			userCompositionMetadata.push({
 				...cardMetadata,
-				media: result.data.state.media,
+				media: preset.state.media,
 				mediaStatus: mediaInspection.status,
 				...(mediaInspection.issues.length > 0 ? { mediaIssues: mediaInspection.issues } : {})
 			});
@@ -148,7 +135,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(422, cause instanceof Error ? cause.message : 'Referenced media asset is unavailable');
 	}
 
-	const storedUserComposition: StoredUserComposition = {
+	const storedUserComposition: StoredPresetUserCompositionRecord = {
 		meta: {
 			forkedFrom: typeof forkedFrom === 'string' ? forkedFrom : null,
 			savedAt: new Date().toISOString()

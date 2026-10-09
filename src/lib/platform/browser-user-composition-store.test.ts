@@ -9,8 +9,10 @@ import {
 	isCompositionSessionStorageError,
 	type CompositionSessionStorageFailureCode
 } from './browser-user-composition-store';
+import { posterKeyForPreset } from './posters';
 import { parsePresetIngress } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
+import { STORED_USER_COMPOSITION_RECORD_FIXTURES } from './user-composition-record.fixture';
 import { isUserCompositionNotHeldError } from './user-composition-store-errors';
 
 import type { Preset } from './engine-schema';
@@ -298,9 +300,9 @@ describe('browser-scoped composition session store', () => {
 			maxCompositionBytes: 1024 * 1024
 		});
 
-		const cause = await tight.forkUserComposition('second', namedPreset('Second'), null).catch(
-			(e) => e
-		);
+		const cause = await tight
+			.forkUserComposition('second', namedPreset('Second'), null)
+			.catch((e) => e);
 
 		assert.equal(storageFailureCode(cause), 'quota_exceeded');
 		assert.ok(cause instanceof Error && cause.message.includes('delete a composition'));
@@ -354,9 +356,14 @@ describe('browser-scoped composition session store', () => {
 			usedBytes: null,
 			quotaBytes: null
 		});
-		assert.equal(storageFailureCode(await store.listUserCompositions().catch((e) => e)), 'storage_unavailable');
 		assert.equal(
-			storageFailureCode(await store.forkUserComposition('untitled', blankPreset, null).catch((e) => e)),
+			storageFailureCode(await store.listUserCompositions().catch((e) => e)),
+			'storage_unavailable'
+		);
+		assert.equal(
+			storageFailureCode(
+				await store.forkUserComposition('untitled', blankPreset, null).catch((e) => e)
+			),
 			'storage_unavailable'
 		);
 	});
@@ -368,6 +375,86 @@ describe('browser-scoped composition session store', () => {
  * same `storage` is a second tab — which is the only concurrency a
  * browser-scoped session has.
  */
+// ADR-0068 §3: the session store reads a Preset envelope and a Film envelope, and
+// still hands every caller one Preset.
+describe('browser-scoped composition session reading both stored record shapes', () => {
+	for (const fixture of STORED_USER_COMPOSITION_RECORD_FIXTURES) {
+		const key = `${STORAGE_IDENTITY}:${fixture.slug}`;
+		const storedEnvelope = JSON.stringify({ ...fixture.meta, ...fixture.document });
+
+		if (fixture.outcome === 'opens') {
+			it(`opens and lists the ${fixture.slug} record as its Preset`, async () => {
+				const preset = parsePresetIngress(fixture.presetDocument);
+				storage.entries.set(key, storedEnvelope);
+				const store = createStore();
+
+				assert.deepEqual(await store.loadUserComposition(fixture.slug), preset);
+				assert.deepEqual(await store.listUserCompositions(), [
+					{
+						slug: fixture.slug,
+						name: preset.name,
+						forkedFrom: fixture.meta.forkedFrom,
+						savedAt: fixture.meta.savedAt,
+						posterKey: posterKeyForPreset(preset),
+						durationSeconds: preset.state.transport.durationSeconds,
+						surfaceType: preset.state.surface.type,
+						media: preset.state.media,
+						mediaStatus: 'ready'
+					}
+				]);
+			});
+			continue;
+		}
+
+		it(`drops the ${fixture.slug} record, which this build cannot open`, async () => {
+			storage.entries.set(key, storedEnvelope);
+			const store = createStore();
+
+			assert.equal(await store.loadUserComposition(fixture.slug), null);
+			assert.deepEqual(await store.listUserCompositions(), []);
+			// Dropped from what the session offers, never from the browser.
+			assert.equal(storage.entries.get(key), storedEnvelope);
+		});
+	}
+
+	it('reads a stored Film without rewriting it, then saves over it as a Preset record', async () => {
+		const fixture = STORED_USER_COMPOSITION_RECORD_FIXTURES.find(
+			(candidate) => candidate.slug === 'film-one-scene'
+		);
+		assert.ok(fixture);
+		const key = `${STORAGE_IDENTITY}:${fixture.slug}`;
+		const storedEnvelope = JSON.stringify({ ...fixture.meta, ...fixture.document });
+		storage.entries.set(key, storedEnvelope);
+		const store = createStore();
+
+		const loaded = await store.loadUserComposition(fixture.slug);
+		assert.ok(loaded);
+		assert.equal(storage.entries.get(key), storedEnvelope);
+
+		await store.saveUserComposition(fixture.slug, loaded);
+
+		const written = JSON.parse(storage.entries.get(key) ?? 'null') as Record<string, unknown>;
+		// Writers still emit the Preset envelope until the Workspace works on a Film.
+		assert.equal('film' in written, false);
+		assert.equal(written['forkedFrom'], fixture.meta.forkedFrom);
+		assert.deepEqual(written['preset'], presetToWireFormat(loaded));
+	});
+
+	it('drops an envelope that holds both a Preset and a Film', async () => {
+		storage.entries.set(
+			`${STORAGE_IDENTITY}:both`,
+			JSON.stringify({
+				forkedFrom: null,
+				savedAt: '2026-10-01T12:00:00.000Z',
+				preset: blankPresetJson,
+				film: { schema: 'gfx-film@1' }
+			})
+		);
+
+		assert.equal(await createStore().loadUserComposition('both'), null);
+	});
+});
+
 describe('browser-scoped composition session across two tabs', () => {
 	it('refuses a save over the version another tab wrote, keeping both compositions', async () => {
 		const firstTab = createStore();

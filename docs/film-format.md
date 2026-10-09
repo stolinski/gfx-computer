@@ -1,6 +1,6 @@
 # GFX Film format (`gfx-film@1`)
 
-> **Designed, not yet wired.** This format implements [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §1–2. The schema, ingress, and frame maths exist and are tested. Nothing in the app reads or writes a Film yet: the Workspace, the stores, export, and the operation inventory still work on one Preset. Until that changes, [`preset-format.md`](preset-format.md) describes what the engine loads.
+> **Read by the stores, not yet written.** This format implements [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §1–3. The schema, ingress, and frame maths exist and are tested, and both User composition stores read a stored Film (see [Stored records](#stored-records)). Nothing writes a Film yet: the Workspace, export, and the operation inventory still work on one Preset, and every store write still saves a Preset. Until that changes, [`preset-format.md`](preset-format.md) describes what the engine loads.
 
 A **Film** is an ordered list of **Scenes** with a **Scene boundary** between each pair of neighbours. A Scene is one Preset's complete state, owned by the Film. A one-off piece is a Film with one Scene. Terms: [`CONTEXT.md`](CONTEXT.md).
 
@@ -51,11 +51,11 @@ There is no `score` field yet (ADR-0068 §6).
 
 ### A Scene
 
-| Field    | Meaning                                                                                                                                                                                            |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`     | Lowercase letters, digits, and hyphens, starting with a letter or digit, at most 40 characters. Unique within the Film.                                                                            |
-| `origin` | Where the Scene was seeded from: `{ slug, contentKey }`, the source Preset's slug and its poster content key at that moment. `null` for a Scene started blank. Required, so a writer states which. |
-| `state`  | A complete Preset state: the same shape as `state` in [`preset-format.md`](preset-format.md).                                                                                                      |
+| Field    | Meaning                                                                                                                                                                                                                                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`     | Lowercase letters, digits, and hyphens, starting with a letter or digit, at most 40 characters. Unique within the Film.                                                                                                                                                                                 |
+| `origin` | Where the Scene was seeded from: `{ slug, contentKey }`, the source Preset's slug and its poster content key at that moment. `contentKey` is `null` when the key was never recorded (a Scene lifted from a legacy stored record). `null` for a Scene started blank. Required, so a writer states which. |
+| `state`  | A complete Preset state: the same shape as `state` in [`preset-format.md`](preset-format.md).                                                                                                                                                                                                           |
 
 `origin` is a record of the past. Editing the source Preset never changes a Film. Nothing links back, and nothing re-syncs.
 
@@ -112,3 +112,37 @@ Two Preset fields are not carried:
 
 - `kind`. It classifies a catalogue entry, and a Film is not one.
 - `transition`. A transition Preset becomes a two-Scene Film in a later phase (ADR-0068 §3).
+
+`presetFromSingleSceneFilm(film)` goes the other way, for the code that still works on one Preset. The Preset takes the Film's `name`, `description`, and `pack`, a copy of the Scene's state under the Film's transport, and `kind: "deliverable"`. A Film with any other number of Scenes is refused.
+
+## To and from JSON
+
+- `parseFilm(value, options?)` reads a Film document: `FilmIngressSchema`, then `validateFilmSemantics`. It throws one error that names every finding.
+- `filmToWireFormat(film)` writes a Film as JSON. Each Scene's state is written the same way `presetToWireFormat` writes a Preset's state, so annotation bodies are text again. Parsing the result gives back the same Film.
+
+## Stored records
+
+Both User composition stores keep one record per composition: its metadata beside one composition document. There are two record shapes (`src/lib/platform/user-composition-record.ts`):
+
+```jsonc
+// Legacy. Every write still saves this shape.
+{ "meta": { "forkedFrom": "lower-third", "savedAt": "2026-10-01T12:00:00.000Z" }, "preset": {/* gfx@1 */} }
+
+// Film. Read today; written from the next phase on.
+{ "meta": { "forkedFrom": "lower-third", "savedAt": "2026-10-01T12:00:00.000Z" }, "film": {/* gfx-film@1 */} }
+```
+
+The disk store keeps this record as `<store>/<slug>.json`. The browser store keeps `forkedFrom` and `savedAt` flat on its own envelope, beside `preset` or `film`. A record holds exactly one of `preset` and `film`.
+
+`readStoredUserCompositionRecord(record)` reads either shape and always returns a Film:
+
+- A `film` record is parsed with `parseFilm`.
+- A `preset` record is parsed as a Preset, so a document with the Legacy Supers schema id still loads ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). It is then lifted with `filmFromPreset`. The Scene's `origin` is `{ slug: meta.forkedFrom, contentKey: null }`, or `null` when the record was not forked.
+
+Both stores then open the record as one Preset with `presetForStoredUserComposition`:
+
+- A `preset` record opens as the Preset it stored. Its `kind` and `transition` are kept, which the lifted Film cannot carry.
+- A one-Scene `film` record opens through `presetFromSingleSceneFilm`.
+- A `film` record with more than one Scene is refused: this build opens one-Scene Films. The disk store answers 409, and the browser store leaves the record out of the session. Both leave the stored record untouched. The next phase removes this limit.
+
+Saving over a `film` record writes a `preset` record. The Scene's `origin` is not kept, because a Preset has nowhere to hold it.

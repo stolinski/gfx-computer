@@ -26,19 +26,27 @@
  * opens, and reading it rewrites it in its current form once, so the session
  * stops carrying an upgrade it has already performed.
  *
+ * A record holds a Preset or a Film (ADR-0068 §3). Both read through
+ * `readStoredUserCompositionRecord`, the reader the disk store shares, and both
+ * open as one Preset; every write still stores a Preset.
+ *
  * Two tabs are the one concurrency this store has. They share the storage area
  * and neither knows the other exists, so every write is stamped and a save that
  * would land on a stamp this store never opened is refused rather than applied —
  * see `writeToken` below.
  */
 import { posterKeyForPreset } from './posters';
-import { parsePresetIngress, readCompositionLegacyUpgrades } from './preset-ingress';
+import { readCompositionLegacyUpgrades } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
-import { validatePresetSemantics } from './preset-validation';
+import {
+	presetForStoredUserComposition,
+	readStoredUserCompositionRecord
+} from './user-composition-record';
 import { UserCompositionNotHeldError } from './user-composition-store-errors';
 import { COMPOSITION_SESSION_SLUG_PATTERN } from '../utils/composition-session-slug';
 
 import type { Preset } from './engine-schema';
+import type { Film } from './film-schema';
 import type { PublicCompositionSessionStorageLimits } from './public-runtime-contract';
 import type {
 	CompositionSessionStorage,
@@ -75,6 +83,9 @@ export function isCompositionSessionStorageError(
  * The stored envelope: the composition's wire format plus the provenance the
  * Preset itself does not carry. Same split as the development store's disk
  * format, so a composition means the same thing in either one.
+ *
+ * This is the envelope every write produces. A read also accepts the same
+ * envelope around a Film (`StoredBrowserFilmUserComposition`).
  */
 interface StoredBrowserUserComposition {
 	forkedFrom: string | null;
@@ -89,17 +100,31 @@ interface StoredBrowserUserComposition {
 	preset: unknown;
 }
 
+/**
+ * The same envelope around a Film's wire format instead of a Preset's
+ * (ADR-0068 §3). Read, never written yet: readers ship before writers.
+ */
+type StoredBrowserFilmUserComposition = Omit<StoredBrowserUserComposition, 'preset'> & {
+	film: unknown;
+};
+
+type StoredBrowserUserCompositionEnvelope =
+	StoredBrowserUserComposition | StoredBrowserFilmUserComposition;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isStoredBrowserUserComposition(value: unknown): value is StoredBrowserUserComposition {
+function isStoredBrowserUserCompositionEnvelope(
+	value: unknown
+): value is StoredBrowserUserCompositionEnvelope {
 	if (!isRecord(value)) return false;
 	return (
 		(value.forkedFrom === null || typeof value.forkedFrom === 'string') &&
 		typeof value.savedAt === 'string' &&
 		(value.writeToken === undefined || typeof value.writeToken === 'string') &&
-		isRecord(value.preset)
+		// Exactly one composition document, so an envelope is never ambiguous.
+		isRecord(value.preset) !== isRecord(value.film)
 	);
 }
 
@@ -132,6 +157,9 @@ interface BrowserSessionRecord {
 	forkedFrom: string | null;
 	savedAt: string;
 	writeToken: string | undefined;
+	/** What the record holds, whichever shape stored it. */
+	film: Film;
+	/** The one Preset that Film opens as, which is what this store's callers receive. */
 	preset: Preset;
 }
 
@@ -190,7 +218,10 @@ export function createBrowserUserCompositionStore(
 	 * what the concurrency check and a save's provenance read, so a record too
 	 * corrupt to open still answers who wrote it and what it was forked from.
 	 */
-	function readStoredEnvelope(storage: Storage, key: string): StoredBrowserUserComposition | null {
+	function readStoredEnvelope(
+		storage: Storage,
+		key: string
+	): StoredBrowserUserCompositionEnvelope | null {
 		const raw = storage.getItem(key);
 		if (raw === null || raw.trim().length === 0) return null;
 
@@ -200,7 +231,7 @@ export function createBrowserUserCompositionStore(
 		} catch {
 			return null;
 		}
-		return isStoredBrowserUserComposition(stored) ? stored : null;
+		return isStoredBrowserUserCompositionEnvelope(stored) ? stored : null;
 	}
 
 	function readRecordAt(storage: Storage, key: string): BrowserSessionRecord | null {
@@ -211,15 +242,24 @@ export function createBrowserUserCompositionStore(
 		const stored = readStoredEnvelope(storage, key);
 		if (!stored) return null;
 
+		// Either shape reads as a Film through the reader the disk store shares
+		// (ADR-0068 §3), then opens as the one Preset this store's callers work
+		// on. A record that does not survive is dropped, which includes a Film of
+		// more than one Scene: this build opens one-Scene Films.
+		const meta = { forkedFrom: stored.forkedFrom, savedAt: stored.savedAt };
+		let film: Film;
 		let preset: Preset;
 		try {
-			preset = parsePresetIngress(stored.preset);
+			const reading = readStoredUserCompositionRecord(
+				'film' in stored ? { meta, film: stored.film } : { meta, preset: stored.preset }
+			);
+			film = reading.film;
+			preset = presetForStoredUserComposition(reading);
 		} catch {
 			return null;
 		}
-		if (validatePresetSemantics(preset).length > 0) return null;
 
-		if (readCompositionLegacyUpgrades(stored.preset).length > 0) {
+		if ('preset' in stored && readCompositionLegacyUpgrades(stored.preset).length > 0) {
 			migrateStoredRecord(storage, key, stored, preset);
 		}
 
@@ -228,6 +268,7 @@ export function createBrowserUserCompositionStore(
 			forkedFrom: stored.forkedFrom,
 			savedAt: stored.savedAt,
 			writeToken: stored.writeToken,
+			film,
 			preset
 		};
 	}
@@ -365,14 +406,15 @@ export function createBrowserUserCompositionStore(
 	}
 
 	function metaForRecord(record: BrowserSessionRecord): UserCompositionMeta {
+		const [firstScene] = record.film.scenes;
 		return {
 			slug: record.slug,
-			name: record.preset.name,
+			name: record.film.name,
 			forkedFrom: record.forkedFrom,
 			savedAt: record.savedAt,
 			posterKey: posterKeyForPreset(record.preset),
-			durationSeconds: record.preset.state.transport.durationSeconds,
-			surfaceType: record.preset.state.surface.type,
+			durationSeconds: firstScene.state.transport.durationSeconds,
+			surfaceType: firstScene.state.surface.type,
 			media: record.preset.state.media,
 			// `missing` and `undecodable` describe an asset the origin was asked for
 			// and could not serve. A browser-scoped session asks the origin for

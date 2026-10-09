@@ -12,7 +12,11 @@ import {
 	FILM_FIRST_SCENE_ID,
 	FilmIngressSchema,
 	filmFromPreset,
+	filmToWireFormat,
+	isFilmSceneCountUnsupportedError,
+	parseFilm,
 	parseFilmIngress,
+	presetFromSingleSceneFilm,
 	sceneStateForPlayback,
 	validateFilmSemantics
 } from './film-ingress';
@@ -228,6 +232,107 @@ describe('filmFromPreset', () => {
 
 		assert.equal(film.scenes[0].origin, null);
 		assert.equal('description' in film, false);
+	});
+});
+
+describe('filmToWireFormat', () => {
+	it('is stable through parse, wire, and parse again', () => {
+		const preset = parsePresetIngress(lowerThirdPresetJson);
+		const film = parseFilm({
+			...filmDocument([
+				{
+					id: 'intro',
+					origin: { slug: 'lower-third', contentKey: null },
+					state: (presetToWireFormat(preset) as { state: unknown }).state
+				},
+				sceneDocument('outro')
+			]),
+			pack: preset.pack
+		});
+		// The fixture is only worth its name if there is a parsed body to serialize.
+		assert.notEqual(typeof film.scenes[0].state.surface.content.body, 'string');
+
+		const wire: unknown = JSON.parse(JSON.stringify(filmToWireFormat(film)));
+		const reparsed = parseFilm(wire);
+
+		assert.deepEqual(reparsed, film);
+		assert.deepEqual(JSON.parse(JSON.stringify(filmToWireFormat(reparsed))), wire);
+	});
+
+	it("writes each Scene's state exactly as presetToWireFormat writes a Preset's", () => {
+		const preset = parsePresetIngress(lowerThirdPresetJson);
+		const film = filmFromPreset(preset, null);
+
+		assert.deepEqual(filmToWireFormat(film), wireDocumentOfOneSceneFilm(film, preset));
+	});
+
+	it("writes the Film's transport over a Scene edited out of step in memory", () => {
+		const film = parseFilmIngress(filmDocument([sceneDocument('intro')]));
+		film.fps = 60;
+
+		const wire = filmToWireFormat(film) as { scenes: { state: { transport: { fps: number } } }[] };
+
+		assert.equal(wire.scenes[0]?.state.transport.fps, 60);
+		assert.equal(film.scenes[0].state.transport.fps, 29.97);
+	});
+});
+
+describe('parseFilm', () => {
+	it('throws one error naming every schema finding with its path', () => {
+		assert.throws(
+			() => parseFilm({ ...filmDocument([sceneDocument('intro')]), name: '', boundaries: [{}] }),
+			(cause) => {
+				assert.ok(cause instanceof Error);
+				assert.match(cause.message, /^Invalid GFX film:\n/);
+				assert.match(cause.message, /name: Film name is required/);
+				assert.match(cause.message, /boundaries/);
+				return true;
+			}
+		);
+	});
+
+	it('throws on a semantic finding the schema cannot see', () => {
+		assert.throws(
+			() => parseFilm({ ...filmDocument([sceneDocument('intro')]), pack: 'no-such-pack' }),
+			/Invalid GFX film:\npack: /
+		);
+	});
+});
+
+describe('presetFromSingleSceneFilm', () => {
+	it('is the inverse of filmFromPreset for a deliverable Preset', () => {
+		const preset = parsePresetIngress(lowerThirdPresetJson);
+		const film = filmFromPreset(preset, null);
+
+		const restored = presetFromSingleSceneFilm(film);
+
+		assert.deepEqual(restored, preset);
+		assert.notEqual(restored.state, film.scenes[0].state);
+	});
+
+	it("stamps the Film's transport and names user work a deliverable", () => {
+		const film = filmFromPreset(parsePresetIngress(blankPresetJson), null);
+		film.orientation = 'vertical';
+
+		const restored = presetFromSingleSceneFilm(film);
+
+		assert.equal(restored.kind, 'deliverable');
+		assert.equal(restored.state.transport.orientation, 'vertical');
+		assert.equal('description' in restored, false);
+	});
+
+	it('refuses a Film of more than one Scene, naming the limit', () => {
+		const film = parseFilmIngress(filmDocument([sceneDocument('intro'), sceneDocument('outro')]));
+
+		assert.throws(
+			() => presetFromSingleSceneFilm(film),
+			(cause) => {
+				assert.ok(isFilmSceneCountUnsupportedError(cause));
+				assert.equal(cause.sceneCount, 2);
+				assert.match(cause.message, /this build opens one-Scene Films/);
+				return true;
+			}
+		);
 	});
 });
 

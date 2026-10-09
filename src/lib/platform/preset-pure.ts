@@ -66,15 +66,20 @@ export function serializeCompositionState(
  * stored on disk and re-parsed by `PresetSchema` without data loss.
  */
 export function presetToWireFormat(preset: Preset): unknown {
-	const surface = preset.state.surface;
+	return { ...preset, state: engineStateToWireFormat(preset.state) };
+}
+
+/**
+ * The wire form of one engine state: the part of `presetToWireFormat` that a
+ * Preset and a Film Scene share (`filmToWireFormat` writes each Scene through
+ * it), so the two documents can never serialize a state differently.
+ */
+export function engineStateToWireFormat(state: EngineState): unknown {
+	const surface = state.surface;
 	const content: unknown = wireContent(surface.content);
-	const canonicalState = canonicalCompositionState(preset.state);
 	return {
-		...preset,
-		state: {
-			...canonicalState,
-			surface: { ...surface, content }
-		}
+		...canonicalCompositionState(state),
+		surface: { ...surface, content }
 	};
 }
 

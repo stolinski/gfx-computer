@@ -12,6 +12,7 @@ import {
 } from '$lib/platform/user-composition-file-index.server';
 import { posterKeyForPreset } from '$lib/platform/posters';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
+import { STORED_USER_COMPOSITION_RECORD_FIXTURES } from '$lib/platform/user-composition-record.fixture';
 
 const fsMocks = vi.hoisted(() => ({
 	mkdir: vi.fn<(path: string, options: { recursive: true }) => Promise<string | undefined>>(),
@@ -692,6 +693,119 @@ describe('user composition handlers', () => {
 				collectionHandlers.POST(postEvent({ slug: 'missing-media', preset, forkedFrom: 'blank' })),
 			expectHttpError(422, 'Referenced media asset')
 		);
+	});
+});
+
+// ADR-0068 §3: the disk store reads the legacy `{ meta, preset }` record and the
+// `{ meta, film }` record, and still hands every caller one standalone Preset.
+describe('user composition handlers reading both stored record shapes', () => {
+	function slugEvent(slug: string): Parameters<(typeof slugHandlers)['GET']>[0] {
+		return { params: { slug } } as Parameters<(typeof slugHandlers)['GET']>[0];
+	}
+
+	function putEvent(slug: string, body: unknown): Parameters<(typeof slugHandlers)['PUT']>[0] {
+		return {
+			params: { slug },
+			request: new Request(`http://localhost/api/user-compositions/${slug}`, {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(body)
+			})
+		} as Parameters<(typeof slugHandlers)['PUT']>[0];
+	}
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	for (const fixture of STORED_USER_COMPOSITION_RECORD_FIXTURES) {
+		const storedFile = JSON.stringify({ meta: fixture.meta, ...fixture.document });
+
+		if (fixture.outcome === 'opens') {
+			it(`opens and lists the ${fixture.slug} record as its standalone Preset`, async () => {
+				const preset = parsePresetIngress(fixture.presetDocument);
+				fsMocks.readFile.mockResolvedValue(storedFile);
+				fsMocks.readdir.mockResolvedValue([`${fixture.slug}.json`]);
+
+				const loaded = await slugHandlers.GET(slugEvent(fixture.slug));
+				const listed = await collectionHandlers.GET(
+					{} as Parameters<(typeof collectionHandlers)['GET']>[0]
+				);
+
+				assert.deepEqual(await loaded.json(), presetToWireFormat(preset));
+				assert.deepEqual(await listed.json(), [
+					{
+						slug: fixture.slug,
+						name: preset.name,
+						forkedFrom: fixture.meta.forkedFrom,
+						savedAt: fixture.meta.savedAt,
+						posterKey: posterKeyForPreset(preset),
+						durationSeconds: preset.state.transport.durationSeconds,
+						surfaceType: preset.state.surface.type,
+						media: preset.state.media,
+						mediaStatus: 'ready'
+					}
+				]);
+			});
+			continue;
+		}
+
+		it(`refuses the ${fixture.slug} record as a stored composition, not a server fault`, async () => {
+			fsMocks.readFile.mockResolvedValue(storedFile);
+			fsMocks.readdir.mockResolvedValue([`${fixture.slug}.json`]);
+
+			await assert.rejects(
+				async () => slugHandlers.GET(slugEvent(fixture.slug)),
+				expectHttpError(
+					409,
+					fixture.outcome === 'scene-count-refused'
+						? 'this build opens one-Scene Films'
+						: `Stored composition "${fixture.slug}" is not one this engine accepts`
+				)
+			);
+			const listed = await collectionHandlers.GET(
+				{} as Parameters<(typeof collectionHandlers)['GET']>[0]
+			);
+			assert.deepEqual(await listed.json(), []);
+		});
+	}
+
+	it('leaves a legacy file byte-identical when it is read and saved again', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-01T12:00:00.000Z'));
+		await collectionHandlers.POST(
+			postEvent({ slug: 'legacy', preset: mediaPreset(), forkedFrom: 'blank' })
+		);
+		const legacyFile = fsMocks.writeFile.mock.calls[0]?.[1] ?? '';
+		assert.deepEqual(Object.keys(JSON.parse(legacyFile) as object), ['meta', 'preset']);
+		fsMocks.readFile.mockResolvedValue(legacyFile);
+
+		const loaded = await slugHandlers.GET(slugEvent('legacy'));
+		await slugHandlers.PUT(putEvent('legacy', await loaded.json()));
+
+		assert.equal(fsMocks.writeFile.mock.calls.length, 2);
+		assert.equal(fsMocks.writeFile.mock.calls[1]?.[1], legacyFile);
+	});
+
+	it('saves over a stored Film as a Preset record, keeping what it was forked from', async () => {
+		const fixture = STORED_USER_COMPOSITION_RECORD_FIXTURES.find(
+			(candidate) => candidate.slug === 'film-one-scene'
+		);
+		assert.ok(fixture);
+		fsMocks.readFile.mockResolvedValue(JSON.stringify({ meta: fixture.meta, ...fixture.document }));
+
+		const loaded = await slugHandlers.GET(slugEvent(fixture.slug));
+		const standalonePreset: unknown = await loaded.json();
+		await slugHandlers.PUT(putEvent(fixture.slug, standalonePreset));
+
+		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
+			meta: { forkedFrom: string | null };
+			preset: unknown;
+		};
+		// Writers still emit the legacy shape until the Workspace works on a Film.
+		assert.deepEqual(Object.keys(written), ['meta', 'preset']);
+		assert.equal(written.meta.forkedFrom, fixture.meta.forkedFrom);
+		assert.deepEqual(written.preset, standalonePreset);
 	});
 });
 

@@ -3,10 +3,11 @@ import { z } from 'zod';
 import { EngineStateSchema, PresetSchema, type EngineState } from './engine-schema.ts';
 
 /**
- * The Film wire format id (ADR-0068 §1). A Film is designed, not yet wired:
- * nothing in the Workspace, the stores, export, or the operation inventory
- * reads this module yet. Ingress is `./film-ingress.ts`; frame maths is
- * `./film-playhead.ts`.
+ * The Film wire format id (ADR-0068 §1). A Film is read, not yet written: both
+ * User composition stores accept a stored `{ meta, film }` record
+ * (`./user-composition-record.ts`), and nothing in the Workspace, export, or
+ * the operation inventory works on a Film yet. Ingress is `./film-ingress.ts`;
+ * frame maths is `./film-playhead.ts`.
  */
 export const FILM_SCHEMA_ID = 'gfx-film@1' as const;
 
@@ -52,10 +53,15 @@ export const FilmSceneIdSchema = z
  * Where a Scene was seeded from (ADR-0068 §2): the source Preset's slug and
  * the content key its poster used when the Scene was made (ADR-0061). A record
  * of the past only. Nothing links back, and nothing re-syncs.
+ *
+ * `contentKey` is `null` for a Scene lifted from a legacy `{ meta, preset }`
+ * stored record (`user-composition-record.ts`): that record kept the slug it
+ * was forked from and never knew its source's content key. Required, so a
+ * writer states which.
  */
 export const FilmSceneOriginSchema = z.strictObject({
 	slug: z.string().min(1),
-	contentKey: z.string().min(1)
+	contentKey: z.string().min(1).nullable()
 });
 
 export const FilmSceneSchema = z.strictObject({

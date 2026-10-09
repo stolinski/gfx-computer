@@ -9,6 +9,7 @@ import {
 	removeUserCompositionFileFromIndex
 } from '$lib/platform/user-composition-file-index.server';
 import { writeUserCompositionFileAtomically } from '$lib/platform/user-composition-file-write.server';
+import type { Preset } from '$lib/platform/engine-schema';
 import { PresetIngressSchema } from '$lib/platform/preset-ingress';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 import {
@@ -19,40 +20,20 @@ import {
 	assertUserCompositionMediaReady,
 	inspectUserCompositionMedia
 } from '$lib/platform/user-composition-media.server';
+import {
+	isStoredUserCompositionRefusal,
+	presetForStoredUserComposition,
+	readStoredUserCompositionMeta,
+	readStoredUserCompositionRecord,
+	type StoredPresetUserCompositionRecord,
+	type StoredUserCompositionMeta
+} from '$lib/platform/user-composition-record';
 import { snapshotUserCompositionStore } from '$lib/platform/user-composition-store-backup.server';
 import {
 	assertUserCompositionDeleteAuthorized,
 	requireUserCompositionStoreLocation
 } from '$lib/platform/user-composition-store-location.server';
 import { moveUserCompositionToTrash } from '$lib/platform/user-composition-trash.server';
-
-/**
- * Disk format wrapping the serialized preset so metadata stays out of the
- * Preset JSON. `preset` holds the WIRE format (e.g. `surface.content.body` as a
- * text string), not the parsed runtime Preset — `PresetSchema` is a transform
- * schema (string → AnnotationBody), so the disk must store its INPUT shape for
- * GET to re-parse it. Hence `unknown`, written via `presetToWireFormat`.
- */
-interface StoredUserComposition {
-	meta: { forkedFrom: string | null; savedAt: string };
-	preset: unknown;
-}
-
-function isStoredUserComposition(value: unknown): value is StoredUserComposition {
-	if (typeof value !== 'object' || value === null) return false;
-	const v = value as Record<string, unknown>;
-	const meta = v['meta'];
-	return (
-		typeof meta === 'object' &&
-		meta !== null &&
-		'forkedFrom' in meta &&
-		'savedAt' in meta &&
-		(meta.forkedFrom === null || typeof meta.forkedFrom === 'string') &&
-		typeof meta.savedAt === 'string' &&
-		typeof v['preset'] === 'object' &&
-		v['preset'] !== null
-	);
-}
 
 function userCompositionPathForSlug(storeDirectory: string, slug: string): string {
 	return join(storeDirectory, `${slug}.json`);
@@ -90,9 +71,6 @@ async function readUserCompositionWirePreset(
 		await removeUserCompositionFileFromIndex(slug);
 		return null;
 	}
-	if (!isStoredUserComposition(storedUserComposition)) {
-		error(500, 'Corrupt user composition file');
-	}
 
 	// A stored document this engine will not accept is the author's work being out
 	// of step with the current rules, not this origin failing: the file read, it
@@ -102,26 +80,26 @@ async function readUserCompositionWirePreset(
 	// domain stopped being allowed after it was saved. 409 keeps the refusal and
 	// names every finding, and stays a log line rather than an issue
 	// (`docs/sentry-dev-flow.md`: 4xx = log, 5xx = issue). A file that is NOT a
-	// store document, above, is a broken store and remains a 500.
-	const result = PresetIngressSchema.safeParse(storedUserComposition.preset);
-	if (!result.success) {
-		error(
-			409,
-			`Stored composition "${slug}" is not one this engine accepts: ${result.error.message}`
+	// store document is a broken store and remains a 500.
+	//
+	// The record is read as a Film whichever shape was stored (ADR-0068 §3), then
+	// opened as the one Preset everything downstream still works on. A Film of
+	// more than one Scene is the same kind of refusal: a store document this
+	// build cannot open yet.
+	let preset: Preset;
+	try {
+		preset = presetForStoredUserComposition(
+			readStoredUserCompositionRecord(storedUserComposition, { packScope: 'stored' })
 		);
-	}
-	const semanticIssues = validatePresetSemantics(result.data, { packScope: 'stored' });
-	if (semanticIssues.length > 0) {
-		error(
-			409,
-			`Stored composition "${slug}" is not one this engine accepts:\n${formatPresetSemanticIssues(semanticIssues)}`
-		);
+	} catch (cause) {
+		if (!isStoredUserCompositionRefusal(cause)) error(500, 'Corrupt user composition file');
+		error(409, `Stored composition "${slug}" is not one this engine accepts:\n${cause.message}`);
 	}
 	// The API is an interchange boundary: GET returns the same standalone wire.
 	// Stored compositions remain readable when immutable media goes missing so
 	// the GUI can surface the decoder error and let the author replace or remove
 	// a referenced asset. New writes below still reject unavailable media.
-	return presetToWireFormat(result.data);
+	return presetToWireFormat(preset);
 }
 
 async function loadUserCompositionWirePreset(
@@ -179,21 +157,20 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	}
 
 	// Preserve existing meta (forkedFrom) when updating.
-	let existingMeta: StoredUserComposition['meta'] = {
+	let existingMeta: StoredUserCompositionMeta = {
 		forkedFrom: null,
 		savedAt: new Date().toISOString()
 	};
 	try {
 		const raw = await readFile(userCompositionPathForSlug(storeDirectory, slug), 'utf-8');
-		const storedUserComposition: unknown = JSON.parse(raw);
-		if (isStoredUserComposition(storedUserComposition)) {
-			existingMeta = { ...storedUserComposition.meta };
-		}
+		// Either record shape keeps the same metadata, so a save over a stored
+		// Film keeps what it was forked from.
+		existingMeta = readStoredUserCompositionMeta(JSON.parse(raw)) ?? existingMeta;
 	} catch {
 		// new file — use default meta
 	}
 
-	const storedUserComposition: StoredUserComposition = {
+	const storedUserComposition: StoredPresetUserCompositionRecord = {
 		meta: { ...existingMeta, savedAt: new Date().toISOString() },
 		// Store the wire format (body as text), not the transformed parse output,
 		// so GET can re-parse it through PresetSchema without a type mismatch.
