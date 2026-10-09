@@ -2,6 +2,7 @@ import { resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing
 import { videoTrackCoversFrames } from '$lib/utils/video-clip-resolution';
 
 import type { EngineState } from './engine-schema';
+import type { Film } from './film-schema';
 
 export interface VideoTrackExportSentryContext {
 	[key: string]: string | number | boolean | null;
@@ -54,6 +55,52 @@ export function videoTrackExportSentryContext(
 		minimumGain,
 		maximumGain
 	};
+}
+
+function minimumOfNullable(left: number | null, right: number | null): number | null {
+	if (left === null) return right;
+	return right === null ? left : Math.min(left, right);
+}
+
+function maximumOfNullable(left: number | null, right: number | null): number | null {
+	if (left === null) return right;
+	return right === null ? left : Math.max(left, right);
+}
+
+/**
+ * The same aggregate for a whole Film, which is what an export renders: counts
+ * are summed over the Scenes, the ranges span every Scene, and the Video track
+ * fully covers the transport only when it covers every Scene. A one-Scene
+ * Film's context is its Scene's.
+ */
+export function filmVideoTrackExportSentryContext(
+	film: Pick<Film, 'scenes'>
+): VideoTrackExportSentryContext {
+	const [firstScene, ...laterScenes] = film.scenes;
+	if (firstScene === undefined) {
+		throw new RangeError('A Film has at least one Scene.');
+	}
+	let context = videoTrackExportSentryContext(firstScene.state);
+	for (const scene of laterScenes) {
+		const sceneContext = videoTrackExportSentryContext(scene.state);
+		context = {
+			mediaAssetCount: context.mediaAssetCount + sceneContext.mediaAssetCount,
+			videoClipCount: context.videoClipCount + sceneContext.videoClipCount,
+			fullyCoversTransport: context.fullyCoversTransport && sceneContext.fullyCoversTransport,
+			audibleClipCount: context.audibleClipCount + sceneContext.audibleClipCount,
+			minimumSourceStartSeconds: minimumOfNullable(
+				context.minimumSourceStartSeconds,
+				sceneContext.minimumSourceStartSeconds
+			),
+			maximumSourceStartSeconds: maximumOfNullable(
+				context.maximumSourceStartSeconds,
+				sceneContext.maximumSourceStartSeconds
+			),
+			minimumGain: minimumOfNullable(context.minimumGain, sceneContext.minimumGain),
+			maximumGain: maximumOfNullable(context.maximumGain, sceneContext.maximumGain)
+		};
+	}
+	return context;
 }
 
 export function videoTrackExportSentryTags(

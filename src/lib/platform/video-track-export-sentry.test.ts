@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 
 import { describe, it } from 'vitest';
 
-import { createDefaultEngineState } from './engine-schema';
+import { createDefaultEngineState, type EngineState } from './engine-schema';
 import {
+	filmVideoTrackExportSentryContext,
 	videoTrackExportSentryContext,
 	videoTrackExportSentryTags
 } from './video-track-export-sentry';
@@ -76,5 +77,93 @@ describe('Video-track export Sentry context', () => {
 		assert.equal(context.fullyCoversTransport, false);
 		assert.equal(context.minimumSourceStartSeconds, null);
 		assert.equal(context.maximumGain, null);
+	});
+});
+
+describe('Video-track export Sentry context of a Film', () => {
+	function sceneState(clips: { sourceStartSeconds: number; gain: number }[]): EngineState {
+		const state = createDefaultEngineState();
+		state.transport.durationSeconds = 1;
+		state.transport.fps = 2;
+		if (clips.length === 0) return state;
+		state.media = {
+			assets: [
+				{
+					id: 'private-asset-id',
+					kind: 'video',
+					name: 'Private creator title',
+					assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4`
+				}
+			],
+			videoTrack: {
+				clips: clips.map((clip, clipIndex) => ({
+					id: `private-clip-id-${clipIndex}`,
+					assetId: 'private-asset-id',
+					timelineStartFrame: clipIndex,
+					durationFrames: 1,
+					sourceStartSeconds: clip.sourceStartSeconds,
+					audio: { enabled: true, gain: clip.gain }
+				}))
+			}
+		};
+		return state;
+	}
+
+	function scenes(...states: EngineState[]): {
+		scenes: { id: string; origin: null; state: EngineState }[];
+	} {
+		return {
+			scenes: states.map((state, sceneIndex) => ({
+				id: `scene-${sceneIndex + 1}`,
+				origin: null,
+				state
+			}))
+		};
+	}
+
+	it('is the Scene context for a one-Scene Film', () => {
+		const state = sceneState([
+			{ sourceStartSeconds: 8, gain: 0.5 },
+			{ sourceStartSeconds: 2, gain: 1 }
+		]);
+
+		assert.deepEqual(
+			filmVideoTrackExportSentryContext(scenes(state)),
+			videoTrackExportSentryContext(state)
+		);
+	});
+
+	it('sums counts, spans ranges, and needs every Scene covered', () => {
+		const covered = sceneState([
+			{ sourceStartSeconds: 8, gain: 0.5 },
+			{ sourceStartSeconds: 2, gain: 1 }
+		]);
+		const half = sceneState([{ sourceStartSeconds: 12, gain: 0 }]);
+		const bare = sceneState([]);
+
+		assert.deepEqual(filmVideoTrackExportSentryContext(scenes(covered, half, bare)), {
+			mediaAssetCount: 2,
+			videoClipCount: 3,
+			fullyCoversTransport: false,
+			audibleClipCount: 2,
+			minimumSourceStartSeconds: 2,
+			maximumSourceStartSeconds: 12,
+			minimumGain: 0,
+			maximumGain: 1
+		});
+		assert.equal(
+			filmVideoTrackExportSentryContext(scenes(covered, covered)).fullyCoversTransport,
+			true
+		);
+		assert.deepEqual(filmVideoTrackExportSentryContext(scenes(bare, bare)), {
+			mediaAssetCount: 0,
+			videoClipCount: 0,
+			fullyCoversTransport: false,
+			audibleClipCount: 0,
+			minimumSourceStartSeconds: null,
+			maximumSourceStartSeconds: null,
+			minimumGain: null,
+			maximumGain: null
+		});
 	});
 });

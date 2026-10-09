@@ -14,43 +14,67 @@
  * literal, so frame 300 at 29.97 is 300 × 1001/30000 seconds rather than a
  * drifting 300 / 29.97. Frame indices are zero-based: frame 0 is the first
  * frame, and `frameCount - 1` is the last.
+ *
+ * The playhead runs on **Film time**
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §2):
+ * frames and seconds of the whole open Film, the clock the on-screen readout and
+ * an export use. Every receipt also names the Scene the frame is in and the
+ * frame inside that Scene. A seek that lands in another Scene opens that Scene,
+ * which is a selection: the Composition revision advances once, as it does for
+ * `composition.select-scene`. A one-Scene Film has one clock, so its Film time
+ * is the composition time this family always reported.
  */
 import {
 	formatFrameRateRational,
-	framesToSeconds,
 	framesToTimecode,
-	resolveFrameRate,
-	secondsToFrames
+	resolveFrameRate
 } from '../utils/composition-timing';
 import { compositionEditHistory } from './composition-edit-history';
 import { resolveCompositionFrameTime } from './composition-time-input';
 import {
 	refuseCompositionOperation,
 	refuseUnlessCompositionOpen,
+	refuseWhileCompositionStateIsSwapped,
 	requireCompositionOperationRow,
 	type CompositionOperationFailure
 } from './composition-operation-preflight';
+import { filmFrameCount } from './film-playhead';
+import { seekOpenFilmFrame } from './film-scene-selection';
+import { filmState, readOpenFilm } from './film-state.svelte';
+import {
+	filmDurationSeconds,
+	filmFrameAtSceneTime,
+	filmSceneFrameAtSceneTime,
+	filmSecondsAtSceneTime,
+	filmTransportPositionAtFrame
+} from './film-transport';
 import { timelineHandle } from './timeline-handle.svelte';
 
 import type { CompositionTimePosition } from './composition-time-input';
 import type { WebmcpOperationFocusTarget, WebmcpOperationRow } from './webmcp-operation-inventory';
 
-/** Where the playhead sits and the grid it moves on. */
+/** Where the playhead sits in Film time, and the grid it moves on. */
 export interface CompositionPlayheadPosition {
-	/** The zero-based frame currently on screen. */
+	/** The zero-based Film frame currently on screen. */
 	frame: number;
-	/** Whole frames in the composition at its exact rate. */
+	/** Whole frames in the Film at its exact rate. */
 	frameCount: number;
-	/** The `transport.fps` literal — the display value an author reads. */
+	/** The Film's `fps` literal — the display value an author reads. */
 	fps: number;
 	/** The exact rational that literal resolves to, as ffmpeg receives it. */
 	frameRate: string;
+	/** Film time of the playhead, in seconds. */
 	seconds: number;
+	/** How long the Film runs, in seconds. */
 	durationSeconds: number;
-	/** Non-drop-frame timecode of the current frame. */
+	/** Non-drop-frame timecode of the current Film frame. */
 	timecode: string;
 	/** Whether the transport is running rather than parked. */
 	isPlaying: boolean;
+	/** The Scene `frame` is in: the Scene that is open. */
+	sceneId: string;
+	/** The zero-based frame inside that Scene. */
+	sceneFrame: number;
 }
 
 export interface CompositionPlayheadInspectionReceipt extends CompositionPlayheadPosition {
@@ -99,22 +123,27 @@ function readPlayheadPosition(): CompositionPlayheadPosition {
 	if (!timeline) {
 		throw new TypeError('Reading the playhead requires a registered Workspace transport.');
 	}
-	const rate = resolveFrameRate(timeline.fps);
-	const frameCount = Math.max(1, secondsToFrames(timeline.durationSeconds, rate));
-	const frame = Math.min(frameCount - 1, Math.max(0, secondsToFrames(timeline.time, rate)));
+	// The same reading the on-screen Film readout makes: the open Scene's first
+	// Film frame plus the Scene frame the Timeline is on.
+	const film = readOpenFilm();
+	const sceneId = filmState.selectedSceneId;
+	const rate = resolveFrameRate(film.fps);
+	const frame = filmFrameAtSceneTime(film, sceneId, timeline.time);
 	return {
 		frame,
-		frameCount,
+		frameCount: filmFrameCount(film),
 		fps: rate.fps,
 		frameRate: formatFrameRateRational(rate),
-		seconds: timeline.time,
-		durationSeconds: timeline.durationSeconds,
+		seconds: filmSecondsAtSceneTime(film, sceneId, timeline.time),
+		durationSeconds: filmDurationSeconds(film),
 		timecode: framesToTimecode(frame, rate),
-		isPlaying: timeline.isPlaying
+		isPlaying: timeline.isPlaying,
+		sceneId,
+		sceneFrame: filmSceneFrameAtSceneTime(film, sceneId, timeline.time)
 	};
 }
 
-/** Report where the playhead sits, and the frame grid it moves on. */
+/** Report where the playhead sits in Film time, and the frame grid it moves on. */
 export function runInspectCompositionPlayheadOperation(): CompositionPlayheadInspectionOutcome {
 	const row = requireCompositionOperationRow('playhead.inspect');
 	const refusal = refuseUnlessCompositionOpen(row) ?? refuseUnlessTransportRunning(row);
@@ -129,14 +158,20 @@ export function runInspectCompositionPlayheadOperation(): CompositionPlayheadIns
 }
 
 /**
- * Park the visible playhead on an exact frame. The Workspace shows that frame —
- * the same pixels a render at that frame produces — and the composition itself
+ * Park the visible playhead on an exact Film frame. The Workspace shows that
+ * frame — the same pixels a render at that frame produces — and the Film itself
  * does not move, which is why this takes no observed revision and records no
  * undo entry.
+ *
+ * A frame inside the open Scene only moves its playhead. A frame inside another
+ * Scene opens that Scene first and resolves once the Workspace has settled it;
+ * the Composition revision advances by one, and the receipt carries the new
+ * one. That seek is refused while the composition is not at rest (a Scene swap,
+ * an export of the Film, a transition capture).
  */
-export function runSeekCompositionPlayheadOperation(
+export async function runSeekCompositionPlayheadOperation(
 	request: SeekCompositionPlayheadRequest
-): CompositionPlayheadSeekOutcome {
+): Promise<CompositionPlayheadSeekOutcome> {
 	const row = requireCompositionOperationRow('playhead.seek-frame');
 	const refusal = refuseUnlessCompositionOpen(row) ?? refuseUnlessTransportRunning(row);
 	if (refusal) return refusal;
@@ -145,13 +180,13 @@ export function runSeekCompositionPlayheadOperation(
 	if (!timeline) {
 		throw new TypeError('Seeking the playhead requires a registered Workspace transport.');
 	}
-	const rate = resolveFrameRate(timeline.fps);
-	const frameCount = Math.max(1, secondsToFrames(timeline.durationSeconds, rate));
+	const film = readOpenFilm();
+	const frameCount = filmFrameCount(film);
 	let frame: number;
 	try {
 		frame = resolveCompositionFrameTime(request.frame, {
-			durationSeconds: timeline.durationSeconds,
-			fps: timeline.fps
+			durationSeconds: filmDurationSeconds(film),
+			fps: film.fps
 		});
 	} catch (cause) {
 		return refuseCompositionOperation(
@@ -171,11 +206,15 @@ export function runSeekCompositionPlayheadOperation(
 			{ rejected: JSON.stringify(request.frame), alternatives: ['0', String(frameCount - 1)] }
 		);
 	}
+	if (filmTransportPositionAtFrame(film, frame).sceneId !== filmState.selectedSceneId) {
+		const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+		if (swapRefusal) return swapRefusal;
+	}
 
 	// Pause first: a running transport would tick past the requested frame before
 	// anyone could look at it, and a seek is how an agent asks to look.
 	timeline.pause();
-	timeline.seek(framesToSeconds(frame, rate));
+	await seekOpenFilmFrame(frame);
 
 	return {
 		status: 'moved',

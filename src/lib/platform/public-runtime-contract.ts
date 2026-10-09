@@ -104,7 +104,7 @@ export const PUBLIC_RUNTIME_DEPLOYMENT_INPUTS: readonly PublicRuntimeDeploymentI
 		required: false,
 		defaultValue: null,
 		purpose:
-			'Chrome origin-trial token for the HTML-in-Canvas API, registered to this origin. A hosted origin sends it as the Origin-Trial header on every document so a visitor\'s unflagged Chrome exposes CanvasDrawElement; absent, only a flag-launched Chrome passes the capability gate. Local origins never need it — they launch the flagged browser.'
+			"Chrome origin-trial token for the HTML-in-Canvas API, registered to this origin. A hosted origin sends it as the Origin-Trial header on every document so a visitor's unflagged Chrome exposes CanvasDrawElement; absent, only a flag-launched Chrome passes the capability gate. Local origins never need it — they launch the flagged browser."
 	},
 	{
 		name: 'PUBLIC_GFX_COMPOSITION_STORE',
@@ -261,11 +261,12 @@ export const PUBLIC_EXPORT_RUNTIME_LIMITS: PublicExportRuntimeLimits = {
  * - Duration and rate are the composition schema's own transport ceilings (600
  *   seconds, 120 fps), so no composition the schema admits is refused for its
  *   length; the frame ceiling is their product.
- * - `maxAudioBytes` equals `maxFrameBytes` because the audio bed is uploaded in
- *   one request and both share the adapter's `BODY_SIZE_LIMIT`; a larger number
- *   here would promise an upload the adapter refuses. 64 MiB is about 349
- *   seconds of 16-bit 48 kHz stereo, so a longer piece carries its audio only
- *   as mono or at a lower sample rate until the bed is uploaded in parts.
+ * - `maxAudioBytes` covers the bed of the longest export: 600 seconds of
+ *   16-bit 48 kHz stereo is 115,200,000 bytes, plus the 44-byte WAV header,
+ *   rounded up to 128 MiB. That is more than one request may carry (the
+ *   adapter's `BODY_SIZE_LIMIT` is `maxFrameBytes`, 64 MiB), so the bed is
+ *   uploaded in ordered parts and the session holds the running total to what
+ *   it declared (`findExportAudioPartRejection` in `public-export-limits.ts`).
  * - `maxOutputBytes` covers 72,000 frames at the ratified ProRes cost
  *   (126,000,000,000 bytes), rounded up to 128 GiB.
  * - `sessionMaxLifetimeMs` is 24 hours: 1.2 seconds for each of 72,000 frames
@@ -285,7 +286,7 @@ export const DEVELOPMENT_EXPORT_RUNTIME_LIMITS: PublicExportRuntimeLimits = {
 	maxFrameRate: 120,
 	maxFrameCount: 72_000,
 	maxFrameBytes: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameBytes,
-	maxAudioBytes: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameBytes,
+	maxAudioBytes: 128 * 1024 * 1024,
 	maxOutputBytes: 128 * 1024 * 1024 * 1024,
 	maxConcurrentSessions: PUBLIC_EXPORT_RUNTIME_LIMITS.maxConcurrentSessions,
 	sessionIdleTimeoutMs: PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs,

@@ -6,6 +6,11 @@
  * positions. No wall-clock participates, so the same composition renders a
  * byte-identical buffer every run. Preview uses this exact mix whenever
  * Video-clip audio participates; cue-only preview retains its low-latency scheduler.
+ *
+ * An export mixes the whole Film (`renderFilmAudioMix`,
+ * [ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §6):
+ * every Scene's own schedule, placed at the sample its Scene starts on and cut
+ * at the sample its Scene ends on, summed Scene by Scene into one buffer.
  */
 import type { FrameRate } from '$lib/utils/composition-timing';
 import { isEngineStateOpaque } from '$lib/utils/output-classification';
@@ -104,6 +109,24 @@ export interface AudioMixRenderRequest {
 	signal?: AbortSignal;
 }
 
+/** One Scene of a Film as the mix places it. */
+export interface FilmAudioMixScene {
+	state: EngineState;
+	/** The Film frame the Scene starts on. */
+	startFrame: number;
+	/** How many Film frames the Scene fills. */
+	frameCount: number;
+}
+
+/** The whole Film's mix: every Scene in Film order, over the Film's frame count. */
+export interface FilmAudioMixRenderRequest {
+	scenes: readonly FilmAudioMixScene[];
+	/** Frames in the whole Film; the buffer is exactly this long. */
+	frameCount: number;
+	frameRate: FrameRate;
+	signal?: AbortSignal;
+}
+
 export interface AudioMixServices {
 	decodeVideoClipAudio(request: VideoClipAudioDecodeRequest): Promise<VideoAssetAudioPcm | null>;
 	createCueDecodeContext(): BaseAudioContext;
@@ -177,34 +200,70 @@ function scaleMixChannels(channels: MixChannels, gain: number): void {
 	}
 }
 
+/**
+ * The samples one Scene owns in the Film's buffer: from the sample its first
+ * frame starts on to the sample its last frame ends on. Nothing a Scene
+ * schedules is written outside this span, so a hard cut is hard for sound too.
+ */
+interface FilmAudioMixSceneSpan {
+	startSample: number;
+	sampleCount: number;
+}
+
+function filmAudioMixSceneSpan(
+	scene: FilmAudioMixScene,
+	frameRate: FrameRate,
+	outputSampleCount: number
+): FilmAudioMixSceneSpan {
+	if (!Number.isInteger(scene.frameCount) || scene.frameCount < 1) {
+		throw new TypeError('An audio mix Scene runs a positive whole number of frames.');
+	}
+	const startSample = audioMixSampleAtFrame(scene.startFrame, frameRate);
+	const endSample = audioMixSampleAtFrame(scene.startFrame + scene.frameCount, frameRate);
+	if (endSample > outputSampleCount) {
+		throw new RangeError('An audio mix Scene extends beyond the Film the mix was asked for.');
+	}
+	return { startSample, sampleCount: endSample - startSample };
+}
+
+/** Sum the first `sampleCount` samples of `pcm` at `destinationStartSample`. */
 function sumPcmIntoMix(
 	channels: MixChannels,
 	pcm: VideoAssetAudioPcm,
 	destinationStartSample: number,
+	sampleCount: number,
 	gain: number
 ): void {
 	for (let channel = 0; channel < AUDIO_MIX_CHANNELS; channel += 1) {
 		const output = channels[channel];
 		const input = pcm.channels[channel];
-		for (let sample = 0; sample < input.length; sample += 1) {
+		for (let sample = 0; sample < sampleCount; sample += 1) {
 			output[destinationStartSample + sample] += input[sample] * gain;
 		}
 	}
 }
 
 /**
- * Decode every audible Video clip and sum it into fresh mix channels. A clip
- * covering the whole transport donates its decoded buffers directly (no copy);
- * anything else is summed at its exact destination sample.
+ * Decode every audible Video clip of one Scene and sum it into the mix, at the
+ * Scene's start sample plus the clip's own sample inside the Scene. Returns the
+ * mix channels, which this allocates on first use; `null` in and no audible
+ * clip is `null` out. A clip covering the whole mix donates its decoded buffers
+ * directly (no copy); anything else is summed at its exact destination sample.
+ *
+ * Clip samples are counted on the Scene's own frame grid, so a clip sounds the
+ * same in a Film as in its Scene alone. At a fractional rate that count can run
+ * one sample past the Scene's span in the Film; the span wins.
  */
-async function mixVideoClipAudio(
-	state: EngineState,
+async function mixSceneVideoClipAudio(
+	channels: MixChannels | null,
+	scene: FilmAudioMixScene,
+	span: FilmAudioMixSceneSpan,
 	frameRate: FrameRate,
 	outputSampleCount: number,
 	services: AudioMixServices,
 	signal: AbortSignal | undefined
 ): Promise<MixChannels | null> {
-	let channels: MixChannels | null = null;
+	const { state } = scene;
 
 	for (const clip of state.media.videoTrack.clips) {
 		if (!clip.audio.enabled || clip.audio.gain === 0) continue;
@@ -213,12 +272,12 @@ async function mixVideoClipAudio(
 			throw new Error(`Video clip "${clip.id}" references missing asset "${clip.assetId}".`);
 		}
 		const interval = resolveVideoClipInterval(clip, frameRate);
-		const destinationStartSample = audioMixSampleAtFrame(interval.timelineStartFrame, frameRate);
-		const destinationEndSample = audioMixSampleAtFrame(interval.timelineEndFrame, frameRate);
-		if (destinationEndSample > outputSampleCount) {
+		if (interval.timelineEndFrame > scene.frameCount) {
 			throw new RangeError(`Video clip "${clip.id}" extends beyond the audio mix transport.`);
 		}
-		const clipSampleCount = destinationEndSample - destinationStartSample;
+		const sceneStartSample = audioMixSampleAtFrame(interval.timelineStartFrame, frameRate);
+		const sceneEndSample = audioMixSampleAtFrame(interval.timelineEndFrame, frameRate);
+		const clipSampleCount = sceneEndSample - sceneStartSample;
 		const clipPcm = await services.decodeVideoClipAudio({
 			asset,
 			sourceStartSeconds: interval.sourceStartSeconds,
@@ -230,10 +289,9 @@ async function mixVideoClipAudio(
 		if (!clipPcm) continue;
 		assertDecodedClipAudio(clipPcm, clipSampleCount);
 
+		const destinationStartSample = span.startSample + sceneStartSample;
 		const canAdoptClipBuffer =
-			channels === null &&
-			destinationStartSample === 0 &&
-			destinationEndSample === outputSampleCount;
+			channels === null && destinationStartSample === 0 && clipSampleCount === outputSampleCount;
 		if (canAdoptClipBuffer) {
 			channels = [clipPcm.channels[0], clipPcm.channels[1]];
 			if (clip.audio.gain !== 1) {
@@ -243,34 +301,47 @@ async function mixVideoClipAudio(
 		}
 
 		channels ??= emptyMixChannels(outputSampleCount);
-		sumPcmIntoMix(channels, clipPcm, destinationStartSample, clip.audio.gain);
+		sumPcmIntoMix(
+			channels,
+			clipPcm,
+			destinationStartSample,
+			Math.min(clipSampleCount, span.sampleCount - sceneStartSample),
+			clip.audio.gain
+		);
 	}
 
 	return channels;
 }
 
-/** Decode every distinct scheduled slug once, in parallel, through the decode-only context. */
+/**
+ * Decode each scheduled slug that `buffers` does not hold yet, in parallel,
+ * through the one decode-only context. An unknown slug is held as `null`, so it
+ * is reported once however many Scenes schedule it.
+ */
 async function loadScheduledCueBuffers(
 	playable: readonly ScheduledSound[],
+	buffers: Map<string, AudioBuffer | null>,
+	readDecodeContext: () => BaseAudioContext,
 	services: AudioMixServices,
 	signal: AbortSignal | undefined
-): Promise<Map<string, AudioBuffer>> {
-	const context = playable.length > 0 ? services.createCueDecodeContext() : null;
-	const slugs = [...new Set(playable.map((entry) => entry.slug))];
-	const buffers = new Map<string, AudioBuffer>();
+): Promise<void> {
+	const slugs = [...new Set(playable.map((entry) => entry.slug))].filter(
+		(slug) => !buffers.has(slug)
+	);
+	const context = slugs.length > 0 ? readDecodeContext() : null;
 	await Promise.all(
 		slugs.map(async (slug) => {
 			signal?.throwIfAborted();
 			const pending = context ? services.loadCueBuffer(slug, context) : null;
 			if (pending === null) {
 				console.error(`Audio mix: unknown sound asset "${slug}"; scheduling silence.`);
+				buffers.set(slug, null);
 				return;
 			}
 			buffers.set(slug, await pending);
 		})
 	);
 	signal?.throwIfAborted();
-	return buffers;
 }
 
 function sumCueIntoMix(
@@ -292,12 +363,16 @@ function sumCueIntoMix(
 	}
 }
 
-/** Sum every scheduled cue at its exact sample position, in fixed plan order. */
+/**
+ * Sum one Scene's scheduled cues at their exact sample positions, in fixed plan
+ * order. Positions are counted from the Scene's start sample, and a cue that
+ * would run past the Scene's span is cut there.
+ */
 function mixScheduledSounds(
 	channels: MixChannels,
 	playable: readonly ScheduledSound[],
-	buffers: ReadonlyMap<string, AudioBuffer>,
-	outputSampleCount: number
+	buffers: ReadonlyMap<string, AudioBuffer | null>,
+	span: FilmAudioMixSceneSpan
 ): void {
 	const releaseFrames = Math.round(RELEASE_SECONDS * AUDIO_MIX_SAMPLE_RATE);
 
@@ -312,17 +387,17 @@ function mixScheduledSounds(
 			entry.windowSeconds !== null
 				? Math.round(entry.windowSeconds * AUDIO_MIX_SAMPLE_RATE)
 				: buffer.length;
-		const playFrames = Math.min(buffer.length, windowFrames, outputSampleCount - startFrame);
+		const playFrames = Math.min(buffer.length, windowFrames, span.sampleCount - startFrame);
 		if (playFrames <= 0) {
 			continue;
 		}
 		// Release ramp only when the window cuts the sample early — a hard stop
-		// mid-waveform clicks; a sample playing out (or hitting the piece's own
+		// mid-waveform clicks; a sample playing out (or hitting its Scene's own
 		// end) keeps its natural tail.
 		const cutEarly = entry.windowSeconds !== null && buffer.length > windowFrames;
 		const rampStart = cutEarly ? Math.max(0, playFrames - releaseFrames) : playFrames;
 
-		sumCueIntoMix(channels, buffer, entry, startFrame, playFrames, rampStart);
+		sumCueIntoMix(channels, buffer, entry, span.startSample + startFrame, playFrames, rampStart);
 	}
 }
 
@@ -339,19 +414,25 @@ function applyPeakCeiling(channels: MixChannels): void {
 	}
 }
 
-export async function renderAudioMix(
-	request: AudioMixRenderRequest,
+/**
+ * Render a whole Film's audio into one AudioBuffer (AUDIO_MIX_SAMPLE_RATE,
+ * stereo, exactly `audioMixSampleCount(frameCount, frameRate)` long), or `null`
+ * when no Scene schedules a sound.
+ *
+ * Each Scene is planned on its own (`planAudioMix`) and placed at the sample
+ * its Scene starts on. The sum runs in one fixed order: Scene by Scene in Film
+ * order, and inside a Scene its Video clips and then its cues, as a lone
+ * composition always summed. The peak ceiling is applied once, to the whole
+ * Film, so the balance between Scenes is the authored one.
+ *
+ * Throws a `RangeError` when a Scene runs past `frameCount`.
+ */
+export async function renderFilmAudioMix(
+	request: FilmAudioMixRenderRequest,
 	services: AudioMixServices = DEFAULT_AUDIO_MIX_SERVICES
 ): Promise<AudioBuffer | null> {
-	const { state, frameCount, frameRate, signal } = request;
-	const plan = planAudioMix(state);
+	const { scenes, frameCount, frameRate, signal } = request;
 	const outputSampleCount = audioMixSampleCount(frameCount, frameRate);
-	const duration = outputSampleCount / AUDIO_MIX_SAMPLE_RATE;
-	const playable = plan.filter((entry) => entry.when < duration);
-	signal?.throwIfAborted();
-
-	const clipChannels = await mixVideoClipAudio(state, frameRate, outputSampleCount, services, signal);
-	if (playable.length === 0 && clipChannels === null) return null;
 
 	// Web Audio is used ONLY to decode (resampled to the mix rate). The
 	// summing itself is plain JS in fixed plan order — an OfflineAudioContext
@@ -359,10 +440,37 @@ export async function renderAudioMix(
 	// is non-associative, so three-plus overlapping cues broke byte-identity
 	// by ±1 ULP. Hand-mixing keeps the §6 contract literal: same inputs →
 	// same bytes.
-	const buffers = await loadScheduledCueBuffers(playable, services, signal);
+	let channels: MixChannels | null = null;
+	let cueDecodeContext: BaseAudioContext | null = null;
+	const readCueDecodeContext = (): BaseAudioContext => {
+		cueDecodeContext ??= services.createCueDecodeContext();
+		return cueDecodeContext;
+	};
+	const cueBuffers = new Map<string, AudioBuffer | null>();
 
-	const channels = clipChannels ?? emptyMixChannels(outputSampleCount);
-	mixScheduledSounds(channels, playable, buffers, outputSampleCount);
+	for (const scene of scenes) {
+		const span = filmAudioMixSceneSpan(scene, frameRate, outputSampleCount);
+		const sceneSeconds = span.sampleCount / AUDIO_MIX_SAMPLE_RATE;
+		const playable = planAudioMix(scene.state).filter((entry) => entry.when < sceneSeconds);
+		signal?.throwIfAborted();
+
+		channels = await mixSceneVideoClipAudio(
+			channels,
+			scene,
+			span,
+			frameRate,
+			outputSampleCount,
+			services,
+			signal
+		);
+		if (playable.length === 0) continue;
+
+		await loadScheduledCueBuffers(playable, cueBuffers, readCueDecodeContext, services, signal);
+		channels ??= emptyMixChannels(outputSampleCount);
+		mixScheduledSounds(channels, playable, cueBuffers, span);
+	}
+	if (channels === null) return null;
+
 	applyPeakCeiling(channels);
 
 	const rendered = services.createOutputBuffer({
@@ -373,4 +481,24 @@ export async function renderAudioMix(
 	rendered.copyToChannel(channels[0], 0);
 	rendered.copyToChannel(channels[1], 1);
 	return rendered;
+}
+
+/**
+ * Render one composition's audio: the Film mix of that one Scene, starting on
+ * frame 0. Preview mixes the live Scene through this.
+ */
+export function renderAudioMix(
+	request: AudioMixRenderRequest,
+	services: AudioMixServices = DEFAULT_AUDIO_MIX_SERVICES
+): Promise<AudioBuffer | null> {
+	const { state, frameCount, frameRate, signal } = request;
+	return renderFilmAudioMix(
+		{
+			scenes: [{ state, startFrame: 0, frameCount }],
+			frameCount,
+			frameRate,
+			...(signal ? { signal } : {})
+		},
+		services
+	);
 }

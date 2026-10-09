@@ -2362,7 +2362,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'playhead',
 		toolName: 'gfx_playhead_inspect',
 		summary:
-			'Report where the visible playhead sits, and the exact frame count, rate, and duration it moves within.',
+			'Report where the visible playhead sits in the whole Film: the exact frame, frame count, rate, and duration, and the Scene and Scene frame it is in.',
 		effect: 'read',
 		writes: [],
 		precondition: 'composition-open',
@@ -2378,7 +2378,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'playhead',
 		toolName: 'gfx_playhead_seek_frame',
 		summary:
-			'Move the visible playhead to an exact frame. The Workspace shows that frame; nothing about the composition changes.',
+			'Move the visible playhead to an exact frame of the whole Film; nothing about the composition changes. A frame in another Scene opens that Scene, which advances the Composition revision, so continue from the revision this returns.',
 		effect: 'view',
 		writes: [],
 		precondition: 'composition-open',

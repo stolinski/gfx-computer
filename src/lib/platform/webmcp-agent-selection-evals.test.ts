@@ -546,6 +546,14 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 		toolName: 'gfx_playhead_seek_frame'
 	},
 	{
+		prompt: 'Move the visible playhead to an exact frame of the whole Film, past the cut.',
+		toolName: 'gfx_playhead_seek_frame'
+	},
+	{
+		prompt: 'Report where the visible playhead sits in the whole Film and which Scene it is in.',
+		toolName: 'gfx_playhead_inspect'
+	},
+	{
 		prompt: 'Return the validation findings so I know what to repair.',
 		toolName: 'gfx_validation_inspect_findings'
 	},

@@ -14,9 +14,12 @@
  * (`compositionEditHistory.recordSceneSelection`). Every Scene-scoped operation
  * acts on the selected Scene, so an operation that carries a revision read
  * before the change fails as `stale_revision` and lands nowhere. This module is
- * the only place selection moves the revision. There is no operation row for
- * selection yet (the Scene strip lands with one); these functions are what
- * that operation and the transport both call.
+ * the only place selection moves the revision. `composition.select-scene` and
+ * the transport both call these functions.
+ *
+ * Export renders every Scene through the same swap, inside a bracket that is
+ * not a selection (`beginOpenFilmExportBracket`): it puts the author's Scene
+ * and frame back when it closes, and the revision does not move.
  *
  * Film time is not stored (`./film-transport.ts`): it is read from the selected
  * Scene and the Timeline's Scene time.
@@ -28,6 +31,7 @@ import { filmState, readOpenFilm, readOpenFilmDocumentSelectingScene } from './f
 import {
 	filmFrameAtSceneTime,
 	filmSceneAfterForPlayback,
+	filmSceneFrameAtSceneTime,
 	filmTransportPositionAtFrame,
 	type FilmTransportPosition
 } from './film-transport';
@@ -58,7 +62,29 @@ export const openFilmSceneSettlerHandle: { current: OpenFilmSceneSettler | null 
 /** Swaps run one at a time, in the order they were asked for. */
 let pendingSceneSwap: Promise<void> = Promise.resolve();
 
-async function swapOpenFilmToScene(sceneId: string, sceneFrame: number): Promise<void> {
+function queueOpenFilmSceneSwap(swap: () => Promise<void>): Promise<void> {
+	const queued = pendingSceneSwap.then(swap);
+	pendingSceneSwap = queued.catch(() => undefined);
+	return queued;
+}
+
+/**
+ * Why a Scene is being made live. A `selection` is the author, an agent, or
+ * the transport choosing the Scene to work in, and it advances the Composition
+ * revision. An `export-render` is the open export bracket showing a Scene so
+ * it can render it; the bracket gives the author's Scene back, so nothing was
+ * selected and the revision stays where it is.
+ */
+type OpenFilmSceneSwapPurpose = 'selection' | 'export-render';
+
+/** True from `beginOpenFilmExportBracket` until that bracket has closed. */
+let isOpenFilmExportBracketOpen = false;
+
+async function swapOpenFilmToScene(
+	sceneId: string,
+	sceneFrame: number,
+	purpose: OpenFilmSceneSwapPurpose
+): Promise<void> {
 	if (transitionState.capturing) {
 		throw new Error(
 			'A Scene cannot be selected mid transition capture: engine state holds a scratch composition, not the selected Scene.'
@@ -77,12 +103,19 @@ async function swapOpenFilmToScene(sceneId: string, sceneFrame: number): Promise
 		timelineHandle.current?.seek(position.sceneSeconds);
 		return;
 	}
+	if (purpose === 'selection' && isOpenFilmExportBracketOpen) {
+		throw new Error(
+			`Scene "${sceneId}" cannot be selected while the Film is exporting: the export is rendering Scene "${filmState.selectedSceneId}" and puts the Scene that was open back when it ends.`
+		);
+	}
 
 	const wasSwappingScene = filmState.isSwappingScene;
 	filmState.isSwappingScene = true;
 	try {
 		applyOpenFilmDocument(next);
-		compositionEditHistory.recordSceneSelection(sceneId);
+		if (purpose === 'selection') {
+			compositionEditHistory.recordSceneSelection(sceneId);
+		}
 		// The transport is cut in the same step, so no tick can ask the new Scene
 		// for the old Scene's time.
 		timelineHandle.current?.cutTo({
@@ -109,13 +142,97 @@ async function swapOpenFilmToScene(sceneId: string, sceneFrame: number): Promise
  *
  * Rejects with a `RangeError` when the open Film has no Scene with that id or
  * `sceneFrame` is outside it, a `TypeError` when `sceneFrame` is not a whole
- * number, and an `Error` during a transition capture. In each case nothing was
- * changed.
+ * number, and an `Error` during a transition capture or when another Scene is
+ * asked for while the Film is exporting. In each case nothing was changed.
  */
 export function selectOpenFilmScene(sceneId: string, sceneFrame: number): Promise<void> {
-	const swap = pendingSceneSwap.then(() => swapOpenFilmToScene(sceneId, sceneFrame));
-	pendingSceneSwap = swap.catch(() => undefined);
-	return swap;
+	return queueOpenFilmSceneSwap(() => swapOpenFilmToScene(sceneId, sceneFrame, 'selection'));
+}
+
+/**
+ * The export's hold on the open Film
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §4, §9).
+ * Export renders one Scene after another through the one live engine state, so
+ * it has to make each Scene live in turn. That is not a selection: nobody chose
+ * a Scene to work in, and when the bracket closes the Scene that was open is
+ * open again.
+ */
+export interface OpenFilmExportBracket {
+	/**
+	 * Make `sceneId` live at its frame 0 and wait until the Workspace has settled
+	 * it, exactly as a selection does, without advancing the Composition
+	 * revision. Asking for the Scene that is already live does nothing: the
+	 * export scrubs it from where it stands, as it always did for one Scene.
+	 *
+	 * Rejects with a `RangeError` for a Scene the open Film does not hold, and an
+	 * `Error` during a transition capture or once the bracket has closed.
+	 */
+	showScene(sceneId: string): Promise<void>;
+	/**
+	 * Put the Workspace back on the Scene and Scene frame it was on when the
+	 * bracket opened, settled, and end the hold. Safe to call more than once.
+	 * A bracket that never showed another Scene has moved nothing and restores
+	 * nothing.
+	 */
+	close(): Promise<void>;
+}
+
+/**
+ * Open the export's hold on the open Film. One bracket is open at a time.
+ *
+ * The Composition revision is the same after `close` as before this call, no
+ * undo entry is recorded, and the Film itself is never changed: every swap
+ * parks the Scene it leaves exactly as it stood. For a Film of several Scenes
+ * `filmState.isSwappingScene` is true from this call until `close` has put the
+ * author's Scene back, so autosave, every operation, and tool registration
+ * stay off the composition (`isOpenFilmEngineStateInTransit`); selecting
+ * another Scene is refused throughout. A one-Scene Film has no Scene to swap
+ * to, so it is never in transit and exports as a lone composition always did.
+ *
+ * Throws an `Error` when a bracket is already open.
+ */
+export function beginOpenFilmExportBracket(): OpenFilmExportBracket {
+	if (isOpenFilmExportBracketOpen) {
+		throw new Error('The open Film is already held by an export.');
+	}
+	const authorSceneId = filmState.selectedSceneId;
+	const authorSceneFrame = filmSceneFrameAtSceneTime(
+		readOpenFilm(),
+		authorSceneId,
+		timelineHandle.current?.time ?? 0
+	);
+	// Held across the gaps between swaps too: for the whole export, engine state
+	// may be a Scene the author did not open.
+	const holdsEngineStateInTransit = filmState.scenes.length > 1;
+	if (holdsEngineStateInTransit) filmState.isSwappingScene = true;
+	isOpenFilmExportBracketOpen = true;
+	let hasShownAnotherScene = false;
+	let closing: Promise<void> | null = null;
+
+	return {
+		showScene: (sceneId) =>
+			queueOpenFilmSceneSwap(async () => {
+				if (closing !== null) {
+					throw new Error(`Scene "${sceneId}" cannot be shown: the export bracket has closed.`);
+				}
+				if (sceneId === filmState.selectedSceneId) return;
+				hasShownAnotherScene = true;
+				await swapOpenFilmToScene(sceneId, 0, 'export-render');
+			}),
+		close: () => {
+			closing ??= queueOpenFilmSceneSwap(async () => {
+				try {
+					if (hasShownAnotherScene) {
+						await swapOpenFilmToScene(authorSceneId, authorSceneFrame, 'export-render');
+					}
+				} finally {
+					if (holdsEngineStateInTransit) filmState.isSwappingScene = false;
+					isOpenFilmExportBracketOpen = false;
+				}
+			});
+			return closing;
+		}
+	};
 }
 
 /**

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { ChildProcessWithoutNullStreams, spawn as nodeSpawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
@@ -13,7 +13,9 @@ import {
 	type CreatedExportSession,
 	ExportSessionError,
 	ExportSessionStore,
+	exportSessionStore,
 	hasPngSignature,
+	parseExportAudioOffset,
 	parseExportFrameIndex,
 	parseExportSessionRequest
 } from '$lib/platform/export-session.server';
@@ -33,6 +35,7 @@ import {
 
 import * as exportLimitsRoute from './limits/+server';
 import * as sessionsCollectionRoute from './sessions/+server';
+import * as exportAudioRoute from './sessions/[sessionId]/audio/+server';
 
 const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
 const TEST_ORIGIN = 'http://localhost';
@@ -231,12 +234,19 @@ function frameRequest(
 
 function audioRequest(
 	session: Pick<OpenedTestSession, 'sessionId' | 'cookie'>,
-	bytes: Uint8Array
+	bytes: Uint8Array,
+	options: { type?: string; headers?: Record<string, string> } = {}
 ): Request {
+	const type = options.type ?? 'audio/wav';
 	return new Request(`${TEST_ORIGIN}/api/export/sessions/${session.sessionId}/audio`, {
 		method: 'PUT',
-		headers: { 'Content-Type': 'audio/wav', Origin: TEST_ORIGIN, Cookie: session.cookie },
-		body: new Blob([bytes.buffer as ArrayBuffer], { type: 'audio/wav' })
+		headers: {
+			'Content-Type': type,
+			Origin: TEST_ORIGIN,
+			Cookie: session.cookie,
+			...options.headers
+		},
+		body: new Blob([bytes.slice().buffer], { type })
 	});
 }
 
@@ -462,9 +472,9 @@ describe('export session encoding', () => {
 			() => store.uploadFrame(session.sessionId, 0, frameRequest(session)),
 			/Upload export audio/
 		);
-		await store.uploadAudio(session.sessionId, audioRequest(session, wav));
+		await store.uploadAudio(session.sessionId, 0, audioRequest(session, wav));
 		await assert.rejects(
-			() => store.uploadAudio(session.sessionId, audioRequest(session, wav)),
+			() => store.uploadAudio(session.sessionId, 0, audioRequest(session, wav)),
 			/already uploaded/
 		);
 		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
@@ -924,6 +934,303 @@ describe('bounded public export limit enforcement', () => {
 			isLimitStatus(413, new RegExp(`Export output is ${maxOutputBytes + 1} bytes`))
 		);
 		assert.deepEqual(await readdir(directory), []);
+	});
+});
+
+/**
+ * The audio bed goes up in ordered parts, because a Film-length bed is larger
+ * than one request body (ADR-0052, 2026-10-09 amendment). The session appends
+ * each part to one file and holds the running total to what it declared.
+ */
+describe('export audio uploaded in parts', () => {
+	// Twelve bytes of bed, sent four at a time.
+	const WAV = new Uint8Array([82, 73, 70, 70, 1, 2, 3, 4, 5, 6, 7, 8]);
+	const PARTS = [WAV.subarray(0, 4), WAV.subarray(4, 8), WAV.subarray(8, 12)];
+
+	async function openAudioSession(
+		store: ExportSessionStore,
+		audioBytes = WAV.byteLength
+	): Promise<OpenedTestSession> {
+		return openSession(store, {
+			format: 'prores',
+			fps: 24,
+			frameCount: 1,
+			opaque: true,
+			audioBytes
+		});
+	}
+
+	async function readBed(directory: string, session: OpenedTestSession): Promise<Uint8Array> {
+		return new Uint8Array(
+			await readFile(join(directory, `gfx-export-${session.sessionId}`, 'mix.wav'))
+		);
+	}
+
+	it('assembles ordered parts into one bed before the encoder starts', async () => {
+		const { store, directory, encoder } = await createStore();
+		const session = await openAudioSession(store);
+
+		await store.uploadAudio(session.sessionId, 0, audioRequest(session, PARTS[0]));
+		await store.uploadAudio(session.sessionId, 4, audioRequest(session, PARTS[1]));
+		// The bed is not whole yet, so no frame is accepted and no encoder runs.
+		await assert.rejects(
+			() => store.uploadFrame(session.sessionId, 0, frameRequest(session)),
+			isLimitStatus(409, /^Upload export audio before the first frame\.$/)
+		);
+		assert.equal(encoder.spawnedArguments.length, 0);
+		await store.uploadAudio(session.sessionId, 8, audioRequest(session, PARTS[2]));
+
+		assert.deepEqual(await readBed(directory, session), WAV);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.complete(session.sessionId, controlRequest(session));
+		assert.ok(encoder.spawnedArguments[0].some((value) => value.endsWith('/mix.wav')));
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('takes a bed that fits one request as one part from byte 0', async () => {
+		const { store, directory } = await createStore();
+		const session = await openAudioSession(store);
+
+		await store.uploadAudio(
+			session.sessionId,
+			parseExportAudioOffset(null),
+			audioRequest(session, WAV)
+		);
+
+		assert.deepEqual(await readBed(directory, session), WAV);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('refuses a part that arrives out of order and keeps what it has', async () => {
+		const { store, directory } = await createStore();
+		const session = await openAudioSession(store);
+		await store.uploadAudio(session.sessionId, 0, audioRequest(session, PARTS[0]));
+
+		// Skipping ahead, repeating, and starting inside a part are all refused.
+		for (const offset of [8, 0, 2]) {
+			await assert.rejects(
+				() => store.uploadAudio(session.sessionId, offset, audioRequest(session, PARTS[1])),
+				isLimitStatus(
+					409,
+					new RegExp(`^Expected export audio from byte 4, received byte ${offset}\\.$`)
+				)
+			);
+		}
+
+		// The session is still open and takes the right part next.
+		assert.deepEqual(await readBed(directory, session), PARTS[0]);
+		await store.uploadAudio(session.sessionId, 4, audioRequest(session, PARTS[1]));
+		await store.uploadAudio(session.sessionId, 8, audioRequest(session, PARTS[2]));
+		assert.deepEqual(await readBed(directory, session), WAV);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('refuses a first part that does not start at byte 0', async () => {
+		const { store } = await createStore();
+		const session = await openAudioSession(store);
+
+		await assert.rejects(
+			() => store.uploadAudio(session.sessionId, 4, audioRequest(session, PARTS[1])),
+			isLimitStatus(409, /^Expected export audio from byte 0, received byte 4\.$/)
+		);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('refuses a part after the bed is complete', async () => {
+		const { store, directory } = await createStore();
+		const session = await openAudioSession(store);
+		for (const [index, part] of PARTS.entries()) {
+			await store.uploadAudio(session.sessionId, index * 4, audioRequest(session, part));
+		}
+
+		await assert.rejects(
+			() => store.uploadAudio(session.sessionId, 12, audioRequest(session, PARTS[0])),
+			isLimitStatus(409, /already uploaded/)
+		);
+		assert.deepEqual(await readBed(directory, session), WAV);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('refuses a part after encoding started', async () => {
+		const { store } = await createStore();
+		const session = await openAudioSession(store);
+		await store.uploadAudio(session.sessionId, 0, audioRequest(session, WAV));
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+
+		await assert.rejects(
+			() => store.uploadAudio(session.sessionId, 12, audioRequest(session, PARTS[0])),
+			isLimitStatus(409, /already uploaded or encoding started/)
+		);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('refuses a part that would carry the bed past its declared total, from its declared length', async () => {
+		const { store, directory } = await createStore();
+		const session = await openAudioSession(store, 10);
+		await store.uploadAudio(session.sessionId, 0, audioRequest(session, PARTS[0]));
+		await store.uploadAudio(session.sessionId, 4, audioRequest(session, PARTS[1]));
+
+		const overTotal = audioRequest(session, PARTS[2], { headers: { 'Content-Length': '4' } });
+		assert.equal(overTotal.headers.get('content-length'), '4');
+		await assert.rejects(
+			() => store.uploadAudio(session.sessionId, 8, overTotal),
+			isLimitStatus(413, /^Export session has uploaded 12 bytes of audio; it declared 10\.$/)
+		);
+		// Refused before a byte was read: the body is still unread.
+		assert.equal(overTotal.bodyUsed, false);
+		// Over the total ends the session: nothing of it is left behind.
+		assert.deepEqual(await readdir(directory), []);
+		assert.equal(store.openSessionCount, 0);
+	});
+
+	it('cuts off a part that runs past the total when it declares no length', async () => {
+		const { store, directory } = await createStore();
+		const session = await openAudioSession(store, 10);
+		await store.uploadAudio(session.sessionId, 0, audioRequest(session, PARTS[0]));
+		await store.uploadAudio(session.sessionId, 4, audioRequest(session, PARTS[1]));
+		const stream = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(PARTS[2].slice());
+				controller.close();
+			}
+		});
+		const request = new Request(
+			`${TEST_ORIGIN}/api/export/sessions/${session.sessionId}/audio?offset=8`,
+			{
+				method: 'PUT',
+				headers: { 'Content-Type': 'audio/wav', Origin: TEST_ORIGIN, Cookie: session.cookie },
+				body: stream,
+				duplex: 'half'
+			} as RequestInit
+		);
+		assert.equal(request.headers.get('content-length'), null);
+
+		await assert.rejects(
+			() => store.uploadAudio(session.sessionId, 8, request),
+			isLimitStatus(413, /^Export session has uploaded 12 bytes of audio; it declared 10\.$/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('refuses a part larger than one request may be', async () => {
+		const { store, directory } = await createStore(
+			{},
+			{ limits: { ...DEVELOPMENT_EXPORT_RUNTIME_LIMITS, maxFrameBytes: 6 } }
+		);
+		const session = await openAudioSession(store);
+
+		await assert.rejects(
+			() => store.uploadAudio(session.sessionId, 0, audioRequest(session, WAV.subarray(0, 8))),
+			isLimitStatus(413, /^Export audio part is 8 bytes; the limit is 6 per request\.$/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('refuses a total past the profile bound when the session opens', async () => {
+		const { store, directory } = await createStore();
+		await assert.rejects(
+			() => openAudioSession(store, DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes + 1),
+			isLimitStatus(
+				413,
+				new RegExp(
+					`bytes of audio; the limit is ${DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes}`
+				)
+			)
+		);
+		// The bed of the longest export is admitted, though it is past one request.
+		const session = await openAudioSession(store, 115_200_044);
+		assert.ok(115_200_044 > DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameBytes);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('refuses an empty part and a part that is not WAV', async () => {
+		const { store } = await createStore();
+		const empty = await openAudioSession(store);
+		await assert.rejects(
+			() => store.uploadAudio(empty.sessionId, 0, audioRequest(empty, new Uint8Array(0))),
+			isLimitStatus(400, /^Export audio part is empty\.$/)
+		);
+		const mistyped = await openAudioSession(store);
+		await assert.rejects(
+			() =>
+				store.uploadAudio(
+					mistyped.sessionId,
+					0,
+					audioRequest(mistyped, PARTS[0], { type: 'application/octet-stream' })
+				),
+			isLimitStatus(415, /^Expected audio\/wav export audio\.$/)
+		);
+		assert.equal(store.openSessionCount, 0);
+	});
+
+	it('counts every part against the session upload ceiling', async () => {
+		const { store } = await createStore(
+			{},
+			{ limits: { ...DEVELOPMENT_EXPORT_RUNTIME_LIMITS, maxFrameBytes: PNG.byteLength } }
+		);
+		const session = await openAudioSession(store);
+		for (const [index, part] of PARTS.entries()) {
+			await store.uploadAudio(session.sessionId, index * 4, audioRequest(session, part));
+		}
+
+		// Twelve bytes of bed plus one frame at the per-frame ceiling is exactly
+		// the session's total, so the frame still fits.
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('reads the part offset from the audio URL, and no offset as byte 0', () => {
+		assert.equal(parseExportAudioOffset(null), 0);
+		assert.equal(parseExportAudioOffset('0'), 0);
+		assert.equal(parseExportAudioOffset('67108864'), 67_108_864);
+		for (const value of ['', '-1', '1.5', '01', 'four', '9007199254740993']) {
+			assert.throws(
+				() => parseExportAudioOffset(value),
+				isLimitStatus(400, /^Invalid export audio offset/)
+			);
+		}
+	});
+
+	it('answers each part through the audio route, in order', async () => {
+		assert.deepEqual(Object.keys(exportAudioRoute), ['PUT']);
+		const opened = await exportSessionStore.create(
+			createSessionRequest({
+				format: 'prores',
+				fps: 24,
+				frameCount: 1,
+				opaque: true,
+				audioBytes: WAV.byteLength
+			})
+		);
+		const session: OpenedTestSession = {
+			...opened.document,
+			cookie: opened.credentialCookie.split(';', 1)[0]
+		};
+		const put = (offset: string | null, part: Uint8Array): Promise<Response> => {
+			const url = new URL(`${TEST_ORIGIN}${session.audioUrl}`);
+			if (offset !== null) url.searchParams.set('offset', offset);
+			return Promise.resolve(
+				exportAudioRoute.PUT({
+					params: { sessionId: session.sessionId },
+					request: audioRequest(session, part),
+					url
+				} as unknown as Parameters<typeof exportAudioRoute.PUT>[0])
+			);
+		};
+		try {
+			assert.equal((await put(null, PARTS[0])).status, 204);
+			const outOfOrder = await put('8', PARTS[2]);
+			assert.equal(outOfOrder.status, 409);
+			assert.equal(await outOfOrder.text(), 'Expected export audio from byte 4, received byte 8.');
+			assert.equal((await put('four', PARTS[1])).status, 400);
+			assert.equal((await put('4', PARTS[1])).status, 204);
+			assert.equal((await put('8', PARTS[2])).status, 204);
+			assert.equal((await put('12', PARTS[0])).status, 409);
+		} finally {
+			await exportSessionStore.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+		}
 	});
 });
 

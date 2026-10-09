@@ -17,6 +17,7 @@ import {
 } from '$lib/platform/public-export-cleanup';
 import {
 	exportSessionUploadCeilingBytes,
+	findExportAudioPartRejection,
 	findExportConcurrencyRejection,
 	findExportControlDocumentRejection,
 	findExportEnvelopeRejection,
@@ -74,6 +75,10 @@ export interface ExportSessionRequest {
 
 export interface CreatedExportSession {
 	sessionId: string;
+	/**
+	 * Where the audio bed is `PUT`, one ordered part per request, each at
+	 * `?offset=<byte it starts on>`. With no `offset` a part starts at byte 0.
+	 */
 	audioUrl: string;
 	frameUrlTemplate: string;
 	completeUrl: string;
@@ -111,6 +116,12 @@ interface ExportSession {
 	audioPath: string;
 	outputPath: string;
 	nextFrame: number;
+	/**
+	 * Bytes of the audio bed written to `audioPath` so far. Parts arrive in
+	 * order, so this is also the byte the next part has to start on.
+	 */
+	audioBytesReceived: number;
+	/** True once the whole declared bed has arrived. */
 	hasAudio: boolean;
 	isBusy: boolean;
 	status: 'created' | 'encoding' | 'ready' | 'downloading';
@@ -314,6 +325,23 @@ export function parseExportFrameIndex(value: string): number {
 		throw new ExportSessionError(400, `Invalid export frame index "${value}".`);
 	}
 	return frame;
+}
+
+/**
+ * The byte an audio part says it starts on: the `offset` query parameter of the
+ * session's audio URL. A request that names none starts at byte 0, so a bed
+ * that fits one request is uploaded with one plain `PUT`.
+ */
+export function parseExportAudioOffset(value: string | null): number {
+	if (value === null) return 0;
+	if (!/^(0|[1-9]\d*)$/.test(value)) {
+		throw new ExportSessionError(400, `Invalid export audio offset "${value}".`);
+	}
+	const offset = Number(value);
+	if (!Number.isSafeInteger(offset)) {
+		throw new ExportSessionError(400, `Invalid export audio offset "${value}".`);
+	}
+	return offset;
 }
 
 export function hasPngSignature(bytes: Uint8Array): boolean {
@@ -607,6 +635,7 @@ export class ExportSessionStore {
 			audioPath: join(workDir, 'mix.wav'),
 			outputPath: join(workDir, details.filename),
 			nextFrame: 0,
+			audioBytesReceived: 0,
 			hasAudio: false,
 			isBusy: false,
 			status: 'created',
@@ -654,13 +683,33 @@ export class ExportSessionStore {
 		};
 	}
 
-	async uploadAudio(id: string, request: Request): Promise<void> {
+	/**
+	 * Take one part of the session's audio bed and append it to the bed on disk.
+	 *
+	 * The bed arrives in ordered parts, each its own request under the adapter's
+	 * body ceiling, because a Film-length bed is larger than one request may be.
+	 * `offset` is the byte the part starts on and must be the byte the session
+	 * has reached: a part that skips ahead or repeats is refused and changes
+	 * nothing, as an out-of-order frame is. The bed is complete when the bytes
+	 * the session declared have arrived, and only then are frames accepted. A bed
+	 * that fits one request is one part from byte 0.
+	 *
+	 * A part that would carry the bed past its declared total, or that is larger
+	 * than one request may be, ends the session with the limit it missed.
+	 */
+	async uploadAudio(id: string, offset: number, request: Request): Promise<void> {
 		const session = await this.#authorize(id, request);
 		if (session.request.audioBytes === 0) {
 			throw new ExportSessionError(409, 'This export session has no audio upload.');
 		}
 		if (session.hasAudio || session.encoder || session.isBusy) {
 			throw new ExportSessionError(409, 'Export audio was already uploaded or encoding started.');
+		}
+		if (offset !== session.audioBytesReceived) {
+			throw new ExportSessionError(
+				409,
+				`Expected export audio from byte ${session.audioBytesReceived}, received byte ${offset}.`
+			);
 		}
 		if (request.headers.get('content-type')?.split(';', 1)[0] !== 'audio/wav') {
 			await this.#dispose(session, 'failed');
@@ -671,24 +720,41 @@ export class ExportSessionStore {
 			throw new ExportSessionError(400, 'Missing export audio body.');
 		}
 		const declaredLength = contentLength(request);
-		if (declaredLength !== null && declaredLength !== session.request.audioBytes) {
+		// Refuse an over-limit part from its declared length, before a byte of the
+		// body is read or written.
+		const declaredOverflow =
+			declaredLength === null
+				? null
+				: findExportAudioPartRejection(declaredLength, session, this.#limits);
+		if (declaredOverflow) {
 			await this.#dispose(session, 'failed');
-			throw new ExportSessionError(400, 'Export audio Content-Length does not match audioBytes.');
+			throw limitError(declaredOverflow);
 		}
 
 		session.isBusy = true;
 		this.#touch(session);
-		const file = createWriteStream(session.audioPath, { flags: 'wx' });
+		// The first part creates the bed and must find no file; every later part
+		// appends to the one the first made.
+		const file = createWriteStream(session.audioPath, {
+			flags: session.audioBytesReceived === 0 ? 'wx' : 'a'
+		});
 		const signal = AbortSignal.any([session.abortController.signal, request.signal]);
 		try {
-			session.uploadedBytes += await streamRequestBody({
+			const partBytes = await streamRequestBody({
 				body: request.body,
 				writable: file,
 				signal,
-				expectedBytes: session.request.audioBytes
+				expectedBytes: declaredLength ?? undefined,
+				findOverflow: (receivedBytes) =>
+					findExportAudioPartRejection(receivedBytes, session, this.#limits)
 			});
 			await finishWritable(file, signal);
-			session.hasAudio = true;
+			if (partBytes === 0) {
+				throw new ExportSessionError(400, 'Export audio part is empty.');
+			}
+			session.audioBytesReceived += partBytes;
+			session.uploadedBytes += partBytes;
+			session.hasAudio = session.audioBytesReceived === session.request.audioBytes;
 		} catch (cause) {
 			const failure = classifyExportSessionFailure(session, request, cause);
 			file.destroy();

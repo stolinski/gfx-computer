@@ -1,27 +1,25 @@
 import * as Sentry from '@sentry/sveltekit';
 
 import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
-import {
-	framesToSeconds,
-	resolveFrameRate,
-	secondsToFrames,
-	type FrameRate
-} from '$lib/utils/composition-timing';
+import { framesToSeconds, resolveFrameRate, type FrameRate } from '$lib/utils/composition-timing';
 import { isEngineStateOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
 import { getVideoFrameSize, type VideoFrameSize } from '$lib/utils/video-frame';
 
 import { AnimationManager, type AnimationManifest } from './animation-manager';
-import { renderAudioMix, type AudioMixRenderRequest } from './audio-mix';
+import { renderFilmAudioMix, type FilmAudioMixRenderRequest } from './audio-mix';
 import { exportWebMInBrowser } from './browser-webm-export';
 import {
 	isCompositionExportFormatAvailable,
 	unavailableCompositionExportFormatMessage
 } from './composition-export-formats';
 import type { CompositionFrameRenderResult } from './composition-frame-renderer';
-import type { EngineState, Preset } from './engine-schema';
+import type { Preset } from './engine-schema';
+import { filmFrameCount, filmSceneFrameCount, filmSceneFrameOffsets } from './film-playhead';
+import type { Film } from './film-schema';
+import { filmDurationSeconds } from './film-transport';
 import { IS_HOSTED_ORIGIN } from './hosted-origin';
 import {
-	videoTrackExportSentryContext,
+	filmVideoTrackExportSentryContext,
 	videoTrackExportSentryTags
 } from './video-track-export-sentry';
 import {
@@ -42,15 +40,46 @@ export interface CompositionExportFrame {
 	timestamp: number;
 }
 
+/** Where one Scene of the Film sits in the export, and the clock it is scrubbed on. */
+export interface CompositionExportScene {
+	sceneId: string;
+	/** The Film frame the Scene's frame 0 is rendered as. */
+	startFrame: number;
+	/** How many Film frames the Scene fills. */
+	frameCount: number;
+	/** The Scene's own `transport.durationSeconds`: what its 0..1 progress divides by. */
+	durationSeconds: number;
+}
+
+/** One Film frame resolved to the Scene that renders it. */
+export interface CompositionExportSceneFrame {
+	sceneIndex: number;
+	scene: CompositionExportScene;
+	/** Frame inside the Scene, `0` to `scene.frameCount - 1`. */
+	frame: number;
+	/** Exact Scene time of `frame`, in seconds at the Film's rate. */
+	timestamp: number;
+}
+
+/**
+ * The media contract of one export: the whole open Film
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §2, §9).
+ * `frameCount`, `durationSeconds`, and the file names describe the Film. A
+ * one-Scene Film's plan is the plan its Scene had as a lone composition.
+ */
 export interface CompositionExportPlan {
-	format: EngineState['transport']['format'];
+	format: Film['format'];
 	codec: CompositionExportCodec;
 	output: CompositionOutputClassification;
 	size: VideoFrameSize;
+	/** Film time at the end of the last Scene (`filmDurationSeconds`). */
 	durationSeconds: number;
 	fps: number;
 	frameRate: FrameRate;
+	/** `filmFrameCount` of the Film. */
 	frameCount: number;
+	/** Every Scene in Film order, with the Film frames it fills. */
+	scenes: readonly CompositionExportScene[];
 	basename: 'gfx-overlay' | 'gfx-bumper';
 	videoFilename: string;
 	wavFilename: string;
@@ -96,9 +125,27 @@ interface CompositionExportAnimationManager {
 	dispose(): void;
 }
 
+/**
+ * The export's hold on the open Film, as the controller uses it. The Workspace
+ * supplies `beginOpenFilmExportBracket` (`./film-scene-selection.ts`), which
+ * says what the hold guarantees.
+ */
+export interface CompositionExportFilmBracket {
+	/** Make the Scene live and settled at its frame 0, without selecting it. */
+	showScene(sceneId: string): Promise<void>;
+	/** Put the Workspace back on the Scene and frame it was on. */
+	close(): Promise<void>;
+}
+
 export interface CompositionExportControllerDependencies {
-	readState(): EngineState;
+	/**
+	 * The open Film, detached from live state. The export makes other Scenes
+	 * live while it runs, so a Film that still pointed at engine state would
+	 * change under the plan and the audio mix.
+	 */
+	readFilm(): Film;
 	readTransition(): CompositionExportTransition | null;
+	beginFilmExportBracket(): CompositionExportFilmBracket;
 	readCanvas(): HTMLCanvasElement | OffscreenCanvas | null;
 	isFrameRendererReady(): boolean;
 	readSeparateWav(): boolean;
@@ -115,7 +162,7 @@ export interface CompositionExportControllerDependencies {
 
 export interface CompositionExportControllerServices {
 	createAnimationManager(): CompositionExportAnimationManager;
-	renderAudio(request: AudioMixRenderRequest): Promise<AudioBuffer | null>;
+	renderAudio(request: FilmAudioMixRenderRequest): Promise<AudioBuffer | null>;
 	exportWebM(options: TransparentVideoExportOptions): Promise<VideoExportDownload>;
 	exportProRes(options: TransparentVideoExportOptions): Promise<VideoExportDownload>;
 	/** Resolves with the delivered byte count once the browser holds the file. */
@@ -131,7 +178,7 @@ export interface CompositionExportControllerServices {
 // for a transport the origin answers 404 for.
 const DEFAULT_SERVICES: CompositionExportControllerServices = {
 	createAnimationManager: () => new AnimationManager(),
-	renderAudio: renderAudioMix,
+	renderAudio: renderFilmAudioMix,
 	exportWebM: IS_HOSTED_ORIGIN ? exportWebMInBrowser : exportTransparentWebM,
 	exportProRes: IS_HOSTED_ORIGIN
 		? () => Promise.reject(new Error(unavailableCompositionExportFormatMessage('prores')))
@@ -161,14 +208,22 @@ function assertNativeCanvasSize(
 	}
 }
 
-/** Resolve the immutable media contract used by one export invocation. */
+/**
+ * Resolve the immutable media contract used by one export invocation: the whole
+ * Film, every Scene in order.
+ *
+ * Output is opaque only when every Scene is: a Film with one transparent Scene
+ * is a transparent file, and an opaque Scene paints its fill inside it. A
+ * legacy two-endpoint transition, which replaces what every frame shows, is
+ * classified by its endpoints as before.
+ */
 export function buildCompositionExportPlan(options: {
-	state: EngineState;
+	film: Film;
 	transition: CompositionExportTransition | null;
 	request?: SyncExportRequest;
 }): CompositionExportPlan {
-	const { state, transition, request } = options;
-	const { durationSeconds, fps, format, orientation } = state.transport;
+	const { film, transition, request } = options;
+	const { fps, format, orientation } = film;
 	if (!isCompositionExportFormatAvailable(format)) {
 		throw new Error(unavailableCompositionExportFormatMessage(format));
 	}
@@ -177,8 +232,16 @@ export function buildCompositionExportPlan(options: {
 	}
 
 	const frameRate = resolveFrameRate(fps);
-	const frameCount = Math.max(1, secondsToFrames(durationSeconds, frameRate));
-	const isOpaque = transition ? isTransitionOpaque(transition) : isEngineStateOpaque(state);
+	const sceneStartFrames = filmSceneFrameOffsets(film);
+	const scenes = film.scenes.map((scene, sceneIndex): CompositionExportScene => ({
+		sceneId: scene.id,
+		startFrame: sceneStartFrames[sceneIndex],
+		frameCount: filmSceneFrameCount(scene, frameRate),
+		durationSeconds: scene.state.transport.durationSeconds
+	}));
+	const isOpaque = transition
+		? isTransitionOpaque(transition)
+		: film.scenes.every((scene) => isEngineStateOpaque(scene.state));
 	const output: CompositionOutputClassification = isOpaque ? 'opaque' : 'transparent';
 	const basename = isOpaque ? 'gfx-bumper' : 'gfx-overlay';
 	const extension = format === 'prores' ? 'mov' : 'webm';
@@ -190,10 +253,11 @@ export function buildCompositionExportPlan(options: {
 		codec,
 		output,
 		size: getVideoFrameSize(orientation),
-		durationSeconds,
+		durationSeconds: filmDurationSeconds(film),
 		fps,
 		frameRate,
-		frameCount,
+		frameCount: filmFrameCount(film),
+		scenes,
 		basename,
 		videoFilename: request?.filename ?? `${basename}.${extension}`,
 		wavFilename: `${basename}.wav`,
@@ -201,7 +265,7 @@ export function buildCompositionExportPlan(options: {
 	};
 }
 
-/** Exact rational frame index → timestamp mapping for preview/export parity. */
+/** Exact rational Film frame index → Film timestamp mapping for preview/export parity. */
 export function compositionExportFrameAt(
 	plan: Pick<CompositionExportPlan, 'frameCount' | 'frameRate'>,
 	frame: number
@@ -210,6 +274,33 @@ export function compositionExportFrameAt(
 		throw new RangeError(`Export frame ${frame} is outside 0..${plan.frameCount - 1}.`);
 	}
 	return { frame, timestamp: framesToSeconds(frame, plan.frameRate) };
+}
+
+/**
+ * The Scene that renders one Film frame, and the Scene frame and Scene time it
+ * is scrubbed to. A frame belongs to the last Scene that has started by then,
+ * the rule `resolveFilmFrame` uses, so export and the Film transport agree on
+ * which Scene owns every frame.
+ */
+export function compositionExportSceneFrameAt(
+	plan: Pick<CompositionExportPlan, 'frameCount' | 'frameRate' | 'scenes'>,
+	frame: number
+): CompositionExportSceneFrame {
+	if (!Number.isInteger(frame) || frame < 0 || frame >= plan.frameCount) {
+		throw new RangeError(`Export frame ${frame} is outside 0..${plan.frameCount - 1}.`);
+	}
+	let sceneIndex = plan.scenes.length - 1;
+	while (plan.scenes[sceneIndex].startFrame > frame) {
+		sceneIndex -= 1;
+	}
+	const scene = plan.scenes[sceneIndex];
+	const sceneFrame = frame - scene.startFrame;
+	return {
+		sceneIndex,
+		scene,
+		frame: sceneFrame,
+		timestamp: framesToSeconds(sceneFrame, plan.frameRate)
+	};
 }
 
 /**
@@ -245,10 +336,12 @@ export class CompositionExportController {
 			return { status: 'unavailable', message: 'Stage is unavailable.' };
 		}
 
+		let film: Film;
 		let plan: CompositionExportPlan;
 		try {
+			film = dependencies.readFilm();
 			plan = buildCompositionExportPlan({
-				state: dependencies.readState(),
+				film,
 				transition: dependencies.readTransition(),
 				request
 			});
@@ -267,17 +360,36 @@ export class CompositionExportController {
 		externalSignal?.addEventListener('abort', relayExternalAbort, { once: true });
 		this.#activeAbortController = abortController;
 		const animationManager = this.#services.createAnimationManager();
-		const state = dependencies.readState();
 
 		dependencies.pauseTimeline();
 		this.#publish(dependencies, { isExporting: true, progress: 0, status: '' });
 
+		// Opened inside the `try`, so whatever happens next the `finally` puts the
+		// author's Scene and frame back.
+		let filmBracket: CompositionExportFilmBracket | null = null;
 		try {
-			await dependencies.waitForCompositionResources(signal);
-			signal.throwIfAborted();
-			animationManager.rebuild(dependencies.buildAnimationManifest());
+			const activeFilmBracket = dependencies.beginFilmExportBracket();
+			filmBracket = activeFilmBracket;
+			// The Scene the export's animation is built for. A cut is exact because
+			// the swap is awaited: the incoming Scene is live, its resources are in,
+			// and its animation is rebuilt before its first frame is scrubbed.
+			let preparedSceneIndex: number | null = null;
+			const prepareScene = async (sceneIndex: number): Promise<void> => {
+				await activeFilmBracket.showScene(plan.scenes[sceneIndex].sceneId);
+				signal.throwIfAborted();
+				await dependencies.waitForCompositionResources(signal);
+				signal.throwIfAborted();
+				animationManager.rebuild(dependencies.buildAnimationManifest());
+				preparedSceneIndex = sceneIndex;
+			};
+
+			await prepareScene(0);
 			const audio = await this.#services.renderAudio({
-				state,
+				scenes: film.scenes.map((scene, sceneIndex) => ({
+					state: scene.state,
+					startFrame: plan.scenes[sceneIndex].startFrame,
+					frameCount: plan.scenes[sceneIndex].frameCount
+				})),
 				frameCount: plan.frameCount,
 				frameRate: plan.frameRate,
 				signal
@@ -286,14 +398,20 @@ export class CompositionExportController {
 
 			const renderFrame: TransparentVideoExportOptions['renderFrame'] = async (frame) => {
 				signal.throwIfAborted();
-				const exportFrame = compositionExportFrameAt(plan, frame);
-				const { timestamp } = exportFrame;
-				const fraction = plan.durationSeconds > 0 ? timestamp / plan.durationSeconds : 0;
+				const sceneFrame = compositionExportSceneFrameAt(plan, frame);
+				if (sceneFrame.sceneIndex !== preparedSceneIndex) {
+					await prepareScene(sceneFrame.sceneIndex);
+				}
+				// Scene time from here on: every 0..1 window, the Video track, and the
+				// renderer run on the live Scene's own clock, as they do in preview.
+				const { timestamp } = sceneFrame;
+				const sceneDurationSeconds = sceneFrame.scene.durationSeconds;
+				const fraction = sceneDurationSeconds > 0 ? timestamp / sceneDurationSeconds : 0;
 				animationManager.progress(fraction);
 				dependencies.writeGlobalProgress(fraction);
 				await dependencies.flushDom();
 				await dependencies.settleCompositionPaint(signal);
-				await dependencies.prepareCompositionFrame(exportFrame.frame, timestamp);
+				await dependencies.prepareCompositionFrame(sceneFrame.frame, timestamp);
 				signal.throwIfAborted();
 				if (dependencies.renderCompositionFrame(timestamp) === 'unavailable') {
 					throw new Error('Composition frame renderer is unavailable.');
@@ -314,7 +432,7 @@ export class CompositionExportController {
 				signal
 			};
 
-			const videoTrackContext = videoTrackExportSentryContext(state);
+			const videoTrackContext = filmVideoTrackExportSentryContext(film);
 			const video = await Sentry.withScope(async (scope) => {
 				scope.setTags(videoTrackExportSentryTags(videoTrackContext));
 				scope.setContext('media_video_track', videoTrackContext);
@@ -352,6 +470,12 @@ export class CompositionExportController {
 		} finally {
 			externalSignal?.removeEventListener('abort', relayExternalAbort);
 			animationManager.dispose();
+			// After the export's own animation is gone, so the Scene the bracket
+			// settles back is driven by the Workspace's alone. A restore that fails
+			// is reported; it never replaces the outcome the export already has.
+			await filmBracket?.close().catch((error: unknown) => {
+				this.#services.reportFailure('Unable to restore the Workspace after export.', error);
+			});
 			if (this.#activeAbortController === abortController) {
 				this.#activeAbortController = null;
 			}

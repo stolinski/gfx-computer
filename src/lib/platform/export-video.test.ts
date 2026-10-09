@@ -12,6 +12,14 @@ import {
 	PUBLIC_EXPORT_RUNTIME_LIMITS
 } from './public-runtime-contract';
 
+// Sixteen bytes a part, so a bed of a few samples already needs several parts.
+// The real part size is 32 MiB; `public-export-limits.test.ts` holds it under
+// the per-request ceiling.
+vi.mock('./public-export-limits', async (importOriginal) => ({
+	...(await importOriginal<typeof import('./public-export-limits')>()),
+	EXPORT_AUDIO_UPLOAD_PART_BYTES: 16
+}));
+
 afterEach(() => {
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
@@ -98,10 +106,10 @@ describe('downloadVideoExport', () => {
 		await assert.rejects(
 			downloadVideoExport(
 				{
-				transport: 'origin',
-				downloadUrl: '/api/export/sessions/session-id/output',
-				cancelUrl: '/session'
-			},
+					transport: 'origin',
+					downloadUrl: '/api/export/sessions/session-id/output',
+					cancelUrl: '/session'
+				},
 				'gfx-bumper.mov'
 			),
 			/Export output is not ready/
@@ -120,10 +128,10 @@ describe('downloadVideoExport', () => {
 		await assert.rejects(
 			downloadVideoExport(
 				{
-				transport: 'origin',
-				downloadUrl: '/api/export/sessions/session-id/output',
-				cancelUrl: '/session'
-			},
+					transport: 'origin',
+					downloadUrl: '/api/export/sessions/session-id/output',
+					cancelUrl: '/session'
+				},
 				'gfx-overlay.webm'
 			),
 			/ended at 5 bytes; expected 4096/
@@ -261,17 +269,152 @@ describe('export session client', () => {
 		});
 		assert.deepEqual(
 			calls.map((call) => call.url),
-			[
-				'/api/export/sessions',
-				'/session/frames/0',
-				'/session/frames/1',
-				'/session/complete'
-			]
+			['/api/export/sessions', '/session/frames/0', '/session/frames/1', '/session/complete']
 		);
 		assert.ok(calls[1].init?.body instanceof Blob);
 		assert.ok(calls[2].init?.body instanceof Blob);
 		assert.notEqual(calls[1].init?.body, calls[2].init?.body);
-		assert.equal(calls.some((call) => call.url === '/session/output'), false);
+		assert.equal(
+			calls.some((call) => call.url === '/session/output'),
+			false
+		);
+	});
+
+	/** Three mono samples: a 44-byte WAV header and 6 bytes of data, 50 in all. */
+	function threeSampleAudio(): AudioBuffer {
+		const samples = new Float32Array([0.25, -0.5, 1]);
+		return {
+			length: samples.length,
+			numberOfChannels: 1,
+			sampleRate: 48_000,
+			getChannelData: () => samples
+		} as unknown as AudioBuffer;
+	}
+
+	function stubExportSessionFetch(
+		respond: (url: string, init: RequestInit | undefined) => Response | undefined
+	): { url: string; init: RequestInit | undefined }[] {
+		const calls: { url: string; init: RequestInit | undefined }[] = [];
+		class FakeOffscreenCanvas {
+			async convertToBlob(): Promise<Blob> {
+				return new Blob(['png-frame'], { type: 'image/png' });
+			}
+		}
+		vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);
+		vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+			callback(0);
+			return 1;
+		});
+		vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = String(input);
+			calls.push({ url, init });
+			const response = respond(url, init);
+			if (response) return response;
+			if (url === '/api/export/sessions') {
+				return Response.json(
+					{
+						sessionId: 'session-id',
+						audioUrl: '/session/audio',
+						frameUrlTemplate: '/session/frames/{frame}',
+						completeUrl: '/session/complete',
+						cancelUrl: '/session'
+					},
+					{ status: 201 }
+				);
+			}
+			if (url === '/session/complete') {
+				return Response.json({ downloadUrl: '/session/output' });
+			}
+			return new Response(null, { status: 204 });
+		});
+		return calls;
+	}
+
+	it('uploads the audio bed in ordered parts before the first frame', async () => {
+		const calls = stubExportSessionFetch(() => undefined);
+
+		await exportTransparentWebM({
+			canvas: new OffscreenCanvas(1, 1),
+			durationSeconds: 1,
+			fps: 1,
+			frameCount: 1,
+			renderFrame: () => undefined,
+			audio: threeSampleAudio()
+		});
+
+		assert.deepEqual(
+			calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url}`),
+			[
+				'POST /api/export/sessions',
+				'PUT /session/audio?offset=0',
+				'PUT /session/audio?offset=16',
+				'PUT /session/audio?offset=32',
+				'PUT /session/audio?offset=48',
+				'PUT /session/frames/0',
+				'POST /session/complete'
+			]
+		);
+		// The session is told the whole bed, and the parts are that bed in order.
+		assert.equal(JSON.parse(String(calls[0].init?.body)).audioBytes, 50);
+		const parts = calls.slice(1, 5).map((call) => call.init?.body);
+		assert.ok(parts.every((part) => part instanceof Blob && part.type === 'audio/wav'));
+		const sizes = parts.map((part) => (part instanceof Blob ? part.size : -1));
+		assert.deepEqual(sizes, [16, 16, 16, 2]);
+		const bed = new Uint8Array(
+			await new Blob(parts.filter((part) => part instanceof Blob)).arrayBuffer()
+		);
+		assert.equal(new TextDecoder().decode(bed.subarray(0, 4)), 'RIFF');
+		assert.equal(new DataView(bed.buffer).getUint32(40, true), 6);
+		assert.equal(new DataView(bed.buffer).getInt16(48, true), 32767);
+	});
+
+	it('uploads no audio for a soundless export', async () => {
+		const calls = stubExportSessionFetch(() => undefined);
+
+		await exportTransparentWebM({
+			canvas: new OffscreenCanvas(1, 1),
+			durationSeconds: 1,
+			fps: 1,
+			frameCount: 1,
+			renderFrame: () => undefined,
+			audio: null
+		});
+
+		assert.equal(JSON.parse(String(calls[0].init?.body)).audioBytes, 0);
+		assert.equal(
+			calls.some((call) => call.url.startsWith('/session/audio')),
+			false
+		);
+	});
+
+	it('stops at the part the origin refuses and cancels the session', async () => {
+		const calls = stubExportSessionFetch((url) =>
+			url === '/session/audio?offset=16'
+				? new Response('Expected export audio from byte 0, received byte 16.', { status: 409 })
+				: undefined
+		);
+
+		await assert.rejects(
+			exportTransparentWebM({
+				canvas: new OffscreenCanvas(1, 1),
+				durationSeconds: 1,
+				fps: 1,
+				frameCount: 1,
+				renderFrame: () => undefined,
+				audio: threeSampleAudio()
+			}),
+			/^Error: Expected export audio from byte 0, received byte 16\.$/
+		);
+
+		assert.deepEqual(
+			calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url}`),
+			[
+				'POST /api/export/sessions',
+				'PUT /session/audio?offset=0',
+				'PUT /session/audio?offset=16',
+				'DELETE /session'
+			]
+		);
 	});
 
 	it('cancels the server session when the shared AbortSignal stops a frame upload', async () => {

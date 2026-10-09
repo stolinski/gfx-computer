@@ -1,6 +1,11 @@
 import { framesToSeconds, resolveFrameRate, secondsToFrames } from '../utils/composition-timing.ts';
 
-import { filmFrameForSceneFrame, filmSceneFrameCount, resolveFilmFrame } from './film-playhead';
+import {
+	filmFrameForSceneFrame,
+	filmSceneFrameCount,
+	filmSceneFrameOffsets,
+	resolveFilmFrame
+} from './film-playhead';
 
 import type { FilmFramePosition } from './film-playhead';
 import type { Film } from './film-schema';
@@ -80,6 +85,39 @@ export function filmFrameAtSceneTime(film: Film, sceneId: string, sceneSeconds: 
 		sceneId,
 		filmSceneFrameAtSceneTime(film, sceneId, sceneSeconds)
 	);
+}
+
+/**
+ * Film time in seconds for a Scene time: the Scene's first Film frame as exact
+ * seconds at the Film's rate, plus `sceneSeconds`. Scene starts are counted in
+ * frames, so nothing drifts at an NTSC rate; inside the Scene the reading is as
+ * fine as Scene time is. For the first Scene it is `sceneSeconds` itself.
+ *
+ * Throws a `RangeError` when the Film has no Scene with `sceneId`.
+ */
+export function filmSecondsAtSceneTime(film: Film, sceneId: string, sceneSeconds: number): number {
+	const sceneIndex = film.scenes.findIndex((scene) => scene.id === sceneId);
+	if (sceneIndex < 0) {
+		throw new RangeError(`The Film has no Scene with id "${sceneId}".`);
+	}
+	return (
+		framesToSeconds(filmSceneFrameOffsets(film)[sceneIndex], resolveFrameRate(film.fps)) +
+		sceneSeconds
+	);
+}
+
+/**
+ * How long the Film runs in seconds: Film time at the end of its last Scene
+ * (`filmSecondsAtSceneTime`). A one-Scene Film runs exactly its Scene's
+ * `transport.durationSeconds`. Frame counts, never this number, decide how many
+ * frames a Film has (`filmFrameCount`).
+ */
+export function filmDurationSeconds(film: Film): number {
+	const lastScene = film.scenes[film.scenes.length - 1];
+	if (lastScene === undefined) {
+		throw new RangeError('A Film has at least one Scene.');
+	}
+	return filmSecondsAtSceneTime(film, lastScene.id, lastScene.state.transport.durationSeconds);
 }
 
 /**

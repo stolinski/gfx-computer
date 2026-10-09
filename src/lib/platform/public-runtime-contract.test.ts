@@ -227,19 +227,27 @@ describe('bounded development export limits', () => {
 		assert.ok(DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameBytes > 3840 * 2160 * 4);
 	});
 
-	// The audio bed is one request, and the adapter's body ceiling is maxFrameBytes
-	// on every profile, so a larger audio limit would promise an upload the adapter
-	// refuses. The bed it does admit is shorter than the longest composition.
-	it('admits no more audio than one request body can carry', () => {
-		assert.equal(
-			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes,
-			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameBytes
-		);
+	// The bed is uploaded in parts, so it is no longer held to one request body.
+	// It has to cover the longest export the envelope admits: 16-bit 48 kHz
+	// stereo for the whole duration, plus the 44-byte WAV header.
+	it('admits the audio bed of the longest export', () => {
+		const wavHeaderBytes = 44;
 		const stereo48kHz16BitBytesPerSecond = 48_000 * 2 * 2;
-		assert.equal(
-			Math.floor(DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes / stereo48kHz16BitBytesPerSecond),
-			349
+		const longestBedBytes =
+			wavHeaderBytes +
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxDurationSeconds * stereo48kHz16BitBytesPerSecond;
+		assert.equal(longestBedBytes, 115_200_044);
+		assert.ok(DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes >= longestBedBytes);
+		assert.equal(DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes, 128 * 1024 * 1024);
+		// More than one request may carry, which is why it goes up in parts.
+		assert.ok(
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes >
+				DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameBytes
 		);
+	});
+
+	it('leaves the public audio bound at its ratified number', () => {
+		assert.equal(PUBLIC_EXPORT_RUNTIME_LIMITS.maxAudioBytes, 8 * 1024 * 1024);
 	});
 
 	it('expires an idle session well inside its hard lifetime', () => {

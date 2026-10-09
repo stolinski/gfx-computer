@@ -11,6 +11,7 @@ import { buildCompositionExportPlan } from './composition-export-controller';
 import { compositionExportHandle } from './composition-export-handle.svelte';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, transitionState } from './engine-state.svelte';
+import { readOpenFilm } from './film-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 
@@ -29,7 +30,7 @@ function registerExportRunner(outcome: CompositionExportOutcome): void {
 function deliveredOutcome(wavFilename: string | null = null): CompositionExportOutcome {
 	return {
 		status: 'delivered',
-		plan: buildCompositionExportPlan({ state: engineState, transition: null }),
+		plan: buildCompositionExportPlan({ film: readOpenFilm(), transition: null }),
 		videoByteLength: 4096,
 		wavFilename
 	};
