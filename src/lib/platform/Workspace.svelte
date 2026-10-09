@@ -56,6 +56,7 @@
 	import { getPresetBySlug } from './preset-catalog';
 	import { presetBase } from './preset-base.svelte';
 	import { serializeCompositionState } from './preset-pure';
+	import { runCreateFilmFromOpenCompositionOperation } from './composition-lifecycle-operations';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getAuthoringPackOption } from './packs/catalog';
 	import { getPack } from './packs/registry';
@@ -383,6 +384,14 @@
 
 	// Composition history and transport keys. Native field/button editing keeps
 	// its own keyboard behavior; canvas commands use the shared authoring history.
+	// `composition.create-film-from-open`: the one way an edited corpus Preset is
+	// kept. The operation stores the open document as a new Film, opens it, and
+	// moves the page to the Film's own URL (ADR-0068 §3).
+	async function createFilmFromOpenDocument(): Promise<void> {
+		const outcome = await runCreateFilmFromOpenCompositionOperation();
+		if (outcome.status !== 'applied') compositionMeta.persistenceError = outcome.message;
+	}
+
 	function handleKeydown(event: KeyboardEvent): void {
 		const target = event.target as HTMLElement | null;
 		const tag = target?.tagName;
@@ -825,7 +834,8 @@
 		// typeface per composition while the stage carries a body.
 		const localStage = engineState.stage;
 		const hasBodies =
-			localStage?.type === 'depth' && partitionStageOverlays(engineState.overlays).bodies.length > 0;
+			localStage?.type === 'depth' &&
+			partitionStageOverlays(engineState.overlays).bodies.length > 0;
 		const slugs = hasBodies ? [resolveStageTypefaceRole(getPack(packState.slug))] : [];
 		untrack(() => {
 			stageTypefaceController.update({ stageIdentity: localStage ?? null, slugs });
@@ -1243,8 +1253,10 @@
 			return { elements };
 		};
 		window.__configureGfxDeterministicRenderCell = async (input) => {
-			if (new URLSearchParams(window.location.search).get('source') !== 'builtin') {
-				throw new Error('Deterministic render cells require the built-in Preset route.');
+			// A render cell replaces the open document. A stored Film autosaves, so
+			// a cell configured there would be saved over the author's work.
+			if (compositionMeta.isUserComposition) {
+				throw new Error('Deterministic render cells require a corpus Preset route.');
 			}
 			if (!deterministicRenderAuditMode) {
 				deterministicRenderAuditMode = true;
@@ -1489,13 +1501,10 @@
 		<span class="topbar__chip topbar__chip--pack">
 			<i aria-hidden="true"></i>{getAuthoringPackOption(packState.slug).label}
 		</span>
-		{#if compositionMeta.isUserComposition}
-			<span class="topbar__chip topbar__chip--forked">Forked</span>
-			{#if compositionMeta.revertUserComposition}
-				<button type="button" class="topbar__revert" onclick={compositionMeta.revertUserComposition}
-					>Revert</button
-				>
-			{/if}
+		{#if !compositionMeta.isUserComposition}
+			<button type="button" class="topbar__new-film" onclick={createFilmFromOpenDocument}
+				>New Film</button
+			>
 		{/if}
 		<span class="topbar__spacer"></span>
 		<div class="topbar__orientation" role="group" aria-label="Orientation">
@@ -1752,27 +1761,6 @@
 		inline-size: 7px;
 	}
 
-	.topbar__chip--forked {
-		border-color: color-mix(in srgb, #ffd608 55%, var(--chrome-hairline));
-		color: #ffd608;
-	}
-
-	.topbar__revert {
-		background: transparent;
-		border: 0;
-		color: var(--chrome-muted);
-		cursor: pointer;
-		flex-shrink: 0;
-		font-size: 0.6875rem;
-		padding: 0;
-		text-decoration: underline;
-		text-underline-offset: 3px;
-	}
-
-	.topbar__revert:hover {
-		color: var(--chrome-text);
-	}
-
 	.topbar__spacer {
 		flex: 1;
 	}
@@ -1785,7 +1773,8 @@
 		overflow: hidden;
 	}
 
-	.topbar__orientation button {
+	.topbar__orientation button,
+	.topbar__new-film {
 		background: transparent;
 		border: 0;
 		color: var(--chrome-muted);
@@ -1804,9 +1793,18 @@
 		color: var(--chrome-text);
 	}
 
-	.topbar__orientation button:focus-visible {
+	.topbar__orientation button:focus-visible,
+	.topbar__new-film:focus-visible {
 		outline: 2px solid #ffd608;
 		outline-offset: -2px;
+	}
+
+	/* The orientation buttons take their frame from their group; a lone action
+	   carries the same one itself. */
+	.topbar__new-film {
+		border: 1px solid var(--chrome-hairline);
+		border-radius: 6px;
+		flex-shrink: 0;
 	}
 
 	.topbar__resolution {

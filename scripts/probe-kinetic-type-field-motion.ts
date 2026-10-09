@@ -13,7 +13,7 @@ import { connectCdpRenderBrowser } from './cdp-render-page.ts';
 
 const baseUrl = process.env.GFX_PROBE_BASE_URL ?? 'http://127.0.0.1:5173';
 const cdpUrl = process.env.CDP_URL ?? 'http://127.0.0.1:9229';
-const presetUrl = `${baseUrl}/p/kinetic-type-field-motion-fixture?source=builtin`;
+const presetUrl = `${baseUrl}/p/kinetic-type-field-motion-fixture`;
 const orientations = ['horizontal', 'vertical'] as const;
 const PHRASE_SAMPLES = [
 	{ progress: 0.15, visible: ['type', 'can', 'move'] },

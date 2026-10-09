@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { engineState } from './engine-state.svelte';
 	import { downloadBlob } from './export-video';
-	import { readOpenFilmAsSavedPreset } from './film-state.svelte';
+	import {
+		readOpenFilmAsSavedPreset,
+		readOpenFilmAsUserCompositionDocument
+	} from './film-state.svelte';
 	import { presetToWireFormat } from './preset-pure';
+	import { standaloneUserCompositionDocument } from './user-composition-record';
 	import {
 		appendVisualVerificationIssues,
 		verifyPresetArtifact,
@@ -12,9 +16,10 @@
 	import { compositionMeta } from './composition-meta.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 
-	// Interchange: the live Preset artifact as JSON (export) plus the
-	// schema+visual verification pass. "Verified" only shows while the
-	// verified artifact matches the current composition byte-for-byte.
+	// Interchange: the open Film as standalone JSON (export, ADR-0068 §3) plus
+	// the schema+visual verification pass over the one Preset it is. "Verified"
+	// only shows while the verified artifact matches the current composition
+	// byte-for-byte.
 	const liveArtifact = $derived.by(() => {
 		const preset = readOpenFilmAsSavedPreset();
 		const wirePreset = presetToWireFormat(preset);
@@ -38,7 +43,10 @@
 		const filename = compositionMeta.userCompositionSlug
 			? `${compositionMeta.userCompositionSlug}.json`
 			: 'composition.json';
-		const blob = new Blob([`${JSON.stringify(liveArtifact.wirePreset, null, '\t')}\n`], {
+		const standaloneDocument = standaloneUserCompositionDocument(
+			readOpenFilmAsUserCompositionDocument()
+		);
+		const blob = new Blob([`${JSON.stringify(standaloneDocument, null, '\t')}\n`], {
 			type: 'application/json'
 		});
 		downloadBlob(blob, filename);

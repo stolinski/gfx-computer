@@ -72,7 +72,7 @@ vi.mock('./user-composition-store', () => ({
 	userCompositionStore: {
 		listUserCompositions: vi.fn(),
 		loadUserComposition: vi.fn(),
-		forkUserComposition: vi.fn(),
+		createUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
 		deleteUserComposition: vi.fn()
 	}
@@ -109,7 +109,7 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	always: true,
 	'composition-open': false,
 	'composition-editable': false,
-	'forked-from-starter': false,
+	'composition-unsaved': false,
 	'undo-available': false,
 	'redo-available': false,
 	'overlay-present': false,

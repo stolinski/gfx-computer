@@ -13,7 +13,7 @@ import { connectCdpRenderBrowser } from './cdp-render-page.ts';
 
 const baseUrl = process.env.GFX_PROBE_BASE_URL ?? 'http://127.0.0.1:5173';
 const cdpUrl = process.env.CDP_URL ?? 'http://127.0.0.1:9223';
-const presetUrl = `${baseUrl}/p/text-anim-variable-weight?source=builtin`;
+const presetUrl = `${baseUrl}/p/text-anim-variable-weight`;
 const orientations = ['horizontal', 'vertical'] as const;
 const ENTER_PROGRESS_SAMPLES = [
 	0.08, 0.0875, 0.095, 0.1025, 0.11, 0.1175, 0.125, 0.1325, 0.14, 0.1475, 0.155, 0.1625, 0.17

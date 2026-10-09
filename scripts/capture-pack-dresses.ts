@@ -54,7 +54,7 @@ const derivePackShowcaseCatalog = showcaseModule.derivePackShowcaseCatalog as ()
 const packSlugs = derivePackShowcaseCatalog().map((pack) => pack.slug);
 
 const stillDirectory = resolve(repoRoot, 'docs-site/static/pack-stills');
-const presetUrl = `${CAPTURE_ORIGIN}/p/${frameSpec.presetSlug}?source=builtin`;
+const presetUrl = `${CAPTURE_ORIGIN}/p/${frameSpec.presetSlug}`;
 
 const sleep = (milliseconds: number): Promise<void> =>
 	new Promise((settle) => setTimeout(settle, milliseconds));

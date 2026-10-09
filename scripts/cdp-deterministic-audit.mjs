@@ -115,7 +115,7 @@ async function openCdpPage(slug) {
 		});
 	}
 	await Promise.all([send('Page.enable'), send('Runtime.enable')]);
-	await send('Page.navigate', { url: `${BASE_URL}/p/${encodeURIComponent(slug)}?source=builtin` });
+	await send('Page.navigate', { url: `${BASE_URL}/p/${encodeURIComponent(slug)}` });
 	const deadline = Date.now() + WAIT_MS;
 	while (Date.now() < deadline) {
 		const ready = await send('Runtime.evaluate', {

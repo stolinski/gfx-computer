@@ -241,7 +241,7 @@ interface WorkspaceReadiness {
  * was showing before, which reads as evidence.
  */
 async function awaitWorkspace(page: CdpPage, presetName: string): Promise<void> {
-	const pageUrl = `${workspaceLoopOrigin}/p/${WORKSPACE_LOOP_PRESET_SLUG}?source=builtin`;
+	const pageUrl = `${workspaceLoopOrigin}/p/${WORKSPACE_LOOP_PRESET_SLUG}`;
 	const expectedPathname = new URL(pageUrl).pathname;
 	await page.send('Page.navigate', { url: pageUrl });
 

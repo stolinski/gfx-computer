@@ -5,7 +5,7 @@
  * Derived from the composition's own name so a stored piece is recognizable in
  * a URL, and de-duplicated against the slugs already taken — the store
  * overwrites by slug, so a colliding slug silently replaces someone's work, and
- * a slug colliding with a corpus Preset would shadow that Starter template.
+ * a corpus Preset's slug is its Starter's own route, which no store writes under.
  */
 
 /** The slug shape the session store accepts. */
@@ -38,10 +38,7 @@ export function slugifyCompositionName(name: string): string {
  * The slug a new composition takes: its name's slug when that is free, and the
  * first numbered variant that is not when it is not.
  */
-export function createCompositionSessionSlug(
-	name: string,
-	takenSlugs: Iterable<string>
-): string {
+export function createCompositionSessionSlug(name: string, takenSlugs: Iterable<string>): string {
 	const base = slugifyCompositionName(name);
 	const taken = new Set(takenSlugs);
 	if (!taken.has(base)) return base;

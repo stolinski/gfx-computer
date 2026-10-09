@@ -12,7 +12,7 @@ const PORT = Number(process.env.CDP_PORT ?? 9223);
 // composition canvas to <body>, so first-in-document-order is not stable.
 const COMPOSITION_CANVAS = `[...document.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0]`;
 const SLUG = process.argv[2] ?? 'lower-third';
-const PAGE_URL = process.env.CDP_URL ?? `http://localhost:7263/p/${SLUG}?source=builtin`;
+const PAGE_URL = process.env.CDP_URL ?? `http://localhost:7263/p/${SLUG}`;
 const EXPECTED_PATHNAME = new URL(PAGE_URL).pathname;
 const OUTDIR = process.env.CDP_OUTDIR ?? `.tmp-baselines/${SLUG}`;
 const SAMPLES = (process.env.CDP_SAMPLES ?? '0,0.25,0.5,0.75,1').split(',').map(Number);

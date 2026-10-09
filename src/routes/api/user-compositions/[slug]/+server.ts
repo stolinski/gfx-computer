@@ -9,23 +9,13 @@ import {
 	removeUserCompositionFileFromIndex
 } from '$lib/platform/user-composition-file-index.server';
 import { writeUserCompositionFileAtomically } from '$lib/platform/user-composition-file-write.server';
-import type { Preset } from '$lib/platform/engine-schema';
-import { PresetIngressSchema } from '$lib/platform/preset-ingress';
-import { presetToWireFormat } from '$lib/platform/preset-pure';
-import {
-	formatPresetSemanticIssues,
-	validatePresetSemantics
-} from '$lib/platform/preset-validation';
-import {
-	assertUserCompositionMediaReady,
-	inspectUserCompositionMedia
-} from '$lib/platform/user-composition-media.server';
 import {
 	isStoredUserCompositionRefusal,
-	presetForStoredUserComposition,
 	readStoredUserCompositionMeta,
 	readStoredUserCompositionRecord,
-	type StoredPresetUserCompositionRecord,
+	standaloneUserCompositionDocument,
+	storedUserCompositionRecordFromDocument,
+	userCompositionDocumentFromReading,
 	type StoredUserCompositionMeta
 } from '$lib/platform/user-composition-record';
 import { snapshotUserCompositionStore } from '$lib/platform/user-composition-store-backup.server';
@@ -34,6 +24,10 @@ import {
 	requireUserCompositionStoreLocation
 } from '$lib/platform/user-composition-store-location.server';
 import { moveUserCompositionToTrash } from '$lib/platform/user-composition-trash.server';
+import {
+	readUserCompositionWriteRequest,
+	refuseUserCompositionWriteAtStarterSlug
+} from '$lib/platform/user-composition-write.server';
 
 function userCompositionPathForSlug(storeDirectory: string, slug: string): string {
 	return join(storeDirectory, `${slug}.json`);
@@ -41,11 +35,11 @@ function userCompositionPathForSlug(storeDirectory: string, slug: string): strin
 
 const pendingUserCompositionReads = new Map<string, Promise<unknown>>();
 
-async function readUserCompositionWirePreset(
+async function readUserCompositionStandaloneDocument(
 	storeDirectory: string,
 	slug: string
 ): Promise<unknown> {
-	// "No fork of this slug" is a normal answer, not an error — return null so
+	// "Nothing stored at this slug" is a normal answer, not an error — return null so
 	// clients can tell absence apart from a real failure. Only ENOENT means
 	// absent; any other read failure must surface as a 500.
 	let raw: string;
@@ -82,27 +76,32 @@ async function readUserCompositionWirePreset(
 	// (`docs/sentry-dev-flow.md`: 4xx = log, 5xx = issue). A file that is NOT a
 	// store document is a broken store and remains a 500.
 	//
-	// The record is read as a Film whichever shape was stored (ADR-0068 §3), then
-	// opened as the one Preset everything downstream still works on. A Film of
-	// more than one Scene is the same kind of refusal: a store document this
-	// build cannot open yet.
-	let preset: Preset;
+	// Either record shape reads as a Film (ADR-0068 §3). A Film of more than one
+	// Scene is the same kind of refusal: a store document this build cannot open
+	// yet.
+	let standaloneDocument: unknown;
 	try {
-		preset = presetForStoredUserComposition(
-			readStoredUserCompositionRecord(storedUserComposition, { packScope: 'stored' })
+		standaloneDocument = standaloneUserCompositionDocument(
+			userCompositionDocumentFromReading(
+				readStoredUserCompositionRecord(storedUserComposition, { packScope: 'stored' })
+			)
 		);
 	} catch (cause) {
 		if (!isStoredUserCompositionRefusal(cause)) error(500, 'Corrupt user composition file');
 		error(409, `Stored composition "${slug}" is not one this engine accepts:\n${cause.message}`);
 	}
-	// The API is an interchange boundary: GET returns the same standalone wire.
-	// Stored compositions remain readable when immutable media goes missing so
-	// the GUI can surface the decoder error and let the author replace or remove
-	// a referenced asset. New writes below still reject unavailable media.
-	return presetToWireFormat(preset);
+	// The API is an interchange boundary: GET returns the standalone document
+	// PUT accepts, which is the Film — or the legacy Preset for the one exception
+	// `userCompositionWriteShape` makes. A legacy record's `forkedFrom` is the
+	// lifted Scene's origin. Nothing is written here; a legacy file stays as it
+	// is until it is saved. Stored compositions remain readable when immutable
+	// media goes missing so the GUI can surface the decoder error and let the
+	// author replace or remove a referenced asset. New writes below still reject
+	// unavailable media.
+	return standaloneDocument;
 }
 
-async function loadUserCompositionWirePreset(
+async function loadUserCompositionStandaloneDocument(
 	storeDirectory: string,
 	slug: string
 ): Promise<unknown> {
@@ -112,7 +111,7 @@ async function loadUserCompositionWirePreset(
 	const existingRead = pendingUserCompositionReads.get(readKey);
 	if (existingRead) return existingRead;
 
-	const pendingRead = readUserCompositionWirePreset(storeDirectory, slug);
+	const pendingRead = readUserCompositionStandaloneDocument(storeDirectory, slug);
 	pendingUserCompositionReads.set(readKey, pendingRead);
 	try {
 		return await pendingRead;
@@ -128,7 +127,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	const { storeDirectory } = requireUserCompositionStoreLocation();
 	const { slug } = params;
 	if (!slug) error(400, 'Missing slug');
-	return json(await loadUserCompositionWirePreset(storeDirectory, slug));
+	return json(await loadUserCompositionStandaloneDocument(storeDirectory, slug));
 };
 
 export const PUT: RequestHandler = async ({ params, request }) => {
@@ -144,38 +143,25 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		error(400, 'Invalid JSON body');
 	}
 
-	const result = PresetIngressSchema.safeParse(body);
-	if (!result.success) error(400, `Invalid preset: ${result.error.message}`);
-	const semanticIssues = validatePresetSemantics(result.data, { packScope: 'stored' });
-	if (semanticIssues.length > 0) {
-		error(400, `Invalid preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
-	}
-	try {
-		assertUserCompositionMediaReady(await inspectUserCompositionMedia(result.data));
-	} catch (cause) {
-		error(422, cause instanceof Error ? cause.message : 'Referenced media asset is unavailable');
-	}
+	refuseUserCompositionWriteAtStarterSlug(slug);
+	const document = await readUserCompositionWriteRequest(body, 'standalone-document');
 
-	// Preserve existing meta (forkedFrom) when updating.
-	let existingMeta: StoredUserCompositionMeta = {
-		forkedFrom: null,
-		savedAt: new Date().toISOString()
-	};
+	// Keep the existing metadata when updating: a legacy record's `forkedFrom`
+	// is carried into the Film record that replaces it.
+	let existingMeta: StoredUserCompositionMeta = { savedAt: new Date().toISOString() };
 	try {
 		const raw = await readFile(userCompositionPathForSlug(storeDirectory, slug), 'utf-8');
-		// Either record shape keeps the same metadata, so a save over a stored
-		// Film keeps what it was forked from.
 		existingMeta = readStoredUserCompositionMeta(JSON.parse(raw)) ?? existingMeta;
 	} catch {
 		// new file — use default meta
 	}
 
-	const storedUserComposition: StoredPresetUserCompositionRecord = {
-		meta: { ...existingMeta, savedAt: new Date().toISOString() },
-		// Store the wire format (body as text), not the transformed parse output,
-		// so GET can re-parse it through PresetSchema without a type mismatch.
-		preset: presetToWireFormat(result.data)
-	};
+	// The first save of a legacy `{ meta, preset }` record lands here and writes
+	// `{ meta, film }` (ADR-0068 §3).
+	const storedUserComposition = storedUserCompositionRecordFromDocument(
+		{ ...existingMeta, savedAt: new Date().toISOString() },
+		document
+	);
 
 	await writeUserCompositionFileAtomically(
 		userCompositionPathForSlug(storeDirectory, slug),

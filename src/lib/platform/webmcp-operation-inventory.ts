@@ -55,7 +55,7 @@ export type WebmcpOperationPrecondition =
 	| 'always'
 	| 'composition-open'
 	| 'composition-editable'
-	| 'forked-from-starter'
+	| 'composition-unsaved'
 	| 'session-composition-present'
 	| 'user-pack-store-served'
 	| 'user-pack-present'
@@ -587,7 +587,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'composition',
 		toolName: 'gfx_composition_create_from_starter',
 		summary:
-			'Fork a named Starter template into a new editable session composition while preserving the original Starter.',
+			'Create a new Film from a named Starter template: an editable session composition under a new slug. The Starter itself is never changed.',
 		effect: 'lifecycle',
 		writes: [],
 		precondition: 'always',
@@ -599,11 +599,27 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
+		id: 'composition.create-film-from-open',
+		family: 'composition',
+		toolName: 'gfx_composition_create_film_from_open',
+		summary:
+			'Store the open Starter, with every edit made to it, as a new Film under a new slug and open that Film. Until this runs, edits to a Starter are not saved.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'composition-unsaved',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/Workspace.svelte'
+	},
+	{
 		id: 'composition.open',
 		family: 'composition',
 		toolName: 'gfx_composition_open',
 		summary:
-			'Open an existing session composition, or a Starter template read-only. The first edit to a Starter forks it automatically.',
+			'Open an existing session composition, or a Starter template. Edits to a Starter stay unsaved until gfx_composition_create_film_from_open stores them as a new Film.',
 		effect: 'lifecycle',
 		writes: [],
 		precondition: 'always',
@@ -619,7 +635,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'composition',
 		toolName: 'gfx_composition_import_json',
 		summary:
-			'Import a standalone composition JSON document, including a Legacy Supers one, as a new session composition. Invalid documents return findings instead of importing.',
+			'Import a standalone JSON document as a new session composition: a gfx-film@1 Film, or a Preset, including a Legacy Supers one. Invalid documents return findings instead of importing.',
 		effect: 'lifecycle',
 		writes: [],
 		precondition: 'always',
@@ -651,7 +667,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'composition',
 		toolName: 'gfx_composition_export_json',
 		summary:
-			'Return the open composition as one standalone JSON document. The only operation allowed past the default result budget.',
+			'Return the open composition as one standalone gfx-film@1 JSON document. The only operation allowed past the default result budget.',
 		effect: 'read',
 		writes: [],
 		precondition: 'composition-open',
@@ -676,22 +692,6 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['composition-root'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
-	},
-	{
-		id: 'composition.revert-to-starter',
-		family: 'composition',
-		toolName: 'gfx_composition_revert_to_starter',
-		summary:
-			'Discard this fork and return to the pristine Starter template it came from. Every edit since the fork is lost.',
-		effect: 'lifecycle',
-		writes: [],
-		precondition: 'forked-from-starter',
-		requiresExpectedRevision: true,
-		undoable: false,
-		cancellable: false,
-		focus: ['composition-root'],
-		exposure: 'agent-tool',
-		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
 		id: 'composition.undo',

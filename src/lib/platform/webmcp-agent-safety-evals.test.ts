@@ -118,7 +118,7 @@ vi.mock('./user-composition-store', () => ({
 	userCompositionStore: {
 		listUserCompositions: vi.fn(),
 		loadUserComposition: vi.fn(),
-		forkUserComposition: vi.fn(),
+		createUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
 		deleteUserComposition: vi.fn()
 	}
@@ -240,7 +240,7 @@ function exposedView(host: WebmcpModelContextHost): WebmcpExposureView {
 beforeEach(() => {
 	vi.clearAllMocks();
 	sessionStore.listUserCompositions.mockResolvedValue([]);
-	sessionStore.forkUserComposition.mockResolvedValue(undefined);
+	sessionStore.createUserComposition.mockResolvedValue(undefined);
 	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = false;
@@ -349,7 +349,7 @@ describe('WebMCP untrusted composition content', () => {
 
 		expect(result.isError).toBe(true);
 		expect(readPayload(result).operationId).toBe('composition.import-json');
-		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 		expect(compositionMeta.userCompositionSlug).toBe(openBefore);
 	});
 });

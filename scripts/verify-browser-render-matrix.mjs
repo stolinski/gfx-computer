@@ -343,7 +343,7 @@ async function settleFrame(page, frameIndex, frameRate) {
  */
 async function captureBrowserEvidence(lane, port, coordinate, sampleFrameIndex) {
 	const page = await openPage(port, {
-		url: `${BASE_URL}/p/${encodeURIComponent(coordinate.presetSlug)}?source=builtin`,
+		url: `${BASE_URL}/p/${encodeURIComponent(coordinate.presetSlug)}`,
 		readyExpression: `document.readyState === 'complete' && typeof window.__configureGfxDeterministicRenderCell === 'function' && typeof window.__settleGfxDeterministicCompositionFrame === 'function'`
 	});
 	try {

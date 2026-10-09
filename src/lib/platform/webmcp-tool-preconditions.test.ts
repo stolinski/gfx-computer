@@ -24,7 +24,7 @@ vi.mock('./user-composition-store', () => ({
 	userCompositionStore: {
 		listUserCompositions: vi.fn(),
 		loadUserComposition: vi.fn(),
-		forkUserComposition: vi.fn(),
+		createUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
 		deleteUserComposition: vi.fn()
 	}
@@ -106,6 +106,15 @@ describe('WebMCP preconditions with a composition open', () => {
 		expect(state['transition-present']).toBe(false);
 	});
 
+	it('reports a corpus Preset as unsaved, and a stored Film as not', () => {
+		compositionMeta.isUserComposition = false;
+		expect(readWebmcpCompositionPreconditions()['composition-unsaved']).toBe(true);
+
+		compositionMeta.isUserComposition = true;
+		expect(readWebmcpCompositionPreconditions()['composition-unsaved']).toBe(false);
+		compositionMeta.isUserComposition = false;
+	});
+
 	it('closes editing while a transition snapshot owns engine state', () => {
 		transitionState.capturing = true;
 		const state = readWebmcpCompositionPreconditions();
@@ -141,13 +150,6 @@ describe('WebMCP preconditions with a composition open', () => {
 
 		compositionMediaGrants.record('clip.mp4', GRANTED_ASSET);
 		expect(readWebmcpCompositionPreconditions()['media-permitted']).toBe(true);
-	});
-
-	it('reports the Starter a fork came from', () => {
-		expect(readWebmcpCompositionPreconditions()['forked-from-starter']).toBe(false);
-
-		compositionMeta.forkedFrom = 'lower-third';
-		expect(readWebmcpCompositionPreconditions()['forked-from-starter']).toBe(true);
 	});
 });
 

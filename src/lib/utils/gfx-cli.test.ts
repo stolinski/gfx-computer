@@ -165,4 +165,20 @@ describe('gfx CLI Video track automation', () => {
 		await prepared.cleanup();
 		assert.equal(fetchMock.mock.calls.length, 1);
 	});
+
+	it('reads the format of a stored User composition from its Film', async () => {
+		// The store answers with the standalone `gfx-film@1` document (ADR-0068 §3),
+		// which states `format` once for all its Scenes.
+		fetchMock.mockResolvedValueOnce(
+			Response.json({ schema: 'gfx-film@1', name: 'My film', format: 'prores', scenes: [] })
+		);
+
+		const prepared = await preparePreset('my-film');
+
+		assert.equal(prepared.slug, 'my-film');
+		assert.equal(prepared.format, 'prores');
+
+		fetchMock.mockResolvedValueOnce(Response.json({ schema: 'gfx-film@1', name: 'No format' }));
+		await assert.rejects(preparePreset('no-format'), /does not declare a Film format/);
+	});
 });

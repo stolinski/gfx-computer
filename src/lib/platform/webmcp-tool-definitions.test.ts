@@ -31,6 +31,10 @@ import { compositionEditHistory } from './composition-edit-history';
 import { compositionExportHandle } from './composition-export-handle.svelte';
 import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { compositionMeta } from './composition-meta.svelte';
+import {
+	discardOpenCompositionArrival,
+	installOpenCompositionAddressNavigator
+} from './open-composition-address';
 import { engineState, transitionState } from './engine-state.svelte';
 import { listWebmcpToolDefinitions } from './webmcp-tool-definitions';
 import { parsePresetIngress } from './preset-ingress';
@@ -58,7 +62,7 @@ vi.mock('./user-composition-store', () => ({
 	userCompositionStore: {
 		listUserCompositions: vi.fn(),
 		loadUserComposition: vi.fn(),
-		forkUserComposition: vi.fn(),
+		createUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
 		deleteUserComposition: vi.fn()
 	}
@@ -779,6 +783,61 @@ describe('WebMCP tool arguments', () => {
 		});
 	});
 
+	it('registers the new-Film tool for an open corpus Preset and never for a stored Film', async () => {
+		const toolName = rowFor('composition.create-film-from-open').toolName;
+		const registeredNames = (host: FakeModelContext): string[] =>
+			[...host.getTools()].map((tool) => tool.name);
+
+		compositionMeta.userCompositionSlug = 'lower-third';
+		compositionMeta.isUserComposition = false;
+		const corpusHost = new FakeModelContext();
+		await startController(corpusHost).synchronize(
+			readWebmcpCompositionPreconditions(),
+			'/p/lower-third'
+		);
+		expect(registeredNames(corpusHost)).toContain(toolName);
+
+		compositionMeta.userCompositionSlug = 'untitled';
+		compositionMeta.isUserComposition = true;
+		const storedHost = new FakeModelContext();
+		await startController(storedHost).synchronize(
+			readWebmcpCompositionPreconditions(),
+			'/p/untitled'
+		);
+		expect(registeredNames(storedHost)).not.toContain(toolName);
+
+		const coldHost = new FakeModelContext();
+		compositionMeta.userCompositionSlug = null;
+		compositionMeta.isUserComposition = false;
+		await startController(coldHost).synchronize(readWebmcpCompositionPreconditions(), '/');
+		expect(registeredNames(coldHost)).not.toContain(toolName);
+	});
+
+	it('moves the page to the Film a tool created, and nowhere when the tool fails', async () => {
+		const movedTo: string[] = [];
+		const removeNavigator = installOpenCompositionAddressNavigator(async ({ slug }) => {
+			movedTo.push(slug);
+		});
+		try {
+			// A cold page, such as the home page: no composition is open.
+			const host = new FakeModelContext();
+			await startController(host).synchronize(readWebmcpCompositionPreconditions(), '/');
+
+			const failed = await host.call(rowFor('composition.import-json').toolName, {
+				document: JSON.stringify({ schema: 'gfx@1', name: 'No state' })
+			});
+			expect(readPayload(failed)).toMatchObject({ code: 'schema_invalid' });
+			expect(movedTo).toEqual([]);
+
+			const created = await host.call(rowFor('composition.create-blank').toolName, {});
+			expect(readPayload(created)).toMatchObject({ status: 'applied', slug: 'untitled' });
+			expect(movedTo).toEqual(['untitled']);
+		} finally {
+			removeNavigator();
+			discardOpenCompositionArrival();
+		}
+	});
+
 	it('refuses a JSON import body that is not JSON, without importing anything', async () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
@@ -789,6 +848,6 @@ describe('WebMCP tool arguments', () => {
 		});
 
 		expect(readPayload(result)).toMatchObject({ code: 'invalid_argument' });
-		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 	});
 });

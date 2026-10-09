@@ -29,9 +29,12 @@ import {
 	boundCompositionFindings,
 	collectCompositionValidationFindings
 } from './composition-validation-findings';
-import { readOpenFilmAsSavedPreset } from './film-state.svelte';
+import {
+	readOpenFilmAsSavedPreset,
+	readOpenFilmAsUserCompositionDocument
+} from './film-state.svelte';
 import { isPresetOpaque } from '../utils/output-classification';
-import { presetToWireFormat } from './preset-pure';
+import { standaloneUserCompositionDocument } from './user-composition-record';
 import {
 	runCompositionEditTransaction,
 	type CompositionOperationOutcome
@@ -77,7 +80,7 @@ export interface CompositionInspectionReceipt {
 	name: string;
 	description: string | null;
 	kind: Preset['kind'];
-	/** The Starter this composition forked from, or null when it began blank or arrived as JSON. */
+	/** The Starter this Film's first Scene was seeded from, or null when it began blank or is the Starter itself. */
 	forkedFrom: string | null;
 	pack: string;
 	transport: Transport;
@@ -227,7 +230,11 @@ export function runExportCompositionJsonOperation(): CompositionJsonExportOutcom
 	if (refusal) return refusal;
 
 	const revision = compositionEditHistory.revision;
-	const json = JSON.stringify(presetToWireFormat(readOpenFilmAsSavedPreset()));
+	// The standalone document is the Film (ADR-0068 §3), the same body
+	// `composition.import-json` takes back.
+	const json = JSON.stringify(
+		standaloneUserCompositionDocument(readOpenFilmAsUserCompositionDocument())
+	);
 
 	if (json.length > WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET) {
 		return refuseCompositionOperation(

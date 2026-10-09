@@ -845,7 +845,7 @@ try {
 	);
 
 	console.log(`Opening the ${STARTER_SLUG} Starter…`);
-	await page.navigate(`${origin}/p/${STARTER_SLUG}?source=builtin`);
+	await page.navigate(`${origin}/p/${STARTER_SLUG}`);
 	await waitInPage<boolean>(
 		page,
 		`(() => {

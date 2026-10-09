@@ -205,7 +205,7 @@ async function openPage(port, presetSlug) {
 	await send('Page.enable');
 	await send('Runtime.enable');
 	await send('Page.navigate', {
-		url: `${BASE_URL}/p/${encodeURIComponent(presetSlug)}?source=builtin`
+		url: `${BASE_URL}/p/${encodeURIComponent(presetSlug)}`
 	});
 	try {
 		await waitForLayoutRuntime(send, presetSlug);

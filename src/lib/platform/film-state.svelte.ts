@@ -16,8 +16,8 @@
  *
  * The legacy Preset envelope (`LegacyPresetEnvelope`: `kind` and `transition`)
  * is live in `presetBase`, where the RootInspector edits it, and travels beside
- * the Film in every `OpenFilmDocument`. `./open-film-document.ts` says which
- * later change retires each field.
+ * the Film in every `OpenFilmDocument`. `./open-film-document.ts` says what
+ * still needs each field.
  */
 import { engineState, packState } from './engine-state.svelte';
 import { FILM_FIRST_SCENE_ID } from './film-ingress';
@@ -33,6 +33,7 @@ import { cloneJsonValue } from '../utils/json-clone';
 
 import type { EngineState, Preset } from './engine-schema';
 import type { Film, FilmSceneBoundary, FilmSceneOrigin } from './film-schema';
+import type { UserCompositionDocument } from './user-composition-record';
 
 /** One Scene of the open Film as this module holds it. */
 export interface OpenFilmScene {
@@ -107,9 +108,8 @@ export function readOpenFilm(): Film {
 }
 
 /**
- * The Preset every writer still saves for the open Film, detached from live
- * state (`savedPresetFromOpenFilm`). Autosave, fork-on-first-edit, standalone
- * JSON export, and the poster content key read the open document here.
+ * The open Film as the one Preset it is, detached from live state
+ * (`savedPresetFromOpenFilm`).
  */
 export function readOpenFilmAsSavedPreset(): Preset {
 	return savedPresetFromOpenFilm({
@@ -117,6 +117,19 @@ export function readOpenFilmAsSavedPreset(): Preset {
 		selectedSceneId: filmState.selectedSceneId,
 		legacyPresetEnvelope: readOpenFilmLegacyPresetEnvelope()
 	});
+}
+
+/**
+ * The open Film as the document both stores accept, detached from live state:
+ * the Film and the legacy Preset envelope. Autosave, the Film
+ * `composition.create-film-from-open` stores, standalone JSON export, and the
+ * poster content key read the open document here.
+ */
+export function readOpenFilmAsUserCompositionDocument(): UserCompositionDocument {
+	return {
+		film: cloneJsonValue(readOpenFilm()),
+		legacyPresetEnvelope: readOpenFilmLegacyPresetEnvelope()
+	};
 }
 
 /**

@@ -78,7 +78,7 @@ The composition carries a monotonic **revision**. Every mutating operation takes
 - **All or nothing.** An operation that writes several pointers writes all of them or none. There is no half-applied edit, including on cancellation.
 - **One receipt.** A successful mutating operation returns the new revision, a bounded description of what changed, the validation findings that appeared or cleared, the undo label it recorded, and the focus it moved. Since [ADR-0068](0068-films-scenes-and-live-scene-boundaries.md) §8 a receipt for a change to one Scene also names that Scene in `sceneId`, and its pointers are relative to it. The receipt is the only thing the agent needs in order to continue; it never has to re-read the whole document to learn what it just did.
 
-Read-only operations carry no revision requirement and record no history. Destroying work is the exception: `composition.revert-to-starter`, `session.delete-composition`, undo, redo, and export all require the observed revision, because each one either discards or ships a specific version.
+Read-only operations carry no revision requirement and record no history. Destroying work is the exception: `session.delete-composition`, undo, redo, and export all require the observed revision, because each one either discards or ships a specific version.
 
 ### 4. One history, one focus, one visible state
 

@@ -20,21 +20,27 @@ import type { CompositionTransition, Preset } from './engine-schema';
 
 /**
  * The two fields of the Preset envelope that `filmFromPreset` drops and that
- * must keep working until the change that retires each (ADR-0068 §3). They
- * travel beside the Film, never inside it, so `gfx-film@1` does not grow a
- * field it is about to lose.
+ * the Workspace still needs (ADR-0068 §3). They travel beside the Film, never
+ * inside it, so `gfx-film@1` does not grow a field it does not own.
  */
 export interface LegacyPresetEnvelope {
 	/**
-	 * The catalogue classification (`deliverable` or `fixture`). Every writer
-	 * still saves `{ meta, preset }`, and the saved Preset states its `kind`.
-	 * Retires with the writers change, when both stores emit Films only.
+	 * The catalogue classification (`deliverable` or `fixture`). A stored Film
+	 * has no `kind` and opens as a `deliverable`. The field stays because the
+	 * open document is also how a corpus Preset is shown: the Workspace topbar
+	 * chip and the RootInspector read it from `presetBase`, `composition.inspect`
+	 * reports it, `composition.set-identity` writes `/kind`, and the Preset-shaped
+	 * Scene view every operation drafts (`selectedScenePresetOfOpenFilm`) is a
+	 * `Preset`, which requires one. It is saved only inside the legacy record
+	 * shape `userCompositionWriteShape` keeps for a transition.
 	 */
 	kind: Preset['kind'];
 	/**
 	 * The top-level two-endpoint transition recipe (ADR-0026) that
-	 * `transitionState` renders. Retires with the live Scene boundaries change,
-	 * when a transition Preset is read as a two-Scene Film with one boundary.
+	 * `transitionState` renders. ADR-0068 §3: a Film cannot hold it until the
+	 * live Scene boundaries change reads a transition Preset as a two-Scene Film
+	 * with one boundary, and this field retires with that change. Until then a
+	 * document that carries one is stored in the legacy record shape.
 	 */
 	transition?: CompositionTransition;
 }
@@ -134,14 +140,14 @@ export function openFilmWithSelectedScenePreset(
 }
 
 /**
- * The Preset every writer still saves for the open Film: `presetFromSingleSceneFilm`
- * with the legacy envelope put back, in the key order `serializeCompositionState`
- * has always written. Autosave, fork-on-first-edit, standalone JSON export, and
- * the poster content key all read this, so what is stored did not change when
- * the open document became a Film.
+ * The open Film as the one Preset it is, with the legacy envelope's live `kind`
+ * and transition put back, in the key order `serializeCompositionState` has
+ * always written. `composition.inspect` and the Interchange verification pass
+ * read this. What is stored and exported is the Film
+ * (`./user-composition-record.ts`).
  *
  * Throws `FilmSceneCountUnsupportedError` for a Film that is not one Scene
- * long; that limit goes with the writers change (ADR-0068 §3).
+ * long, which is all the Workspace plays.
  */
 export function savedPresetFromOpenFilm(document: OpenFilmDocument): Preset {
 	const scenePreset = presetFromSingleSceneFilm(document.film);

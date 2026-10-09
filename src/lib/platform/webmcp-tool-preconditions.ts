@@ -16,8 +16,8 @@
  * it, and the catalog half is awaited beside it.
  */
 import { compositionEditHistory } from './composition-edit-history';
-import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { compositionMeta } from './composition-meta.svelte';
+import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { getSurfaceDefinition } from './pipelines/definition-registry';
 import {
 	readOpenCompositionDocument,
@@ -107,7 +107,7 @@ function closedCompositionPreconditions(): WebmcpCompositionPreconditions {
 		always: true,
 		'composition-open': false,
 		'composition-editable': false,
-		'forked-from-starter': false,
+		'composition-unsaved': false,
 		'undo-available': false,
 		'redo-available': false,
 		'overlay-present': false,
@@ -153,7 +153,9 @@ export function readWebmcpCompositionPreconditions(): WebmcpCompositionPrecondit
 		always: true,
 		'composition-open': true,
 		'composition-editable': editable,
-		'forked-from-starter': compositionMeta.forkedFrom !== null,
+		// A corpus Preset is open and nothing of it is stored: the one state in
+		// which the open document can be made into a new Film.
+		'composition-unsaved': !compositionMeta.isUserComposition,
 		'undo-available': editable && compositionEditHistory.canUndo,
 		'redo-available': editable && compositionEditHistory.canRedo,
 		'overlay-present': editable && state.overlays.length > 0,

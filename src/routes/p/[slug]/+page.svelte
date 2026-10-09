@@ -1,26 +1,42 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
+	import { onDestroy } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { onMount } from 'svelte';
 
 	import { GFX_PRODUCT_NAME } from '$lib/identity/gfx-brand';
 	import GfxMarkHomeLink from '$lib/identity/GfxMarkHomeLink.svelte';
 	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
-	import { filmState, readOpenFilmAsSavedPreset } from '$lib/platform/film-state.svelte';
-	import type { Preset } from '$lib/platform/engine-schema';
+	import {
+		filmState,
+		readOpenFilmAsUserCompositionDocument
+	} from '$lib/platform/film-state.svelte';
+	import { filmFromPreset } from '$lib/platform/film-ingress';
+	import {
+		legacyPresetEnvelopeFromPreset,
+		openFilmDocumentFromFilm,
+		savedPresetFromOpenFilm
+	} from '$lib/platform/open-film-document';
+	import {
+		discardOpenCompositionArrival,
+		isOpenCompositionArrivingAt,
+		takeOpenCompositionArrival
+	} from '$lib/platform/open-composition-address';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { collectPresetRendererRequirements } from '$lib/platform/pipelines/preset-renderer-requirements';
 	import { pipelineRendererRuntime } from '$lib/platform/pipelines/runtime-context.svelte';
 	import { posterKeyForPreset } from '$lib/platform/posters';
 	import { getPresetBySlug } from '$lib/platform/preset-catalog';
-	import { applyPreset } from '$lib/platform/preset';
+	import { applyFilm } from '$lib/platform/preset';
 	import { presetBase } from '$lib/platform/preset-base.svelte';
 	import { staleBuildRecovery } from '$lib/platform/stale-build-recovery-runtime';
+	import {
+		storedPresetViewOfUserComposition,
+		type UserCompositionDocument
+	} from '$lib/platform/user-composition-record';
 	import { userCompositionStore } from '$lib/platform/user-composition-store';
 	import { ensurePackLoaded } from '$lib/platform/user-pack-runtime';
-	import { isUserCompositionNotHeldError } from '$lib/platform/user-composition-store-errors';
 	import { isCurrentPresetRouteRendererLoad } from '$lib/utils/preset-route-renderer-load';
 	import { isModuleLoadFailure } from '$lib/utils/stale-build-recovery';
 	import Workspace from '$lib/platform/Workspace.svelte';
@@ -29,7 +45,7 @@
 
 	let { data }: PageProps = $props();
 
-	const routeKey = $derived(JSON.stringify([data.slug, data.source]));
+	const routeKey = $derived(data.slug);
 
 	// What this route resolved to. The corpus half arrives from the server load;
 	// the session half is read here, out of the store this build is configured
@@ -38,42 +54,87 @@
 	type CompositionRouteStatus = 'loading' | 'ready' | 'missing' | 'error';
 	let resolutionStatus = $state<CompositionRouteStatus>('loading');
 
-	// Content key for the poster of the loaded User composition — handed to the
+	// Content key for the poster of the open User composition — handed to the
 	// Workspace, which captures the settled frame under it once (see ./posters).
 	// Null for a library Preset: its poster is a committed still (ADR-0061).
 	let posterKey = $state<string | null>(null);
 
-	// Snapshot taken immediately after applyPreset — used to detect the first
-	// real edit (anything different from a fresh load must be user input).
-	// `applyPreset` opens the Preset as a one-Scene Film: it seeds `engineState`,
-	// `presetBase`, and `filmState`, so the snapshot covers composition,
-	// metadata, and Scene-list edits alike.
+	// Snapshot taken immediately after the document is applied — used to detect
+	// the first real edit (anything different from a fresh load must be user
+	// input). Opening a document seeds `engineState`, `presetBase`, and
+	// `filmState`, so the snapshot covers composition, metadata, and Scene-list
+	// edits alike.
 	let loadSnapshot = '';
 	let appliedRouteKey = $state<string | null>(null);
 	let rendererLoadError = $state<string | null>(null);
 	let routeLoadGeneration = 0;
-	let revertGeneration = 0;
+	// Counts the documents this route loaded itself. The Workspace is keyed on
+	// it, so it remounts for a document the route fetched and stays mounted when
+	// a lifecycle operation moved the page with its document already open.
+	let loadedDocumentCount = $state(0);
+
+	// Whether the open document is the one this URL names: the route applied it,
+	// or the page has just moved here with it open and the arrival is about to be
+	// taken (`open-composition-address.ts`).
+	const isOpenDocumentRoute = $derived(
+		appliedRouteKey === routeKey || isOpenCompositionArrivingAt(routeKey)
+	);
 
 	// The tab follows the composition the moment its name is edited, so a stack of
 	// open pieces stays tellable apart.
 	const documentTitle = $derived(
-		appliedRouteKey === routeKey && presetBase.name
+		isOpenDocumentRoute && presetBase.name
 			? `${presetBase.name} · ${GFX_PRODUCT_NAME}`
 			: GFX_PRODUCT_NAME
 	);
 
-	// Track whether the currently-viewed Preset was found in the User composition store.
-	// This determines fork vs autosave on edit.
-	let activeIsUserComposition = false;
+	// The slug the open document is stored under, or null for a corpus Preset.
+	// A stored Film autosaves there. A corpus Preset's page never saves: edits
+	// stay in memory until `composition.create-film-from-open` (New Film) stores
+	// them as a new Film, and leaving the page discards them (ADR-0068 §3).
+	let storedSlug: string | null = null;
 
 	afterNavigate(() => {
+		// A lifecycle operation opened the document that lives at this slug and
+		// moved the page here: the open document is already the right one.
+		if (
+			takeOpenCompositionArrival(data.slug) &&
+			compositionMeta.userCompositionSlug === data.slug
+		) {
+			keepOpenDocument();
+			return;
+		}
 		void loadNavigatedPreset();
 	});
+
+	onDestroy(discardOpenCompositionArrival);
+
+	// Arriving with the document already open: nothing is fetched and nothing is
+	// applied, so the undo history and the Composition revision the operation's
+	// receipt reported stay as they are. The operation loaded the Pack and the
+	// renderers before it applied the document. What is set here is only this
+	// route's own bookkeeping: any load still in flight is abandoned, the poster
+	// key and the autosave target are read off the open document, and the
+	// snapshot autosave compares against is taken now.
+	function keepOpenDocument(): void {
+		routeLoadGeneration += 1;
+		rendererLoadError = null;
+		const isStoredFilm = compositionMeta.isUserComposition;
+		posterKey = isStoredFilm
+			? posterKeyForPreset(
+					storedPresetViewOfUserComposition(readOpenFilmAsUserCompositionDocument())
+				)
+			: null;
+		storedSlug = isStoredFilm ? data.slug : null;
+		loadSnapshot = snapshotState();
+		resolutionStatus = 'ready';
+		appliedRouteKey = data.slug;
+	}
 
 	async function loadNavigatedPreset(): Promise<void> {
 		const generation = ++routeLoadGeneration;
 		const nextData = data;
-		const nextRouteKey = JSON.stringify([nextData.slug, nextData.source]);
+		const nextRouteKey = nextData.slug;
 		const isCurrentLoad = (): boolean =>
 			isCurrentPresetRouteRendererLoad(generation, routeLoadGeneration, nextRouteKey, routeKey);
 
@@ -82,7 +143,7 @@
 		resolutionStatus = 'loading';
 		posterKey = null;
 		loadSnapshot = '';
-		activeIsUserComposition = false;
+		storedSlug = null;
 		transitionState.active = null;
 		transitionState.capturing = false;
 		compositionMeta.isUserComposition = false;
@@ -90,29 +151,42 @@
 		compositionMeta.forkedFrom = null;
 		compositionMeta.persistenceError = null;
 
-		// A session composition shadows the Starter at the same slug, which is what
-		// makes an edited Starter open as the fork rather than the pristine one.
-		// `?source=builtin` is how the pristine one is reachable again.
-		let sessionComposition: Preset | null = null;
-		if (nextData.source !== 'builtin') {
+		// A corpus Preset's slug always opens the corpus Preset: nothing is ever
+		// stored under it (ADR-0068 §3), so the store is asked only for other slugs.
+		let sessionComposition: UserCompositionDocument | null = null;
+		if (!nextData.corpusPreset) {
 			try {
 				sessionComposition = await userCompositionStore.loadUserComposition(nextData.slug);
 			} catch (cause) {
 				if (!isCurrentLoad()) return;
 				console.error('Failed to load the session composition.', { slug: nextData.slug, cause });
-				if (!nextData.corpusPreset) {
-					resolutionStatus = 'error';
-					return;
-				}
+				resolutionStatus = 'error';
+				return;
 			}
 			if (!isCurrentLoad()) return;
 		}
 
-		const preset = sessionComposition ?? nextData.corpusPreset;
-		if (!preset) {
+		// The open document is a Film (ADR-0068 §8). A stored composition arrives
+		// as one, with each Scene's real origin. A corpus Preset opens as an
+		// unsaved one-Scene Film that remembers its source.
+		const document: UserCompositionDocument | null =
+			sessionComposition ??
+			(nextData.corpusPreset
+				? {
+						film: filmFromPreset(nextData.corpusPreset, {
+							slug: nextData.slug,
+							contentKey: posterKeyForPreset(nextData.corpusPreset)
+						}),
+						legacyPresetEnvelope: legacyPresetEnvelopeFromPreset(nextData.corpusPreset)
+					}
+				: null);
+		if (!document) {
 			resolutionStatus = 'missing';
 			return;
 		}
+		const preset = savedPresetFromOpenFilm(
+			openFilmDocumentFromFilm(document.film, document.legacyPresetEnvelope)
+		);
 
 		try {
 			// ADR-0055: a User Pack is loaded from the store before anything reads
@@ -133,22 +207,19 @@
 			const rendererBundle = await pipelineRendererRuntime.resolve(requirements);
 			if (!isCurrentLoad()) return;
 			pipelineRendererRuntime.activate(rendererBundle);
-			// The open document is a Film (ADR-0068 §8). A corpus Preset opens as an
-			// unsaved one-Scene Film that remembers its source; a stored composition
-			// arrives from the store as the Preset its record reads to, which does
-			// not say what it was seeded from.
-			applyPreset(
-				preset,
-				sessionComposition ? null : { slug: nextData.slug, contentKey: posterKeyForPreset(preset) }
-			);
+			applyFilm(document.film, document.legacyPresetEnvelope);
 			resolutionStatus = 'ready';
 			// Only a User composition is captured on view; a library Preset's poster
 			// is a committed still (ADR-0061).
-			posterKey = sessionComposition ? posterKeyForPreset(sessionComposition) : null;
-			activeIsUserComposition = sessionComposition !== null;
+			posterKey = sessionComposition
+				? posterKeyForPreset(storedPresetViewOfUserComposition(sessionComposition))
+				: null;
+			storedSlug = sessionComposition ? nextData.slug : null;
 			loadSnapshot = snapshotState();
-			compositionMeta.isUserComposition = activeIsUserComposition;
+			compositionMeta.isUserComposition = sessionComposition !== null;
 			compositionMeta.userCompositionSlug = nextData.slug;
+			compositionMeta.forkedFrom = sessionComposition?.film.scenes[0]?.origin?.slug ?? null;
+			loadedDocumentCount += 1;
 			appliedRouteKey = nextRouteKey;
 		} catch (cause) {
 			if (!isCurrentLoad()) return;
@@ -172,14 +243,14 @@
 
 	// Autosave: run on any change to the open Film — engineState, presetBase,
 	// the pack, or filmState.
-	// Skips explicit built-in source mode, when state matches the post-load snapshot, and
-	// while the transition snapshot path is mid-capture — engineState is a
-	// scratch buffer holding a swapped-in from/to state during that window.
+	// Skips a corpus Preset, which is never saved from its own page, when state
+	// matches the post-load snapshot, and while the transition snapshot path is
+	// mid-capture — engineState is a scratch buffer holding a swapped-in from/to
+	// state during that window.
 	$effect(() => {
 		const currentRouteKey = routeKey;
 		if (
 			resolutionStatus !== 'ready' ||
-			data.source === 'builtin' ||
 			transitionState.capturing ||
 			appliedRouteKey !== currentRouteKey
 		) {
@@ -188,49 +259,41 @@
 
 		const currentSnap = snapshotState();
 
-		if (currentSnap === loadSnapshot) return;
+		// The open document must still be this route's Film. A lifecycle operation
+		// that just opened another one has not moved the page yet, and that
+		// document is not saved under this slug.
+		if (
+			currentSnap === loadSnapshot ||
+			storedSlug === null ||
+			compositionMeta.userCompositionSlug !== storedSlug
+		) {
+			return;
+		}
 
-		const capturedSlug = data.slug;
-		const capturedRouteKey = currentRouteKey;
-		const capturedIsUserComposition = activeIsUserComposition;
+		const capturedSlug = storedSlug;
 		// Serialize before the debounce so this save cannot observe a later route's state.
-		// Every writer still stores a Preset, so the open Film is saved as the one it is.
-		const serializedUserComposition = readOpenFilmAsSavedPreset();
+		const document = readOpenFilmAsUserCompositionDocument();
 
 		const timer = setTimeout(() => {
-			if (!isCurrentAppliedRoute(capturedRouteKey)) return;
-
-			if (capturedIsUserComposition) {
-				userCompositionStore
-					.saveUserComposition(capturedSlug, serializedUserComposition)
-					.then(() => {
-						if (!isCurrentAppliedRoute(capturedRouteKey)) return;
-						compositionMeta.persistenceError = null;
-					})
-					.catch((error: unknown) => {
-						if (!isCurrentAppliedRoute(capturedRouteKey)) return;
-						console.error('Autosave failed', error);
-						compositionMeta.persistenceError =
-							error instanceof Error ? error.message : 'Autosave failed.';
-					});
-			} else {
-				userCompositionStore
-					.forkUserComposition(capturedSlug, serializedUserComposition, capturedSlug)
-					.then(() => {
-						if (!isCurrentAppliedRoute(capturedRouteKey)) return;
-						compositionMeta.persistenceError = null;
-						activeIsUserComposition = true;
-						compositionMeta.isUserComposition = true;
-						compositionMeta.forkedFrom = capturedSlug;
-						posterKey = posterKeyForPreset(serializedUserComposition);
-					})
-					.catch((error: unknown) => {
-						if (!isCurrentAppliedRoute(capturedRouteKey)) return;
-						console.error('Fork failed', error);
-						compositionMeta.persistenceError =
-							error instanceof Error ? error.message : 'Fork failed.';
-					});
+			if (
+				!isCurrentAppliedRoute(currentRouteKey) ||
+				compositionMeta.userCompositionSlug !== capturedSlug
+			) {
+				return;
 			}
+
+			userCompositionStore
+				.saveUserComposition(capturedSlug, document)
+				.then(() => {
+					if (!isCurrentAppliedRoute(currentRouteKey)) return;
+					compositionMeta.persistenceError = null;
+				})
+				.catch((error: unknown) => {
+					if (!isCurrentAppliedRoute(currentRouteKey)) return;
+					console.error('Autosave failed', error);
+					compositionMeta.persistenceError =
+						error instanceof Error ? error.message : 'Autosave failed.';
+				});
 		}, 500);
 
 		return () => clearTimeout(timer);
@@ -250,71 +313,6 @@
 	function isCurrentAppliedRoute(expectedRouteKey: string): boolean {
 		return appliedRouteKey === expectedRouteKey && routeKey === expectedRouteKey;
 	}
-
-	async function handleRevert(): Promise<void> {
-		const currentRouteKey = appliedRouteKey;
-		if (resolutionStatus !== 'ready' || !currentRouteKey || routeKey !== currentRouteKey) return;
-
-		const generation = ++revertGeneration;
-		const currentRouteGeneration = routeLoadGeneration;
-		const currentSlug = data.slug;
-		const corpusPreset = getPresetBySlug(currentSlug);
-		if (!corpusPreset) return;
-		try {
-			const rendererBundle = await pipelineRendererRuntime.resolve(
-				collectPresetRendererRequirements(corpusPreset, {
-					pack: getPack(corpusPreset.pack),
-					resolvePack: getPack,
-					resolvePreset: getPresetBySlug
-				})
-			);
-			if (
-				generation !== revertGeneration ||
-				currentRouteGeneration !== routeLoadGeneration ||
-				!isCurrentAppliedRoute(currentRouteKey)
-			) {
-				return;
-			}
-			try {
-				await userCompositionStore.deleteUserComposition(currentSlug);
-			} catch (cause) {
-				// Reverting wants the fork gone; a store that no longer holds it —
-				// another tab discarded it, or this revert already landed — has given
-				// exactly that, so the corpus Preset still gets applied below.
-				if (!isUserCompositionNotHeldError(cause)) throw cause;
-			}
-			if (
-				generation !== revertGeneration ||
-				currentRouteGeneration !== routeLoadGeneration ||
-				!isCurrentAppliedRoute(currentRouteKey)
-			) {
-				return;
-			}
-			pipelineRendererRuntime.activate(rendererBundle);
-			applyPreset(corpusPreset, {
-				slug: currentSlug,
-				contentKey: posterKeyForPreset(corpusPreset)
-			});
-			posterKey = null;
-			activeIsUserComposition = false;
-			loadSnapshot = snapshotState();
-			compositionMeta.isUserComposition = false;
-			compositionMeta.forkedFrom = null;
-			compositionMeta.persistenceError = null;
-		} catch (cause) {
-			if (generation !== revertGeneration || !isCurrentAppliedRoute(currentRouteKey)) return;
-			console.error('Failed to revert composition.', { slug: currentSlug, cause });
-			compositionMeta.persistenceError =
-				cause instanceof Error ? cause.message : 'Failed to revert composition.';
-		}
-	}
-
-	onMount(() => {
-		compositionMeta.revertUserComposition = handleRevert;
-		return () => {
-			compositionMeta.revertUserComposition = null;
-		};
-	});
 </script>
 
 <svelte:head>
@@ -350,8 +348,8 @@
 		</header>
 		<p role="status">Loading…</p>
 	</main>
-{:else if appliedRouteKey === routeKey}
-	{#key routeKey}
+{:else if isOpenDocumentRoute}
+	{#key loadedDocumentCount}
 		<Workspace {posterKey} />
 	{/key}
 {/if}

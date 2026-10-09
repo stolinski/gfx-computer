@@ -117,7 +117,7 @@ const sleep = (milliseconds) =>
 	new Promise((resolveSleep) => setTimeout(resolveSleep, milliseconds));
 
 async function navigateToComposition(page, slug, { requireTimeline }) {
-	await page.send('Page.navigate', { url: `${PAGE_ORIGIN}/p/${slug}?source=builtin` });
+	await page.send('Page.navigate', { url: `${PAGE_ORIGIN}/p/${slug}` });
 	for (let attempt = 0; attempt < 60; attempt++) {
 		const ready = await page.evaluate(`(() => ({
 			complete: document.readyState === 'complete',

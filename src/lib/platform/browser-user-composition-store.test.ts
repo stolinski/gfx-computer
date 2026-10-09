@@ -9,17 +9,27 @@ import {
 	isCompositionSessionStorageError,
 	type CompositionSessionStorageFailureCode
 } from './browser-user-composition-store';
+import { filmFromPreset, filmToWireFormat } from './film-ingress';
 import { posterKeyForPreset } from './posters';
 import { parsePresetIngress } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
+import transitionWipeDemoPresetJson from '../presets/transition-wipe-demo.json';
+import { filmDurationSeconds } from './user-composition-record';
 import { STORED_USER_COMPOSITION_RECORD_FIXTURES } from './user-composition-record.fixture';
-import { isUserCompositionNotHeldError } from './user-composition-store-errors';
+import {
+	isUserCompositionNotHeldError,
+	isUserCompositionStarterSlugError
+} from './user-composition-store-errors';
 
 import type { Preset } from './engine-schema';
+import type { UserCompositionDocument } from './user-composition-record';
 import type { PublicCompositionSessionStorageLimits } from './public-runtime-contract';
 import type { UserCompositionStore } from './user-composition-store';
 
 const STORAGE_IDENTITY = 'gfx-composition-session@1';
+
+/** The corpus slugs this test's store knows; nothing is ever written under one. */
+const STARTER_SLUGS = new Set(['blank', 'lower-third']);
 
 /** A synchronous key/value area with the parts of `Storage` this store uses. */
 class FakeSessionStorage implements Storage {
@@ -68,7 +78,8 @@ function createStore(
 	return createBrowserUserCompositionStore({
 		resolveStorage,
 		storageIdentity: STORAGE_IDENTITY,
-		limits
+		limits,
+		isStarterSlug: (slug) => STARTER_SLUGS.has(slug)
 	});
 }
 
@@ -80,44 +91,67 @@ function storageFailureCode(cause: unknown): CompositionSessionStorageFailureCod
 }
 
 function namedPreset(name: string): Preset {
-	return parsePresetIngress({ ...blankPresetJson, name });
+	return parsePresetIngress({ ...blankPresetJson, kind: 'deliverable', name });
+}
+
+/** The document a Preset is stored as: a one-Scene Film, seeded from `starterSlug` or nothing. */
+function documentOf(preset: Preset, starterSlug: string | null = null): UserCompositionDocument {
+	return {
+		film: filmFromPreset(
+			preset,
+			starterSlug === null ? null : { slug: starterSlug, contentKey: null }
+		),
+		legacyPresetEnvelope: { kind: preset.kind }
+	};
+}
+
+function namedDocument(name: string): UserCompositionDocument {
+	return documentOf(namedPreset(name));
 }
 
 beforeEach(() => {
 	storage = new FakeSessionStorage();
-	blankPreset = parsePresetIngress(blankPresetJson);
+	blankPreset = parsePresetIngress({ ...blankPresetJson, kind: 'deliverable' });
 });
 
 describe('browser-scoped composition session store', () => {
-	it('keeps a forked composition in the browser, under the configured identity', async () => {
+	it('keeps a new composition in the browser, under the configured identity', async () => {
 		const store = createStore();
 
-		await store.forkUserComposition('untitled', blankPreset, 'blank');
+		await store.createUserComposition('untitled', documentOf(blankPreset, 'blank'));
 
 		assert.deepEqual([...storage.entries.keys()], [`${STORAGE_IDENTITY}:untitled`]);
-		assert.deepEqual(await store.loadUserComposition('untitled'), blankPreset);
+		assert.deepEqual(await store.loadUserComposition('untitled'), documentOf(blankPreset, 'blank'));
+		// The record is a Film with no `forkedFrom`: the Scene's origin says where it came from.
+		const stored = JSON.parse(
+			storage.entries.get(`${STORAGE_IDENTITY}:untitled`) ?? 'null'
+		) as object;
+		assert.deepEqual(Object.keys(stored).sort(), ['film', 'savedAt', 'writeToken']);
 	});
 
 	it('reads back what an earlier page load wrote, which is what surviving a reload means', async () => {
-		await createStore().forkUserComposition('untitled', blankPreset, 'blank');
+		await createStore().createUserComposition('untitled', documentOf(blankPreset, 'blank'));
 
 		const reloaded = createStore();
 
-		assert.deepEqual(await reloaded.loadUserComposition('untitled'), blankPreset);
+		assert.deepEqual(
+			await reloaded.loadUserComposition('untitled'),
+			documentOf(blankPreset, 'blank')
+		);
 		const [entry] = await reloaded.listUserCompositions();
 		assert.equal(entry?.slug, 'untitled');
 		assert.equal(entry?.forkedFrom, 'blank');
 	});
 
-	it('answers null for a slug this session never forked', async () => {
+	it('answers null for a slug this session holds nothing at', async () => {
 		assert.equal(await createStore().loadUserComposition('lower-third'), null);
 	});
 
-	it('keeps the Starter a composition was cut from across a save', async () => {
+	it('keeps the Starter a Film was seeded from across a save', async () => {
 		const store = createStore();
-		await store.forkUserComposition('untitled', blankPreset, 'blank');
+		await store.createUserComposition('untitled', documentOf(blankPreset, 'blank'));
 
-		await store.saveUserComposition('untitled', namedPreset('Renamed'));
+		await store.saveUserComposition('untitled', documentOf(namedPreset('Renamed'), 'blank'));
 
 		const [entry] = await store.listUserCompositions();
 		assert.equal(entry?.forkedFrom, 'blank');
@@ -126,8 +160,8 @@ describe('browser-scoped composition session store', () => {
 
 	it('lists the session most recently saved first', async () => {
 		const store = createStore();
-		await store.forkUserComposition('first', namedPreset('First'), null);
-		await store.forkUserComposition('second', namedPreset('Second'), null);
+		await store.createUserComposition('first', namedDocument('First'));
+		await store.createUserComposition('second', namedDocument('Second'));
 		// Two forks in the same millisecond would tie; make the order the stored
 		// timestamps' order rather than insertion order.
 		storage.entries.set(
@@ -157,13 +191,13 @@ describe('browser-scoped composition session store', () => {
 
 	it('deletes one composition and refuses a slug it does not hold', async () => {
 		const store = createStore();
-		await store.forkUserComposition('untitled', blankPreset, null);
+		await store.createUserComposition('untitled', documentOf(blankPreset));
 
 		await store.deleteUserComposition('untitled');
 
 		assert.deepEqual(await store.listUserCompositions(), []);
-		// Named as not-held rather than as a generic failure, so reverting a fork
-		// this session already discarded still reaches its Starter.
+		// Named as not-held rather than as a generic failure, so a caller can tell
+		// "already gone" from a store that would not answer.
 		await assert.rejects(store.deleteUserComposition('untitled'), (cause) => {
 			assert.ok(isUserCompositionNotHeldError(cause));
 			assert.equal(cause.slug, 'untitled');
@@ -174,7 +208,7 @@ describe('browser-scoped composition session store', () => {
 
 	it('ignores records outside its identity, so another origin key is not a composition', async () => {
 		const store = createStore();
-		await store.forkUserComposition('untitled', blankPreset, null);
+		await store.createUserComposition('untitled', documentOf(blankPreset));
 		storage.entries.set('some-other-app:untitled', JSON.stringify({ hello: 'world' }));
 
 		const entries = await store.listUserCompositions();
@@ -187,7 +221,7 @@ describe('browser-scoped composition session store', () => {
 
 	it('drops a record it cannot parse rather than failing the whole listing', async () => {
 		const store = createStore();
-		await store.forkUserComposition('untitled', blankPreset, null);
+		await store.createUserComposition('untitled', documentOf(blankPreset));
 		storage.entries.set(`${STORAGE_IDENTITY}:half-written`, '{"forkedFrom":null,"saved');
 		storage.entries.set(
 			`${STORAGE_IDENTITY}:not-a-composition`,
@@ -222,15 +256,17 @@ describe('browser-scoped composition session store', () => {
 			})
 		);
 
+		const legacyStored = JSON.parse(storage.entries.get(key) ?? '') as { preset: unknown };
 		const loaded = await store.loadUserComposition('legacy');
 
-		assert.equal(loaded?.state.media.assets[0]?.assetUrl, legacyAssetUrl);
+		assert.equal(loaded?.film.scenes[0].state.media.assets[0]?.assetUrl, legacyAssetUrl);
 		const migrated: unknown = JSON.parse(storage.entries.get(key) ?? '');
 		assert.deepEqual(migrated, {
-			// Provenance and save time survive: a migration is not an edit.
+			// Provenance and save time survive: a migration is not an edit. It is
+			// still a Preset record: only a save writes a Film (ADR-0068 §3).
 			forkedFrom: 'blank',
 			savedAt: '2026-08-29T12:00:00.000Z',
-			preset: presetToWireFormat(loaded as Preset)
+			preset: presetToWireFormat(parsePresetIngress(legacyStored.preset))
 		});
 
 		// The rewritten record needs no further upgrade, so reading it again leaves
@@ -253,15 +289,60 @@ describe('browser-scoped composition session store', () => {
 
 		const loaded = await store.loadUserComposition('legacy');
 
-		assert.equal(loaded?.name, 'Blank');
+		assert.equal(loaded?.film.name, 'Blank');
 		assert.equal(storage.entries.get(key), legacyBody);
 	});
 
 	it('refuses a slug that would not be addressable as /p/<slug>', async () => {
 		await assert.rejects(
-			createStore().forkUserComposition('Not A Slug', blankPreset, null),
+			createStore().createUserComposition('Not A Slug', documentOf(blankPreset)),
 			TypeError
 		);
+		assert.equal(storage.length, 0);
+	});
+
+	it('refuses to create or save a record under a Starter slug', async () => {
+		const store = createStore();
+
+		for (const write of [
+			() => store.createUserComposition('lower-third', documentOf(blankPreset, 'lower-third')),
+			() => store.saveUserComposition('lower-third', documentOf(blankPreset, 'lower-third'))
+		]) {
+			await assert.rejects(write(), (cause) => {
+				assert.ok(isUserCompositionStarterSlugError(cause));
+				assert.equal(cause.slug, 'lower-third');
+				return true;
+			});
+		}
+		assert.equal(storage.length, 0);
+	});
+
+	it('still holds a record an older release stored under a Starter slug, and cannot save over it', async () => {
+		// The retired fork-on-edit model wrote these. No script reaches a visitor's
+		// browser, so the record stays where it is: listed, loadable through the
+		// store, deletable, and never written again.
+		const key = `${STORAGE_IDENTITY}:lower-third`;
+		const shadowRecord = JSON.stringify({
+			forkedFrom: 'lower-third',
+			savedAt: '2026-08-29T12:00:00.000Z',
+			preset: presetToWireFormat(namedPreset('My lower third'))
+		});
+		storage.entries.set(key, shadowRecord);
+		const store = createStore();
+
+		assert.deepEqual(
+			(await store.listUserCompositions()).map((entry) => [entry.slug, entry.forkedFrom]),
+			[['lower-third', 'lower-third']]
+		);
+		const loaded = await store.loadUserComposition('lower-third');
+		assert.equal(loaded?.film.name, 'My lower third');
+		await assert.rejects(
+			store.saveUserComposition('lower-third', namedDocument('Edited')),
+			isUserCompositionStarterSlugError
+		);
+		assert.equal(storage.entries.get(key), shadowRecord);
+
+		await store.deleteUserComposition('lower-third');
 		assert.equal(storage.length, 0);
 	});
 
@@ -274,7 +355,7 @@ describe('browser-scoped composition session store', () => {
 			quotaBytes: generousLimits.maxStorageBytes
 		});
 
-		await store.forkUserComposition('untitled', blankPreset, null);
+		await store.createUserComposition('untitled', documentOf(blankPreset));
 
 		const used = await store.inspectStorage();
 		assert.equal(used.available, true);
@@ -285,7 +366,9 @@ describe('browser-scoped composition session store', () => {
 	it('refuses one composition larger than a composition may be', async () => {
 		const store = createStore({ maxStorageBytes: 4 * 1024 * 1024, maxCompositionBytes: 64 });
 
-		const cause = await store.forkUserComposition('untitled', blankPreset, null).catch((e) => e);
+		const cause = await store
+			.createUserComposition('untitled', documentOf(blankPreset))
+			.catch((e) => e);
 
 		assert.equal(storageFailureCode(cause), 'limit_exceeded');
 		assert.equal(storage.length, 0);
@@ -293,7 +376,7 @@ describe('browser-scoped composition session store', () => {
 
 	it('refuses a save the session has no room left for, naming the way out', async () => {
 		const store = createStore();
-		await store.forkUserComposition('first', namedPreset('First'), null);
+		await store.createUserComposition('first', namedDocument('First'));
 		const held = (await store.inspectStorage()).usedBytes ?? 0;
 		const tight = createStore({
 			maxStorageBytes: held + 64,
@@ -301,7 +384,7 @@ describe('browser-scoped composition session store', () => {
 		});
 
 		const cause = await tight
-			.forkUserComposition('second', namedPreset('Second'), null)
+			.createUserComposition('second', namedDocument('Second'))
 			.catch((e) => e);
 
 		assert.equal(storageFailureCode(cause), 'quota_exceeded');
@@ -314,16 +397,16 @@ describe('browser-scoped composition session store', () => {
 
 	it('leaves the previous record intact when the browser refuses the write itself', async () => {
 		const store = createStore();
-		await store.forkUserComposition('untitled', blankPreset, null);
+		await store.createUserComposition('untitled', documentOf(blankPreset));
 		storage.refuseWrites = true;
 
 		const cause = await store
-			.saveUserComposition('untitled', namedPreset('Renamed'))
+			.saveUserComposition('untitled', namedDocument('Renamed'))
 			.catch((e) => e);
 
 		assert.equal(storageFailureCode(cause), 'quota_exceeded');
 		storage.refuseWrites = false;
-		assert.equal((await store.loadUserComposition('untitled'))?.name, blankPreset.name);
+		assert.equal((await store.loadUserComposition('untitled'))?.film.name, blankPreset.name);
 	});
 
 	it('completes a whole session without reaching the network once', async () => {
@@ -335,8 +418,8 @@ describe('browser-scoped composition session store', () => {
 		vi.stubGlobal('fetch', reachedNetwork);
 		try {
 			const store = createStore();
-			await store.forkUserComposition('untitled', blankPreset, 'blank');
-			await store.saveUserComposition('untitled', namedPreset('Edited'));
+			await store.createUserComposition('untitled', documentOf(blankPreset, 'blank'));
+			await store.saveUserComposition('untitled', namedDocument('Edited'));
 			await store.listUserCompositions();
 			await store.loadUserComposition('untitled');
 			await store.inspectStorage();
@@ -362,7 +445,7 @@ describe('browser-scoped composition session store', () => {
 		);
 		assert.equal(
 			storageFailureCode(
-				await store.forkUserComposition('untitled', blankPreset, null).catch((e) => e)
+				await store.createUserComposition('untitled', documentOf(blankPreset)).catch((e) => e)
 			),
 			'storage_unavailable'
 		);
@@ -375,28 +458,32 @@ describe('browser-scoped composition session store', () => {
  * same `storage` is a second tab — which is the only concurrency a
  * browser-scoped session has.
  */
-// ADR-0068 §3: the session store reads a Preset envelope and a Film envelope, and
-// still hands every caller one Preset.
+// ADR-0068 §3: the session store reads a Preset envelope and a Film envelope,
+// hands every caller a Film, and writes Films.
 describe('browser-scoped composition session reading both stored record shapes', () => {
 	for (const fixture of STORED_USER_COMPOSITION_RECORD_FIXTURES) {
 		const key = `${STORAGE_IDENTITY}:${fixture.slug}`;
 		const storedEnvelope = JSON.stringify({ ...fixture.meta, ...fixture.document });
 
 		if (fixture.outcome === 'opens') {
-			it(`opens and lists the ${fixture.slug} record as its Preset`, async () => {
+			it(`opens and lists the ${fixture.slug} record as its Film`, async () => {
 				const preset = parsePresetIngress(fixture.presetDocument);
 				storage.entries.set(key, storedEnvelope);
 				const store = createStore();
 
-				assert.deepEqual(await store.loadUserComposition(fixture.slug), preset);
+				assert.deepEqual(await store.loadUserComposition(fixture.slug), {
+					film: filmFromPreset(preset, fixture.firstSceneOrigin),
+					legacyPresetEnvelope: { kind: preset.kind }
+				});
 				assert.deepEqual(await store.listUserCompositions(), [
 					{
 						slug: fixture.slug,
 						name: preset.name,
-						forkedFrom: fixture.meta.forkedFrom,
+						// The first Scene's origin slug, which a legacy record states as `forkedFrom`.
+						forkedFrom: fixture.firstSceneOrigin?.slug ?? null,
 						savedAt: fixture.meta.savedAt,
 						posterKey: posterKeyForPreset(preset),
-						durationSeconds: preset.state.transport.durationSeconds,
+						durationSeconds: filmDurationSeconds(filmFromPreset(preset, null)),
 						surfaceType: preset.state.surface.type,
 						media: preset.state.media,
 						mediaStatus: 'ready'
@@ -417,7 +504,7 @@ describe('browser-scoped composition session reading both stored record shapes',
 		});
 	}
 
-	it('reads a stored Film without rewriting it, then saves over it as a Preset record', async () => {
+	it('reads a stored Film without rewriting it, then saves over it as a Film record', async () => {
 		const fixture = STORED_USER_COMPOSITION_RECORD_FIXTURES.find(
 			(candidate) => candidate.slug === 'film-one-scene'
 		);
@@ -434,10 +521,67 @@ describe('browser-scoped composition session reading both stored record shapes',
 		await store.saveUserComposition(fixture.slug, loaded);
 
 		const written = JSON.parse(storage.entries.get(key) ?? 'null') as Record<string, unknown>;
-		// Writers still emit the Preset envelope until the Workspace works on a Film.
-		assert.equal('film' in written, false);
+		assert.equal('preset' in written, false);
 		assert.equal(written['forkedFrom'], fixture.meta.forkedFrom);
-		assert.deepEqual(written['preset'], presetToWireFormat(loaded));
+		assert.deepEqual(written['film'], JSON.parse(JSON.stringify(filmToWireFormat(loaded.film))));
+		assert.deepEqual(loaded.film.scenes[0].origin, fixture.firstSceneOrigin);
+	});
+
+	it('writes nothing when a legacy record is read, and a Film record the first time it is saved', async () => {
+		const key = `${STORAGE_IDENTITY}:legacy`;
+		const legacyEnvelope = JSON.stringify({
+			forkedFrom: 'lower-third',
+			savedAt: '2026-10-01T12:00:00.000Z',
+			preset: presetToWireFormat(namedPreset('Legacy'))
+		});
+		storage.entries.set(key, legacyEnvelope);
+		const store = createStore();
+
+		const loaded = await store.loadUserComposition('legacy');
+		await store.listUserCompositions();
+		assert.ok(loaded);
+		assert.equal(storage.entries.get(key), legacyEnvelope);
+
+		await store.saveUserComposition('legacy', loaded);
+
+		const written = JSON.parse(storage.entries.get(key) ?? 'null') as Record<string, unknown>;
+		assert.deepEqual(Object.keys(written).sort(), ['film', 'forkedFrom', 'savedAt', 'writeToken']);
+		assert.equal(written['forkedFrom'], 'lower-third');
+		assert.deepEqual(
+			written['film'],
+			JSON.parse(
+				JSON.stringify(
+					filmToWireFormat(
+						filmFromPreset(namedPreset('Legacy'), { slug: 'lower-third', contentKey: null })
+					)
+				)
+			)
+		);
+	});
+
+	it('keeps a legacy transition record in the Preset shape when it is saved (ADR-0068 §3)', async () => {
+		const key = `${STORAGE_IDENTITY}:my-transition`;
+		storage.entries.set(
+			key,
+			JSON.stringify({
+				forkedFrom: null,
+				savedAt: '2026-10-01T12:00:00.000Z',
+				preset: transitionWipeDemoPresetJson
+			})
+		);
+		const store = createStore();
+
+		const loaded = await store.loadUserComposition('my-transition');
+		assert.ok(loaded);
+		assert.notEqual(loaded.legacyPresetEnvelope.transition, undefined);
+		await store.saveUserComposition('my-transition', loaded);
+
+		const written = JSON.parse(storage.entries.get(key) ?? 'null') as Record<string, unknown>;
+		assert.equal('film' in written, false);
+		assert.deepEqual(
+			parsePresetIngress(written['preset']),
+			parsePresetIngress(transitionWipeDemoPresetJson)
+		);
 	});
 
 	it('drops an envelope that holds both a Preset and a Film', async () => {
@@ -458,46 +602,46 @@ describe('browser-scoped composition session reading both stored record shapes',
 describe('browser-scoped composition session across two tabs', () => {
 	it('refuses a save over the version another tab wrote, keeping both compositions', async () => {
 		const firstTab = createStore();
-		await firstTab.forkUserComposition('untitled', namedPreset('Opened'), 'blank');
+		await firstTab.createUserComposition('untitled', documentOf(namedPreset('Opened'), 'blank'));
 		const secondTab = createStore();
 		await secondTab.loadUserComposition('untitled');
-		await secondTab.saveUserComposition('untitled', namedPreset('Second tab edit'));
+		await secondTab.saveUserComposition('untitled', namedDocument('Second tab edit'));
 
 		const cause = await firstTab
-			.saveUserComposition('untitled', namedPreset('First tab edit'))
+			.saveUserComposition('untitled', namedDocument('First tab edit'))
 			.catch((e) => e);
 
 		assert.equal(storageFailureCode(cause), 'stale_revision');
 		assert.ok(cause instanceof Error && cause.message.includes('another tab'));
 		// The stored composition is still the second tab's, and the first tab's
 		// document is still whatever it holds in memory — nothing was destroyed.
-		assert.equal((await secondTab.loadUserComposition('untitled'))?.name, 'Second tab edit');
+		assert.equal((await secondTab.loadUserComposition('untitled'))?.film.name, 'Second tab edit');
 	});
 
 	it('lets a tab save again once it has opened the version it would replace', async () => {
 		const firstTab = createStore();
-		await firstTab.forkUserComposition('untitled', namedPreset('Opened'), null);
+		await firstTab.createUserComposition('untitled', namedDocument('Opened'));
 		const secondTab = createStore();
 		await secondTab.loadUserComposition('untitled');
-		await secondTab.saveUserComposition('untitled', namedPreset('Second tab edit'));
-		await firstTab.saveUserComposition('untitled', namedPreset('Refused')).catch(() => undefined);
+		await secondTab.saveUserComposition('untitled', namedDocument('Second tab edit'));
+		await firstTab.saveUserComposition('untitled', namedDocument('Refused')).catch(() => undefined);
 
 		await firstTab.loadUserComposition('untitled');
-		await firstTab.saveUserComposition('untitled', namedPreset('Accepted'));
+		await firstTab.saveUserComposition('untitled', namedDocument('Accepted'));
 
-		assert.equal((await secondTab.loadUserComposition('untitled'))?.name, 'Accepted');
+		assert.equal((await secondTab.loadUserComposition('untitled'))?.film.name, 'Accepted');
 	});
 
-	it('refuses a second tab forking onto a slug the first tab already forked', async () => {
+	it('refuses a second tab creating onto a slug the first tab already created', async () => {
 		const firstTab = createStore();
-		await firstTab.forkUserComposition('lower-third', namedPreset('First fork'), 'lower-third');
+		await firstTab.createUserComposition('my-film', namedDocument('First tab'));
 
 		const cause = await createStore()
-			.forkUserComposition('lower-third', namedPreset('Second fork'), 'lower-third')
+			.createUserComposition('my-film', namedDocument('Second tab'))
 			.catch((e) => e);
 
 		assert.equal(storageFailureCode(cause), 'stale_revision');
-		assert.equal((await firstTab.loadUserComposition('lower-third'))?.name, 'First fork');
+		assert.equal((await firstTab.loadUserComposition('my-film'))?.film.name, 'First tab');
 	});
 
 	it('replaces a record left unstamped by an older release, which no tab holds open', async () => {
@@ -510,7 +654,7 @@ describe('browser-scoped composition session across two tabs', () => {
 			})
 		);
 
-		await createStore().saveUserComposition('untitled', namedPreset('Current release'));
+		await createStore().saveUserComposition('untitled', namedDocument('Current release'));
 
 		const [entry] = await createStore().listUserCompositions();
 		assert.equal(entry?.name, 'Current release');
@@ -521,19 +665,19 @@ describe('browser-scoped composition session across two tabs', () => {
 	it('replaces a record too corrupt for any tab to have it open', async () => {
 		storage.entries.set(`${STORAGE_IDENTITY}:untitled`, '{"forkedFrom":null,"saved');
 
-		await createStore().forkUserComposition('untitled', namedPreset('Repaired'), null);
+		await createStore().createUserComposition('untitled', namedDocument('Repaired'));
 
-		assert.equal((await createStore().loadUserComposition('untitled'))?.name, 'Repaired');
+		assert.equal((await createStore().loadUserComposition('untitled'))?.film.name, 'Repaired');
 	});
 
-	it('forks again into a slug it just deleted, which is what reverting does', async () => {
+	it('creates again into a slug it just deleted', async () => {
 		const store = createStore();
-		await store.forkUserComposition('lower-third', namedPreset('Fork'), 'lower-third');
+		await store.createUserComposition('my-film', namedDocument('First'));
 
-		await store.deleteUserComposition('lower-third');
-		await store.forkUserComposition('lower-third', namedPreset('Refork'), 'lower-third');
+		await store.deleteUserComposition('my-film');
+		await store.createUserComposition('my-film', namedDocument('Second'));
 
-		assert.equal((await store.loadUserComposition('lower-third'))?.name, 'Refork');
+		assert.equal((await store.loadUserComposition('my-film'))?.film.name, 'Second');
 	});
 
 	it('still lets the tab that migrated a record save it, because a migration is not a version', async () => {
@@ -561,10 +705,10 @@ describe('browser-scoped composition session across two tabs', () => {
 		// Opening rewrites the record in its current shape; the version it carries
 		// is the one this tab just opened, so the save that follows is not drift.
 		await tab.loadUserComposition('legacy');
-		await tab.saveUserComposition('legacy', namedPreset('Edited after migration'));
+		await tab.saveUserComposition('legacy', namedDocument('Edited after migration'));
 
 		assert.equal(
-			(await createStore().loadUserComposition('legacy'))?.name,
+			(await createStore().loadUserComposition('legacy'))?.film.name,
 			'Edited after migration'
 		);
 	});
