@@ -40,6 +40,8 @@ import {
 	realpathSync,
 	renameSync,
 	rmSync,
+	statSync,
+	utimesSync,
 	writeFileSync
 } from 'node:fs';
 import { join } from 'node:path';
@@ -96,7 +98,17 @@ export function readWorktreeContentTree(worktreeRoot) {
 		'index'
 	]);
 	try {
-		if (existsSync(realIndexPath)) copyFileSync(realIndexPath, scratchIndexPath);
+		if (existsSync(realIndexPath)) {
+			copyFileSync(realIndexPath, scratchIndexPath);
+			// Git skips reading a file whose size and timestamps match the index,
+			// unless the file was touched in the second the index was written — then
+			// it compares content. A copy is written later than the original, which
+			// would switch that comparison off and hide a same-size edit made right
+			// after a commit. Dating the copy a second before the original keeps the
+			// comparison on for every file the real index would have compared.
+			const indexWrittenSecond = Math.floor(statSync(realIndexPath).mtimeMs / 1000) - 1;
+			utimesSync(scratchIndexPath, indexWrittenSecond, indexWrittenSecond);
+		}
 		const scratchEnvironment = { ...process.env, GIT_INDEX_FILE: scratchIndexPath };
 		runGit(worktreeRoot, ['add', '--all'], scratchEnvironment);
 		return runGit(worktreeRoot, ['write-tree'], scratchEnvironment);

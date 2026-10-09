@@ -7,6 +7,7 @@ import {
 	mkdtempSync,
 	realpathSync,
 	rmSync,
+	utimesSync,
 	writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -136,6 +137,30 @@ test('reading the worktree content leaves the index and the files alone', (t) =>
 
 	assert.equal(git(worktreeRoot, 'status', '--porcelain'), statusBefore);
 	assert.notEqual(contentTree, git(worktreeRoot, 'rev-parse', 'HEAD^{tree}'));
+});
+
+// Git trusts a file's size and whole-second timestamps unless the index itself
+// was written in that same second, in which case it reads the content. A copy
+// of the index is written later than the original, so a naive copy loses that
+// protection and misses a same-size edit made right after a commit. This pins
+// the state exactly: index and file share one second, and the edit keeps the
+// size. `trustctime` is off because a test cannot set a file's change time.
+test('a same-size edit in the second the index was written is still seen', (t) => {
+	const worktreeRoot = createCheckout(t);
+	git(worktreeRoot, 'config', 'core.trustctime', 'false');
+	const sourcePath = join(worktreeRoot, 'source.ts');
+	const sharedSecond = Math.floor(Date.now() / 1000) - 10;
+	utimesSync(sourcePath, sharedSecond, sharedSecond);
+	git(worktreeRoot, 'update-index', '--refresh');
+	utimesSync(join(worktreeRoot, '.git', 'index'), sharedSecond, sharedSecond);
+
+	writeFileSync(sourcePath, 'export const value = 9;\n');
+	utimesSync(sourcePath, sharedSecond, sharedSecond);
+
+	assert.notEqual(
+		readWorktreeContentTree(worktreeRoot),
+		git(worktreeRoot, 'rev-parse', 'HEAD^{tree}')
+	);
 });
 
 test('a failure or an interruption records nothing', (t) => {
