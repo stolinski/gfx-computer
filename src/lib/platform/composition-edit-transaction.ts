@@ -10,6 +10,17 @@
  * before the commit leaves the composition byte-identical, which is what makes
  * "all or nothing" true rather than aspirational.
  *
+ * The open document is a Film
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §8),
+ * so the document captured, applied, and kept in history is an
+ * `OpenFilmDocument`, and one Composition revision and one undo history cover
+ * the whole Film. There are two ways in. `runCompositionEditTransaction` is
+ * Scene-scoped: the operation drafts the selected Scene as a Preset-shaped
+ * document with its own `/state/...` pointers, and the core writes that draft
+ * back into the Film. `runFilmEditTransaction` is Film-level: the operation
+ * drafts the Film itself, which is what Scene membership and boundaries need.
+ * Both share every step around the draft.
+ *
  * The core is transport-neutral on purpose. A WebMCP tool handler and a GUI
  * control call the same operation, which calls this; nothing here knows which
  * transport asked, and a tool handler never assigns to engine state itself.
@@ -18,6 +29,7 @@ import type { Preset } from './engine-schema';
 import {
 	boundCompositionPointers,
 	diffCompositionDocuments,
+	diffFilmDocuments,
 	type BoundedCompositionPointers
 } from './composition-change-delta';
 import { compositionEditHistory } from './composition-edit-history';
@@ -27,10 +39,13 @@ import {
 	collectCompositionLintFindings,
 	collectCompositionSemanticFindings,
 	collectCompositionValidationFindings,
+	collectFilmSemanticFindings,
+	collectFilmValidationFindings,
 	describeCompositionSchemaFindings,
 	diffCompositionValidationFindings,
 	formatCompositionValidationFindings,
 	type BoundedCompositionFindings,
+	type CompositionValidationFinding,
 	type CompositionValidationFindingDelta
 } from './composition-validation-findings';
 import {
@@ -49,9 +64,18 @@ import {
 	moveCompositionWorkspaceFocus,
 	type CompositionWorkspaceFocus
 } from './composition-workspace-focus';
-import { applyCompositionState, resolveTransition } from './preset';
-import { applyPresetBase, presetBase } from './preset-base.svelte';
-import { engineState, packState, transitionState } from './engine-state.svelte';
+import { applyOpenFilmDocument } from './preset';
+import { presetBase } from './preset-base.svelte';
+import { engineState, packState } from './engine-state.svelte';
+import { FilmIngressSchema, filmToWireFormat, parseFilmIngress } from './film-ingress';
+import type { Film } from './film-schema';
+import { openFilmDocumentAroundScenePreset } from './film-state.svelte';
+import {
+	isSelectedSceneScopedFilmChange,
+	openFilmWithSelectedScenePreset,
+	selectedScenePresetOfOpenFilm,
+	type OpenFilmDocument
+} from './open-film-document';
 import { PresetIngressSchema } from './preset-ingress';
 import { presetToWireFormat, serializeCompositionState } from './preset-pure';
 import { cloneJsonValue } from '../utils/json-clone';
@@ -67,7 +91,17 @@ export interface CompositionOperationReceipt {
 	operationId: string;
 	/** The Composition revision after the edit. Unchanged when the edit was a no-op. */
 	revision: number;
+	/**
+	 * What moved. For a Scene-scoped change these are the Scene's own pointers
+	 * (`/name`, `/state/...`), relative to the Scene `sceneId` names; for a
+	 * Film-level change they are Film pointers (`/scenes`, `/boundaries`).
+	 */
 	changed: BoundedCompositionPointers;
+	/**
+	 * The Scene a Scene-scoped change applied to (ADR-0068 §8). Absent on a
+	 * Film-level change, whose pointers already name the Scenes they touch.
+	 */
+	sceneId?: string;
 	findingsAppeared: BoundedCompositionFindings;
 	findingsCleared: BoundedCompositionFindings;
 	/** The entry recorded in the shared history, or `null` when nothing changed. */
@@ -115,13 +149,19 @@ export interface CompositionDraftContext {
  * Mutates the detached draft in place, or raises `CompositionOperationError`.
  * It never reads or writes live engine state: the draft it receives is the only
  * document it may touch.
+ *
+ * The draft is the selected Scene as a Preset-shaped document
+ * (`selectedScenePresetOfOpenFilm`). Its `name`, `description`, `pack`, and
+ * transport `orientation` / `fps` / `format` are the Film's own fields, so an
+ * edit to one of them lands on the Film.
  */
 export type CompositionDraftMutation = (
 	draft: Preset,
 	context: CompositionDraftContext
 ) => void | Promise<void>;
 
-export interface CompositionEditTransactionRequest {
+/** What every edit transaction request states, whichever document it drafts. */
+interface OpenFilmTransactionRequest {
 	/** The operation inventory row this transaction runs as. */
 	operationId: string;
 	/** The Composition revision the caller last observed. */
@@ -130,9 +170,34 @@ export interface CompositionEditTransactionRequest {
 	undoLabel: string;
 	/** The Workspace entity this edit reveals; must be one the inventory row names. */
 	focus: CompositionWorkspaceFocus;
-	mutate: CompositionDraftMutation;
 	/** Honoured only by an operation the inventory marks cancellable. */
 	signal?: AbortSignal;
+}
+
+export interface CompositionEditTransactionRequest extends OpenFilmTransactionRequest {
+	mutate: CompositionDraftMutation;
+}
+
+export interface FilmDraftContext extends CompositionDraftContext {
+	/**
+	 * The Scene open for editing. A mutation that adds or removes Scenes assigns
+	 * the id of the Scene that is open afterwards; it must name a Scene of the
+	 * draft Film when the mutation returns.
+	 */
+	selectedSceneId: string;
+}
+
+/**
+ * Mutates the detached draft Film in place, or raises
+ * `CompositionOperationError`. Like a Scene-scoped mutation it never touches
+ * live state. The Film's `orientation`, `fps`, and `format` are the truth for
+ * every Scene: a draft Scene's own copy of them is overwritten when the draft
+ * is read back.
+ */
+export type FilmDraftMutation = (draft: Film, context: FilmDraftContext) => void | Promise<void>;
+
+export interface FilmEditTransactionRequest extends OpenFilmTransactionRequest {
+	mutate: FilmDraftMutation;
 }
 
 export type CompositionHistoryDirection = 'undo' | 'redo';
@@ -154,12 +219,14 @@ function isAborted(signal: AbortSignal | undefined): boolean {
 }
 
 /**
- * The open composition as a detached, schema-parsed document. Detached matters:
- * a draft built from live proxies would let a rejected edit leak into engine
- * state, and an undo entry holding live references would replay whatever the
- * document had become rather than what it was.
+ * The open Film as a detached document. The selected Scene is read out of live
+ * state as its Preset-shaped view and schema-parsed; `filmState` supplies the
+ * rest of the Film. Detached matters: a draft built from live proxies would let
+ * a rejected edit leak into engine state, and an undo entry holding live
+ * references would replay whatever the document had become rather than what it
+ * was.
  */
-function captureOpenCompositionDocument(): Preset {
+function captureOpenFilmDocument(): OpenFilmDocument {
 	const wire = cloneJsonValue(
 		presetToWireFormat(serializeCompositionState(presetBase, engineState, packState.slug))
 	);
@@ -172,34 +239,25 @@ function captureOpenCompositionDocument(): Preset {
 			{ rejected: findings[0]?.path }
 		);
 	}
-	return parsed.data;
+	return openFilmDocumentAroundScenePreset(parsed.data);
 }
 
 /**
- * Replace the open composition with `document` — its Pack and `state`, its
- * Preset-level metadata, and the transition recipe the Workspace acts on.
- * Unlike `applyPreset` it keeps the shared history: an edit, its undo, and its
- * redo are all points in one open document's life.
- */
-function applyCompositionDocument(document: Preset): void {
-	applyCompositionState(document);
-	applyPresetBase(document);
-	transitionState.active = resolveTransition(document.transition);
-}
-
-/**
- * The open composition as it stands before a GUI gesture — a timeline drag, a
+ * The open Film as it stands before a GUI gesture — a timeline drag, a
  * canvas orbit — begins writing live state. Pair with
  * `recordCompositionGestureEdit` at the gesture's release (ADR-0060 §6).
  * Null when the open composition cannot be read as a document: the gesture
  * still happens, it just records no undo — undo is a courtesy of the
  * gesture, never a gate on it.
  */
-export function captureCompositionGestureOrigin(): Preset | null {
+export function captureCompositionGestureOrigin(): OpenFilmDocument | null {
 	try {
-		return captureOpenCompositionDocument();
+		return captureOpenFilmDocument();
 	} catch (error) {
-		console.error('Composition gesture origin could not be captured; the gesture records no undo.', error);
+		console.error(
+			'Composition gesture origin could not be captured; the gesture records no undo.',
+			error
+		);
 		return null;
 	}
 }
@@ -209,33 +267,68 @@ export function captureCompositionGestureOrigin(): Preset | null {
  * `origin` was captured, and invalidate the autosave. A gesture that moved
  * nothing records nothing and returns false, so a click on a clip is not an
  * undo step; a gesture whose origin could not be captured records nothing
- * either. The entry restores whole documents, exactly as an operation's
+ * either. The entry restores whole Films, exactly as an operation's
  * transaction does, so GUI and agent edits share one history shape.
  */
-export function recordCompositionGestureEdit(label: string, origin: Preset | null): boolean {
+export function recordCompositionGestureEdit(
+	label: string,
+	origin: OpenFilmDocument | null
+): boolean {
 	if (!origin) return false;
 	const next = captureCompositionGestureOrigin();
 	if (!next || hashObject(next) === hashObject(origin)) return false;
 	compositionEditHistory.recordApplied({
 		label,
-		undo: () => applyCompositionDocument(origin),
-		redo: () => applyCompositionDocument(next)
+		undo: () => applyOpenFilmDocument(origin),
+		redo: () => applyOpenFilmDocument(next)
 	});
 	invalidateCompositionAutosave();
 	return true;
 }
 
+/** A draft the core will not apply, as the refusal the caller receives. */
+interface OpenFilmDraftRefusal {
+	planned: false;
+	code: 'cancelled' | 'schema_invalid' | 'semantic_invalid';
+	message: string;
+	findings?: readonly CompositionValidationFinding[];
+}
+
+/** A validated draft: the document to apply and what the receipt says about it. */
+interface OpenFilmDraftPlan {
+	planned: true;
+	next: OpenFilmDocument;
+	changedPointers: readonly string[];
+	findingDelta: CompositionValidationFindingDelta;
+	/** The Scene a Scene-scoped change applied to; `null` for a Film-level change. */
+	sceneId: string | null;
+}
+
 /**
- * Run one mutating operation as a revisioned atomic transaction.
- *
- * Throws `TypeError` when the request contradicts the operation's inventory
- * row — an unknown id, a non-writing effect, a focus the row does not name, a
- * cancellation signal the row does not accept, or a write that crossed into
- * another family's subtree. Those are defects in the operation rather than
- * caller input, and every one of them is raised before anything is applied.
+ * The half of a transaction that differs by the document drafted: build a
+ * draft from `previous`, run the operation's mutation on it, and validate the
+ * result. It reads and writes no live state.
  */
-export async function runCompositionEditTransaction(
-	request: CompositionEditTransactionRequest
+type OpenFilmDraftPlanner = (
+	previous: OpenFilmDocument
+) => Promise<OpenFilmDraftPlan | OpenFilmDraftRefusal>;
+
+const CANCELLED_BEFORE_APPLY: OpenFilmDraftRefusal = {
+	planned: false,
+	code: 'cancelled',
+	message: 'The operation was cancelled before it applied.'
+};
+
+/**
+ * Every step of a transaction around the draft: check the request against its
+ * inventory row, refuse a stale revision, capture the open Film, and — once
+ * the planner has returned a validated draft that wrote only what its family
+ * owns — apply it, record one shared undo entry, wake autosave, and move the
+ * visible focus.
+ */
+async function runOpenFilmTransaction(
+	request: OpenFilmTransactionRequest,
+	plan: OpenFilmDraftPlanner
 ): Promise<CompositionOperationOutcome> {
 	const row = requireCompositionOperationRow(request.operationId);
 	if (row.effect !== 'write') {
@@ -277,44 +370,20 @@ export async function runCompositionEditTransaction(
 	const revision = compositionEditHistory.revision;
 
 	try {
-		const previous = captureOpenCompositionDocument();
-		const draft = captureOpenCompositionDocument();
+		const previous = captureOpenFilmDocument();
+		const drafted = await plan(previous);
 
-		await request.mutate(draft, { signal: request.signal ?? null });
-
-		if (isAborted(request.signal)) {
+		if (!drafted.planned) {
 			return refuseCompositionOperation(
 				row,
 				revision,
-				'cancelled',
-				'The operation was cancelled before it applied.'
+				drafted.code,
+				drafted.message,
+				drafted.findings ? { findings: drafted.findings } : {}
 			);
 		}
+		const { next, changedPointers, findingDelta, sceneId } = drafted;
 
-		const parsed = PresetIngressSchema.safeParse(presetToWireFormat(draft));
-		if (!parsed.success) {
-			return refuseCompositionOperation(
-				row,
-				revision,
-				'schema_invalid',
-				'The edit would produce a composition the schema rejects, so nothing was applied.',
-				{ findings: describeCompositionSchemaFindings(parsed.error) }
-			);
-		}
-		const next: Preset = parsed.data;
-
-		const semanticFindings = collectCompositionSemanticFindings(next);
-		if (semanticFindings.length > 0) {
-			return refuseCompositionOperation(
-				row,
-				revision,
-				'semantic_invalid',
-				'The edit would produce a composition the engine cannot load, so nothing was applied.',
-				{ findings: semanticFindings }
-			);
-		}
-
-		const changedPointers = diffCompositionDocuments(previous, next);
 		const rejections = rejectUnauthorizedCompositionWrites(changedPointers, row.family, row.writes);
 		if (rejections.length > 0) {
 			throw new TypeError(
@@ -324,30 +393,35 @@ export async function runCompositionEditTransaction(
 			);
 		}
 
-		const findingDelta = diffCompositionValidationFindings(
-			collectCompositionValidationFindings(previous),
-			collectCompositionLintFindings(next)
-		);
-
-		if (changedPointers.length === 0) {
+		// A Film-level edit may change nothing but which Scene is open; that is
+		// still a change to the open document.
+		if (changedPointers.length === 0 && next.selectedSceneId === previous.selectedSceneId) {
 			moveCompositionWorkspaceFocus(request.focus);
-			return buildReceipt(row, revision, changedPointers, findingDelta, null, request.focus);
+			return buildReceipt(
+				row,
+				revision,
+				changedPointers,
+				sceneId,
+				findingDelta,
+				null,
+				request.focus
+			);
 		}
 
 		if (isAborted(request.signal)) {
 			return refuseCompositionOperation(
 				row,
 				revision,
-				'cancelled',
-				'The operation was cancelled before it applied.'
+				CANCELLED_BEFORE_APPLY.code,
+				CANCELLED_BEFORE_APPLY.message
 			);
 		}
 
-		applyCompositionDocument(next);
+		applyOpenFilmDocument(next);
 		compositionEditHistory.recordApplied({
 			label: request.undoLabel,
-			undo: () => applyCompositionDocument(previous),
-			redo: () => applyCompositionDocument(next)
+			undo: () => applyOpenFilmDocument(previous),
+			redo: () => applyOpenFilmDocument(next)
 		});
 		invalidateCompositionAutosave();
 		moveCompositionWorkspaceFocus(request.focus);
@@ -356,6 +430,7 @@ export async function runCompositionEditTransaction(
 			row,
 			compositionEditHistory.revision,
 			changedPointers,
+			sceneId,
 			findingDelta,
 			request.undoLabel,
 			request.focus
@@ -369,6 +444,136 @@ export async function runCompositionEditTransaction(
 		}
 		throw cause;
 	}
+}
+
+/**
+ * Run one Scene-scoped mutating operation as a revisioned atomic transaction.
+ * Every operation that edits a composition's content goes through here: its
+ * draft is the selected Scene as a Preset-shaped document, and the validated
+ * draft is written back into the open Film.
+ *
+ * Throws `TypeError` when the request contradicts the operation's inventory
+ * row — an unknown id, a non-writing effect, a focus the row does not name, a
+ * cancellation signal the row does not accept, or a write that crossed into
+ * another family's subtree. Those are defects in the operation rather than
+ * caller input, and every one of them is raised before anything is applied.
+ */
+export async function runCompositionEditTransaction(
+	request: CompositionEditTransactionRequest
+): Promise<CompositionOperationOutcome> {
+	return runOpenFilmTransaction(request, async (previous) => {
+		const previousScene = selectedScenePresetOfOpenFilm(previous);
+		const draft = PresetIngressSchema.parse(cloneJsonValue(presetToWireFormat(previousScene)));
+
+		await request.mutate(draft, { signal: request.signal ?? null });
+
+		if (isAborted(request.signal)) return CANCELLED_BEFORE_APPLY;
+
+		const parsed = PresetIngressSchema.safeParse(presetToWireFormat(draft));
+		if (!parsed.success) {
+			return {
+				planned: false,
+				code: 'schema_invalid',
+				message: 'The edit would produce a composition the schema rejects, so nothing was applied.',
+				findings: describeCompositionSchemaFindings(parsed.error)
+			};
+		}
+		const nextScene: Preset = parsed.data;
+
+		const semanticFindings = collectCompositionSemanticFindings(nextScene);
+		if (semanticFindings.length > 0) {
+			return {
+				planned: false,
+				code: 'semantic_invalid',
+				message:
+					'The edit would produce a composition the engine cannot load, so nothing was applied.',
+				findings: semanticFindings
+			};
+		}
+
+		return {
+			planned: true,
+			next: openFilmWithSelectedScenePreset(previous, nextScene),
+			changedPointers: diffCompositionDocuments(previousScene, nextScene),
+			findingDelta: diffCompositionValidationFindings(
+				collectCompositionValidationFindings(previousScene),
+				collectCompositionLintFindings(nextScene)
+			),
+			sceneId: previous.selectedSceneId
+		};
+	});
+}
+
+/**
+ * Run one Film-level mutating operation as a revisioned atomic transaction: the
+ * same revision check, undo entry, autosave wake, focus move, and receipt as a
+ * Scene-scoped edit, over a draft of the Film itself. This is the way in for
+ * what no single Scene owns — Scene membership and boundaries (ADR-0068 §8).
+ *
+ * The receipt names Film pointers and carries no `sceneId`. The draft is
+ * refused as `schema_invalid` or `semantic_invalid` when it is not a Film the
+ * engine can open, with nothing applied.
+ *
+ * Throws `TypeError` for the same defects `runCompositionEditTransaction`
+ * does, and when the mutation leaves a Scene selected that the draft Film does
+ * not hold.
+ */
+export async function runFilmEditTransaction(
+	request: FilmEditTransactionRequest
+): Promise<CompositionOperationOutcome> {
+	return runOpenFilmTransaction(request, async (previous) => {
+		const draft = parseFilmIngress(cloneJsonValue(filmToWireFormat(previous.film)));
+		const context: FilmDraftContext = {
+			signal: request.signal ?? null,
+			selectedSceneId: previous.selectedSceneId
+		};
+
+		await request.mutate(draft, context);
+
+		if (isAborted(request.signal)) return CANCELLED_BEFORE_APPLY;
+
+		const parsed = FilmIngressSchema.safeParse(filmToWireFormat(draft));
+		if (!parsed.success) {
+			return {
+				planned: false,
+				code: 'schema_invalid',
+				message: 'The edit would produce a Film the schema rejects, so nothing was applied.',
+				findings: describeCompositionSchemaFindings(parsed.error)
+			};
+		}
+		const nextFilm: Film = parsed.data;
+
+		const semanticFindings = collectFilmSemanticFindings(nextFilm);
+		if (semanticFindings.length > 0) {
+			return {
+				planned: false,
+				code: 'semantic_invalid',
+				message: 'The edit would produce a Film the engine cannot open, so nothing was applied.',
+				findings: semanticFindings
+			};
+		}
+
+		if (!nextFilm.scenes.some((scene) => scene.id === context.selectedSceneId)) {
+			throw new TypeError(
+				`Film edit transaction ${request.operationId} left Scene "${context.selectedSceneId}" selected, which the edited Film does not hold.`
+			);
+		}
+
+		return {
+			planned: true,
+			next: {
+				film: nextFilm,
+				selectedSceneId: context.selectedSceneId,
+				legacyPresetEnvelope: previous.legacyPresetEnvelope
+			},
+			changedPointers: diffFilmDocuments(previous.film, nextFilm),
+			findingDelta: diffCompositionValidationFindings(
+				collectFilmValidationFindings(previous.film),
+				collectFilmValidationFindings(nextFilm)
+			),
+			sceneId: null
+		};
+	});
 }
 
 /**
@@ -403,24 +608,43 @@ export function runCompositionHistoryTransaction(
 	}
 
 	try {
-		const previous = captureOpenCompositionDocument();
+		const previous = captureOpenFilmDocument();
 		if (direction === 'undo') compositionEditHistory.undo();
 		else compositionEditHistory.redo();
 
 		invalidateCompositionAutosave();
 		moveCompositionWorkspaceFocus(focus);
 
-		const next = captureOpenCompositionDocument();
-		const findingDelta = diffCompositionValidationFindings(
-			collectCompositionValidationFindings(previous),
-			collectCompositionValidationFindings(next)
-		);
+		const next = captureOpenFilmDocument();
+
+		// A replayed Scene-scoped edit reports the way the edit did: the Scene's
+		// own pointers and its id. Anything wider reports Film pointers.
+		if (isSelectedSceneScopedFilmChange(previous, next)) {
+			const previousScene = selectedScenePresetOfOpenFilm(previous);
+			const nextScene = selectedScenePresetOfOpenFilm(next);
+			return buildReceipt(
+				row,
+				compositionEditHistory.revision,
+				diffCompositionDocuments(previousScene, nextScene),
+				next.selectedSceneId,
+				diffCompositionValidationFindings(
+					collectCompositionValidationFindings(previousScene),
+					collectCompositionValidationFindings(nextScene)
+				),
+				null,
+				focus
+			);
+		}
 
 		return buildReceipt(
 			row,
 			compositionEditHistory.revision,
-			diffCompositionDocuments(previous, next),
-			findingDelta,
+			diffFilmDocuments(previous.film, next.film),
+			null,
+			diffCompositionValidationFindings(
+				collectFilmValidationFindings(previous.film),
+				collectFilmValidationFindings(next.film)
+			),
 			null,
 			focus
 		);
@@ -442,6 +666,7 @@ function buildReceipt(
 	row: WebmcpOperationRow,
 	revision: number,
 	changedPointers: readonly string[],
+	sceneId: string | null,
 	findingDelta: CompositionValidationFindingDelta,
 	undoLabel: string | null,
 	focus: CompositionWorkspaceFocus
@@ -451,6 +676,7 @@ function buildReceipt(
 		operationId: row.id,
 		revision,
 		changed: boundCompositionPointers(changedPointers, COMPOSITION_RECEIPT_POINTER_LIMIT),
+		...(sceneId !== null ? { sceneId } : {}),
 		findingsAppeared: boundCompositionFindings(
 			findingDelta.appeared,
 			COMPOSITION_RECEIPT_FINDING_LIMIT

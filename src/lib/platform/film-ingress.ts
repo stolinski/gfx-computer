@@ -156,9 +156,9 @@ export function filmFromPreset(preset: Preset, origin: FilmSceneOrigin | null): 
 
 /**
  * The refusal `presetFromSingleSceneFilm` raises for a Film that is not exactly
- * one Scene long. Everything downstream of the stores still works on one
- * Preset, so this build opens one-Scene Films only; the limit goes when the
- * Workspace opens a Film (ADR-0068 §3).
+ * one Scene long. The stores still hand back and save one Preset, so this
+ * build opens one-Scene Films only; the limit goes when the stores write Films
+ * (ADR-0068 §3).
  */
 export class FilmSceneCountUnsupportedError extends Error {
 	readonly sceneCount: number;

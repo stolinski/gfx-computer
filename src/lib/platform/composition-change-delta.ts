@@ -15,6 +15,8 @@
  */
 import type { Preset } from './engine-schema';
 import type { CompositionPointer } from './composition-pointer-ownership';
+import { filmToWireFormat } from './film-ingress';
+import type { Film } from './film-schema';
 import { cloneJsonValue } from '../utils/json-clone';
 import { presetToWireFormat } from './preset-pure';
 
@@ -169,6 +171,25 @@ export function diffCompositionDocuments(
 		// exactly how the saved document treats them.
 		cloneJsonValue(presetToWireFormat(previous)),
 		cloneJsonValue(presetToWireFormat(next)),
+		changed
+	);
+	return changed;
+}
+
+/**
+ * Every Film pointer whose persisted value differs between two Films, in
+ * document order: `/name`, `/scenes`, `/scenes/<index>/state/...`,
+ * `/boundaries`. Scenes carry ids, so adding, removing, or reordering one
+ * reports a single membership change at `/scenes`. This is what a Film-level
+ * edit reports; a Scene-scoped edit reports the Scene's own pointers through
+ * `diffCompositionDocuments` (ADR-0068 §8).
+ */
+export function diffFilmDocuments(previous: Film, next: Film): readonly CompositionPointer[] {
+	const changed: CompositionPointer[] = [];
+	appendJsonValueDifferences(
+		'',
+		cloneJsonValue(filmToWireFormat(previous)),
+		cloneJsonValue(filmToWireFormat(next)),
 		changed
 	);
 	return changed;

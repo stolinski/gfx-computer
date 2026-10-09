@@ -10,6 +10,7 @@ import {
 	recordCompositionGestureEdit,
 	runCompositionEditTransaction,
 	runCompositionHistoryTransaction,
+	runFilmEditTransaction,
 	type CompositionEditTransactionRequest,
 	type CompositionOperationOutcome,
 	type CompositionOperationReceipt
@@ -17,6 +18,8 @@ import {
 import type { CompositionOperationFailure } from './composition-operation-preflight';
 import { ACCEPTED_COMPOSITION_SCHEMA_IDS } from '../utils/legacy-supers-compatibility';
 import { engineState, packState, transitionState } from './engine-state.svelte';
+import { FILM_FIRST_SCENE_ID, filmToWireFormat } from './film-ingress';
+import { filmState, readOpenFilm, readOpenFilmAsSavedPreset } from './film-state.svelte';
 import { hashStringToUnitInterval } from '../utils/seeded';
 import { layerSelection } from './selection.svelte';
 import { parsePresetIngress } from './preset-ingress';
@@ -37,6 +40,11 @@ function snapshotOpenComposition(): string {
 	return JSON.stringify(
 		presetToWireFormat(serializeCompositionState(presetBase, engineState, packState.slug))
 	);
+}
+
+/** The whole open Film as it would be stored, for before-and-after comparison. */
+function snapshotOpenFilm(): string {
+	return JSON.stringify(filmToWireFormat(readOpenFilm()));
 }
 
 function expectApplied(outcome: CompositionOperationOutcome): CompositionOperationReceipt {
@@ -457,6 +465,243 @@ describe('composition history transaction', () => {
 		expect(failure.code).toBe('stale_revision');
 		expect(presetBase.name).toBe('Renamed');
 		expect(compositionEditHistory.revision).toBe(1);
+	});
+});
+
+describe('the open document is a Film (ADR-0068 §8)', () => {
+	function packRequest(pack: string): CompositionEditTransactionRequest {
+		return {
+			operationId: 'appearance.set-pack',
+			expectedRevision: compositionEditHistory.revision,
+			undoLabel: 'Set Pack',
+			focus: { target: 'composition-root' },
+			mutate: (draft) => {
+				draft.pack = pack;
+			}
+		};
+	}
+
+	it('names the Scene a Scene-scoped change applied to, with pointers relative to it', async () => {
+		const receipt = expectApplied(
+			await runCompositionEditTransaction(orientationRequest('vertical'))
+		);
+
+		expect(receipt.sceneId).toBe(FILM_FIRST_SCENE_ID);
+		expect(receipt.sceneId).toBe(filmState.selectedSceneId);
+		expect(receipt.changed.pointers).toEqual(['/state/transport/orientation']);
+
+		const undone = expectApplied(runCompositionHistoryTransaction('undo', receipt.revision));
+		expect(undone.sceneId).toBe(FILM_FIRST_SCENE_ID);
+		expect(undone.changed.pointers).toEqual(['/state/transport/orientation']);
+	});
+
+	it('names the Scene on a receipt for an edit that changed nothing', async () => {
+		const receipt = expectApplied(await runCompositionEditTransaction(renameRequest('Blank')));
+
+		expect(receipt.changed.total).toBe(0);
+		expect(receipt.sceneId).toBe(FILM_FIRST_SCENE_ID);
+	});
+
+	it("writes a Scene-scoped Pack change through to the Film's one Pack", async () => {
+		expect(readOpenFilm().pack).toBe('syntax');
+
+		const receipt = expectApplied(await runCompositionEditTransaction(packRequest('clean-light')));
+
+		expect(receipt.changed.pointers).toEqual(['/pack']);
+		expect(readOpenFilm().pack).toBe('clean-light');
+		expect(readOpenFilmAsSavedPreset().pack).toBe('clean-light');
+	});
+
+	it("writes Scene-scoped name and transport edits through to the Film's own fields", async () => {
+		expectApplied(await runCompositionEditTransaction(renameRequest('Renamed')));
+		expectApplied(await runCompositionEditTransaction(orientationRequest('vertical')));
+
+		const film = readOpenFilm();
+		expect(film.name).toBe('Renamed');
+		expect(film.orientation).toBe('vertical');
+		expect(film.scenes[0].state.transport.orientation).toBe('vertical');
+	});
+
+	it('restores the whole Film on undo and redo across Scene-scoped edits', async () => {
+		const snapshots = [snapshotOpenFilm()];
+		for (const request of [
+			() => renameRequest('Renamed'),
+			() => packRequest('clean-light'),
+			() => orientationRequest('vertical')
+		]) {
+			expectApplied(await runCompositionEditTransaction(request()));
+			snapshots.push(snapshotOpenFilm());
+		}
+		expect(new Set(snapshots).size).toBe(4);
+		expect(compositionEditHistory.revision).toBe(3);
+
+		for (const expected of [snapshots[2], snapshots[1], snapshots[0]]) {
+			expectApplied(runCompositionHistoryTransaction('undo', compositionEditHistory.revision));
+			expect(snapshotOpenFilm()).toBe(expected);
+		}
+		expect(presetBase.name).toBe('Blank');
+		expect(packState.slug).toBe('syntax');
+		expect(engineState.transport.orientation).toBe('horizontal');
+
+		for (const expected of [snapshots[1], snapshots[2], snapshots[3]]) {
+			expectApplied(runCompositionHistoryTransaction('redo', compositionEditHistory.revision));
+			expect(snapshotOpenFilm()).toBe(expected);
+		}
+		expect(compositionEditHistory.revision).toBe(9);
+	});
+
+	it('keeps the Scene id and origin a Scene-scoped edit never touches', async () => {
+		applyPreset(parsePresetIngress(blankPresetJson), { slug: 'blank', contentKey: 'abc123' });
+
+		expectApplied(await runCompositionEditTransaction(renameRequest('Renamed')));
+		expectApplied(runCompositionHistoryTransaction('undo', 1));
+
+		expect(readOpenFilm().scenes).toHaveLength(1);
+		expect(readOpenFilm().scenes[0].id).toBe(FILM_FIRST_SCENE_ID);
+		expect(readOpenFilm().scenes[0].origin).toEqual({ slug: 'blank', contentKey: 'abc123' });
+	});
+});
+
+describe('Film edit transaction', () => {
+	it('applies a Film-level edit as one revision and one undo entry', async () => {
+		const before = snapshotOpenFilm();
+		const invalidationsBefore = compositionAutosaveInvalidation.revision;
+
+		const receipt = expectApplied(
+			await runFilmEditTransaction({
+				operationId: 'composition.set-identity',
+				expectedRevision: 0,
+				undoLabel: 'Set Film name',
+				focus: { target: 'composition-root' },
+				mutate: (draft, context) => {
+					expect(context.selectedSceneId).toBe(FILM_FIRST_SCENE_ID);
+					draft.name = 'A Film';
+				}
+			})
+		);
+
+		expect(receipt.operationId).toBe('composition.set-identity');
+		expect(receipt.revision).toBe(1);
+		expect(receipt.changed).toEqual({ pointers: ['/name'], total: 1, truncated: false });
+		expect(receipt.undoLabel).toBe('Set Film name');
+		// Film pointers already name the Scenes they touch.
+		expect(receipt).not.toHaveProperty('sceneId');
+		expect(readOpenFilm().name).toBe('A Film');
+		expect(presetBase.name).toBe('A Film');
+		expect(compositionEditHistory.revision).toBe(1);
+		expect(compositionEditHistory.undoLabel).toBe('Set Film name');
+		expect(compositionEditHistory.editsSince(0)).toEqual([{ revision: 1, label: 'Set Film name' }]);
+		expect(compositionAutosaveInvalidation.revision).toBe(invalidationsBefore + 1);
+
+		expectApplied(runCompositionHistoryTransaction('undo', 1));
+		expect(snapshotOpenFilm()).toBe(before);
+		expect(compositionEditHistory.canUndo).toBe(false);
+	});
+
+	it('shares one history with Scene-scoped edits', async () => {
+		expectApplied(await runCompositionEditTransaction(orientationRequest('vertical')));
+		expectApplied(
+			await runFilmEditTransaction({
+				operationId: 'composition.set-identity',
+				expectedRevision: 1,
+				undoLabel: 'Set Film name',
+				focus: { target: 'composition-root' },
+				mutate: (draft) => {
+					draft.name = 'A Film';
+				}
+			})
+		);
+
+		expect(compositionEditHistory.revision).toBe(2);
+		expectApplied(runCompositionHistoryTransaction('undo', 2));
+		expect(readOpenFilm().name).toBe('Blank');
+		expect(readOpenFilm().orientation).toBe('vertical');
+		expectApplied(runCompositionHistoryTransaction('undo', 3));
+		expect(readOpenFilm().orientation).toBe('horizontal');
+	});
+
+	it('refuses a stale revision and applies nothing', async () => {
+		expectApplied(await runCompositionEditTransaction(renameRequest('First')));
+		const before = snapshotOpenFilm();
+
+		const failure = expectFailed(
+			await runFilmEditTransaction({
+				operationId: 'composition.set-identity',
+				expectedRevision: 0,
+				undoLabel: 'Set Film name',
+				focus: { target: 'composition-root' },
+				mutate: (draft) => {
+					draft.name = 'Second';
+				}
+			})
+		);
+
+		expect(failure.code).toBe('stale_revision');
+		expect(failure.revision).toBe(1);
+		expect(failure.movedSince).toEqual(['Set composition name']);
+		expect(snapshotOpenFilm()).toBe(before);
+		expect(compositionEditHistory.revision).toBe(1);
+	});
+
+	it('refuses a draft that is not a Film and leaves the open Film byte-identical', async () => {
+		const before = snapshotOpenFilm();
+
+		const failure = expectFailed(
+			await runFilmEditTransaction({
+				operationId: 'composition.set-identity',
+				expectedRevision: 0,
+				undoLabel: 'Duplicate Scene',
+				focus: { target: 'composition-root' },
+				mutate: (draft) => {
+					// Two Scenes with one id, and no boundary between them.
+					draft.scenes.push(draft.scenes[0]);
+				}
+			})
+		);
+
+		expect(failure.code).toBe('schema_invalid');
+		expect(failure.findings.findings.map((finding) => finding.path)).toEqual([
+			'/scenes/1/id',
+			'/boundaries'
+		]);
+		expect(snapshotOpenFilm()).toBe(before);
+		expect(compositionEditHistory.revision).toBe(0);
+	});
+
+	it('rejects a Film-level write no operation family owns', async () => {
+		const before = snapshotOpenFilm();
+
+		await expect(
+			runFilmEditTransaction({
+				operationId: 'composition.set-identity',
+				expectedRevision: 0,
+				undoLabel: 'Set Film name',
+				focus: { target: 'composition-root' },
+				mutate: (draft) => {
+					draft.scenes[0].state.transport.durationSeconds = 9;
+				}
+			})
+		).rejects.toThrow(/wrote outside its family/);
+
+		expect(snapshotOpenFilm()).toBe(before);
+	});
+
+	it('rejects a mutation that leaves a missing Scene selected', async () => {
+		await expect(
+			runFilmEditTransaction({
+				operationId: 'composition.set-identity',
+				expectedRevision: 0,
+				undoLabel: 'Set Film name',
+				focus: { target: 'composition-root' },
+				mutate: (draft, context) => {
+					draft.name = 'A Film';
+					context.selectedSceneId = 'scene-that-is-not-there';
+				}
+			})
+		).rejects.toThrow(/the edited Film does not hold/);
+
+		expect(readOpenFilm().name).toBe('Blank');
+		expect(filmState.selectedSceneId).toBe(FILM_FIRST_SCENE_ID);
 	});
 });
 

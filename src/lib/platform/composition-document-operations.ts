@@ -29,10 +29,9 @@ import {
 	boundCompositionFindings,
 	collectCompositionValidationFindings
 } from './composition-validation-findings';
-import { engineState, packState } from './engine-state.svelte';
+import { readOpenFilmAsSavedPreset } from './film-state.svelte';
 import { isPresetOpaque } from '../utils/output-classification';
-import { presetBase } from './preset-base.svelte';
-import { presetToWireFormat, serializeCompositionState } from './preset-pure';
+import { presetToWireFormat } from './preset-pure';
 import {
 	runCompositionEditTransaction,
 	type CompositionOperationOutcome
@@ -128,11 +127,6 @@ export type CompositionJsonExportOutcome =
 /** The catalog classifications `composition.set-identity` accepts. */
 export const COMPOSITION_KINDS: readonly Preset['kind'][] = ['deliverable', 'fixture'];
 
-/** The open composition as the standalone document every read here reports on. */
-function readOpenCompositionDocument(): Preset {
-	return serializeCompositionState(presetBase, engineState, packState.slug);
-}
-
 /**
  * The Layer tree an agent targets, in paint order. Marks are listed by index
  * because that is the identity `motion.set-mark-timing` and
@@ -193,7 +187,7 @@ export function runInspectCompositionOperation(): CompositionInspectionOutcome {
 	const refusal = refuseUnlessCompositionOpen(row);
 	if (refusal) return refusal;
 
-	const document = readOpenCompositionDocument();
+	const document = readOpenFilmAsSavedPreset();
 
 	return {
 		status: 'inspected',
@@ -233,7 +227,7 @@ export function runExportCompositionJsonOperation(): CompositionJsonExportOutcom
 	if (refusal) return refusal;
 
 	const revision = compositionEditHistory.revision;
-	const json = JSON.stringify(presetToWireFormat(readOpenCompositionDocument()));
+	const json = JSON.stringify(presetToWireFormat(readOpenFilmAsSavedPreset()));
 
 	if (json.length > WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET) {
 		return refuseCompositionOperation(

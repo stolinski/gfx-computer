@@ -8,6 +8,7 @@
 	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
+	import { filmState, readOpenFilmAsSavedPreset } from '$lib/platform/film-state.svelte';
 	import type { Preset } from '$lib/platform/engine-schema';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { collectPresetRendererRequirements } from '$lib/platform/pipelines/preset-renderer-requirements';
@@ -16,7 +17,6 @@
 	import { getPresetBySlug } from '$lib/platform/preset-catalog';
 	import { applyPreset } from '$lib/platform/preset';
 	import { presetBase } from '$lib/platform/preset-base.svelte';
-	import { serializeCompositionState } from '$lib/platform/preset-pure';
 	import { staleBuildRecovery } from '$lib/platform/stale-build-recovery-runtime';
 	import { userCompositionStore } from '$lib/platform/user-composition-store';
 	import { ensurePackLoaded } from '$lib/platform/user-pack-runtime';
@@ -45,8 +45,9 @@
 
 	// Snapshot taken immediately after applyPreset — used to detect the first
 	// real edit (anything different from a fresh load must be user input).
-	// `applyPreset` seeds both `engineState` and `presetBase`, so the snapshot
-	// covers composition and metadata edits alike.
+	// `applyPreset` opens the Preset as a one-Scene Film: it seeds `engineState`,
+	// `presetBase`, and `filmState`, so the snapshot covers composition,
+	// metadata, and Scene-list edits alike.
 	let loadSnapshot = '';
 	let appliedRouteKey = $state<string | null>(null);
 	let rendererLoadError = $state<string | null>(null);
@@ -132,7 +133,14 @@
 			const rendererBundle = await pipelineRendererRuntime.resolve(requirements);
 			if (!isCurrentLoad()) return;
 			pipelineRendererRuntime.activate(rendererBundle);
-			applyPreset(preset);
+			// The open document is a Film (ADR-0068 §8). A corpus Preset opens as an
+			// unsaved one-Scene Film that remembers its source; a stored composition
+			// arrives from the store as the Preset its record reads to, which does
+			// not say what it was seeded from.
+			applyPreset(
+				preset,
+				sessionComposition ? null : { slug: nextData.slug, contentKey: posterKeyForPreset(preset) }
+			);
 			resolutionStatus = 'ready';
 			// Only a User composition is captured on view; a library Preset's poster
 			// is a committed still (ADR-0061).
@@ -162,7 +170,8 @@
 		}
 	}
 
-	// Autosave: run on any change to engineState, presetBase, or pack.
+	// Autosave: run on any change to the open Film — engineState, presetBase,
+	// the pack, or filmState.
 	// Skips explicit built-in source mode, when state matches the post-load snapshot, and
 	// while the transition snapshot path is mid-capture — engineState is a
 	// scratch buffer holding a swapped-in from/to state during that window.
@@ -185,11 +194,8 @@
 		const capturedRouteKey = currentRouteKey;
 		const capturedIsUserComposition = activeIsUserComposition;
 		// Serialize before the debounce so this save cannot observe a later route's state.
-		const serializedUserComposition = serializeCompositionState(
-			presetBase,
-			engineState,
-			packState.slug
-		);
+		// Every writer still stores a Preset, so the open Film is saved as the one it is.
+		const serializedUserComposition = readOpenFilmAsSavedPreset();
 
 		const timer = setTimeout(() => {
 			if (!isCurrentAppliedRoute(capturedRouteKey)) return;
@@ -235,6 +241,8 @@
 			JSON.stringify(engineState) +
 			JSON.stringify(presetBase) +
 			packState.slug +
+			filmState.selectedSceneId +
+			JSON.stringify(filmState.scenes.map((scene) => scene.id)) +
 			compositionAutosaveInvalidation.revision
 		);
 	}
@@ -283,7 +291,10 @@
 				return;
 			}
 			pipelineRendererRuntime.activate(rendererBundle);
-			applyPreset(corpusPreset);
+			applyPreset(corpusPreset, {
+				slug: currentSlug,
+				contentKey: posterKeyForPreset(corpusPreset)
+			});
 			posterKey = null;
 			activeIsUserComposition = false;
 			loadSnapshot = snapshotState();

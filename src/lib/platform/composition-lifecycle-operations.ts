@@ -43,6 +43,7 @@ import { createCompositionSessionSlug } from '../utils/composition-session-slug'
 import { ensureCompositionRenderersLoaded } from './composition-renderer-readiness';
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
 import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
+import { posterKeyForPreset } from './posters';
 import { PresetIngressSchema, readCompositionLegacyUpgrades } from './preset-ingress';
 import { isUserCompositionNotHeldError } from './user-composition-store-errors';
 import { userCompositionStore } from './user-composition-store';
@@ -54,6 +55,7 @@ import type {
 } from './composition-validation-findings';
 import type { CompositionLegacyUpgrade } from './preset-ingress';
 import type { Preset } from './engine-schema';
+import type { FilmSceneOrigin } from './film-schema';
 import type { WebmcpOperationFocusTarget, WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** The corpus Preset the blank composition is cut from. */
@@ -156,8 +158,11 @@ async function refuseUnloadableCompositionRenderers(
 }
 
 /**
- * Put `preset` in engine state as the open composition and record where it came
- * from. `applyPreset` clears the shared history, so the revision restarts here.
+ * Open `preset` as a one-Scene Film and record where it came from.
+ * `applyPreset` clears the shared history, so the revision restarts here.
+ * `sceneOrigin` is the catalogue Preset the Scene was seeded from
+ * (ADR-0068 §2), or `null` for a blank or imported composition and for a
+ * stored one, whose source the store does not hand back with its Preset.
  */
 function openCompositionDocument(
 	row: WebmcpOperationRow,
@@ -165,9 +170,10 @@ function openCompositionDocument(
 	preset: Preset,
 	forkedFrom: string | null,
 	isSessionComposition: boolean,
+	sceneOrigin: FilmSceneOrigin | null,
 	legacyUpgrades: readonly CompositionLegacyUpgrade[] = []
 ): CompositionLifecycleReceipt {
-	applyPreset(preset);
+	applyPreset(preset, sceneOrigin);
 	compositionMeta.isUserComposition = isSessionComposition;
 	compositionMeta.userCompositionSlug = slug;
 	compositionMeta.forkedFrom = forkedFrom;
@@ -215,7 +221,15 @@ async function forkCompositionIntoSession(
 		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
-	return openCompositionDocument(row, slug, preset, forkedFrom, true, legacyUpgrades);
+	return openCompositionDocument(
+		row,
+		slug,
+		preset,
+		forkedFrom,
+		true,
+		forkedFrom === null ? null : { slug: forkedFrom, contentKey: posterKeyForPreset(preset) },
+		legacyUpgrades
+	);
 }
 
 /** Create a composition from the blank Preset and open it for editing. */
@@ -282,7 +296,7 @@ export async function runOpenCompositionOperation(
 	if (sessionComposition) {
 		const rendererRefusal = await refuseUnloadableCompositionRenderers(row, sessionComposition);
 		if (rendererRefusal) return rendererRefusal;
-		return openCompositionDocument(row, request.slug, sessionComposition, null, true);
+		return openCompositionDocument(row, request.slug, sessionComposition, null, true, null);
 	}
 
 	const starter = findStarterTemplate(request.slug);
@@ -301,7 +315,10 @@ export async function runOpenCompositionOperation(
 
 	// Read-only until the first edit forks it, so nothing is written here and
 	// there is no fork to revert to yet.
-	return openCompositionDocument(row, request.slug, starter, null, false);
+	return openCompositionDocument(row, request.slug, starter, null, false, {
+		slug: request.slug,
+		contentKey: posterKeyForPreset(starter)
+	});
 }
 
 /** The composition pointer prefix every Media finding lands under. */
@@ -445,5 +462,8 @@ export async function runRevertCompositionToStarterOperation(
 		}
 	}
 
-	return openCompositionDocument(row, starterSlug, starter, null, false);
+	return openCompositionDocument(row, starterSlug, starter, null, false, {
+		slug: starterSlug,
+		contentKey: posterKeyForPreset(starter)
+	});
 }
