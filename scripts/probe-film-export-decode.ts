@@ -605,6 +605,9 @@ async function main(): Promise<void> {
 	const scratchDirectory = join(jail.root, 'exports');
 	await mkdir(scratchDirectory, { recursive: true });
 	await mkdir(jail.compositionStoreDirectory, { recursive: true });
+	// The export session store creates each session's work directory inside
+	// this one and never the directory itself.
+	await mkdir(jail.exportTemporaryDirectory, { recursive: true });
 	for (const exportCase of cases) {
 		await writeStoredFilm(jail.compositionStoreDirectory, exportCase);
 	}
