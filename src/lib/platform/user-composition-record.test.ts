@@ -5,6 +5,7 @@ import { describe, it } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 import transitionWipeDemoPresetJson from '$lib/presets/transition-wipe-demo.json';
 
+import { filmDocumentFromCorpusStarters } from './film-corpus-scenes.fixture';
 import {
 	filmFromPreset,
 	filmToWireFormat,
@@ -31,6 +32,7 @@ import {
 import { STORED_USER_COMPOSITION_RECORD_FIXTURES } from './user-composition-record.fixture';
 
 import type { Preset } from './engine-schema';
+import type { UserCompositionDocument } from './user-composition-record';
 
 const META = { forkedFrom: null, savedAt: '2026-10-01T12:00:00.000Z' };
 
@@ -299,6 +301,80 @@ describe('userCompositionWriteShape', () => {
 				(cause) => isStoredUserCompositionRecordError(cause) && cause.code === 'not_a_stored_record'
 			);
 		}
+	});
+});
+
+// ADR-0061, ADR-0068 §3: a Film's card shows its first Scene, so its poster is
+// keyed by that Scene as the Preset it would be alone.
+describe('the poster key of a Film of several Scenes', () => {
+	const STARTER_SLUGS = ['lower-third', 'captions-karaoke', 'gdp-bar-race'];
+
+	function posterKeyOf(document: UserCompositionDocument): string {
+		return posterKeyForPreset(storedPresetViewOfUserComposition(document));
+	}
+
+	it('is the same for the same Film, however many times it is read', () => {
+		assert.equal(
+			posterKeyOf(filmDocumentFromCorpusStarters(STARTER_SLUGS)),
+			posterKeyOf(filmDocumentFromCorpusStarters(STARTER_SLUGS))
+		);
+	});
+
+	it('does not change when a later Scene is edited, renamed, added, removed, or moved', () => {
+		const film = filmDocumentFromCorpusStarters(STARTER_SLUGS);
+		const key = posterKeyOf(film);
+
+		const laterSceneEdited = structuredClone(film);
+		laterSceneEdited.film.scenes[1].state.transport.durationSeconds += 1;
+		laterSceneEdited.film.scenes[2].name = 'Renamed';
+		assert.equal(posterKeyOf(laterSceneEdited), key);
+
+		assert.equal(posterKeyOf(filmDocumentFromCorpusStarters(STARTER_SLUGS.slice(0, 1))), key);
+		assert.equal(
+			posterKeyOf(
+				filmDocumentFromCorpusStarters([STARTER_SLUGS[0], STARTER_SLUGS[2], STARTER_SLUGS[1]])
+			),
+			key
+		);
+	});
+
+	it('does not change when the first Scene is renamed', () => {
+		const film = filmDocumentFromCorpusStarters(STARTER_SLUGS);
+		const renamed = structuredClone(film);
+		renamed.film.scenes[0].name = 'Opening';
+
+		assert.equal(posterKeyOf(renamed), posterKeyOf(film));
+	});
+
+	it('changes when the first Scene is edited, or another Scene becomes the first', () => {
+		const film = filmDocumentFromCorpusStarters(STARTER_SLUGS);
+		const key = posterKeyOf(film);
+
+		const firstSceneEdited = structuredClone(film);
+		firstSceneEdited.film.scenes[0].state.transport.durationSeconds += 1;
+		assert.notEqual(posterKeyOf(firstSceneEdited), key);
+
+		assert.notEqual(
+			posterKeyOf(
+				filmDocumentFromCorpusStarters([STARTER_SLUGS[1], STARTER_SLUGS[0], STARTER_SLUGS[2]])
+			),
+			key
+		);
+	});
+
+	// The key is the key of a whole Preset (`posterKeyForPreset`), so the fields a
+	// Film states once for every Scene are part of it, as they are for a Preset.
+	it('changes when the Film is renamed or takes another Pack', () => {
+		const film = filmDocumentFromCorpusStarters(STARTER_SLUGS);
+		const key = posterKeyOf(film);
+
+		const renamed = structuredClone(film);
+		renamed.film.name = 'Another name';
+		assert.notEqual(posterKeyOf(renamed), key);
+
+		const otherPack = structuredClone(film);
+		otherPack.film.pack = `${film.film.pack}-other`;
+		assert.notEqual(posterKeyOf(otherPack), key);
 	});
 });
 

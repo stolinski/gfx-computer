@@ -4,6 +4,8 @@
 
 **Canon (built 2026-09-03).** Amends [ADR-0034](0034-gui-design-authoring-interface.md) §8 (the Preset picker shows each composition as itself) and [ADR-0052](0052-public-runtime-and-retention-architecture.md) (the public homepage carries committed poster URLs, never poster keys). Replaces the capture-on-view poster cache as the source of a library Preset's poster; capture-on-view remains for User compositions.
 
+**Note, 2026-10-09 ([ADR-0068](0068-films-scenes-and-live-scene-boundaries.md)).** A User composition is now a Film. Its poster is its first Scene: the content key is that Scene as the Preset it would be alone, so decision 5 holds unchanged for a one-Scene Film and an edit to a later Scene keeps the poster. The Workspace captures only while the first Scene is the open one and never opens it to take the picture.
+
 Date: 2026-09-03
 
 Builds on: [ADR-0034](0034-gui-design-authoring-interface.md) (the picker as the home screen), [ADR-0039](0039-pack-neutral-compositions-and-listing-hygiene.md) (deliverables are listed, fixtures are demoted), [ADR-0052](0052-public-runtime-and-retention-architecture.md) (the hosted origin keeps nothing), [ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md) (`transport.set-timing` is the one write to `/state/transport`)

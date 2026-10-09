@@ -49,6 +49,8 @@ scrubbed preview and an exported file show the same pixels at the same moment.
 - [Glossary](CONTEXT.md) — Preset, Layer, Pack, Role, Pipeline, and the rest of the
   vocabulary, defined once.
 - [Preset format](preset-format.md) — the `gfx@1` JSON contract, field by field.
+- [Film format](film-format.md) — the `gfx-film@1` JSON contract: Scenes in order, each one
+  Preset's state, with a cut between them.
 
 ## Packs
 

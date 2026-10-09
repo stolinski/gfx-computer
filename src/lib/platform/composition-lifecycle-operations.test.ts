@@ -3,11 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { ACCEPTED_COMPOSITION_SCHEMA_IDS } from '../utils/legacy-supers-compatibility';
-import { CompositionSessionStorageError } from './browser-user-composition-store';
+import {
+	CompositionSessionStorageError,
+	createBrowserUserCompositionStore
+} from './browser-user-composition-store';
 import { runSetCompositionIdentityOperation } from './composition-document-operations';
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
+import { filmDocumentFromCorpusStarters } from './film-corpus-scenes.fixture';
 import { PRESET_SCHEMA_ID } from './engine-schema';
 import {
 	FILM_FIRST_SCENE_ID,
@@ -28,6 +32,7 @@ import { applyPreset } from './preset';
 import { getPresetBySlug } from './preset-catalog';
 import { parsePresetIngress } from './preset-ingress';
 import { presetBase } from './preset-base.svelte';
+import { PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS } from './public-runtime-contract';
 import {
 	BLANK_COMPOSITION_NAME,
 	listStarterTemplateSlugs,
@@ -787,6 +792,67 @@ describe('adding the open Starter to a stored Film', () => {
 		expect(compositionMeta.isUserComposition).toBe(false);
 		expect(compositionMeta.userCompositionSlug).toBe(STARTER_SLUG);
 		expect(presetBase.name).toBe(starter.name);
+		expect(filmState.scenes).toHaveLength(1);
+	});
+
+	// ADR-0068 §9: a Public demo session holds Films under the limits it already
+	// had. The real browser-scoped store stands behind the operation here, under
+	// the ratified limits, holding a Film one Scene short of what one composition
+	// may occupy.
+	it('reports the Scene that takes a Film past one composition’s limit as a bounded failure', async () => {
+		const DENSE_STARTER_SLUG = 'kinetic-type-field';
+		const entries = new Map<string, string>();
+		const browserStore = createBrowserUserCompositionStore({
+			resolveStorage: () => ({
+				get length() {
+					return entries.size;
+				},
+				key: (index) => [...entries.keys()][index] ?? null,
+				getItem: (key) => entries.get(key) ?? null,
+				setItem: (key, value) => void entries.set(key, value),
+				removeItem: (key) => void entries.delete(key),
+				clear: () => entries.clear()
+			}),
+			storageIdentity: 'gfx-composition-session@1',
+			limits: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
+			isStarterSlug: (slug) => getPresetBySlug(slug) !== null
+		});
+		// The longest Film of this Starter the store accepts.
+		let sceneCount = 80;
+		for (;;) {
+			const film = filmDocumentFromCorpusStarters(
+				Array<string>(sceneCount).fill(DENSE_STARTER_SLUG)
+			);
+			const refusal = await browserStore.createUserComposition(FILM_SLUG, film).catch((e) => e);
+			if (refusal === undefined) break;
+			expect(refusal).toBeInstanceOf(CompositionSessionStorageError);
+			sceneCount -= 1;
+		}
+		const storedRecord = entries.get(`gfx-composition-session@1:${FILM_SLUG}`);
+		sessionStore.listUserCompositions.mockImplementation(() => browserStore.listUserCompositions());
+		sessionStore.loadUserComposition.mockImplementation((slug) =>
+			browserStore.loadUserComposition(slug)
+		);
+		sessionStore.saveUserComposition.mockImplementation((slug, document) =>
+			browserStore.saveUserComposition(slug, document)
+		);
+		expectApplied(await runOpenCompositionOperation({ slug: DENSE_STARTER_SLUG }));
+
+		const failure = expectFailed(
+			await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG })
+		);
+
+		expect(failure.code).toBe('limit_exceeded');
+		expect(failure.operationId).toBe('composition.add-open-to-film');
+		expect(failure.message).toContain(
+			`one composition may occupy ${PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxCompositionBytes}`
+		);
+		expect(failure.message.length).toBeLessThan(400);
+		expect(failure.findings).toEqual({ findings: [], total: 0, truncated: false });
+		// The stored Film is untouched and the Starter is still open and unsaved.
+		expect(entries.get(`gfx-composition-session@1:${FILM_SLUG}`)).toBe(storedRecord);
+		expect(compositionMeta.isUserComposition).toBe(false);
+		expect(compositionMeta.userCompositionSlug).toBe(DENSE_STARTER_SLUG);
 		expect(filmState.scenes).toHaveLength(1);
 	});
 });

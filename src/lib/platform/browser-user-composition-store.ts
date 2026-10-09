@@ -256,8 +256,8 @@ export function createBrowserUserCompositionStore(
 		if (!stored) return null;
 
 		// Either shape reads as a Film through the reader the disk store shares
-		// (ADR-0068 §3). A record that does not survive is dropped, which includes
-		// a Film of more than one Scene: this build opens one-Scene Films.
+		// (ADR-0068 §3), with every Scene it holds. A record that does not survive
+		// is dropped.
 		const meta = { forkedFrom: stored.forkedFrom ?? null, savedAt: stored.savedAt };
 		let document: UserCompositionDocument;
 		let legacyPreset: Preset | null = null;

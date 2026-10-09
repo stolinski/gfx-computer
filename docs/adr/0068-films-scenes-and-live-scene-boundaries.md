@@ -2,9 +2,25 @@
 
 ## Status
 
-**Designed, not built — phase 1 in progress: schema, readers, open document, writers, hard-cut playback, the Scene operations, the Scene strip, and whole-Film export landed** (planned 2026-10-08 with Scott; Dex epic `70u0qn13`). Built: §1–2, §3's first two points (fork-on-edit is gone and both stores write Films) with adding the open document to an existing Film, §4's hard cut (a Film of several Scenes opens, any Scene can be selected, play and scrub run through every Scene with a cut at each boundary, and export renders every Scene with an awaited cut), §8's transaction core and its `composition` Scene operations, and §10's Scene strip. The rest of this record is not engine truth until its phase lands. Until then the frozen-endpoint transitions of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md) remain current, and a stored document that carries a two-endpoint `transition` keeps the legacy Preset record shape.
+**Canon for phase 1, built 2026-10-09: Films of Scenes with hard cuts. Phases 2–7 are designed, not built.** Planned 2026-10-08 with Scott; Dex epic `70u0qn13`.
 
-One thing differs from §3 as written. Shadow records an older build left in a disk store are re-keyed by a one-time script, `scripts/migrate-user-composition-shadow-records.ts`, not at runtime.
+| Section            | Built in phase 1                                                                                                                                             | Designed, not built                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| §1 Film            | The `gfx-film@1` format, its validation, and its frame maths. A Film is the open document and the only thing either store writes.                            | `score`.                                                                                            |
+| §2 Scene           | Owned copies with a recorded `origin` and an optional `name`; Film time in frames; whole-Film export.                                                        | Nothing.                                                                                            |
+| §3 Forking retires | Fork-on-edit, shadowing, `?source=builtin`, and revert-to-starter are gone. A corpus Preset's page never saves. New Film and Add to Film make a Film.        | Reading a transition Preset as a two-Scene Film. It waits for §4.                                   |
+| §4 Scene boundary  | The hard cut, in preview and in export.                                                                                                                      | Fade, the transition effects, the per-frame swap inside a window, and two mounted Scene trees.      |
+| §5 Magic move      | Nothing.                                                                                                                                                     | All of it.                                                                                          |
+| §6 Score, §7 Hits  | Nothing.                                                                                                                                                     | All of it.                                                                                          |
+| §8 Operations      | Five Scene operations in `composition`; `sceneId` in Scene-scoped receipts; one revision and one undo history for the Film; selection advances the revision. | Boundary operations; the `sound` rows for the Score; the `motion` rows for Hit reactions and pairs. |
+| §9 Length          | 600 seconds on a `development` host, for picture and sound; 15 seconds on `public` and `hosted`; Films in the browser store under its existing limits.       | Nothing.                                                                                            |
+| §10 Workspace      | The Scene strip, the Starter picker, and the Add to Film menu.                                                                                               | Boundaries shown as more than a line; the arrangement, the step grid, and the pattern editor.       |
+
+The phases, in order: 1 Film and hard cuts (built); 2 live Scene boundaries; 3 magic move; 4 the Score; 5 Hit reactions; 6 real-time boundary preview with two mounted Scene trees; 7 the proof, a 60-second launch Film in both orientations. A section that phase 1 did not build is not engine truth until its phase lands. Until then the frozen-endpoint transitions of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md) remain current, and a stored document that carries a two-endpoint `transition` keeps the legacy Preset record shape.
+
+Current descriptions of what is built: [`../film-format.md`](../film-format.md) for the format and the stored record, [`../engine-architecture.md`](../engine-architecture.md#the-open-document-is-a-film) for the engine, and [`../user-composition-workflows.md`](../user-composition-workflows.md) for what an author and an agent do. The notes below record how phase 1 was built where this record did not say, and the list after them records each decision Scott changed along the way.
+
+One thing differs from §3 as written. Shadow records an older build left in a disk store are re-keyed by a one-time script, `scripts/migrate-user-composition-shadow-records.ts`, not at runtime. A shadow record in a browser-scoped store is not migrated: it stays listed and can be deleted, its card opens the corpus Preset, and the store will not save over it.
 
 Three notes on the cut as built (2026-10-09). Selecting a Scene is `composition.select-scene`, over the platform function `selectOpenFilmScene`; §8 says what selection does to the revision. Film time is not stored; it is read from the selected Scene and the Timeline's Scene time. A cut in live preview holds play while the incoming Scene mounts and settles, so playback is not real time across a cut; a paused frame is exact, and `scripts/cdp-film-cut-frames.mjs` is the check. _Export rendered the selected Scene only until 2026-10-09; see the export note below._
 
@@ -27,11 +43,34 @@ The Scene operations and the Scene strip as built (2026-10-09, look chosen by Sc
 - **The `+` picker is visual.** Scott, 2026-10-09: "since presets are so visual we need a way to represent that". It shows the Starters as the home library's poster cards with one search field.
 - **Not built from §8 and §10:** `sound` and `motion` rows for the Score, Hit reactions, and magic-move pairs; boundaries shown in the strip as anything but the line between two segments; the arrangement, step grid, and pattern editor.
 
+Posters and the browser store as built (2026-10-09).
+
+- **A Film's poster is its first Scene.** The content key is that Scene as the Preset it would be alone ([ADR-0061](0061-committed-composition-posters.md)), so an edit to a later Scene keeps the poster. The Workspace captures it only while the first Scene is the open one. It never opens the first Scene to take the picture.
+- **The browser store's limits did not change (§9).** A 12-Scene Film of real Starters measures about 147 kB of the 1 MiB one composition may occupy. The store refuses a Film past the limit when it is saved, as `limit_exceeded`, and no ceiling on the number of Scenes was added.
+
+### Decisions changed during the build
+
+Each of these changed or settled what this record said when it was planned. The sections below are worded as decided now; where a sentence was replaced, it says so in place.
+
+- **2026-10-09, §3 — a built-in Preset's page never saves.** As planned, the first edit to an opened corpus Preset created the Film. Scott: "we don't want modifications of presets to trigger new films now that a film is several presets"; for a built-in Preset, "try freely, add to film or create new film from changes".
+- **2026-10-09, §3 — a Film is made on purpose.** **New Film** stores the open document as a new Film, and **Add to Film** adds it to a stored Film as that Film's last Scene. Nothing else creates one from a Preset's page.
+- **2026-10-09, §3 — `?source=builtin` is deleted.** `/p/<corpus-slug>` always shows the corpus Preset, so the route takes no source parameter.
+- **2026-10-09, §3 — shadow records are migrated once, by a script.** Not at runtime, and only in a disk store. Shadow copies in a browser session are ignored.
+- **2026-10-09, §8 — selecting a Scene advances the Composition revision and records no undo entry.**
+- **2026-10-09, §8 — a Scene-scoped receipt names its Scene in `sceneId`.** Its pointers stay relative to the Scene.
+- **2026-10-09, §8 — five Scene operations, all in `composition`, all core tools.** They did not fit the WebMCP ceilings, so the core ceiling rose from 20 to 23 and the disclosed ceiling from 37 to 42 ([ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md), amended the same day).
+- **2026-10-09, §1 — a Scene has an optional `name`.** A Scene made from a corpus Preset takes the Preset's name.
+- **2026-10-08 and 2026-10-09, §9 — the `development` profile's 600 seconds is a profile of its own, and covers sound.** The profile's limits landed on 2026-10-08. On 2026-10-09 the audio bed became an upload in ordered parts, and the finished file a stream to disk instead of a Blob held in the page ([ADR-0052](0052-public-runtime-and-retention-architecture.md), amended on each date).
+- **2026-10-09, §10 — the Starter picker is visual.** Scott: "since presets are so visual we need a way to represent that".
+- **2026-10-09, §10 — Add to Film is one menu.** New Film is its first entry and each stored Film follows, so an unsaved Starter's top bar has one action.
+
 Date: 2026-10-08
 
 Builds on: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one Preset engine), [ADR-0033](0033-sound-design-motion-emitted-cues.md) (deterministic mix), [ADR-0039](0039-pack-neutral-compositions-and-listing-hygiene.md) (both orientations, Pack-neutral), [ADR-0046](0046-seekable-simulation-and-deformation-families.md) (typed transition effects), [ADR-0053](0053-gfx-namespace-and-legacy-supers-compatibility.md) (legacy readers before writers), [ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md) (operations), [ADR-0064](0064-kinetic-type-word-fields.md) (Motion Beats)
 
-Supersedes when built: [ADR-0032](0032-gui-agent-parity-authoring.md) §3–4 (fork-on-edit, the User composition as a standalone Preset), the two-endpoint form of [ADR-0022](0022-multi-state-composition.md), and the frozen endpoints of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md)
+Supersedes: [ADR-0032](0032-gui-agent-parity-authoring.md) §3–4 (fork-on-edit, the User composition as a standalone Preset), since phase 1 on 2026-10-09
+
+Supersedes when built: the two-endpoint form of [ADR-0022](0022-multi-state-composition.md) and the frozen endpoints of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md), with phase 2
 
 Depends on: [ADR-0069](0069-strudel-score-ships-in-local-builds-only.md) (the Score is an internal tool; GFX is not relicensed)
 
@@ -60,7 +99,7 @@ A **Film** is an ordered list of **Scenes**, a **Scene boundary** between each p
 - `name`, `description?`
 - `pack`: one Pack for the whole Film
 - `orientation`, `fps`, `format`: one transport for the whole Film, stamped into each Scene's transport at ingress so `EngineStateSchema` does not change
-- `scenes[]`: `{ id, origin, state }`
+- `scenes[]`: `{ id, name?, origin, state }` (`name` added 2026-10-09)
 - `boundaries[]`: one entry per pair of neighbours
 - `score?` (§6)
 
@@ -78,7 +117,7 @@ Scenes play strictly in order. Two Scenes share the frame only inside a boundary
 
 ### 3. Forking and the two-endpoint transition Preset retire
 
-- **Fork-on-edit goes, and a Preset's page never saves.** Opening a corpus Preset and editing it changes only the open document: undo, redo, and revisions work, nothing is stored, and leaving the page discards the changes. A Film is made on purpose, by one operation that stores the open document, edits included, as a new Film under a new slug with that Preset as its one Scene. Shadowing a Starter under its own slug, `?source=builtin`, and revert-to-starter all go, together with their operation rows, tools, and GUI. _Changed by Scott on 2026-10-09. This bullet first said the first edit to an opened corpus Preset creates the Film. His reason: "we don't want modifications of presets to trigger new films now that a film is several presets"; for a built-in Preset, "try freely, add to film or create new film from changes". Adding the open document to an existing Film belongs to the Scene operations (§8) and is not built._
+- **Fork-on-edit goes, and a Preset's page never saves.** Opening a corpus Preset and editing it changes only the open document: undo, redo, and revisions work, nothing is stored, and leaving the page discards the changes. A Film is made on purpose, by one operation that stores the open document, edits included, as a new Film under a new slug with that Preset as its one Scene. Shadowing a Starter under its own slug, `?source=builtin`, and revert-to-starter all go, together with their operation rows, tools, and GUI. Shadow records an older build stored in a disk store are re-keyed once, by a script; shadow copies in a browser session are ignored. _Changed by Scott on 2026-10-09. This bullet first said the first edit to an opened corpus Preset creates the Film. His reason: "we don't want modifications of presets to trigger new films now that a film is several presets"; for a built-in Preset, "try freely, add to film or create new film from changes". Adding the open document to an existing Film is `composition.add-open-to-film` (§8), built the same day._
 - **User compositions become Films.** Both stores (disk and browser) read the old `{ meta, preset }` record and the new `{ meta, film }` record, and lift an old record to a one-Scene Film. Readers ship before writers (ADR-0053). Writers then emit Films only.
 - **Transition Presets become two-Scene Films.** The top-level `transition { from, to, effect, durationMs, params }` form is read as a two-Scene Film with one boundary. This waits for §4, because under hard cuts the effect would be lost.
 - **Corpus Presets do not change.** A Preset under `src/lib/presets/` stays a single Preset with its checks, matrix lanes, and committed poster. It is the catalogue a Film draws Scenes from.
@@ -132,7 +171,7 @@ A **Hit reaction** binds a Hit lane to an animatable channel of one element: on 
 
 Films add no sixteenth operation family.
 
-- `composition` owns Scene membership (`/scenes`: add from a Starter, remove, reorder, select) and boundaries (`/boundaries`).
+- `composition` owns Scene membership (`/scenes`: add from a Starter, remove, reorder, select) and boundaries (`/boundaries`). _Built 2026-10-09 as five rows, all core tools: `composition.add-scene-from-starter`, `remove-scene`, `reorder-scene`, `select-scene`, and `add-open-to-film`. The WebMCP ceilings rose to 23 core and 42 disclosed tools to hold them (ADR-0054). No operation edits a boundary yet: every boundary is a cut._
 - Existing operations keep their `/state/...` pointers and act on the selected Scene. A receipt for a Scene-scoped change names that Scene in one added field, `sceneId`, and its pointers stay relative to the Scene; they are not prefixed. A receipt for a Film-level change (Scene membership, boundaries) names Film pointers and has no `sceneId`.
 - `sound` owns the Score. `motion` owns Hit reactions and magic-move pairs.
 - One **Composition revision** and one undo history cover the whole Film.
@@ -142,13 +181,13 @@ Every new capability lands with its inventory row and its GUI surface together (
 
 ### 9. Length and profiles
 
-- The local development profile gets its own export limit of 600 seconds, the schema's existing ceiling for one composition, applied to a whole Film.
+- The local development profile gets its own export limit of 600 seconds, the schema's existing ceiling for one composition, applied to a whole Film. _Built 2026-10-08 and 2026-10-09: the limit covers picture and sound, the audio bed is uploaded in ordered parts, and the finished file is streamed to disk (ADR-0052)._
 - The `public` and `hosted` profiles keep 15 seconds. Films are local-first. Raising a hosted limit is a later decision made from measured browser export times.
-- A Public demo session holds Films in the browser store with the same storage limits it has today.
+- A Public demo session holds Films in the browser store with the same storage limits it has today. _Confirmed 2026-10-09: 4 MiB a session and 1 MiB a composition, unchanged, with no ceiling on the number of Scenes._
 
 ### 10. What the Workspace shows
 
-- A **Scene strip**: the Scenes in order, the selected one open for editing in the existing Timeline, the boundaries between them.
+- A **Scene strip**: the Scenes in order, the selected one open for editing in the existing Timeline, the boundaries between them. _Built 2026-10-09: a row between the transport and the Timeline of a stored Film, one segment per Scene, each as wide as its share of the Film's frames; a cut is the line between two segments. Its `+` opens a visual picker of the Starters, shown as the home library's poster cards. An unsaved Starter has no strip; its top bar has one action, the **Add to Film** menu._
 - With a Score: an **arrangement** of sections and bars with the Scenes laid against it, and a **step grid** of the Hit lanes for the bar under the playhead.
 - A code editor for the pattern.
 

@@ -78,7 +78,7 @@
 		seekOpenFilmFrame,
 		stepOpenFilmFrames
 	} from './film-scene-selection';
-	import { readOpenFilm } from './film-state.svelte';
+	import { isOpenFilmShowingPosterScene, readOpenFilm } from './film-state.svelte';
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import {
 		COMPOSITION_EXPORT_FORMAT_LABELS,
@@ -237,12 +237,22 @@
 	// stills rendered by `pnpm capture:posters` (ADR-0061). Nothing is captured
 	// while an export runs: the canvas then holds whichever Scene and frame the
 	// export is on, not the open Film at rest. The capture starts again when the
-	// export ends.
+	// export ends. Nothing is captured while a Scene other than the Film's first
+	// is open either: the key is the first Scene's, so the still must be too
+	// (`isOpenFilmShowingPosterScene`). Selecting another Scene stops a capture
+	// that has not stored yet, and opening the first Scene starts one.
 	$effect(() => {
 		const key = posterKey;
 		const localCanvas = canvas;
 		const localCompositionElement = compositionElement;
-		if (!key || !localCanvas || !host || !localCompositionElement || isExporting) {
+		if (
+			!key ||
+			!localCanvas ||
+			!host ||
+			!localCompositionElement ||
+			isExporting ||
+			!isOpenFilmShowingPosterScene()
+		) {
 			posterCaptureController.update(null);
 			return;
 		}

@@ -4,7 +4,7 @@
 
 **Canon.** Fork/autosave persistence, create-from-blank, schema coverage, the three-zone authoring interface, standalone interchange, GUI validation/verification, shared agent store access, and deterministic automated rendering are shipped. Operational workflows are documented in [`user-composition-workflows.md`](../user-composition-workflows.md).
 
-**§3–4 superseded for the fork model by [ADR-0068](0068-films-scenes-and-live-scene-boundaries.md) §3 (2026-10-08).** A User composition is now a Film stored under its own slug. Fork-on-edit, shadowing a Starter under its slug, and revert-to-starter are gone. The rest of this record stands.
+**§3–4 superseded by [ADR-0068](0068-films-scenes-and-live-scene-boundaries.md) phase 1 (2026-10-09).** Fork-on-edit (§3), revert as discarding the fork (§4), and the User composition as a standalone Preset are gone. A User composition is now a Film stored under its own slug, made on purpose with **New Film** or **Add to Film**; a corpus Preset's page never saves; and nothing is stored under a Starter's slug. The stores began writing Films on 2026-10-08, and the supersession was complete when phase 1 closed. The rest of this record stands; where §2, §5, or §6 says "fork", read "a Scene of a Film seeded from a Starter template".
 
 Date: 2026-06-26
 Relates to: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one preset engine), [ADR-0014](0014-pack-preset-split.md) / [ADR-0023](0023-pack-is-appearance-only.md) (Pack/Preset split, appearance-only), [ADR-0004](0004-recipe-cookbook-over-schema-chrome.md) (Starter templates), [ADR-0025](0025-static-linter-checks-safety-and-readability-only.md) (linter scope)
