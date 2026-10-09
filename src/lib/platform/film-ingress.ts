@@ -155,6 +155,27 @@ export function filmFromPreset(preset: Preset, origin: FilmSceneOrigin | null): 
 }
 
 /**
+ * The one-Scene Film a corpus Preset opens as, and a Starter is stored as:
+ * `filmFromPreset`, with the Scene named for the Preset. The Film's name can
+ * change afterwards; the Scene keeps the name of what it was seeded from.
+ *
+ * A legacy stored record is lifted with `filmFromPreset` itself and gains no
+ * Scene name: reading a record never rewrites it.
+ */
+export function filmFromCorpusPreset(preset: Preset, origin: FilmSceneOrigin): Film {
+	const film = filmFromPreset(preset, origin);
+	return {
+		...film,
+		scenes: film.scenes.map((scene) => ({
+			id: scene.id,
+			name: preset.name,
+			origin: scene.origin,
+			state: scene.state
+		}))
+	};
+}
+
+/**
  * One Scene of a Film as the Preset it would be alone: the Film's name,
  * description, and Pack around a copy of the Scene's state under the Film's
  * transport. The inverse of `filmFromPreset` for that Scene.

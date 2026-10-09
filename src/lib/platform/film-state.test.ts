@@ -2,8 +2,19 @@ import { describe, expect, it } from 'vitest';
 
 import { compositionEditHistory } from './composition-edit-history';
 import { engineState, packState, transitionState } from './engine-state.svelte';
-import { FILM_FIRST_SCENE_ID, filmToWireFormat, parseFilmIngress } from './film-ingress';
-import { filmState, readOpenFilm, readOpenFilmAsSavedPreset } from './film-state.svelte';
+import {
+	FILM_FIRST_SCENE_ID,
+	filmFromCorpusPreset,
+	filmToWireFormat,
+	parseFilmIngress
+} from './film-ingress';
+import {
+	filmState,
+	readOpenFilm,
+	readOpenFilmAsSavedPreset,
+	readOpenFilmAsUserCompositionDocument,
+	readOpenFilmDocumentSelectingScene
+} from './film-state.svelte';
 import { legacyPresetEnvelopeFromPreset } from './open-film-document';
 import { posterKeyForPreset } from './posters';
 import { applyFilm, applyPreset } from './preset';
@@ -127,6 +138,44 @@ describe('opening a stored record as its Film', () => {
 		const saved = readOpenFilmAsSavedPreset();
 		expect(wireJson(saved)).toBe(wireJson(serializeLiveStateAsPreset()));
 		expect(posterKeyForPreset(saved)).toBe(posterKeyForPreset(preset));
+	});
+
+	it('holds each Scene name through selection, and leaves an unnamed Scene unnamed', () => {
+		const preset = requireCataloguedPreset('lower-third');
+		const film = filmFromCorpusPreset(preset, {
+			slug: 'lower-third',
+			contentKey: posterKeyForPreset(preset)
+		});
+		const [namedScene] = film.scenes;
+
+		applyFilm(
+			{
+				...film,
+				scenes: [namedScene, { id: 'scene-2', origin: null, state: cloneJsonValue(preset.state) }],
+				boundaries: [{ kind: 'cut' }]
+			},
+			{ kind: 'deliverable' }
+		);
+
+		expect(readOpenFilm().scenes.map((scene) => scene.name)).toEqual([preset.name, undefined]);
+		expect(readOpenFilm().scenes[1]).not.toHaveProperty('name');
+
+		const selectingSecond = readOpenFilmDocumentSelectingScene('scene-2');
+		expect(selectingSecond.film.scenes.map((scene) => scene.name)).toEqual([
+			preset.name,
+			undefined
+		]);
+		expect(readOpenFilmAsUserCompositionDocument().film.scenes[0].name).toBe(preset.name);
+	});
+
+	it('gives a lifted legacy record no Scene name, so reading one never rewrites it', () => {
+		const preset = requireCataloguedPreset('lower-third');
+		const reading = readStoredUserCompositionRecord({
+			meta: { forkedFrom: 'lower-third', savedAt: '2026-10-08T00:00:00.000Z' },
+			preset: cloneJsonValue(presetToWireFormat(preset))
+		});
+
+		expect(reading.film.scenes[0]).not.toHaveProperty('name');
 	});
 
 	it('opens a stored Film record as the deliverable its one Scene is', () => {

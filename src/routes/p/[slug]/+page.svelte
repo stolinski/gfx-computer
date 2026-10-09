@@ -14,7 +14,7 @@
 		isOpenFilmEngineStateInTransit,
 		readOpenFilmAsUserCompositionDocument
 	} from '$lib/platform/film-state.svelte';
-	import { filmFromPreset } from '$lib/platform/film-ingress';
+	import { filmFromCorpusPreset } from '$lib/platform/film-ingress';
 	import { legacyPresetEnvelopeFromPreset } from '$lib/platform/open-film-document';
 	import {
 		discardOpenCompositionArrival,
@@ -175,7 +175,7 @@
 			sessionComposition ??
 			(nextData.corpusPreset
 				? {
-						film: filmFromPreset(nextData.corpusPreset, {
+						film: filmFromCorpusPreset(nextData.corpusPreset, {
 							slug: nextData.slug,
 							contentKey: posterKeyForPreset(nextData.corpusPreset)
 						}),

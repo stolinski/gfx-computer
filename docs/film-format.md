@@ -54,10 +54,21 @@ There is no `score` field yet (ADR-0068 §6).
 | Field    | Meaning                                                                                                                                                                                                                                                                                                 |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`     | Lowercase letters, digits, and hyphens, starting with a letter or digit, at most 40 characters. Unique within the Film.                                                                                                                                                                                 |
+| `name?`  | What the Scene is called. Optional; not empty when present. A Scene made from a corpus Preset takes the Preset's name. See [Scene names](#scene-names).                                                                                                                                                 |
 | `origin` | Where the Scene was seeded from: `{ slug, contentKey }`, the source Preset's slug and its poster content key at that moment. `contentKey` is `null` when the key was never recorded (a Scene lifted from a legacy stored record). `null` for a Scene started blank. Required, so a writer states which. |
 | `state`  | A complete Preset state: the same shape as `state` in [`preset-format.md`](preset-format.md).                                                                                                                                                                                                           |
 
 `origin` is a record of the past. Editing the source Preset never changes a Film. Nothing links back, and nothing re-syncs.
+
+### Scene names
+
+A Scene's `name` is its own. It is not the Film's name, and renaming the Film does not change it.
+
+- `filmFromCorpusPreset(preset, origin)` names the Scene for the Preset. A corpus Preset opens through it, and a Starter is stored through it.
+- `filmFromPreset` gives the Scene no name. The blank composition, an imported Preset, and a legacy stored record use it. No stored record is rewritten to add a name.
+- `filmSceneDisplayName(scene, sceneIndex)` in `src/lib/platform/film-scene-display-name.ts` says what to show: the Scene's `name`; if it has none, the name of the corpus Preset at `origin.slug`; if there is none, `Scene <n>`, counted from 1.
+
+No operation renames a Scene yet.
 
 ### A Scene boundary
 
@@ -119,10 +130,10 @@ Two Preset fields are not carried:
 
 The document open in the Workspace is a Film of one or more Scenes (ADR-0068 §4, §8). The code is `src/lib/platform/film-state.svelte.ts` and `src/lib/platform/open-film-document.ts`; [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film) describes how they fit the engine.
 
-- A corpus Preset opens as an unsaved one-Scene Film through `filmFromPreset`. Its Scene's `origin` is `{ slug, contentKey }`, with the content key the Preset's poster uses.
+- A corpus Preset opens as an unsaved one-Scene Film through `filmFromCorpusPreset`. Its Scene takes the Preset's name, and its `origin` is `{ slug, contentKey }`, with the content key the Preset's poster uses.
 - A stored composition opens as the Film its record holds, with each Scene's real `origin`. A legacy Preset record is lifted to a one-Scene Film first; its Scene's `origin` is `{ slug: meta.forkedFrom, contentKey: null }`.
 - An opened corpus Preset is never saved from its own page. `composition.create-film-from-open` (New Film) stores the open document, edits included, as a new Film under a new slug. Nothing is ever stored under the corpus Preset's own slug.
-- The selected Scene's state is live in engine state. The Film keeps the Scene list, each `origin`, the state of every other Scene, and the boundaries beside it. A Film opens with its first Scene selected. Selecting another Scene, Film time, and the hard cut are described in [`engine-architecture.md`](engine-architecture.md#scenes-the-two-clocks-and-the-cut).
+- The selected Scene's state is live in engine state. The Film keeps the Scene list, each `name` and `origin`, the state of every other Scene, and the boundaries beside it. A Film opens with its first Scene selected. Selecting another Scene, Film time, and the hard cut are described in [`engine-architecture.md`](engine-architecture.md#scenes-the-two-clocks-and-the-cut).
 - `kind` and `transition` are not Film fields. They travel beside the open Film as the legacy Preset envelope. `kind` stays because the open document is also how a corpus Preset is shown, and a stored Film opens as a `deliverable`. `transition` goes when a transition Preset is read as a two-Scene Film.
 - What is saved is the Film with every Scene (`readOpenFilmAsUserCompositionDocument`). `readOpenFilmAsSavedPreset` is the selected Scene as one Preset, for inspection and verification.
 

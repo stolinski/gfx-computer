@@ -203,6 +203,7 @@ export function isSelectedSceneScopedFilmChange(
 	return previous.film.scenes.every((previousScene, sceneIndex) => {
 		const nextScene = next.film.scenes[sceneIndex];
 		if (nextScene === undefined || nextScene.id !== previousScene.id) return false;
+		if (previousScene.name !== nextScene.name) return false;
 		if (hashObject(previousScene.origin) !== hashObject(nextScene.origin)) return false;
 		if (previousScene.id === previous.selectedSceneId) return true;
 		return (

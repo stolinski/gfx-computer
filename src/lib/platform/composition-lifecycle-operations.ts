@@ -47,7 +47,7 @@ import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { createCompositionSessionSlug } from '../utils/composition-session-slug';
 import { ensureFilmRenderersLoaded } from './composition-renderer-readiness';
-import { filmFromPreset, FilmIngressSchema } from './film-ingress';
+import { filmFromPreset, filmFromCorpusPreset, FilmIngressSchema } from './film-ingress';
 import { FILM_SCHEMA_ID } from './film-schema';
 import { readOpenFilmAsUserCompositionDocument } from './film-state.svelte';
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
@@ -200,16 +200,22 @@ export async function storeUserCompositionUnderNewSlug(
 	return slug;
 }
 
-/** The document a Preset opens as: a one-Scene Film seeded from `starterSlug`, or from nothing. */
+/**
+ * The document a Preset opens as: a one-Scene Film seeded from `starterSlug`,
+ * its Scene named for that Starter, or from nothing.
+ */
 function userCompositionDocumentFromPreset(
 	preset: Preset,
 	starterSlug: string | null
 ): UserCompositionDocument {
 	return {
-		film: filmFromPreset(
-			preset,
-			starterSlug === null ? null : { slug: starterSlug, contentKey: posterKeyForPreset(preset) }
-		),
+		film:
+			starterSlug === null
+				? filmFromPreset(preset, null)
+				: filmFromCorpusPreset(preset, {
+						slug: starterSlug,
+						contentKey: posterKeyForPreset(preset)
+					}),
 		legacyPresetEnvelope: legacyPresetEnvelopeFromPreset(preset)
 	};
 }

@@ -8,6 +8,8 @@ One thing differs from §3 as written. Shadow records an older build left in a d
 
 Three notes on the cut as built (2026-10-09). Selecting a Scene is a platform function, not yet an operation; §8's `select` row lands with the Scene strip, and §8 says what selection does to the revision. Film time is not stored; it is read from the selected Scene and the Timeline's Scene time. A cut in live preview holds play while the incoming Scene mounts and settles, so playback is not real time across a cut; a paused frame is exact, and `scripts/cdp-film-cut-frames.mjs` is the check. Export still renders the selected Scene only.
 
+A Scene has an optional `name` (2026-10-09), which §1 did not list. A Scene made from a corpus Preset takes the Preset's name; [`../film-format.md`](../film-format.md#scene-names) says what is shown for a Scene without one. The Scene strip (§10) and the Scene operations (§8) are not built.
+
 Date: 2026-10-08
 
 Builds on: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one Preset engine), [ADR-0033](0033-sound-design-motion-emitted-cues.md) (deterministic mix), [ADR-0039](0039-pack-neutral-compositions-and-listing-hygiene.md) (both orientations, Pack-neutral), [ADR-0046](0046-seekable-simulation-and-deformation-families.md) (typed transition effects), [ADR-0053](0053-gfx-namespace-and-legacy-supers-compatibility.md) (legacy readers before writers), [ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md) (operations), [ADR-0064](0064-kinetic-type-word-fields.md) (Motion Beats)

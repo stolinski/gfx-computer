@@ -9,7 +9,12 @@ import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PRESET_SCHEMA_ID } from './engine-schema';
-import { FILM_FIRST_SCENE_ID, filmFromPreset, filmToWireFormat } from './film-ingress';
+import {
+	FILM_FIRST_SCENE_ID,
+	filmFromCorpusPreset,
+	filmFromPreset,
+	filmToWireFormat
+} from './film-ingress';
 import { filmState } from './film-state.svelte';
 import {
 	discardOpenCompositionArrival,
@@ -160,7 +165,10 @@ describe('creating a composition', () => {
 		const [slug, stored] = sessionStore.createUserComposition.mock.calls[0];
 		expect(slug).toBe('lower-third-2');
 		expect(stored.film).toEqual(
-			filmFromPreset(starter, { slug: STARTER_SLUG, contentKey: posterKeyForPreset(starter) })
+			filmFromCorpusPreset(starter, {
+				slug: STARTER_SLUG,
+				contentKey: posterKeyForPreset(starter)
+			})
 		);
 		expect(filmState.scenes[0].origin).toEqual({
 			slug: STARTER_SLUG,

@@ -85,6 +85,19 @@ describe('FilmSchema', () => {
 		assert.equal(FilmSchema.safeParse(document).success, false);
 	});
 
+	it('accepts a Scene with a name and one without, and refuses an empty name', () => {
+		const document = filmDocument(['intro', 'outro']);
+		document['scenes'] = [{ ...sceneDocument('intro'), name: 'Cold open' }, sceneDocument('outro')];
+
+		const film = FilmSchema.parse(document);
+
+		assert.equal(film.scenes[0].name, 'Cold open');
+		assert.equal('name' in film.scenes[1], false);
+
+		document['scenes'] = [{ ...sceneDocument('intro'), name: '' }, sceneDocument('outro')];
+		assert.deepEqual(issueMessagesAt(document, 'scenes/0/name'), ['A Scene name is not empty']);
+	});
+
 	it('refuses a boundary list that is not one per pair of neighbours', () => {
 		const tooFew = { ...filmDocument(['intro', 'proof', 'outro']), boundaries: [{ kind: 'cut' }] };
 		const tooMany = { ...filmDocument(['intro']), boundaries: [{ kind: 'cut' }] };
