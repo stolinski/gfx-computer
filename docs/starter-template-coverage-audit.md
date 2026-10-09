@@ -6,12 +6,12 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **114 Presets** — **46 listed** and **68 fixtures**.
-- Structurally distinct Starter candidates: **46**.
+- Corpus: **124 Presets** — **55 listed** and **69 fixtures**.
+- Structurally distinct Starter candidates: **55**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
-- The **46 listed Starters are admitted cumulatively**, without another redundant corpus-wide capture: the retained corpus was ratified through the completed quality arc and honest-listing pass; `source-bug-nasa-archive` and `outro-watch-next` passed an exact 80/80 affected browser matrix and human-approved bundle under Dex `8zy3t3du`; the two title cards passed their affected all-Pack/orientation checks and exact human review under Dex `75u4vxtf`; `website-filmed` and `headline-hands-on` were admitted through the completed 3D Canvas Upgrade.
-- Current static validation covers all **230 Preset × Pack axes in both orientations**. It reports **28 non-blocking G12 warnings** on 14 direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `headline-hands-on`, `kinetic-type-field`, `outro-watch-next`, `plastic-msw-destinations`, `title-card-brand-mark`, `title-card-chapter-heading`, `wake-conversation-flow`, and `website-filmed`. Each warning appears once per orientation.
+- The **55 listed Starters are admitted cumulatively**, without another redundant corpus-wide capture: the retained corpus was ratified through the completed quality arc and honest-listing pass; `source-bug-nasa-archive` and `outro-watch-next` passed an exact 80/80 affected browser matrix and human-approved bundle under Dex `8zy3t3du`; the two title cards passed their affected all-Pack/orientation checks and exact human review under Dex `75u4vxtf`; `website-filmed` and `headline-hands-on` were admitted through the completed 3D Canvas Upgrade; `kinetic-type-field` was approved on its exact evidence under Dex `fbutl1u4`; and the nine Figures were each approved by Scott on 2026-10-06 under Dex `qvyyiu9g`.
+- Current static validation covers all **275 Preset × Pack axes in both orientations**. It reports **46 non-blocking G12 warnings** on 23 direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `citric-acid-cycle`, `co2-annotated-line`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `gdp-bar-race`, `headline-hands-on`, `indo-european-tree`, `kinetic-type-field`, `les-miserables-network`, `neural-network-forward-pass`, `outro-watch-next`, `plastic-msw-destinations`, `population-rank-bump`, `title-card-brand-mark`, `title-card-chapter-heading`, `us-energy-sankey`, `wake-conversation-flow`, `website-filmed`, and `world-electricity-treemap`. Each warning appears once per orientation.
 - Dex `viga7o0n` was retired because it asked for another full pass over evidence already established by the baseline, affected matrices, and exact human decisions; no new creator capability or unresolved acceptance gap remained.
 
 A **Count** disposition means the Preset expresses a materially different register, composition language, creator job, or content domain. It does not mean a similarly named Pipeline variant automatically earns another listing. **Fold** means one Starter must represent the job. **Demote** means the composition is useful proof corpus but not a creator-facing starting point.
@@ -29,19 +29,26 @@ A **Count** disposition means the Preset expresses a materially different regist
 | `chapter-card-descent`             | Chapter card       | Introduce a chapter                                | Count       | Dedicated chapter transition with depth staging.                                      |
 | `checklist-project-setup`          | Checklist          | Show progress through a task list                  | Count       | Persistent checked/unchecked progress state.                                          |
 | `checklist-show-rundown`           | Checklist          | Reveal an ordered rundown                          | Count       | Sequential build-in differs materially from progress state.                           |
+| `citric-acid-cycle`                | Charts             | Walk through a repeating process step by step      | Count       | Process-loop Figure whose steps appear in turn around the cycle (ADR-0067).           |
+| `co2-annotated-line`               | Charts             | Show a long trend with its milestones marked       | Count       | Annotated-line Figure that draws itself across the record.                            |
 | `column-us-population-1950-2020`   | Charts             | Show change across ordered periods                 | Count       | Distinct column-chart temporal comparison.                                            |
 | `counter-milestone`                | Plain              | Land on a single milestone number                  | Count       | Usable counter outcome, not the counter Pipeline proof.                               |
 | `docu-flowchart`                   | Flowcharts         | Explain a short linear process                     | Count       | Compact process diagram.                                                              |
 | `docu-map-journey`                 | Docu               | Explain a geographic journey                       | Count       | Distinct map composition and content domain.                                          |
 | `docu-stat-build`                  | Docu               | Build one documentary stat                         | Count       | Documentary stat-callout language.                                                    |
 | `docu-timeline-build`              | Docu               | Explain a dated sequence                           | Count       | Timeline creator job and geometry.                                                    |
+| `gdp-bar-race`                     | Charts             | Show a ranking change year by year                 | Count       | Bar-race Figure that re-ranks through time.                                           |
 | `headline-hands-on`                | Type hero          | Open with dimensional type                         | Count       | Stage-body type is a distinct spatial title language.                                 |
 | `imessage-friday-deploy`           | iMessage           | Recreate a short text conversation                 | Count       | Canonical choreographed conversation Starter.                                         |
+| `indo-european-tree`               | Charts             | Trace a lineage through a family tree              | Count       | Hierarchy Figure that grows from its root and lights one lineage.                     |
 | `instagram-follow`                 | Social beats       | Ask viewers to follow on Instagram                 | Count       | Platform-specific creator CTA.                                                        |
 | `kinetic-type-field`               | Kinetic type       | Open or punctuate with authored kinetic typography | Count       | Persistent-word kinetic type on Motion Beats is a distinct title language (ADR-0064). |
+| `les-miserables-network`           | Charts             | Show who connects to whom                          | Count       | Network Figure whose linked nodes settle into groups.                                 |
 | `lower-third`                      | Lower thirds       | Identify a speaker                                 | Count       | Canonical identifier overlay.                                                         |
+| `neural-network-forward-pass`      | Charts             | Explain how a neural network reads an input        | Count       | Layered-network Figure with a forward pass through its links.                         |
 | `outro-watch-next`                 | Type hero          | Close a video and direct viewers onward            | Count       | Full-frame closing job with a dedicated next-action hold.                             |
 | `plastic-msw-destinations`         | Charts             | Explain a normalized part-to-whole fact            | Count       | Distinct unit-grid chart language.                                                    |
+| `population-rank-bump`             | Charts             | Compare how ranks change across decades            | Count       | Bump-chart Figure of crossing rank lines.                                             |
 | `pullquote-on-photo`               | Pullquote on photo | Feature a quote over photography                   | Count       | Canonical photographic pullquote with real depth staging.                             |
 | `quote-lift-out`                   | Paper              | Pull one phrase out of a document                  | Count       | Distinct focal Annotation language.                                                   |
 | `quote-magnify`                    | Paper              | Magnify and annotate one phrase                    | Count       | Distinct optical focal treatment and side note.                                       |
@@ -54,6 +61,7 @@ A **Count** disposition means the Preset expresses a materially different regist
 | `title-card-newspaper`             | Title cards        | Introduce a story as a newspaper artifact          | Count       | Distinct faithful-document title register.                                            |
 | `title-sequence-signal`            | Title sequence     | Open a titled segment                              | Count       | Full-frame title-sequence language.                                                   |
 | `type-hero-vantage`                | Type hero          | Open on a large episode title                      | Count       | Canonical flat type-hero Starter.                                                     |
+| `us-energy-sankey`                 | Charts             | Show where a total flows and what is lost          | Count       | Sankey Figure of sources flowing into uses.                                           |
 | `wake-conversation-flow`           | Flowcharts         | Explain a branching conversation                   | Count       | Branching, annotation-heavy flow differs from the short linear flowchart.             |
 | `web-document-github`              | Web document       | Quote a GitHub artifact                            | Count       | Distinct faithful web content domain.                                                 |
 | `web-document-hackernews`          | Web document       | Quote a Hacker News discussion                     | Count       | Distinct faithful web content domain.                                                 |
@@ -65,6 +73,7 @@ A **Count** disposition means the Preset expresses a materially different regist
 | `web-document-youtube`             | Web document       | Quote a YouTube page                               | Count       | Distinct faithful web content domain.                                                 |
 | `website-filmed`                   | Website screenshot | Film a captured site through a 3D camera           | Count       | Filmed-canvas staging is distinct from a browser showcase.                            |
 | `website-showcase`                 | Website screenshot | Present a creator-supplied website capture         | Count       | Stored-capture job differs from structured site mocks.                                |
+| `world-electricity-treemap`        | Charts             | Break a whole into parts and zoom into one         | Count       | Treemap Figure that zooms into one branch.                                            |
 | `youtube-subscribe`                | Social beats       | Ask viewers to subscribe on YouTube                | Count       | Platform-specific creator CTA.                                                        |
 
 ## Fixture inventory
@@ -98,6 +107,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `diagram-orientation-motion-fixture`            | Animation proof      | Per-orientation Diagram motion     | Keep fixture | Engine contract proof (ADR-0039 §4).                                  |
 | `dof-multiplane-check`                          | Depth proof          | Multiplane capture                 | Keep fixture | Regression check.                                                     |
 | `effect-keyframes-demo`                         | Animation proof      | Keyframed Effect params            | Keep fixture | Engine contract proof (ADR-0063).                                     |
+| `figure-domain-fixture`                         | Figure proof         | Nine generated Figure kinds        | Keep fixture | Domain verification corpus (ADR-0067).                                |
 | `fluid-ripple-demo`                             | Simulation proof     | Fluid ripple                       | Keep fixture | Isolated simulation proof.                                            |
 | `fluted-glass-demo`                             | Effect proof         | Fluted glass                       | Keep fixture | Isolated Effect proof.                                                |
 | `halftone-cmyk-demo`                            | Effect proof         | CMYK halftone                      | Keep fixture | Isolated Effect proof.                                                |
@@ -148,12 +158,12 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 
 The homepage exposes implementation-shaped families alongside creator-shaped families. `Charts`, `Captions`, `Flowcharts`, `Lower thirds`, and `Social beats` are useful. `Plain`, `Paper`, and `Type hero` still mix unrelated jobs because grouping falls back to Surface type. The audit does not change that mechanism; the listing-reconciliation task must use the current visible families and plain labels rather than hidden metadata.
 
-The 46 structurally honest candidates cover:
+The 55 structurally honest candidates cover:
 
 - title, chapter, and closing work: text-led and brand-led title cards, chapter card, title sequence, type hero, kinetic type, newspaper title, and a full-frame outro;
 - identification and progress: lower third, persistent archival source bug, counter, checklists, and achievements;
 - quotations and evidence: photographic pullquote, paper callouts, research-paper treatments;
-- factual explanation: four chart languages, map, stat, timeline, and two flowchart registers;
+- factual explanation: four chart languages, nine generated Figures (process loop, annotated line, bar race, family tree, network, neural network, bump chart, Sankey, and treemap), map, stat, timeline, and two flowchart registers;
 - faithful artifacts: eight web domains, iMessage, and creator-supplied website capture;
 - platform beats: Instagram follow and YouTube subscribe;
 - caption registers: karaoke and word-pop.
@@ -172,6 +182,7 @@ Transitions are editing decisions handled in DaVinci Resolve, not missing Starte
 4. **Close cumulative admission — Dex `qfxr9r0n`.** The honest count reached **43**. Existing baseline ratification plus exact affected evidence for the four added Starters closed that library state without rerunning unchanged Presets solely to restate their acceptance.
 5. **Add the 3D Canvas jobs.** The completed 3D Canvas Upgrade admitted `website-filmed` and `headline-hands-on` as distinct creator jobs, raising the honest count to **45**; `crt-filmed` and `stage-oblique-fixture` remain supporting fixtures.
 6. **Add kinetic type — Dex `fbutl1u4`.** `kinetic-type-field` (TYPE CAN MOVE → TYPE CAN BECOME → TYPE IS THE COMPOSITION on seven Motion Beats) raises the honest count to **46**; `kinetic-type-field-motion-fixture` and `kinetic-type-field-static-fixture` remain engine proofs. Scott approved its exact evidence on 2026-10-03.
+7. **Add the nine Figures — Dex `qvyyiu9g` ([ADR-0067](adr/0067-figures-generated-visualization-domain.md)).** One listed Preset per generated Figure kind — `citric-acid-cycle`, `co2-annotated-line`, `gdp-bar-race`, `indo-european-tree`, `les-miserables-network`, `neural-network-forward-pass`, `population-rank-bump`, `us-energy-sankey`, and `world-electricity-treemap` — raises the honest count to **55**. They join the `Charts` family on the homepage, and `figure-domain-fixture` remains the domain proof. Scott approved each on 2026-10-06. Their rows reached this audit on 2026-10-09 (Dex `yh7oiy02`): the mechanical check below had been failing since the Presets landed.
 
 ## Mechanical check
 
