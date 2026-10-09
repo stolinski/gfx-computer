@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
+import twoSceneFadeFilmJson from '../../../scripts/fixtures/film-fade/two-scene-fade.film.json';
 import transitionWipeDemoPresetJson from '$lib/presets/transition-wipe-demo.json';
 
 import { filmDocumentFromCorpusStarters } from './film-corpus-scenes.fixture';
 import {
 	filmFromPreset,
 	filmToWireFormat,
+	parseFilm,
 	presetFromFilmScene,
 	presetFromSingleSceneFilm
 } from './film-ingress';
@@ -190,6 +192,33 @@ describe('readStoredUserCompositionRecord', () => {
 				}
 			);
 		}
+	});
+});
+
+describe('a stored Film with a fade', () => {
+	it('is stored as a Film with its fade and read back the same', () => {
+		const film = parseFilm(JSON.parse(JSON.stringify(twoSceneFadeFilmJson)));
+		const document: UserCompositionDocument = {
+			film,
+			legacyPresetEnvelope: { kind: 'deliverable' }
+		};
+
+		const written = JSON.parse(
+			JSON.stringify(storedUserCompositionRecordFromDocument(META, document))
+		) as { film: { boundaries: unknown[] } };
+		const readBack = readStoredUserCompositionRecord(written);
+
+		assert.equal('preset' in written, false);
+		assert.deepEqual(written.film.boundaries, [{ kind: 'fade', durationMs: 1000 }]);
+		assert.deepEqual(readBack.film, film);
+		assert.deepEqual(readBack.film.boundaries, [{ kind: 'fade', durationMs: 1000 }]);
+	});
+
+	it('is one second shorter than its Scenes together', () => {
+		const film = parseFilm(JSON.parse(JSON.stringify(twoSceneFadeFilmJson)));
+
+		// 6 s and 6.7 s at 30 fps, sharing a 30-frame window.
+		assert.equal(filmDurationSeconds(film), 150 / 30 + 6.7);
 	});
 });
 

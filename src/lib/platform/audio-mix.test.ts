@@ -788,4 +788,103 @@ describe('deterministic audio mix of a Film', () => {
 		);
 		assert.deepEqual(log, ['clip 1']);
 	});
+
+	// Two 4-frame Scenes that share a 2-frame fade window: Film frames 2 and 3.
+	function fadeScenes(first: EngineState, second: EngineState): FilmAudioMixScene[] {
+		return [
+			{ state: first, startFrame: 0, frameCount: 4 },
+			{ state: second, startFrame: 2, frameCount: 4 }
+		];
+	}
+
+	it('sounds both Scenes through a fade window, each at full level', async () => {
+		const first = sceneState(4);
+		// Starts on the window's first frame and would run past the Scene's end.
+		first.audioCues = [cue('outgoing-cue', 'long', 0.5)];
+		const second = sceneState(4);
+		second.audioCues = [cue('incoming-cue', 'tick', 0)];
+
+		const rendered = await renderFilmAudioMix(
+			{ scenes: fadeScenes(first, second), frameCount: 6, frameRate: RATE_30 },
+			filmMixServices({
+				cues: {
+					long: { sampleCount: 4000, level: 0.25 },
+					tick: { sampleCount: 400, level: 0.5 }
+				}
+			})
+		);
+
+		const left = rendered!.getChannelData(0);
+		const windowStart = audioMixSampleAtFrame(2, RATE_30);
+		const windowEnd = audioMixSampleAtFrame(4, RATE_30);
+		assert.equal(left.length, audioMixSampleCount(6, RATE_30));
+		assert.equal(left[windowStart - 1], 0);
+		// Both cues on the window's first sample: the plain sum, neither faded.
+		const outgoingLevel = Math.fround(0.25 * 0.8);
+		const bothLevel = Math.fround(outgoingLevel + 0.5 * 0.8);
+		assert.equal(left[windowStart], bothLevel);
+		assert.equal(left[windowStart + 399], bothLevel);
+		// The incoming cue has played out; the outgoing one runs on through the window.
+		assert.equal(left[windowStart + 400], outgoingLevel);
+		assert.equal(left[windowEnd - 1], outgoingLevel);
+		// And is cut where its Scene ends, which is where the window ends.
+		assert.equal(left[windowEnd], 0);
+	});
+
+	it('sums a fade window in one fixed order: the outgoing Scene, then the incoming one', async () => {
+		const first = sceneState(4);
+		first.audioCues = [cue('outgoing-cue', 'long', 0.5)];
+		const second = sceneState(4);
+		second.audioCues = [cue('incoming-cue', 'tick', 0)];
+		const cues = {
+			long: { sampleCount: 4000, level: 0.1 },
+			tick: { sampleCount: 400, level: 0.7 }
+		};
+		const log: string[] = [];
+
+		const once = await renderFilmAudioMix(
+			{ scenes: fadeScenes(first, second), frameCount: 6, frameRate: RATE_30 },
+			filmMixServices({ cues, log })
+		);
+		const again = await renderFilmAudioMix(
+			{ scenes: fadeScenes(first, second), frameCount: 6, frameRate: RATE_30 },
+			filmMixServices({ cues })
+		);
+
+		assert.deepEqual(log, ['context', 'cue long', 'cue tick']);
+		assert.ok(sameBytes(once!.getChannelData(0), again!.getChannelData(0)));
+		assert.ok(sameBytes(once!.getChannelData(1), again!.getChannelData(1)));
+	});
+
+	it('places a Scene after a fade exactly as after a cut, one window earlier', async () => {
+		const first = sceneState(4);
+		const second = sceneState(4);
+		second.audioCues = [cue('incoming-cue', 'tick', 0.25)];
+		const services = (): AudioMixServices =>
+			filmMixServices({ cues: { tick: { sampleCount: 400, level: 0.5 } } });
+
+		const cut = await renderFilmAudioMix(
+			{
+				scenes: filmScenes({ state: first, frameCount: 4 }, { state: second, frameCount: 4 }),
+				frameCount: 8,
+				frameRate: RATE_30
+			},
+			services()
+		);
+		const fade = await renderFilmAudioMix(
+			{ scenes: fadeScenes(first, second), frameCount: 6, frameRate: RATE_30 },
+			services()
+		);
+
+		// The second Scene's samples are the same bytes, two frames sooner.
+		const cutStart = audioMixSampleAtFrame(4, RATE_30);
+		const fadeStart = audioMixSampleAtFrame(2, RATE_30);
+		const sceneSamples = 4 * FRAME_SAMPLES;
+		assert.ok(
+			sameBytes(
+				cut!.getChannelData(0).subarray(cutStart, cutStart + sceneSamples),
+				fade!.getChannelData(0).subarray(fadeStart, fadeStart + sceneSamples)
+			)
+		);
+	});
 });

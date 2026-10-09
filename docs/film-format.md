@@ -1,6 +1,6 @@
 # GFX Film format (`gfx-film@1`)
 
-> **Built: phase 1 of [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md), 2026-10-09.** A User composition is a Film. Both stores read and write Film records ([Stored records](#stored-records)), the document open in the Workspace is a Film ([The open Film](#the-open-film)), a Film of several Scenes plays with a hard cut at each boundary, Scenes are added, removed, reordered, and selected, and export renders the whole Film ([Export](#export)). **Not built:** any boundary but a cut, the Score, and a two-endpoint `transition` Preset read as a two-Scene Film. A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`. What an author and an agent do with a Film is in [`user-composition-workflows.md`](user-composition-workflows.md); how the engine holds one is in [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film).
+> **Built: phase 1 of [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md), 2026-10-09.** A User composition is a Film. Both stores read and write Film records ([Stored records](#stored-records)), the document open in the Workspace is a Film ([The open Film](#the-open-film)), a Film of several Scenes plays with a hard cut at each boundary, Scenes are added, removed, reordered, and selected, and export renders the whole Film ([Export](#export)). The first boundary with a duration, the **fade**, is built in the format, the frame maths, export, and the paused Workspace frame (phase 2, 2026-10-09; [A Scene boundary](#a-scene-boundary)); nothing edits a boundary yet. **Not built:** the transition effects and magic move as boundaries, any operation or control that edits a boundary, the Score, and a two-endpoint `transition` Preset read as a two-Scene Film. A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`. What an author and an agent do with a Film is in [`user-composition-workflows.md`](user-composition-workflows.md); how the engine holds one is in [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film).
 
 A **Film** is an ordered list of **Scenes** with a **Scene boundary** between each pair of neighbours. A Scene is one Preset's complete state, owned by the Film. A one-off piece is a Film with one Scene. Terms: [`CONTEXT.md`](CONTEXT.md).
 
@@ -77,15 +77,27 @@ The first Scene of a Film made from one Preset is `scene-1` (`FILM_FIRST_SCENE_I
 
 ### A Scene boundary
 
-A boundary is an object with a `kind`. Today the only kind is a hard cut:
+A boundary is an object with a `kind`. There are two kinds:
 
 ```jsonc
 { "kind": "cut" }
+{ "kind": "fade", "durationMs": 1000 }
 ```
 
-Fade, the transition effects, and magic move come later as further kinds (ADR-0068 §4–5).
+- **`cut`** shares no frames. The frame after the outgoing Scene's last is the incoming Scene's first.
+- **`fade`** is a cross-fade that lasts `durationMs`. It has a **window**: the last frames of the outgoing Scene and the first frames of the incoming Scene are the same Film frames, and both Scenes keep animating through them. On each window frame the picture is `outgoing × (1 − p) + incoming × p` in premultiplied alpha, where `p` is the window's progress. There is no ease yet: `p` rises in equal steps.
 
-No operation edits a boundary. `composition.add-scene-from-starter` and `composition.add-open-to-film` add a `cut` with the Scene, `composition.remove-scene` takes one away with it, and `composition.reorder-scene` leaves the list alone ([`engine-architecture.md`](engine-architecture.md#the-scene-strip-and-scene-operations)).
+A fade's length in frames is `durationMs` at the Film's exact rate, rounded to the nearest whole frame, with half a frame rounding up. A 1000 ms fade is 30 frames at both 30 and 29.97 fps, 24 at 24, and 60 at 59.94 and 60. Progress is `windowFrame ÷ (windowFrames − 1)`: 0 on the window's first frame, which is the outgoing Scene alone, and 1 on its last, which is the incoming Scene alone. A window of one frame is the even mix.
+
+Three rules bound a fade. Each is a validation finding at `boundaries/<index>/durationMs` ([Validation](#validation)), not a schema rule, because frames depend on the Film's rate:
+
+1. It lasts at least one frame.
+2. It is no longer than the shorter of its two Scenes.
+3. The fades on either side of one Scene do not meet, so at most two Scenes are ever on one frame.
+
+The registered transition effects and magic move come later as further kinds (ADR-0068 §4–5).
+
+No operation edits a boundary, so a fade reaches a Film only through its JSON. `composition.add-scene-from-starter` and `composition.add-open-to-film` add a `cut` with the Scene, `composition.remove-scene` takes one away with it, and `composition.reorder-scene` leaves the list alone ([`engine-architecture.md`](engine-architecture.md#the-scene-strip-and-scene-operations)).
 
 ## The Film's transport is the truth
 
@@ -104,13 +116,18 @@ Film time is counted in whole frames, never in summed seconds. This keeps NTSC r
 
 1. The Film's `fps` resolves to an exact rate. `29.97` means 30000/1001 frames per second.
 2. Each Scene's `durationSeconds` becomes a frame count on its own: rounded to the nearest whole frame, and never fewer than one. This is the same rule that gives a single Preset its frame count.
-3. The Film's length is the sum of its Scenes' frame counts, minus any frames that boundaries overlap. A cut overlaps none.
+3. The Film's length is the sum of its Scenes' frame counts, minus the frames that boundaries overlap. A cut overlaps none. A fade overlaps its window.
+4. A Scene starts where the one before it ends, less the window of the boundary between them. So after a fade the incoming Scene's first frame is the window's first frame.
 
 For example, three Scenes of 0.36 seconds at 24 fps are 9 frames each, so the Film is 27 frames. Rounding the summed 1.08 seconds would give 26, which is why seconds are never summed.
 
+And a 6-second Scene, a 1-second fade, and a 6.7-second Scene at 30 fps are 180 and 201 frames sharing 30, so the Film is 351 frames. The window is Film frames 150 to 179. Film frame 165 is frame 165 of the first Scene and frame 15 of the second, at progress 15/29.
+
 Every timing inside a Scene (0 to 1 windows, Motion Beats, captions, `posterSeconds`) means what it meant in the Preset, because it is measured against the Scene's own duration.
 
-`src/lib/platform/film-playhead.ts` holds the frame maths: `filmFrameCount`, `filmSceneFrameOffsets`, `resolveFilmFrame` (Film frame to Scene and local frame), and `filmFrameForSceneFrame` (the inverse). A frame outside the Film is an error, not a clamp.
+`src/lib/platform/film-playhead.ts` holds the frame maths: `filmFrameCount`, `filmSceneFrameOffsets`, `filmSceneBoundaryOverlaps`, `resolveFilmFrame` (Film frame to Scene and local frame), `resolveFilmBoundaryWindowFrame` (both Scenes of a window frame, each with its local frame, and the progress), and `filmFrameForSceneFrame` (the inverse, for either Scene). A frame outside the Film is an error, not a clamp.
+
+Inside a window `resolveFilmFrame` names the outgoing Scene, until the window ends. That is the Scene a seek into the window opens.
 
 Film time in seconds is a Scene's first Film frame as exact seconds, plus Scene time (`filmSecondsAtSceneTime` in `film-transport.ts`). The Film's duration in seconds is that reading at the end of its last Scene (`filmDurationSeconds`). A one-Scene Film runs exactly its Scene's `durationSeconds`. Frame counts, never seconds, decide how many frames a Film has.
 
@@ -118,8 +135,8 @@ Film time in seconds is a Scene's first Film frame as exact seconds, plus Scene 
 
 An export is the whole Film in one file ([ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §2, §9; [`engine-architecture.md`](engine-architecture.md#film-export) has the mechanism).
 
-- **Picture.** Every Scene is rendered in order at the Film's rate, orientation, and format. The file has `filmFrameCount` frames, and each frame is the frame its Scene shows at that Scene time. A cut is exact: the last frame of one Scene is followed by the first frame of the next.
-- **Sound.** One track for the Film. Each Scene's cues and Video-clip audio start where its Scene starts and stop where its Scene stops. Nothing rings over a cut.
+- **Picture.** Every Scene is rendered in order at the Film's rate, orientation, and format. The file has `filmFrameCount` frames, and each frame is the frame its Scene shows at that Scene time. A cut is exact: the last frame of one Scene is followed by the first frame of the next. Inside a fade's window each frame is both Scenes, each rendered live at its own Scene time and cross-faded on the GPU.
+- **Sound.** One track for the Film. Each Scene's cues and Video-clip audio start where its Scene starts and stop where its Scene stops. Nothing rings over a cut. Inside a fade's window both Scenes sound, each at full level: the outgoing Scene to its own end, which is the window's end, and the incoming Scene from the window's first frame. The sound is not cross-faded.
 - **Output class.** The file is opaque only when every Scene is opaque. A Film with one transparent Scene exports transparent (`gfx-overlay`), and its opaque Scenes paint their fill inside that file.
 - **Length.** A `development` host exports up to 600 seconds. The `public` and `hosted` profiles keep 15 seconds.
 - **The Workspace afterwards.** The export leaves the Scene, the frame, and the Composition revision as they were, and saves nothing.
@@ -134,6 +151,7 @@ Validation has two ordered layers, the same as a Preset:
 2. `validateFilmSemantics(film)` checks meaning:
    - Each Scene goes through `validatePresetSemantics`, as the Preset it would be alone. Findings are reported under `scenes/<index>/state/...`.
    - The Pack is checked once, at `pack`.
+   - Every fade fits its Scenes: at least one frame, no longer than the shorter of its two Scenes, and not meeting the fade on the other side of a Scene. Findings are reported at `boundaries/<index>/durationMs`.
    - The whole Film must fit in 600 seconds, counted in frames at the Film's rate. This is the ceiling one composition already has (ADR-0068 §9).
 
 ## From a Preset

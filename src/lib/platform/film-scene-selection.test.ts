@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import twoSceneCutFilmJson from '../../../scripts/fixtures/film-cut-frames/two-scene-cut.film.json';
+import twoSceneFadeFilmJson from '../../../scripts/fixtures/film-fade/two-scene-fade.film.json';
 
 import { compositionEditHistory } from './composition-edit-history';
 import {
@@ -12,14 +13,21 @@ import {
 } from './composition-edit-transaction';
 import { engineState, transitionState } from './engine-state.svelte';
 import { parseFilm } from './film-ingress';
-import { filmFrameCount, filmSceneFrameOffsets } from './film-playhead';
+import {
+	filmFrameCount,
+	filmSceneFrameOffsets,
+	type FilmBoundaryWindowFrame
+} from './film-playhead';
 import {
 	beginOpenFilmExportBracket,
 	cutOpenFilmPlaybackToNextScene,
+	openFilmBoundaryFramePresenterHandle,
 	openFilmSceneSettlerHandle,
 	readOpenFilmFrame,
 	readOpenFilmFrameCount,
+	readOpenFilmProxyPlaybackEndSeconds,
 	seekOpenFilmFrame,
+	showOpenFilmBoundaryFrameAtRest,
 	stepOpenFilmFrames,
 	selectOpenFilmScene
 } from './film-scene-selection';
@@ -91,11 +99,13 @@ beforeEach(() => {
 	filmState.isSwappingScene = false;
 	timelineHandle.current = null;
 	openFilmSceneSettlerHandle.current = null;
+	openFilmBoundaryFramePresenterHandle.current = null;
 });
 
 afterEach(() => {
 	timelineHandle.current = null;
 	openFilmSceneSettlerHandle.current = null;
+	openFilmBoundaryFramePresenterHandle.current = null;
 });
 
 describe('the fixture Film', () => {
@@ -655,7 +665,7 @@ describe('the export bracket', () => {
 		const bracket = beginOpenFilmExportBracket();
 
 		await expect(selectOpenFilmScene(LOWER_THIRD, 0)).rejects.toThrow(
-			'while the Film is exporting'
+			"while the Film's Scenes are being rendered"
 		);
 		await selectOpenFilmScene(HERO, 30);
 
@@ -672,7 +682,7 @@ describe('the export bracket', () => {
 		openTwoSceneCutFilm();
 		const bracket = beginOpenFilmExportBracket();
 
-		expect(() => beginOpenFilmExportBracket()).toThrow('already held by an export');
+		expect(() => beginOpenFilmExportBracket()).toThrow('already held for a render of its Scenes');
 		await bracket.showScene(LOWER_THIRD);
 		await Promise.all([bracket.close(), bracket.close()]);
 		await expect(bracket.showScene(LOWER_THIRD)).rejects.toThrow('has closed');
@@ -841,5 +851,238 @@ describe('autosave of a Film of several Scenes', () => {
 		// Detached: a later live edit does not reach the document already read.
 		engineState.transport.durationSeconds = 3;
 		expect(document.film.scenes[1].state.transport.durationSeconds).toBe(5);
+	});
+});
+
+describe('the open Film across a fade', () => {
+	// The fixture `scripts/cdp-film-fade-tracer.mjs` renders: hero is 180 frames,
+	// lower-third 201, and a 30-frame fade puts the window on Film frames 150 to 179.
+	const WINDOW_START = 150;
+	const WINDOW_FRAMES = 30;
+
+	function openTwoSceneFadeFilm(): Film {
+		const film = parseFilm(cloneJsonValue(twoSceneFadeFilmJson));
+		applyFilm(film, { kind: 'deliverable' });
+		return film;
+	}
+
+	function mountTimeline(): Timeline {
+		const timeline = new Timeline({
+			durationSeconds: engineState.transport.durationSeconds,
+			fps: engineState.transport.fps,
+			tick: () => undefined
+		});
+		timelineHandle.current = timeline;
+		return timeline;
+	}
+
+	interface PresentedBoundaryFrame {
+		windowFrame: FilmBoundaryWindowFrame;
+		shown: { sceneId: string; surfaceType: string; inTransit: boolean }[];
+		selectedAfterRestore: string;
+		timeAfterRestore: number;
+	}
+
+	/** A presenter that shows both Scenes of the frame and puts the author back, as the Workspace does. */
+	function mountPresenter(): PresentedBoundaryFrame[] {
+		const presented: PresentedBoundaryFrame[] = [];
+		openFilmBoundaryFramePresenterHandle.current = {
+			presentBoundaryFrame: async (windowFrame, scenes) => {
+				const shown: PresentedBoundaryFrame['shown'] = [];
+				for (const sceneId of [windowFrame.outgoing.sceneId, windowFrame.incoming.sceneId]) {
+					await scenes.showScene(sceneId);
+					shown.push({
+						sceneId: filmState.selectedSceneId,
+						surfaceType: engineState.surface.type,
+						inTransit: isOpenFilmEngineStateInTransit()
+					});
+				}
+				await scenes.restoreAuthorScene();
+				presented.push({
+					windowFrame,
+					shown,
+					selectedAfterRestore: filmState.selectedSceneId,
+					timeAfterRestore: timelineHandle.current?.time ?? -1
+				});
+			}
+		};
+		return presented;
+	}
+
+	it('is the fixture: the cut fixture with a one-second fade, an opaque Scene into a transparent one', () => {
+		const fade = parseFilm(cloneJsonValue(twoSceneFadeFilmJson));
+		const cut = twoSceneCutFilm();
+
+		expect(fade.boundaries).toEqual([{ kind: 'fade', durationMs: 1000 }]);
+		expect(fade.scenes).toEqual(cut.scenes);
+		expect(fade.scenes[0].state.backgroundFill).toBeDefined();
+		expect(fade.scenes[1].state.backgroundFill).toBeUndefined();
+		expect(filmSceneFrameOffsets(fade)).toEqual([0, WINDOW_START]);
+		expect(filmFrameCount(fade)).toBe(filmFrameCount(cut) - WINDOW_FRAMES);
+	});
+
+	it('opens the outgoing Scene for every Film frame of the window, and the incoming Scene after it', async () => {
+		openTwoSceneFadeFilm();
+		mountTimeline();
+
+		expect(await seekOpenFilmFrame(WINDOW_START)).toMatchObject({
+			sceneId: HERO,
+			localFrame: WINDOW_START
+		});
+		expect(await seekOpenFilmFrame(WINDOW_START + WINDOW_FRAMES - 1)).toMatchObject({
+			sceneId: HERO,
+			localFrame: 179
+		});
+		expect(filmState.selectedSceneId).toBe(HERO);
+
+		expect(await seekOpenFilmFrame(WINDOW_START + WINDOW_FRAMES)).toMatchObject({
+			sceneId: LOWER_THIRD,
+			localFrame: WINDOW_FRAMES
+		});
+		expect(filmState.selectedSceneId).toBe(LOWER_THIRD);
+		expect(readOpenFilmFrame()).toBe(WINDOW_START + WINDOW_FRAMES);
+	});
+
+	it('reads the same Film frame from the incoming Scene when that is the one selected', async () => {
+		openTwoSceneFadeFilm();
+		mountTimeline();
+
+		await selectOpenFilmScene(LOWER_THIRD, 12);
+
+		expect(readOpenFilmFrame()).toBe(WINDOW_START + 12);
+	});
+
+	it('shows a paused window frame through the presenter: both Scenes, in transit, and the author put back', async () => {
+		const film = openTwoSceneFadeFilm();
+		mountTimeline();
+		const presented = mountPresenter();
+		const revision = compositionEditHistory.revision;
+		const stored = storedFilmJson();
+
+		await seekOpenFilmFrame(WINDOW_START + 15);
+
+		expect(presented).toHaveLength(1);
+		expect(presented[0].windowFrame).toMatchObject({
+			boundaryIndex: 0,
+			outgoing: { sceneId: HERO, localFrame: 165 },
+			incoming: { sceneId: LOWER_THIRD, localFrame: 15 },
+			windowFrame: 15,
+			windowFrameCount: WINDOW_FRAMES,
+			progress: 15 / 29
+		});
+		expect(presented[0].shown).toEqual([
+			{ sceneId: HERO, surfaceType: film.scenes[0].state.surface.type, inTransit: true },
+			{ sceneId: LOWER_THIRD, surfaceType: film.scenes[1].state.surface.type, inTransit: true }
+		]);
+		expect(presented[0].selectedAfterRestore).toBe(HERO);
+		expect(presented[0].timeAfterRestore).toBe(5.5);
+		// Nothing was selected and nothing changed: the hold is an export's.
+		expect(filmState.selectedSceneId).toBe(HERO);
+		expect(readOpenFilmFrame()).toBe(WINDOW_START + 15);
+		expect(compositionEditHistory.revision).toBe(revision);
+		expect(storedFilmJson()).toBe(stored);
+		expect(isOpenFilmEngineStateInTransit()).toBe(false);
+	});
+
+	it('shows nothing through the presenter outside a window, or while the Film plays', async () => {
+		openTwoSceneFadeFilm();
+		const timeline = mountTimeline();
+		const presented = mountPresenter();
+
+		await seekOpenFilmFrame(WINDOW_START - 1);
+		await seekOpenFilmFrame(WINDOW_START + WINDOW_FRAMES);
+		expect(presented).toEqual([]);
+
+		await selectOpenFilmScene(HERO, WINDOW_START + 5);
+		timeline.isPlaying = true;
+		await showOpenFilmBoundaryFrameAtRest();
+		expect(presented).toEqual([]);
+
+		timeline.isPlaying = false;
+		await showOpenFilmBoundaryFrameAtRest();
+		expect(presented.map((frame) => frame.windowFrame.windowFrame)).toEqual([5]);
+	});
+
+	it('shows nothing through the presenter while an export holds the Film', async () => {
+		openTwoSceneFadeFilm();
+		mountTimeline();
+		const presented = mountPresenter();
+		await selectOpenFilmScene(HERO, WINDOW_START + 5);
+
+		const bracket = beginOpenFilmExportBracket();
+		await showOpenFilmBoundaryFrameAtRest();
+		await bracket.close();
+
+		expect(presented).toEqual([]);
+	});
+
+	it('renders only the latest of several requests still waiting', async () => {
+		openTwoSceneFadeFilm();
+		mountTimeline();
+		const presented = mountPresenter();
+
+		// Three steps asked for in a row, before any has run.
+		await Promise.all([
+			seekOpenFilmFrame(WINDOW_START + 3).then(() => undefined),
+			stepOpenFilmFrames(1).then(() => undefined),
+			stepOpenFilmFrames(1).then(() => undefined)
+		]);
+
+		expect(readOpenFilmFrame()).toBe(WINDOW_START + 5);
+		expect(presented.map((frame) => frame.windowFrame.windowFrame)).toEqual([5]);
+	});
+
+	it('releases the hold when the presenter fails, and the next frame still shows', async () => {
+		openTwoSceneFadeFilm();
+		mountTimeline();
+		openFilmBoundaryFramePresenterHandle.current = {
+			presentBoundaryFrame: async (windowFrame, scenes) => {
+				await scenes.showScene(windowFrame.incoming.sceneId);
+				throw new Error('Composition GPU host is unavailable.');
+			}
+		};
+
+		await expect(seekOpenFilmFrame(WINDOW_START + 2)).rejects.toThrow('GPU host');
+
+		expect(filmState.selectedSceneId).toBe(HERO);
+		expect(readOpenFilmFrame()).toBe(WINDOW_START + 2);
+		expect(isOpenFilmEngineStateInTransit()).toBe(false);
+		const presented = mountPresenter();
+		await stepOpenFilmFrames(1);
+		expect(presented.map((frame) => frame.windowFrame.windowFrame)).toEqual([3]);
+	});
+
+	it('plays a window as a proxy: the outgoing Scene until mid-window, then a cut to the incoming one', async () => {
+		openTwoSceneFadeFilm();
+		const timeline = mountTimeline();
+		const presented = mountPresenter();
+
+		// Hero is 180 frames; the outgoing half of the 30-frame window ends on frame 165.
+		expect(readOpenFilmProxyPlaybackEndSeconds()).toBe(165 / 30);
+		timeline.seek(164 / 30);
+		const filmFrameBeforeCut = readOpenFilmFrame();
+
+		await cutOpenFilmPlaybackToNextScene(true);
+
+		expect(filmState.selectedSceneId).toBe(LOWER_THIRD);
+		expect(timeline.time).toBe(15 / 30);
+		// Film time runs on across the proxy's cut.
+		expect(readOpenFilmFrame()).toBe(filmFrameBeforeCut + 1);
+		// The incoming Scene plays to its own end.
+		expect(readOpenFilmProxyPlaybackEndSeconds()).toBeNull();
+		// A playback cut is a selection, not a paused frame: nothing was blended.
+		expect(presented).toEqual([]);
+	});
+
+	it('goes on from the same Film frame when play is pressed late in the window', async () => {
+		openTwoSceneFadeFilm();
+		const timeline = mountTimeline();
+		await seekOpenFilmFrame(WINDOW_START + 25);
+
+		await cutOpenFilmPlaybackToNextScene(true);
+
+		expect(filmState.selectedSceneId).toBe(LOWER_THIRD);
+		expect(timeline.time).toBe(25 / 30);
+		expect(readOpenFilmFrame()).toBe(WINDOW_START + 25);
 	});
 });

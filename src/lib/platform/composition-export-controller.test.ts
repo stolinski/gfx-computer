@@ -6,6 +6,7 @@ import { createDefaultEngineState, type EngineState, type Preset } from './engin
 import type { TransparentVideoExportOptions, VideoExportDownload } from './export-video';
 import {
 	buildCompositionExportPlan,
+	compositionExportBoundaryFrameAt,
 	compositionExportFrameAt,
 	compositionExportSceneFrameAt,
 	CompositionExportController,
@@ -81,6 +82,14 @@ function filmOf(...states: EngineState[]): Film {
 			state
 		})),
 		boundaries: states.slice(1).map(() => ({ kind: 'cut' }))
+	};
+}
+
+/** `filmOf`, with a fade of `durationMs` at every boundary instead of a cut. */
+function fadeFilmOf(durationMs: number, ...states: EngineState[]): Film {
+	return {
+		...filmOf(...states),
+		boundaries: states.slice(1).map(() => ({ kind: 'fade', durationMs }))
 	};
 }
 
@@ -262,7 +271,7 @@ describe('composition export plan of a Film', () => {
 			film: filmOf(makeState({ durationSeconds: 10.01, fps: 29.97 })),
 			transition: null
 		});
-		const { scenes, ...planBeforeFilms } = plan;
+		const { scenes, boundaryWindows, ...planBeforeFilms } = plan;
 
 		assert.deepEqual(planBeforeFilms, {
 			format: 'webm',
@@ -281,6 +290,7 @@ describe('composition export plan of a Film', () => {
 		assert.deepEqual(scenes, [
 			{ sceneId: 'scene-1', startFrame: 0, frameCount: 300, durationSeconds: 10.01 }
 		]);
+		assert.deepEqual(boundaryWindows, []);
 		// A duration that is not a whole number of frames stays the authored one.
 		assert.equal(
 			buildCompositionExportPlan({
@@ -342,6 +352,89 @@ describe('composition export plan of a Film', () => {
 	});
 });
 
+describe('composition export plan of a Film with a fade', () => {
+	// 60 frames, a 30-frame fade, 90 frames at 30 fps: the window is Film frames 30 to 59.
+	function fadePlan(): ReturnType<typeof buildCompositionExportPlan> {
+		return buildCompositionExportPlan({
+			film: fadeFilmOf(
+				1000,
+				makeState({ durationSeconds: 2, fps: 30 }),
+				makeState({ durationSeconds: 3, fps: 30 })
+			),
+			transition: null
+		});
+	}
+
+	it('is shorter by the window, and starts the incoming Scene on the window', () => {
+		const plan = fadePlan();
+
+		assert.equal(plan.frameCount, 120);
+		assert.equal(plan.durationSeconds, 4);
+		assert.deepEqual(plan.scenes, [
+			{ sceneId: 'scene-1', startFrame: 0, frameCount: 60, durationSeconds: 2 },
+			{ sceneId: 'scene-2', startFrame: 30, frameCount: 90, durationSeconds: 3 }
+		]);
+		assert.deepEqual(plan.boundaryWindows, [
+			{ kind: 'fade', outgoingSceneIndex: 0, startFrame: 30, frameCount: 30 }
+		]);
+	});
+
+	it('resolves a window frame to both Scenes, each on its own clock, with the progress', () => {
+		const plan = fadePlan();
+
+		const first = compositionExportBoundaryFrameAt(plan, 30);
+		const middle = compositionExportBoundaryFrameAt(plan, 45);
+		const last = compositionExportBoundaryFrameAt(plan, 59);
+
+		assert.ok(first && middle && last);
+		assert.equal(first.progress, 0);
+		assert.equal(last.progress, 1);
+		assert.equal(middle.progress, 15 / 29);
+		assert.equal(middle.window, plan.boundaryWindows[0]);
+		assert.deepEqual(middle.outgoing, {
+			sceneIndex: 0,
+			scene: plan.scenes[0],
+			frame: 45,
+			timestamp: 1.5
+		});
+		assert.deepEqual(middle.incoming, {
+			sceneIndex: 1,
+			scene: plan.scenes[1],
+			frame: 15,
+			timestamp: 0.5
+		});
+		// The one-Scene rule names the outgoing Scene for a window frame.
+		assert.deepEqual(compositionExportSceneFrameAt(plan, 45), middle.outgoing);
+	});
+
+	it('resolves the frames either side of the window to one Scene', () => {
+		const plan = fadePlan();
+
+		assert.equal(compositionExportBoundaryFrameAt(plan, 29), null);
+		assert.equal(compositionExportBoundaryFrameAt(plan, 60), null);
+		assert.equal(compositionExportSceneFrameAt(plan, 29).sceneIndex, 0);
+		assert.deepEqual(compositionExportSceneFrameAt(plan, 60), {
+			sceneIndex: 1,
+			scene: plan.scenes[1],
+			frame: 30,
+			timestamp: 1
+		});
+		assert.throws(() => compositionExportBoundaryFrameAt(plan, 120), RangeError);
+	});
+
+	it('has no window in a Film of hard cuts', () => {
+		const plan = buildCompositionExportPlan({
+			film: filmOf(makeState({ durationSeconds: 2, fps: 30 }), makeState({ fps: 30 })),
+			transition: null
+		});
+
+		assert.deepEqual(plan.boundaryWindows, []);
+		for (let frame = 0; frame < plan.frameCount; frame += 1) {
+			assert.equal(compositionExportBoundaryFrameAt(plan, frame), null);
+		}
+	});
+});
+
 describe('composition export frame sequence', () => {
 	it('maps every frame index to the exact rational timestamp', () => {
 		const plan = buildCompositionExportPlan({
@@ -360,6 +453,9 @@ describe('composition export frame sequence', () => {
 
 /** The canvas's current texture as the harness hands it out; only its identity is read. */
 const CANVAS_OUTPUT_VIEW = { label: 'canvas' } as GPUTextureView;
+/** The two Scene targets of a boundary window frame, likewise. */
+const OUTGOING_TARGET_VIEW = { label: 'outgoing' } as GPUTextureView;
+const INCOMING_TARGET_VIEW = { label: 'incoming' } as GPUTextureView;
 
 interface ExportControllerHarness {
 	controller: CompositionExportController;
@@ -380,6 +476,7 @@ interface ExportControllerHarness {
 	shownSceneIds: string[];
 	/** What the export did to its animation and its bracket, in order. */
 	sceneLog: string[];
+	getBoundaryFrameSurfaceCount(): number;
 	getBracketOpenCount(): number;
 	getBracketCloseCount(): number;
 	getDisposedManagerCount(): number;
@@ -405,6 +502,7 @@ function createHarness(options?: {
 	const sceneLog: string[] = [];
 	let bracketOpenCount = 0;
 	let bracketCloseCount = 0;
+	let boundaryFrameSurfaceCount = 0;
 	const uiStates: CompositionExportUiState[] = [];
 	const downloads: string[] = [];
 	const downloadSignals: AbortSignal[] = [];
@@ -500,6 +598,17 @@ function createHarness(options?: {
 		prepareCompositionFrame: async (frame, timestamp) => {
 			preparedFrames.push({ frame, timestamp });
 		},
+		prepareFilmBoundaryFrameSurface: () => {
+			boundaryFrameSurfaceCount += 1;
+			return {
+				readOutgoingTarget: () => OUTGOING_TARGET_VIEW,
+				readIncomingTarget: () => INCOMING_TARGET_VIEW,
+				composite: ({ kind, progress, outputView }) => {
+					renderedOutputViews.push(outputView);
+					sceneLog.push(`composite ${kind} ${progress}`);
+				}
+			};
+		},
 		readCanvasOutputView: () => CANVAS_OUTPUT_VIEW,
 		renderCompositionFrame: (outputView, timestamp) => {
 			renderedOutputViews.push(outputView);
@@ -526,6 +635,7 @@ function createHarness(options?: {
 		encodedTimestamps,
 		shownSceneIds,
 		sceneLog,
+		getBoundaryFrameSurfaceCount: () => boundaryFrameSurfaceCount,
 		getBracketOpenCount: () => bracketOpenCount,
 		getBracketCloseCount: () => bracketCloseCount,
 		getDisposedManagerCount: () => disposedManagerCount,
@@ -1002,6 +1112,133 @@ describe('composition export of a Film of several Scenes', () => {
 		assert.deepEqual(hasBackground, [false, true]);
 		assert.deepEqual(mixed.downloads, ['gfx-overlay.webm']);
 		assert.deepEqual(opaque.downloads, ['gfx-bumper.webm']);
+	});
+});
+
+describe('composition export of a Film with a fade', () => {
+	// 4 frames, a 2-frame fade, 4 frames at 2 fps: the window is Film frames 2 and 3.
+	function fadeFilm(): Film {
+		return fadeFilmOf(
+			1000,
+			makeState({ durationSeconds: 2, fps: 2 }),
+			makeState({ durationSeconds: 2, fps: 2 })
+		);
+	}
+
+	it('steps both Scenes on every window frame, outgoing first, and one Scene everywhere else', async () => {
+		const harness = createHarness({ film: fadeFilm() });
+
+		const outcome = await harness.controller.export(harness.dependencies);
+
+		assert.equal(outcome.status, 'delivered');
+		assert.equal(outcome.status === 'delivered' && outcome.plan.frameCount, 6);
+		assert.deepEqual(harness.encodedTimestamps, [0, 0.5, 1, 1.5, 2, 2.5]);
+		assert.deepEqual(harness.sceneLog, [
+			'show scene-1',
+			'rebuild',
+			// Before the window: the outgoing Scene alone.
+			'render 0',
+			'render 0.5',
+			// Window frame 0: the outgoing Scene, then the incoming Scene, then the blend.
+			'render 1',
+			'show scene-2',
+			'rebuild',
+			'render 0',
+			'composite fade 0',
+			// Window frame 1: each Scene is shown again, in the same order.
+			'show scene-1',
+			'rebuild',
+			'render 1.5',
+			'show scene-2',
+			'rebuild',
+			'render 0.5',
+			'composite fade 1',
+			// After the window: the incoming Scene alone, already live.
+			'render 1',
+			'render 1.5',
+			'dispose',
+			'close'
+		]);
+	});
+
+	it('renders the two Scenes into their own targets and only the blend into the canvas', async () => {
+		const harness = createHarness({ film: fadeFilm() });
+
+		await harness.controller.export(harness.dependencies);
+
+		assert.deepEqual(
+			harness.renderedOutputViews.map((view) => view.label),
+			[
+				'canvas',
+				'canvas',
+				'outgoing',
+				'incoming',
+				'canvas',
+				'outgoing',
+				'incoming',
+				'canvas',
+				'canvas',
+				'canvas'
+			]
+		);
+		assert.deepEqual(harness.preparedFrames, [
+			{ frame: 0, timestamp: 0 },
+			{ frame: 1, timestamp: 0.5 },
+			{ frame: 2, timestamp: 1 },
+			{ frame: 0, timestamp: 0 },
+			{ frame: 3, timestamp: 1.5 },
+			{ frame: 1, timestamp: 0.5 },
+			{ frame: 2, timestamp: 1 },
+			{ frame: 3, timestamp: 1.5 }
+		]);
+		assert.equal(harness.getBoundaryFrameSurfaceCount(), 1);
+	});
+
+	it('asks for no Scene targets in a Film of hard cuts', async () => {
+		const harness = createHarness({
+			film: filmOf(
+				makeState({ durationSeconds: 1, fps: 2 }),
+				makeState({ durationSeconds: 1, fps: 2 })
+			)
+		});
+
+		await harness.controller.export(harness.dependencies);
+
+		assert.equal(harness.getBoundaryFrameSurfaceCount(), 0);
+		assert.ok(harness.renderedOutputViews.every((view) => view === CANVAS_OUTPUT_VIEW));
+	});
+
+	it('mixes both Scenes over the window: the incoming Scene starts on its first frame', async () => {
+		const harness = createHarness({ film: fadeFilm() });
+
+		await harness.controller.export(harness.dependencies);
+
+		assert.equal(harness.audioRequests[0].frameCount, 6);
+		assert.deepEqual(
+			harness.audioRequests[0].scenes.map(({ startFrame, frameCount }) => ({
+				startFrame,
+				frameCount
+			})),
+			[
+				{ startFrame: 0, frameCount: 4 },
+				{ startFrame: 2, frameCount: 4 }
+			]
+		);
+	});
+
+	it('closes the bracket when a window frame fails between its two Scenes', async () => {
+		const harness = createHarness({
+			film: fadeFilm(),
+			showScene: async (sceneId) => {
+				if (sceneId === 'scene-2') throw new Error('Composition root is unavailable.');
+			}
+		});
+
+		const outcome = await harness.controller.export(harness.dependencies);
+
+		assert.equal(outcome.status, 'failed');
+		assert.ok(!harness.sceneLog.some((entry) => entry.startsWith('composite')));
+		assert.equal(harness.getBracketCloseCount(), 1);
 	});
 });
 

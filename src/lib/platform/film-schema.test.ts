@@ -144,6 +144,49 @@ describe('FilmSchema', () => {
 		}
 	});
 
+	it('accepts a fade with a duration beside a cut', () => {
+		const document = filmDocument(['intro', 'proof', 'outro']);
+		document['boundaries'] = [{ kind: 'fade', durationMs: 1000 }, { kind: 'cut' }];
+
+		const film = FilmSchema.parse(document);
+
+		assert.deepEqual(film.boundaries, [{ kind: 'fade', durationMs: 1000 }, { kind: 'cut' }]);
+	});
+
+	it('refuses a fade with no duration, a duration of 0 or less, or an unknown key', () => {
+		const withBoundary = (boundary: unknown): Record<string, unknown> => ({
+			...filmDocument(['intro', 'outro']),
+			boundaries: [boundary]
+		});
+
+		assert.equal(FilmSchema.safeParse(withBoundary({ kind: 'fade' })).success, false);
+		assert.deepEqual(
+			issueMessagesAt(withBoundary({ kind: 'fade', durationMs: 0 }), 'boundaries/0/durationMs'),
+			['A fade lasts longer than 0 ms']
+		);
+		assert.equal(
+			FilmSchema.safeParse(withBoundary({ kind: 'fade', durationMs: -40 })).success,
+			false
+		);
+		assert.equal(
+			FilmSchema.safeParse(withBoundary({ kind: 'fade', durationMs: 500, ease: 'power2.inOut' }))
+				.success,
+			false
+		);
+		// A cut has no duration to carry.
+		assert.equal(
+			FilmSchema.safeParse(withBoundary({ kind: 'cut', durationMs: 500 })).success,
+			false
+		);
+	});
+
+	it('does not bound a fade by its Scenes: that needs the rate, and is a semantic finding', () => {
+		const document = filmDocument(['intro', 'outro']);
+		document['boundaries'] = [{ kind: 'fade', durationMs: 600_000 }];
+
+		assert.equal(FilmSchema.safeParse(document).success, true);
+	});
+
 	it('refuses a boundary kind that is not registered', () => {
 		const document = { ...filmDocument(['intro', 'outro']), boundaries: [{ kind: 'fade' }] };
 

@@ -77,12 +77,23 @@ export const FilmSceneSchema = z.strictObject({
 
 /**
  * What happens between two neighbouring Scenes (ADR-0068 §4), discriminated on
- * `kind`. Only the hard cut exists today. Fade, the registered transition
- * effects, and magic move each arrive as one more member of this union, so
+ * `kind`. A `cut` shares no frames. A `fade` is a cross-fade that lasts
+ * `durationMs`: it overlaps the tail of the outgoing Scene and the head of the
+ * incoming one, and both keep animating through it. The registered transition
+ * effects and magic move each arrive as one more member of this union, so
  * adding one never changes a Film that does not use it.
+ *
+ * How many frames a fade overlaps depends on the Film's rate, so its bounds are
+ * not checked here. `validateFilmSemantics` (`./film-ingress.ts`) reports a
+ * fade shorter than one frame or longer than its Scenes allow, with its path;
+ * `filmSceneBoundaryOverlapFrames` (`./film-playhead.ts`) is the rounding rule.
  */
 export const FilmSceneBoundarySchema = z.discriminatedUnion('kind', [
-	z.strictObject({ kind: z.literal('cut') })
+	z.strictObject({ kind: z.literal('cut') }),
+	z.strictObject({
+		kind: z.literal('fade'),
+		durationMs: z.number().positive('A fade lasts longer than 0 ms')
+	})
 ]);
 
 /** One structural defect in a Film, in the shape Preset validation reports. */

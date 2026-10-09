@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { PRESET_SCHEMA_ID, type EngineState, type Preset } from './engine-schema';
-import { filmFrameCount } from './film-playhead';
+import { filmFrameCount, filmSceneBoundaryOverlaps, filmSceneFrameCount } from './film-playhead';
 import {
 	FILM_DURATION_CEILING_SECONDS,
 	FILM_SCHEMA_ID,
@@ -238,6 +238,53 @@ export function filmToWireFormat(film: Film): unknown {
 }
 
 /**
+ * The bounds of every boundary with a duration, counted in frames at the Film's
+ * rate ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §2, §4).
+ * A window lasts at least one frame. It is no longer than the shorter of its
+ * two Scenes. And the windows on either side of one Scene do not meet, so two
+ * Scenes at most are ever on one frame. Each finding is at the boundary's own
+ * `durationMs`.
+ *
+ * `film` must have one boundary per pair of neighbouring Scenes.
+ */
+function listFilmBoundaryWindowIssues(film: Film): PresetSemanticIssue[] {
+	const issues: PresetSemanticIssue[] = [];
+	const rate = resolveFrameRate(film.fps);
+	const frameCounts = film.scenes.map((scene) => filmSceneFrameCount(scene, rate));
+	const overlapFrames = filmSceneBoundaryOverlaps(film);
+	for (const [boundaryIndex, boundary] of film.boundaries.entries()) {
+		if (boundary.kind === 'cut') continue;
+		const path = ['boundaries', boundaryIndex, 'durationMs'];
+		const windowFrameCount = overlapFrames[boundaryIndex];
+		const outgoing = film.scenes[boundaryIndex];
+		const incoming = film.scenes[boundaryIndex + 1];
+		if (windowFrameCount < 1) {
+			issues.push({
+				path,
+				message: `The ${boundary.kind} between Scene "${outgoing.id}" and Scene "${incoming.id}" lasts ${boundary.durationMs} ms, less than one frame at ${film.fps} fps. Lengthen it, or make the boundary a cut.`
+			});
+			continue;
+		}
+		const shorterFrameCount = Math.min(frameCounts[boundaryIndex], frameCounts[boundaryIndex + 1]);
+		if (windowFrameCount > shorterFrameCount) {
+			issues.push({
+				path,
+				message: `The ${boundary.kind} between Scene "${outgoing.id}" and Scene "${incoming.id}" lasts ${windowFrameCount} frames, longer than the shorter of the two Scenes (${shorterFrameCount} frames). Shorten it.`
+			});
+			continue;
+		}
+		const leadingWindowFrameCount = boundaryIndex > 0 ? overlapFrames[boundaryIndex - 1] : 0;
+		if (leadingWindowFrameCount + windowFrameCount > frameCounts[boundaryIndex]) {
+			issues.push({
+				path,
+				message: `Scene "${outgoing.id}" runs ${frameCounts[boundaryIndex]} frames, and the boundaries on either side of it overlap ${leadingWindowFrameCount} and ${windowFrameCount} of them. The two would meet, putting three Scenes on one frame. Shorten one.`
+			});
+		}
+	}
+	return issues;
+}
+
+/**
  * Registry and cross-domain checks for a parsed Film, in the shape Preset
  * validation reports (`PresetSemanticIssue`).
  *
@@ -247,7 +294,9 @@ export function filmToWireFormat(film: Film): unknown {
  * of the Film, so a Pack finding is reported once, at `/pack`.
  *
  * On top of that: Scene ids are unique, there is one boundary per pair of
- * neighbours, and the whole Film fits the duration ceiling, counted in frames.
+ * neighbours, every boundary with a duration fits its Scenes
+ * (`listFilmBoundaryWindowIssues`), and the whole Film fits the duration
+ * ceiling, counted in frames.
  */
 export function validateFilmSemantics(
 	film: Film,
@@ -280,6 +329,7 @@ export function validateFilmSemantics(
 
 	// Film length needs a well-formed Scene and boundary list to be counted.
 	if (structureIssues.length === 0 && film.scenes.length > 0) {
+		issues.push(...listFilmBoundaryWindowIssues(film));
 		const ceilingFrameCount = secondsToFrames(
 			FILM_DURATION_CEILING_SECONDS,
 			resolveFrameRate(film.fps)

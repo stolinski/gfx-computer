@@ -72,11 +72,28 @@
 		type CompositionStateSwapSettleDependencies
 	} from './composition-state-swap-settle';
 	import {
+		renderFilmBoundaryFrame,
+		type FilmBoundaryEffectKind,
+		type FilmBoundaryFrameSurface
+	} from './film-boundary-frame';
+	import { FilmBoundaryFrameCompositor } from './film-boundary-frame-compositor';
+	import {
+		filmSceneFrameCount,
+		resolveFilmBoundaryWindowFrame,
+		type FilmBoundaryWindowFrame
+	} from './film-playhead';
+	import { createFilmSceneFrameStepper } from './film-scene-frame-stepper';
+	import {
 		beginOpenFilmExportBracket,
 		cutOpenFilmPlaybackToNextScene,
+		openFilmBoundaryFramePresenterHandle,
 		openFilmSceneSettlerHandle,
+		readOpenFilmFrame,
+		readOpenFilmProxyPlaybackEndSeconds,
 		seekOpenFilmFrame,
-		stepOpenFilmFrames
+		showOpenFilmBoundaryFrameAtRest,
+		stepOpenFilmFrames,
+		type OpenFilmBoundaryFrameScenes
 	} from './film-scene-selection';
 	import { isOpenFilmShowingPosterScene, readOpenFilm } from './film-state.svelte';
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
@@ -158,6 +175,24 @@
 	let suppressCachedTransitionForAudit = false;
 	let transitionSnapshotPreparation: Promise<void> | null = null;
 	const compositionExportController = new CompositionExportController();
+	// A Scene boundary's window frame (ADR-0068 §4): the two Scene targets and
+	// the pass that composites them. Export renders every window frame through
+	// it, and so does a playhead that rests inside a window.
+	const filmBoundaryFrameCompositor = new FilmBoundaryFrameCompositor();
+	// The window frame the canvas holds while the playhead rests inside a
+	// boundary window: both Scene targets are still the frame's, so every paint
+	// composites them again instead of rendering the one live Scene. Dropped the
+	// moment the playhead moves, play starts, the Film is edited, or an export
+	// takes the targets; the canvas then shows the open Scene alone.
+	let heldFilmBoundaryFrame = $state.raw<{
+		filmFrame: number;
+		kind: FilmBoundaryEffectKind;
+		progress: number;
+	} | null>(null);
+	// True while the two Scenes of a paused window frame are being stepped. The
+	// canvas then belongs to that pass, exactly as it belongs to an export:
+	// preview paints composite nothing and DOM capture is forced.
+	let isSteppingFilmBoundaryFrame = false;
 	const canvasPaintGenerationTracker = new CanvasPaintGenerationTracker();
 	const compositionRenderResourceController = new CompositionRenderResourceController();
 	const stageSubstrateController = new StageSubstrateController({
@@ -240,7 +275,9 @@
 	// export ends. Nothing is captured while a Scene other than the Film's first
 	// is open either: the key is the first Scene's, so the still must be too
 	// (`isOpenFilmShowingPosterScene`). Selecting another Scene stops a capture
-	// that has not stored yet, and opening the first Scene starts one.
+	// that has not stored yet, and opening the first Scene starts one. Nothing is
+	// captured while the canvas holds a boundary window frame either: that frame
+	// is two Scenes, not the first one.
 	$effect(() => {
 		const key = posterKey;
 		const localCanvas = canvas;
@@ -251,6 +288,7 @@
 			!host ||
 			!localCompositionElement ||
 			isExporting ||
+			heldFilmBoundaryFrame !== null ||
 			!isOpenFilmShowingPosterScene()
 		) {
 			posterCaptureController.update(null);
@@ -323,7 +361,7 @@
 	let deterministicRenderAuditMode = $state(false);
 	const videoUnderlayRuntimeController = new VideoUnderlayRuntimeController({
 		readHost: () => host,
-		readIsExporting: () => isExporting,
+		readIsExporting: () => isExporting || isSteppingFilmBoundaryFrame,
 		readState: () => engineState,
 		renderPreparedPreview: renderPreparedPreviewFrame,
 		reportError: (error) => {
@@ -672,7 +710,7 @@
 						canvasPaintGenerationTracker.generationFor(root.element)
 					])
 				),
-				force: isExporting || forceReadableAuditDomCapture
+				force: isExporting || isSteppingFilmBoundaryFrame || forceReadableAuditDomCapture
 			},
 			resources: currentFrameRenderResources(),
 			cachedTransition: suppressCachedTransitionForAudit
@@ -683,7 +721,7 @@
 	}
 
 	function renderPreparedPreviewFrame(localHost: GpuHost, timestamp: number): boolean {
-		if (host !== localHost || isExporting || isWorkspaceDestroyed) {
+		if (host !== localHost || isExporting || isSteppingFilmBoundaryFrame || isWorkspaceDestroyed) {
 			return false;
 		}
 		return (
@@ -698,7 +736,7 @@
 
 	function renderAt(timestamp: number): void {
 		const localHost = host;
-		if (!localHost || isExporting || isWorkspaceDestroyed) {
+		if (!localHost || isExporting || isSteppingFilmBoundaryFrame || isWorkspaceDestroyed) {
 			return;
 		}
 		videoUnderlayRuntimeController.queuePreview(
@@ -722,6 +760,10 @@
 	// DOM texture. This is imperative on purpose — rendering is a side effect of
 	// time/authoring changes, not a reactive derivation.
 	function tickTimeline(timestamp: number): void {
+		// Every tick is the playhead moving, play running, or the Film changing:
+		// a boundary window frame held on the canvas is no longer what it shows.
+		// The pass that renders one drives no tick it means, so it is left alone.
+		if (!isSteppingFilmBoundaryFrame) heldFilmBoundaryFrame = null;
 		const duration = engineState.transport.durationSeconds;
 		const fraction = duration > 0 ? timestamp / duration : 0;
 		animationManager.progress(fraction);
@@ -733,6 +775,141 @@
 
 	function nextFrame(): Promise<void> {
 		return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+	}
+
+	function readCanvasOutputView(): GPUTextureView {
+		if (!host) throw new Error('Composition GPU host is unavailable.');
+		return host.context.getCurrentTexture().createView();
+	}
+
+	// The two Scene targets of a boundary window frame, made for the canvas as
+	// it is now. The compositor keeps them between frames.
+	function prepareFilmBoundaryFrameSurface(): FilmBoundaryFrameSurface {
+		if (!host || !canvas) {
+			throw new Error('Composition canvas and GPU host are unavailable for a boundary frame.');
+		}
+		filmBoundaryFrameCompositor.prepare({ host, width: canvas.width, height: canvas.height });
+		return filmBoundaryFrameCompositor;
+	}
+
+	// Composite the held boundary window frame into the canvas. False when the
+	// canvas holds none, or its targets are no longer the canvas's.
+	function presentHeldFilmBoundaryFrame(): boolean {
+		const held = heldFilmBoundaryFrame;
+		const localHost = host;
+		const localCanvas = canvas;
+		if (!held || !localHost || !localCanvas || isExporting || isSteppingFilmBoundaryFrame) {
+			return false;
+		}
+		if (
+			!filmBoundaryFrameCompositor.isPreparedFor({
+				host: localHost,
+				width: localCanvas.width,
+				height: localCanvas.height
+			})
+		) {
+			heldFilmBoundaryFrame = null;
+			return false;
+		}
+		filmBoundaryFrameCompositor.composite({
+			kind: held.kind,
+			progress: held.progress,
+			outputView: localHost.context.getCurrentTexture().createView()
+		});
+		return true;
+	}
+
+	// The Workspace's half of a paused boundary window frame
+	// (`showOpenFilmBoundaryFrameAtRest` in `./film-scene-selection.ts`). The
+	// frame is rendered the way export renders it: the Scene frame stepper puts
+	// each Scene into its target and the boundary's effect composites the two.
+	// The author's Scene is then put back, and the composite is held on the
+	// canvas. For the length of the pass the canvas is the pass's, as it is an
+	// export's.
+	async function presentFilmBoundaryFrame(
+		windowFrame: FilmBoundaryWindowFrame,
+		scenes: OpenFilmBoundaryFrameScenes
+	): Promise<void> {
+		// Read before any Scene is shown: the hold is open, so the Film is the
+		// author's and the playhead is where it rests.
+		const film = readOpenFilm();
+		const filmFrame = readOpenFilmFrame();
+		const boundaryKind = film.boundaries[windowFrame.boundaryIndex].kind;
+		if (boundaryKind === 'cut') {
+			throw new Error('A hard cut has no window frame to present.');
+		}
+		const frameRate = resolveFrameRate(film.fps);
+		const stepperScenes = film.scenes.map((scene) => ({
+			sceneId: scene.id,
+			frameCount: filmSceneFrameCount(scene, frameRate),
+			durationSeconds: scene.state.transport.durationSeconds
+		}));
+		const surface = prepareFilmBoundaryFrameSurface();
+		const stepAnimationManager = new AnimationManager();
+		heldFilmBoundaryFrame = null;
+		isSteppingFilmBoundaryFrame = true;
+		try {
+			try {
+				await renderFilmBoundaryFrame({
+					stepper: createFilmSceneFrameStepper({
+						scenes: stepperScenes,
+						frameRate,
+						animation: stepAnimationManager,
+						showScene: scenes.showScene,
+						waitForCompositionResources: waitForActiveCompositionResources,
+						buildAnimationManifest: buildLiveAnimationManifest,
+						writeGlobalProgress: (fraction) => {
+							animState.globalProgress = fraction;
+						},
+						flushDom: tick,
+						settleCompositionPaint,
+						prepareCompositionFrame: prepareVideoExportFrame,
+						renderCompositionFrame: (outputView, timestamp) =>
+							renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp))
+					}),
+					surface,
+					kind: boundaryKind,
+					outgoing: {
+						sceneId: windowFrame.outgoing.sceneId,
+						sceneFrame: windowFrame.outgoing.localFrame
+					},
+					incoming: {
+						sceneId: windowFrame.incoming.sceneId,
+						sceneFrame: windowFrame.incoming.localFrame
+					},
+					progress: windowFrame.progress,
+					readOutputView: readCanvasOutputView,
+					signal: new AbortController().signal
+				});
+			} finally {
+				// The pass's own animation goes first, so the Scene that is put back
+				// is driven by the Workspace's alone, as after an export.
+				stepAnimationManager.dispose();
+				await scenes.restoreAuthorScene();
+			}
+		} finally {
+			isSteppingFilmBoundaryFrame = false;
+		}
+		heldFilmBoundaryFrame = { filmFrame, kind: boundaryKind, progress: windowFrame.progress };
+		presentHeldFilmBoundaryFrame();
+	}
+
+	function buildLiveAnimationManifest(): ReturnType<typeof buildCompositionAnimationManifest> {
+		return buildCompositionAnimationManifest({
+			state: engineState,
+			runtime: animState,
+			textAnimationRoot: compositionElement,
+			textAnimationCompiler: textAnimationManager,
+			resolveMarkColor: readMarkColor
+		});
+	}
+
+	// Show the exact frame when the playhead comes to rest inside a boundary
+	// window. Best-effort: a pass that fails leaves the open Scene on the canvas.
+	function showFilmBoundaryFrameAtRest(): void {
+		showOpenFilmBoundaryFrameAtRest().catch((error: unknown) => {
+			console.error('The boundary window frame could not be shown.', error);
+		});
 	}
 
 	function rebuildAnimationAtProgress(snapshotProgress: number): void {
@@ -942,6 +1119,9 @@
 					onPause: () => {
 						videoUnderlayRuntimeController.stopPlayback();
 						audioPreview.stop();
+						// Play showed a proxy inside a boundary window; a paused
+						// playhead there is shown the exact frame (ADR-0068 §4).
+						showFilmBoundaryFrameAtRest();
 					},
 					onLoop: () => {
 						videoUnderlayRuntimeController.stopPlayback();
@@ -955,7 +1135,10 @@
 					onPlayReachedEnd: () => cutOpenFilmPlaybackToNextScene(timeline?.loop ?? true),
 					// Play pressed at the end of a Scene goes on with the Film: the next
 					// Scene, or the first Scene again after the last.
-					onPlayFromEnd: () => cutOpenFilmPlaybackToNextScene(true)
+					onPlayFromEnd: () => cutOpenFilmPlaybackToNextScene(true),
+					// Playback through a boundary window is a proxy: this Scene until
+					// mid-window, then a cut to the incoming one.
+					readPlayEndSeconds: readOpenFilmProxyPlaybackEndSeconds
 				});
 				if (typeof window !== 'undefined') {
 					window.__gfxTimeline = timeline;
@@ -972,6 +1155,9 @@
 				// handle (prev/next jumps + add-at-playhead).
 				timelineHandle.current = timeline;
 				openFilmSceneSettlerHandle.current = { settleSceneAt: settleOpenFilmSceneAt };
+				openFilmBoundaryFramePresenterHandle.current = {
+					presentBoundaryFrame: presentFilmBoundaryFrame
+				};
 				animationManager.rebuild(
 					buildCompositionAnimationManifest({
 						state: engineState,
@@ -992,6 +1178,9 @@
 				// tick already applied the GSAP state (and wrote animState) before
 				// requesting this paint, so we only composite here — renderAt(), not
 				// tickTimeline(), to avoid re-driving the animation on every paint.
+				// While the playhead rests inside a boundary window the frame is two
+				// Scenes, already rendered: the paint composites them again.
+				if (presentHeldFilmBoundaryFrame()) return;
 				if (timeline) {
 					renderAt(timeline.time);
 				}
@@ -1218,6 +1407,21 @@
 		// this effect and replace it.
 		window.__settleGfxFilmFrame = async (filmFrame) => {
 			const position = await seekOpenFilmFrame(filmFrame);
+			const boundaryWindow = resolveFilmBoundaryWindowFrame(readOpenFilm(), filmFrame);
+			if (boundaryWindow !== null) {
+				// The seek has already rendered both Scenes and composited them. Wait
+				// for that composite to finish and be presented, as the deterministic
+				// settle below does, then make sure it is still the frame held.
+				await host?.device.queue.onSubmittedWorkDone();
+				await nextFrame();
+				await nextFrame();
+				if (heldFilmBoundaryFrame?.filmFrame !== filmFrame) {
+					throw new Error(
+						`The canvas does not hold the boundary window frame of Film frame ${filmFrame}.`
+					);
+				}
+				return { ...position, boundaryWindow };
+			}
 			const settle = window.__settleGfxDeterministicCompositionFrame;
 			if (!settle) throw new Error('The Workspace was destroyed while Film time was settling.');
 			const frameRate = resolveFrameRate(engineState.transport.fps);
@@ -1225,7 +1429,7 @@
 				address: deterministicFrameAddressFor(position.localFrame, frameRate),
 				frameRate: { num: frameRate.num, den: frameRate.den }
 			});
-			return position;
+			return { ...position, boundaryWindow };
 		};
 
 		function deterministicFrameRequestFor(frame: number): DeterministicFrameRequest {
@@ -1475,6 +1679,7 @@
 		timeline = null;
 		timelineHandle.current = null;
 		openFilmSceneSettlerHandle.current = null;
+		openFilmBoundaryFramePresenterHandle.current = null;
 		compositionExportHandle.current = null;
 		audioPreview.dispose();
 		transitionSnapshotController.dispose();
@@ -1484,6 +1689,7 @@
 		}
 		compositionRenderResourceController.dispose();
 		renderResourceSet = null;
+		filmBoundaryFrameCompositor.dispose();
 		stageSubstrateController.dispose();
 		stageModelController.dispose();
 		stageTypefaceController.dispose();
@@ -1501,7 +1707,7 @@
 	): Promise<CompositionExportOutcome> {
 		await tick();
 		await transitionSnapshotPreparation;
-		return compositionExportController.export(
+		const outcome = await compositionExportController.export(
 			{
 				// Detached: the export makes each Scene live in turn, so the Film it
 				// plans and mixes from must not follow engine state.
@@ -1512,14 +1718,7 @@
 				isFrameRendererReady: () => canvas !== null && renderResourceSet !== null,
 				readSeparateWav: () => separateWav,
 				pauseTimeline: () => timeline?.pause(),
-				buildAnimationManifest: () =>
-					buildCompositionAnimationManifest({
-						state: engineState,
-						runtime: animState,
-						textAnimationRoot: compositionElement,
-						textAnimationCompiler: textAnimationManager,
-						resolveMarkColor: readMarkColor
-					}),
+				buildAnimationManifest: buildLiveAnimationManifest,
 				writeGlobalProgress: (fraction) => {
 					animState.globalProgress = fraction;
 				},
@@ -1527,13 +1726,13 @@
 				flushDom: tick,
 				settleCompositionPaint,
 				prepareCompositionFrame: prepareVideoExportFrame,
-				readCanvasOutputView: () => {
-					if (!host) throw new Error('Composition GPU host is unavailable for export.');
-					return host.context.getCurrentTexture().createView();
-				},
+				prepareFilmBoundaryFrameSurface,
+				readCanvasOutputView,
 				renderCompositionFrame: (outputView, timestamp) =>
 					renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
 				writeExportUiState: (next: CompositionExportUiState) => {
+					// An export renders its own boundary frames into the Scene targets.
+					if (next.isExporting) heldFilmBoundaryFrame = null;
 					isExporting = next.isExporting;
 					progress = next.progress;
 					status = next.status;
@@ -1542,6 +1741,10 @@
 			request,
 			signal
 		);
+		// The export put the author's Scene and frame back. A playhead that rests
+		// inside a boundary window is shown the exact frame again.
+		showFilmBoundaryFrameAtRest();
+		return outcome;
 	}
 
 	// The GUI export handler — seals arity at the DOM event boundary so a

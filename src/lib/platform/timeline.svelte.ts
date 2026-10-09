@@ -30,6 +30,15 @@ export interface TimelineOptions {
 	 * the Film's first Scene after its last.
 	 */
 	onPlayFromEnd?: () => Promise<void> | null;
+	/**
+	 * Film playback. The Scene time at which play leaves what the transport runs
+	 * over, when that is before its end: the proxy of a boundary window cuts to
+	 * the next Scene at mid-window (ADR-0068 §4). `null` when play runs to the
+	 * end, which is also the answer when the option is absent. Read on every
+	 * play tick and when play is pressed. Seek and step never read it: a paused
+	 * playhead goes all the way to the end.
+	 */
+	readPlayEndSeconds?: () => number | null;
 }
 
 /** What the transport runs over after a cut: the Scene now live, and where its playhead is. */
@@ -61,6 +70,7 @@ export class Timeline {
 	#onLoop: TimelineOptions['onLoop'];
 	#onPlayReachedEnd: TimelineOptions['onPlayReachedEnd'];
 	#onPlayFromEnd: TimelineOptions['onPlayFromEnd'];
+	#readPlayEndSeconds: TimelineOptions['readPlayEndSeconds'];
 	/** Counts `play()` calls, so a cut that settles after a pause and a new play resumes nothing. */
 	#playSession = 0;
 
@@ -74,6 +84,7 @@ export class Timeline {
 		this.#onLoop = options.onLoop;
 		this.#onPlayReachedEnd = options.onPlayReachedEnd;
 		this.#onPlayFromEnd = options.onPlayFromEnd;
+		this.#readPlayEndSeconds = options.readPlayEndSeconds;
 	}
 
 	/**
@@ -107,7 +118,7 @@ export class Timeline {
 			return;
 		}
 
-		if (this.time >= this.durationSeconds) {
+		if (this.time >= this.#playEndSeconds()) {
 			const cut = this.#onPlayFromEnd?.() ?? null;
 			if (cut) {
 				this.isPlaying = true;
@@ -115,7 +126,11 @@ export class Timeline {
 				this.#resumeAfterCut(cut, () => this.#onPlay?.(this.time));
 				return;
 			}
-			this.time = 0;
+			// With no Scene to go on to, only the very end rewinds; a playhead past
+			// an earlier play end plays on from where it is.
+			if (this.time >= this.durationSeconds) {
+				this.time = 0;
+			}
 		}
 
 		this.isPlaying = true;
@@ -170,9 +185,10 @@ export class Timeline {
 		}
 
 		const elapsed = (now - this.#playStartedAt) / 1000;
-		const next = Math.min(this.#playStartedFrom + elapsed, this.durationSeconds);
+		const playEnd = this.#playEndSeconds();
+		let next = Math.min(this.#playStartedFrom + elapsed, playEnd);
 
-		if (next >= this.durationSeconds) {
+		if (next >= playEnd) {
 			// The end of a Scene is the first frame of the next one, so a cut is
 			// taken before this Scene's end is ticked: the outgoing Scene never
 			// shows a frame past its last.
@@ -181,6 +197,8 @@ export class Timeline {
 				this.#resumeAfterCut(cut, () => this.#onLoop?.());
 				return;
 			}
+			// No Scene to cut to: play runs on to the very end.
+			next = Math.min(this.#playStartedFrom + elapsed, this.durationSeconds);
 		}
 
 		this.time = next;
@@ -203,6 +221,12 @@ export class Timeline {
 
 		this.#rafId = requestAnimationFrame(this.#loop);
 	};
+
+	/** Where play leaves what the transport runs over: an earlier play end, or the end. */
+	#playEndSeconds(): number {
+		const playEnd = this.#readPlayEndSeconds?.() ?? null;
+		return playEnd === null ? this.durationSeconds : Math.min(playEnd, this.durationSeconds);
+	}
 
 	/**
 	 * Hold play while a cut settles, then run the clock again from where the cut

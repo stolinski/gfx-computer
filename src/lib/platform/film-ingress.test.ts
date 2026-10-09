@@ -496,4 +496,122 @@ describe('validateFilmSemantics', () => {
 			}
 		]);
 	});
+
+	describe('the bounds of a fade', () => {
+		const sceneOfSeconds = (id: string, durationSeconds: number): Record<string, unknown> =>
+			sceneDocument(id, { transport: { durationSeconds } });
+
+		/** Scenes of the given lengths at 30 fps, with the given boundaries. */
+		function filmWithBoundaries(
+			durationsSeconds: readonly number[],
+			boundaries: readonly unknown[],
+			fps = 30
+		): Film {
+			return parseFilmIngress({
+				...filmDocument(
+					durationsSeconds.map((seconds, index) => sceneOfSeconds(`scene-${index + 1}`, seconds))
+				),
+				fps,
+				boundaries
+			});
+		}
+
+		it('finds nothing wrong with a fade its Scenes have room for', () => {
+			assert.deepEqual(
+				validateFilmSemantics(filmWithBoundaries([2, 3], [{ kind: 'fade', durationMs: 1000 }])),
+				[]
+			);
+			// As long as the shorter Scene, exactly: the whole Scene is in the window.
+			assert.deepEqual(
+				validateFilmSemantics(filmWithBoundaries([2, 3], [{ kind: 'fade', durationMs: 2000 }])),
+				[]
+			);
+			// One frame.
+			assert.deepEqual(
+				validateFilmSemantics(filmWithBoundaries([2, 3], [{ kind: 'fade', durationMs: 33 }])),
+				[]
+			);
+		});
+
+		it('reports a fade shorter than one frame at the Film rate, at its durationMs', () => {
+			const film = filmWithBoundaries([2, 3], [{ kind: 'fade', durationMs: 16 }]);
+
+			assert.deepEqual(validateFilmSemantics(film), [
+				{
+					path: ['boundaries', 0, 'durationMs'],
+					message:
+						'The fade between Scene "scene-1" and Scene "scene-2" lasts 16 ms, less than one frame at 30 fps. Lengthen it, or make the boundary a cut.'
+				}
+			]);
+			// The same 16 ms is a whole frame at 60 fps.
+			assert.deepEqual(
+				validateFilmSemantics(filmWithBoundaries([2, 3], [{ kind: 'fade', durationMs: 16 }], 60)),
+				[]
+			);
+		});
+
+		it('reports a fade longer than the shorter of its two Scenes, at its durationMs', () => {
+			const film = filmWithBoundaries([2, 1], [{ kind: 'fade', durationMs: 1500 }]);
+
+			assert.deepEqual(validateFilmSemantics(film), [
+				{
+					path: ['boundaries', 0, 'durationMs'],
+					message:
+						'The fade between Scene "scene-1" and Scene "scene-2" lasts 45 frames, longer than the shorter of the two Scenes (30 frames). Shorten it.'
+				}
+			]);
+		});
+
+		it('reports two fades that would meet inside the Scene between them, at the second', () => {
+			// The middle Scene is 60 frames; 40 + 30 frames of fade do not fit in it.
+			const film = filmWithBoundaries(
+				[3, 2, 3],
+				[
+					{ kind: 'fade', durationMs: 1333.4 },
+					{ kind: 'fade', durationMs: 1000 }
+				]
+			);
+
+			const issues = validateFilmSemantics(film);
+
+			assert.deepEqual(
+				issues.map((issue) => issue.path),
+				[['boundaries', 1, 'durationMs']]
+			);
+			assert.match(issues[0].message, /Scene "scene-2" runs 60 frames/);
+			assert.match(issues[0].message, /overlap 40 and 30 of them/);
+			// 30 + 30 frames fit exactly.
+			assert.deepEqual(
+				validateFilmSemantics(
+					filmWithBoundaries(
+						[3, 2, 3],
+						[
+							{ kind: 'fade', durationMs: 1000 },
+							{ kind: 'fade', durationMs: 1000 }
+						]
+					)
+				),
+				[]
+			);
+		});
+
+		it('refuses an out-of-bounds fade when a Film is parsed', () => {
+			const document = {
+				...filmDocument([sceneOfSeconds('intro', 2), sceneOfSeconds('outro', 1)]),
+				fps: 30,
+				boundaries: [{ kind: 'fade', durationMs: 1500 }]
+			};
+
+			assert.throws(
+				() => parseFilm(document),
+				/boundaries\.0\.durationMs|boundaries\/0\/durationMs/
+			);
+		});
+
+		it('keeps a fade through wire and parse again', () => {
+			const film = filmWithBoundaries([2, 3], [{ kind: 'fade', durationMs: 1000 }]);
+
+			assert.deepEqual(parseFilm(filmToWireFormat(film)), film);
+		});
+	});
 });

@@ -10,7 +10,10 @@
  * An export mixes the whole Film (`renderFilmAudioMix`,
  * [ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §6):
  * every Scene's own schedule, placed at the sample its Scene starts on and cut
- * at the sample its Scene ends on, summed Scene by Scene into one buffer.
+ * at the sample its Scene ends on, summed Scene by Scene into one buffer. Two
+ * Scenes that share a boundary window overlap in the buffer by that window: the
+ * outgoing Scene sounds through it to its own end, the incoming Scene sounds
+ * from the window's first frame, and both are summed at full level.
  */
 import type { FrameRate } from '$lib/utils/composition-timing';
 import { isEngineStateOpaque } from '$lib/utils/output-classification';
@@ -112,7 +115,10 @@ export interface AudioMixRenderRequest {
 /** One Scene of a Film as the mix places it. */
 export interface FilmAudioMixScene {
 	state: EngineState;
-	/** The Film frame the Scene starts on. */
+	/**
+	 * The Film frame the Scene starts on. After a boundary window this is the
+	 * window's first frame, before the Scene ahead of it has ended.
+	 */
 	startFrame: number;
 	/** How many Film frames the Scene fills. */
 	frameCount: number;
@@ -201,9 +207,11 @@ function scaleMixChannels(channels: MixChannels, gain: number): void {
 }
 
 /**
- * The samples one Scene owns in the Film's buffer: from the sample its first
- * frame starts on to the sample its last frame ends on. Nothing a Scene
+ * The samples one Scene sounds over in the Film's buffer: from the sample its
+ * first frame starts on to the sample its last frame ends on. Nothing a Scene
  * schedules is written outside this span, so a hard cut is hard for sound too.
+ * The spans of two Scenes that share a boundary window overlap by the window,
+ * and there both Scenes are summed.
  */
 interface FilmAudioMixSceneSpan {
 	startSample: number;
@@ -422,8 +430,10 @@ function applyPeakCeiling(channels: MixChannels): void {
  * Each Scene is planned on its own (`planAudioMix`) and placed at the sample
  * its Scene starts on. The sum runs in one fixed order: Scene by Scene in Film
  * order, and inside a Scene its Video clips and then its cues, as a lone
- * composition always summed. The peak ceiling is applied once, to the whole
- * Film, so the balance between Scenes is the authored one.
+ * composition always summed. Inside a boundary window that order puts the
+ * outgoing Scene's sounds before the incoming Scene's; neither is faded. The
+ * peak ceiling is applied once, to the whole Film, so the balance between
+ * Scenes is the authored one.
  *
  * Throws a `RangeError` when a Scene runs past `frameCount`.
  */

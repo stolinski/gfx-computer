@@ -18244,6 +18244,24 @@
               "kind"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "fade"
+              },
+              "durationMs": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "kind",
+              "durationMs"
+            ],
+            "additionalProperties": false
           }
         ]
       }

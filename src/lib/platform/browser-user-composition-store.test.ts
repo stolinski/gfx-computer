@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it, vi } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
+import twoSceneFadeFilmJson from '../../../scripts/fixtures/film-fade/two-scene-fade.film.json';
 
 import {
 	createBrowserUserCompositionStore,
@@ -134,6 +135,19 @@ describe('browser-scoped composition session store', () => {
 			storage.entries.get(`${STORAGE_IDENTITY}:untitled`) ?? 'null'
 		) as object;
 		assert.deepEqual(Object.keys(stored).sort(), ['film', 'savedAt', 'writeToken']);
+	});
+
+	it('keeps a Film with a fade, boundary and all', async () => {
+		const document: UserCompositionDocument = {
+			film: parseFilm(JSON.parse(JSON.stringify(twoSceneFadeFilmJson))),
+			legacyPresetEnvelope: { kind: 'deliverable' }
+		};
+
+		await createStore().createUserComposition('fade-film', document);
+		const loaded = await createStore().loadUserComposition('fade-film');
+
+		assert.deepEqual(loaded, document);
+		assert.deepEqual(loaded?.film.boundaries, [{ kind: 'fade', durationMs: 1000 }]);
 	});
 
 	it('reads back what an earlier page load wrote, which is what surviving a reload means', async () => {

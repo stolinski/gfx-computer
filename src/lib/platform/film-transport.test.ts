@@ -7,17 +7,23 @@ import blankPresetJson from '$lib/presets/blank.json';
 import { framesToSeconds, resolveFrameRate } from '../utils/composition-timing';
 import { parseFilmIngress } from './film-ingress';
 import { filmFrameCount } from './film-playhead';
-import { FILM_SCHEMA_ID, type Film } from './film-schema';
+import { FILM_SCHEMA_ID, type Film, type FilmSceneBoundary } from './film-schema';
 import {
 	filmDurationSeconds,
 	filmFrameAtSceneTime,
+	filmPlaybackCutFromScene,
 	filmSceneAfterForPlayback,
+	filmSceneProxyPlaybackEndFrame,
 	filmSceneFrameAtSceneTime,
 	filmSecondsAtSceneTime,
 	filmTransportPositionAtFrame
 } from './film-transport';
 
-function filmOfSceneDurations(fps: number, durationsSeconds: readonly number[]): Film {
+function filmOfSceneDurations(
+	fps: number,
+	durationsSeconds: readonly number[],
+	boundaries: readonly FilmSceneBoundary[] = durationsSeconds.slice(1).map(() => ({ kind: 'cut' }))
+): Film {
 	return parseFilmIngress({
 		schema: FILM_SCHEMA_ID,
 		name: 'Two clocks',
@@ -33,7 +39,7 @@ function filmOfSceneDurations(fps: number, durationsSeconds: readonly number[]):
 				transport: { ...blankPresetJson.state.transport, durationSeconds }
 			}
 		})),
-		boundaries: durationsSeconds.slice(1).map(() => ({ kind: 'cut' }))
+		boundaries
 	});
 }
 
@@ -222,5 +228,103 @@ describe('the Scene playback cuts to', () => {
 		const film = filmOfSceneDurations(30, SCENE_DURATIONS_SECONDS);
 
 		assert.throws(() => filmSceneAfterForPlayback(film, 'missing', true), RangeError);
+	});
+});
+
+describe('the two clocks across a fade', () => {
+	// 60 frames, a 30-frame fade, 90 frames: the window is Film frames 30 to 59.
+	function fadeFilm(fps = 30): Film {
+		return filmOfSceneDurations(fps, [2, 3], [{ kind: 'fade', durationMs: 1000 }]);
+	}
+
+	it('seeks a window frame to the outgoing Scene, until the window ends', () => {
+		const film = fadeFilm();
+
+		assert.deepEqual(filmTransportPositionAtFrame(film, 30), {
+			sceneIndex: 0,
+			sceneId: 'scene-1',
+			localFrame: 30,
+			sceneFrameCount: 60,
+			sceneSeconds: 1
+		});
+		assert.equal(filmTransportPositionAtFrame(film, 59).sceneId, 'scene-1');
+		assert.deepEqual(filmTransportPositionAtFrame(film, 60), {
+			sceneIndex: 1,
+			sceneId: 'scene-2',
+			localFrame: 30,
+			sceneFrameCount: 90,
+			sceneSeconds: 1
+		});
+	});
+
+	it('reads one Film frame from either Scene of a window frame', () => {
+		const film = fadeFilm();
+
+		assert.equal(filmFrameAtSceneTime(film, 'scene-1', 1.5), 45);
+		assert.equal(filmFrameAtSceneTime(film, 'scene-2', 0.5), 45);
+	});
+
+	it('runs as long as its Scenes together less the fade', () => {
+		assert.equal(filmDurationSeconds(fadeFilm()), 4);
+		// At 30000/1001 a second-long fade is 30 frames: 1.001 s of Film time.
+		assert.equal(
+			filmDurationSeconds(fadeFilm(29.97)),
+			framesToSeconds(30, resolveFrameRate(29.97)) + 3
+		);
+		assert.equal(filmFrameCount(fadeFilm(29.97)), 60 + 90 - 30);
+	});
+
+	it('ends the proxy play of the outgoing Scene at mid-window', () => {
+		const film = fadeFilm();
+
+		// 60 frames, the last 30 in the window: the outgoing Scene shows 15 of them.
+		assert.equal(filmSceneProxyPlaybackEndFrame(film, 'scene-1'), 45);
+		assert.equal(filmSceneProxyPlaybackEndFrame(film, 'scene-2'), null);
+		assert.equal(filmSceneProxyPlaybackEndFrame(filmOfSceneDurations(30, [2, 3]), 'scene-1'), null);
+		assert.throws(() => filmSceneProxyPlaybackEndFrame(film, 'missing'), RangeError);
+	});
+
+	it('cuts the proxy to the incoming Scene on the Film frame play reached', () => {
+		const film = fadeFilm();
+
+		// Play reached the proxy's cut: the tick before it was Scene frame 44.
+		assert.deepEqual(filmPlaybackCutFromScene(film, 'scene-1', 44, true), {
+			sceneId: 'scene-2',
+			sceneFrame: 15
+		});
+		// Play pressed with the playhead parked late in the window: the same Film
+		// frame (window frame 25), never an earlier one.
+		assert.deepEqual(filmPlaybackCutFromScene(film, 'scene-1', 55, true), {
+			sceneId: 'scene-2',
+			sceneFrame: 25
+		});
+		// From before the window (a seek cannot do this, the maths still can).
+		assert.deepEqual(filmPlaybackCutFromScene(film, 'scene-1', 0, true), {
+			sceneId: 'scene-2',
+			sceneFrame: 15
+		});
+	});
+
+	it('wraps from the last Scene to frame 0 of the first, and only when looping', () => {
+		const film = fadeFilm();
+
+		assert.deepEqual(filmPlaybackCutFromScene(film, 'scene-2', 89, true), {
+			sceneId: 'scene-1',
+			sceneFrame: 0
+		});
+		assert.equal(filmPlaybackCutFromScene(film, 'scene-2', 89, false), null);
+	});
+
+	it('cuts across a hard cut to frame 0, as it always has', () => {
+		const film = filmOfSceneDurations(30, [2, 3]);
+
+		assert.deepEqual(filmPlaybackCutFromScene(film, 'scene-1', 59, false), {
+			sceneId: 'scene-2',
+			sceneFrame: 0
+		});
+		assert.equal(
+			filmPlaybackCutFromScene(filmOfSceneDurations(30, [2]), 'scene-1', 59, true),
+			null
+		);
 	});
 });

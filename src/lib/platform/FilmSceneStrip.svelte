@@ -11,7 +11,12 @@
 		runSelectCompositionSceneOperation,
 		type CompositionSceneSelectionOutcome
 	} from './composition-scene-operations';
-	import { filmFrameCount, filmSceneFrameCount, filmSceneFrameOffsets } from './film-playhead';
+	import {
+		filmFrameCount,
+		filmSceneBoundaryOverlaps,
+		filmSceneFrameCount,
+		filmSceneFrameOffsets
+	} from './film-playhead';
 	import { filmSceneDisplayName } from './film-scene-display-name';
 	import { readOpenFilmFrame } from './film-scene-selection';
 	import { filmState, readOpenFilm } from './film-state.svelte';
@@ -21,7 +26,8 @@
 
 	// The Scene strip (ADR-0068 §10): the Scenes of a stored Film in order, on
 	// the Film clock, between the transport row and the Timeline. A segment is as
-	// wide as its Scene is long. Clicking one opens that Scene at the Film frame
+	// wide as its Scene is long and starts on its Scene's first Film frame, so two
+	// Scenes that share a boundary window overlap by that window. Clicking one opens that Scene at the Film frame
 	// under the pointer; dragging one along the strip reorders it; the open
 	// Scene's segment can be removed. The Timeline below keeps showing the open
 	// Scene on its own clock. An unsaved Starter has no strip: it is not a Film
@@ -37,12 +43,15 @@
 		timing: string;
 		startFrame: number;
 		frameCount: number;
+		/** Frames this Scene shares with the one before it: the window of their boundary. */
+		leadingOverlapFrames: number;
 	}
 
 	const strip = $derived.by(() => {
 		const film = readOpenFilm();
 		const rate = resolveFrameRate(film.fps);
 		const frameOffsets = filmSceneFrameOffsets(film);
+		const overlapFrames = filmSceneBoundaryOverlaps(film);
 		const segments: SceneSegment[] = film.scenes.map((scene, sceneIndex) => {
 			const frameCount = filmSceneFrameCount(scene, rate);
 			const startSeconds = Math.floor(framesToSeconds(frameOffsets[sceneIndex], rate));
@@ -51,7 +60,8 @@
 				name: filmSceneDisplayName(scene, sceneIndex),
 				timing: `${Math.floor(startSeconds / 60)}:${String(startSeconds % 60).padStart(2, '0')} · ${framesToSeconds(frameCount, rate).toFixed(1)} s`,
 				startFrame: frameOffsets[sceneIndex],
-				frameCount
+				frameCount,
+				leadingOverlapFrames: sceneIndex === 0 ? 0 : overlapFrames[sceneIndex - 1]
 			};
 		});
 		return { segments, frameCount: filmFrameCount(film) };
@@ -206,6 +216,7 @@
 					data-scene-id={segment.id}
 					aria-pressed={segment.id === filmState.selectedSceneId}
 					style:inline-size="{(segment.frameCount / strip.frameCount) * 100}%"
+					style:margin-inline-start="{(-segment.leadingOverlapFrames / strip.frameCount) * 100}%"
 					style:translate={drag?.isDragging === true && drag.sceneId === segment.id
 						? `${drag.offsetX}px 0`
 						: null}

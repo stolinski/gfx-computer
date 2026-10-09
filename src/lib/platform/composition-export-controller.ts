@@ -14,7 +14,18 @@ import {
 } from './composition-export-formats';
 import type { CompositionFrameRenderResult } from './composition-frame-renderer';
 import type { Preset } from './engine-schema';
-import { filmFrameCount, filmSceneFrameCount, filmSceneFrameOffsets } from './film-playhead';
+import {
+	renderFilmBoundaryFrame,
+	type FilmBoundaryEffectKind,
+	type FilmBoundaryFrameSurface
+} from './film-boundary-frame';
+import {
+	filmBoundaryWindowProgress,
+	filmFrameCount,
+	filmSceneBoundaryOverlaps,
+	filmSceneFrameCount,
+	filmSceneFrameOffsets
+} from './film-playhead';
 import { createFilmSceneFrameStepper } from './film-scene-frame-stepper';
 import type { Film } from './film-schema';
 import { filmDurationSeconds } from './film-transport';
@@ -63,6 +74,29 @@ export interface CompositionExportSceneFrame {
 }
 
 /**
+ * One boundary window of the Film: the Film frames two neighbouring Scenes
+ * share, and the effect that composites them there.
+ */
+export interface CompositionExportBoundaryWindow {
+	kind: FilmBoundaryEffectKind;
+	/** Index into `plan.scenes` of the outgoing Scene; the incoming one is the next. */
+	outgoingSceneIndex: number;
+	/** The first Film frame both Scenes are on: the incoming Scene's first frame. */
+	startFrame: number;
+	/** How many Film frames both Scenes are on. */
+	frameCount: number;
+}
+
+/** One Film frame inside a boundary window, resolved to both Scenes that render it. */
+export interface CompositionExportBoundaryFrame {
+	window: CompositionExportBoundaryWindow;
+	outgoing: CompositionExportSceneFrame;
+	incoming: CompositionExportSceneFrame;
+	/** `filmBoundaryWindowProgress` of this frame: 0 on the window's first frame, 1 on its last. */
+	progress: number;
+}
+
+/**
  * The media contract of one export: the whole open Film
  * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §2, §9).
  * `frameCount`, `durationSeconds`, and the file names describe the Film. A
@@ -81,6 +115,8 @@ export interface CompositionExportPlan {
 	frameCount: number;
 	/** Every Scene in Film order, with the Film frames it fills. */
 	scenes: readonly CompositionExportScene[];
+	/** Every boundary window in Film order; empty for a Film of hard cuts. */
+	boundaryWindows: readonly CompositionExportBoundaryWindow[];
 	basename: 'gfx-overlay' | 'gfx-bumper';
 	videoFilename: string;
 	wavFilename: string;
@@ -159,6 +195,12 @@ export interface CompositionExportControllerDependencies {
 	flushDom(): Promise<void>;
 	settleCompositionPaint(signal: AbortSignal): Promise<void>;
 	prepareCompositionFrame(frame: number, timestamp: number): Promise<void>;
+	/**
+	 * The two Scene targets and the composite of a boundary window frame, made
+	 * ready for the export canvas. Asked for once, and only by a Film that has a
+	 * boundary window.
+	 */
+	prepareFilmBoundaryFrameSurface(): FilmBoundaryFrameSurface;
 	/** The canvas's current texture: where a finished Film frame is rendered for the encoder. */
 	readCanvasOutputView(): GPUTextureView;
 	renderCompositionFrame(
@@ -247,6 +289,17 @@ export function buildCompositionExportPlan(options: {
 		frameCount: filmSceneFrameCount(scene, frameRate),
 		durationSeconds: scene.state.transport.durationSeconds
 	}));
+	const boundaryWindows: CompositionExportBoundaryWindow[] = [];
+	for (const [boundaryIndex, overlapFrames] of filmSceneBoundaryOverlaps(film).entries()) {
+		const boundary = film.boundaries[boundaryIndex];
+		if (boundary.kind === 'cut' || overlapFrames === 0) continue;
+		boundaryWindows.push({
+			kind: boundary.kind,
+			outgoingSceneIndex: boundaryIndex,
+			startFrame: sceneStartFrames[boundaryIndex + 1],
+			frameCount: overlapFrames
+		});
+	}
 	const isOpaque = transition
 		? isTransitionOpaque(transition)
 		: film.scenes.every((scene) => isEngineStateOpaque(scene.state));
@@ -266,6 +319,7 @@ export function buildCompositionExportPlan(options: {
 		frameRate,
 		frameCount: filmFrameCount(film),
 		scenes,
+		boundaryWindows,
 		basename,
 		videoFilename: request?.filename ?? `${basename}.${extension}`,
 		wavFilename: `${basename}.wav`,
@@ -284,11 +338,27 @@ export function compositionExportFrameAt(
 	return { frame, timestamp: framesToSeconds(frame, plan.frameRate) };
 }
 
+function compositionExportSceneFrameOf(
+	plan: Pick<CompositionExportPlan, 'frameRate' | 'scenes'>,
+	sceneIndex: number,
+	frame: number
+): CompositionExportSceneFrame {
+	const scene = plan.scenes[sceneIndex];
+	const sceneFrame = frame - scene.startFrame;
+	return {
+		sceneIndex,
+		scene,
+		frame: sceneFrame,
+		timestamp: framesToSeconds(sceneFrame, plan.frameRate)
+	};
+}
+
 /**
  * The Scene that renders one Film frame, and the Scene frame and Scene time it
- * is scrubbed to. A frame belongs to the last Scene that has started by then,
- * the rule `resolveFilmFrame` uses, so export and the Film transport agree on
- * which Scene owns every frame.
+ * is scrubbed to. A frame belongs to the first Scene that has not ended by
+ * then, the rule `resolveFilmFrame` uses, so export and the Film transport
+ * agree on which Scene owns every frame. Inside a boundary window that is the
+ * outgoing Scene, and `compositionExportBoundaryFrameAt` gives both.
  */
 export function compositionExportSceneFrameAt(
 	plan: Pick<CompositionExportPlan, 'frameCount' | 'frameRate' | 'scenes'>,
@@ -297,17 +367,36 @@ export function compositionExportSceneFrameAt(
 	if (!Number.isInteger(frame) || frame < 0 || frame >= plan.frameCount) {
 		throw new RangeError(`Export frame ${frame} is outside 0..${plan.frameCount - 1}.`);
 	}
-	let sceneIndex = plan.scenes.length - 1;
-	while (plan.scenes[sceneIndex].startFrame > frame) {
-		sceneIndex -= 1;
+	let sceneIndex = 0;
+	while (plan.scenes[sceneIndex].startFrame + plan.scenes[sceneIndex].frameCount <= frame) {
+		sceneIndex += 1;
 	}
-	const scene = plan.scenes[sceneIndex];
-	const sceneFrame = frame - scene.startFrame;
+	return compositionExportSceneFrameOf(plan, sceneIndex, frame);
+}
+
+/**
+ * Both Scenes that render one Film frame inside a boundary window, each with
+ * its own Scene frame and Scene time, and the window's progress there; `null`
+ * for a frame one Scene renders alone. `resolveFilmBoundaryWindowFrame` is the
+ * same rule on the Film.
+ */
+export function compositionExportBoundaryFrameAt(
+	plan: Pick<CompositionExportPlan, 'frameCount' | 'frameRate' | 'scenes' | 'boundaryWindows'>,
+	frame: number
+): CompositionExportBoundaryFrame | null {
+	if (!Number.isInteger(frame) || frame < 0 || frame >= plan.frameCount) {
+		throw new RangeError(`Export frame ${frame} is outside 0..${plan.frameCount - 1}.`);
+	}
+	const window = plan.boundaryWindows.find(
+		(candidate) =>
+			frame >= candidate.startFrame && frame < candidate.startFrame + candidate.frameCount
+	);
+	if (!window) return null;
 	return {
-		sceneIndex,
-		scene,
-		frame: sceneFrame,
-		timestamp: framesToSeconds(sceneFrame, plan.frameRate)
+		window,
+		outgoing: compositionExportSceneFrameOf(plan, window.outgoingSceneIndex, frame),
+		incoming: compositionExportSceneFrameOf(plan, window.outgoingSceneIndex + 1, frame),
+		progress: filmBoundaryWindowProgress(frame - window.startFrame, window.frameCount)
 	};
 }
 
@@ -409,12 +498,39 @@ export class CompositionExportController {
 			});
 			signal.throwIfAborted();
 
+			// Made on the first boundary window frame, so a Film of hard cuts
+			// allocates no Scene targets.
+			let boundaryFrameSurface: FilmBoundaryFrameSurface | null = null;
 			const renderFrame: TransparentVideoExportOptions['renderFrame'] = async (frame) => {
 				signal.throwIfAborted();
-				const sceneFrame = compositionExportSceneFrameAt(plan, frame);
-				await sceneFrameStepper.renderSceneFrame({
-					sceneId: sceneFrame.scene.sceneId,
-					sceneFrame: sceneFrame.frame,
+				const boundaryFrame = compositionExportBoundaryFrameAt(plan, frame);
+				if (boundaryFrame === null) {
+					const sceneFrame = compositionExportSceneFrameAt(plan, frame);
+					await sceneFrameStepper.renderSceneFrame({
+						sceneId: sceneFrame.scene.sceneId,
+						sceneFrame: sceneFrame.frame,
+						readOutputView: dependencies.readCanvasOutputView,
+						signal
+					});
+					return;
+				}
+				// Inside a window both Scenes are live on the frame: each is stepped
+				// to its own Scene frame and rendered into its own target, then the
+				// boundary's effect composites the two into the canvas.
+				boundaryFrameSurface ??= dependencies.prepareFilmBoundaryFrameSurface();
+				await renderFilmBoundaryFrame({
+					stepper: sceneFrameStepper,
+					surface: boundaryFrameSurface,
+					kind: boundaryFrame.window.kind,
+					outgoing: {
+						sceneId: boundaryFrame.outgoing.scene.sceneId,
+						sceneFrame: boundaryFrame.outgoing.frame
+					},
+					incoming: {
+						sceneId: boundaryFrame.incoming.scene.sceneId,
+						sceneFrame: boundaryFrame.incoming.frame
+					},
+					progress: boundaryFrame.progress,
 					readOutputView: dependencies.readCanvasOutputView,
 					signal
 				});

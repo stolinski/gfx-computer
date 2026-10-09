@@ -255,6 +255,119 @@ describe('Timeline play pressed at the end', () => {
 	});
 });
 
+describe('Timeline play leaving before the end', () => {
+	it('asks for the cut at the play end, before that frame is ticked', async () => {
+		const ticks: number[] = [];
+		let finishCut: () => void = () => undefined;
+		const onPlayReachedEnd = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finishCut = resolve;
+				})
+		);
+		const timeline = new Timeline({
+			durationSeconds: 2,
+			fps: 30,
+			tick: (timestamp) => ticks.push(timestamp),
+			onPlayReachedEnd,
+			readPlayEndSeconds: () => 1.5
+		});
+
+		timeline.play();
+		runFrameAt(1000);
+		expect(onPlayReachedEnd).not.toHaveBeenCalled();
+		runFrameAt(1600);
+
+		// Play left the Scene half a second before its end, and that frame was not shown.
+		expect(onPlayReachedEnd).toHaveBeenCalledTimes(1);
+		expect(ticks).toEqual([1]);
+		expect(frameCallbacks.size).toBe(0);
+
+		timeline.cutTo({ durationSeconds: 3, fps: 30, time: 0.5 });
+		nowMilliseconds = 2000;
+		finishCut();
+		await vi.waitFor(() => expect(frameCallbacks.size).toBe(1));
+		runFrameAt(2250);
+
+		expect(ticks).toEqual([1, 0.75]);
+		timeline.dispose();
+	});
+
+	it('plays on to the very end when there is no Scene to cut to', () => {
+		const ticks: number[] = [];
+		const timeline = new Timeline({
+			durationSeconds: 2,
+			fps: 30,
+			loop: false,
+			tick: (timestamp) => ticks.push(timestamp),
+			onPlayReachedEnd: () => null,
+			readPlayEndSeconds: () => 1.5
+		});
+
+		timeline.play();
+		runFrameAt(1800);
+		runFrameAt(2100);
+
+		expect(ticks).toEqual([1.8, 2]);
+		expect(timeline.isPlaying).toBe(false);
+	});
+
+	it('takes the cut straight away when play is pressed past the play end', async () => {
+		const onPlayFromEnd = vi.fn(() => Promise.resolve());
+		const timeline = new Timeline({
+			durationSeconds: 2,
+			fps: 30,
+			tick: () => undefined,
+			onPlayFromEnd,
+			readPlayEndSeconds: () => 1.5
+		});
+		timeline.seek(1.4);
+		timeline.play();
+		expect(onPlayFromEnd).not.toHaveBeenCalled();
+		timeline.pause();
+
+		timeline.seek(1.6);
+		timeline.play();
+
+		expect(onPlayFromEnd).toHaveBeenCalledTimes(1);
+		expect(timeline.time).toBe(1.6);
+		timeline.dispose();
+	});
+
+	it('lets a paused playhead seek all the way to the end', () => {
+		const timeline = new Timeline({
+			durationSeconds: 2,
+			fps: 30,
+			tick: () => undefined,
+			readPlayEndSeconds: () => 1.5
+		});
+
+		timeline.seek(2);
+
+		expect(timeline.time).toBe(2);
+	});
+
+	it('runs to the end when no play end is given, as it always has', () => {
+		const onPlayReachedEnd = vi.fn(() => null);
+		const timeline = new Timeline({
+			durationSeconds: 1,
+			fps: 30,
+			loop: false,
+			tick: () => undefined,
+			onPlayReachedEnd,
+			readPlayEndSeconds: () => null
+		});
+
+		timeline.play();
+		runFrameAt(900);
+		expect(onPlayReachedEnd).not.toHaveBeenCalled();
+		runFrameAt(1100);
+
+		expect(onPlayReachedEnd).toHaveBeenCalledTimes(1);
+		expect(timeline.time).toBe(1);
+	});
+});
+
 describe('Timeline.cutTo', () => {
 	it('points the transport at another Scene without ticking', () => {
 		const ticks: number[] = [];

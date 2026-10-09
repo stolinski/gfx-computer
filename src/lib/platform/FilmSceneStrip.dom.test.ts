@@ -6,7 +6,12 @@ import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { transitionState } from './engine-state.svelte';
 import { filmFromCorpusPreset } from './film-ingress';
-import { filmFrameCount, filmSceneFrameCount, filmSceneFrameOffsets } from './film-playhead';
+import {
+	filmFrameCount,
+	filmSceneBoundaryOverlaps,
+	filmSceneFrameCount,
+	filmSceneFrameOffsets
+} from './film-playhead';
 import { insertFilmScene } from './film-scene-membership';
 import { filmState, readOpenFilm } from './film-state.svelte';
 import FilmSceneStrip from './FilmSceneStrip.svelte';
@@ -134,6 +139,46 @@ describe('the Scene strip', () => {
 			'false',
 			'false'
 		]);
+	});
+
+	it('overlaps two segments by the window of a fade, and keeps every segment on its Film frames', () => {
+		const film = threeSceneFilm();
+		film.boundaries = [{ kind: 'fade', durationMs: 1000 }, { kind: 'cut' }];
+		applyFilm(film, { kind: 'deliverable' });
+		render(FilmSceneStrip);
+		const rate = resolveFrameRate(film.fps);
+		const totalFrames = filmFrameCount(film);
+		const offsets = filmSceneFrameOffsets(film);
+		const windowFrames = filmSceneBoundaryOverlaps(film)[0];
+		expect(windowFrames).toBeGreaterThan(0);
+
+		const segments = segmentButtons();
+
+		// Each segment is still as wide as its Scene is long.
+		const widths = segments.map((segment) => Number.parseFloat(segment.style.inlineSize));
+		for (const [index, width] of widths.entries()) {
+			expect(width).toBeCloseTo(
+				(filmSceneFrameCount(film.scenes[index], rate) / totalFrames) * 100,
+				6
+			);
+		}
+		// The Scene after the fade is pulled back over the window; the others are not.
+		const pulledBack = segments.map((segment) =>
+			segment.style.marginInlineStart === ''
+				? 0
+				: Number.parseFloat(segment.style.marginInlineStart)
+		);
+		expect(pulledBack[0]).toBeCloseTo(0, 6);
+		expect(pulledBack[1]).toBeCloseTo((-windowFrames / totalFrames) * 100, 6);
+		expect(pulledBack[2]).toBeCloseTo(0, 6);
+		// So each segment starts on its Scene's first Film frame, and the strip is the Film's length.
+		let cursor = 0;
+		for (const [index, width] of widths.entries()) {
+			cursor += pulledBack[index];
+			expect(cursor).toBeCloseTo((offsets[index] / totalFrames) * 100, 6);
+			cursor += width;
+		}
+		expect(cursor).toBeCloseTo(100, 6);
 	});
 
 	it('is not shown for an unsaved Starter', () => {
