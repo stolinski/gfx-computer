@@ -28,6 +28,16 @@
 //     still paints its fill (alpha full on that side of the cut), and each
 //     one-Scene Film classifies as its Scene always did.
 //
+// The page runs in the browser's profile context, on the jail's own profile,
+// not an off-the-record one: the export path holds the whole output as a Blob,
+// and the first Scene alone is a 1.45 GB file, which an off-the-record context's
+// memory-only blob store could not hold on an 8 GB machine.
+//
+// When an export produces no file, the report carries what the page saw
+// (failed requests with Chrome's own error, refused responses, console errors)
+// and what the server wrote while that export ran. A comparison that could not
+// run is reported as not run.
+//
 // Prints a JSON report, writes it to <out>/report.json, and exits 1 on any
 // mismatch. Environment: GFX_FILM_EXPORT_PORT (server, default 7297),
 // GFX_FILM_EXPORT_CDP_PORT (default 9251), GFX_FILM_EXPORT_OUTDIR (default
@@ -219,7 +229,35 @@ async function writeStoredFilm(
 // ---------------------------------------------------------------------------
 // The app under measurement and the browser that drives it.
 
+/** How many lines of the server's output, and of one export's page faults, a report carries. */
+const DIAGNOSTIC_TAIL_LINES = 60;
+
+/**
+ * A running record with a place marker, so one export can be handed what was
+ * written while it ran and nothing from before it.
+ */
+class ProbeRecord {
+	readonly #entries: string[] = [];
+	readonly #startedAt = Date.now();
+
+	add(text: string): void {
+		const seconds = ((Date.now() - this.#startedAt) / 1000).toFixed(1).padStart(7);
+		this.#entries.push(`${seconds}s ${text}`);
+	}
+
+	mark(): number {
+		return this.#entries.length;
+	}
+
+	/** The last lines written since `mark`. */
+	tailSince(mark: number): string[] {
+		return this.#entries.slice(mark).slice(-DIAGNOSTIC_TAIL_LINES);
+	}
+}
+
 interface JailedDevServer {
+	/** Everything the server wrote to stdout and stderr, line by line. */
+	output: ProbeRecord;
 	stop(): Promise<void>;
 }
 
@@ -239,6 +277,29 @@ async function startJailedDevServer(jail: VerificationServerJail): Promise<Jaile
 			env: { ...process.env, ...jail.environment, GFX_RUNTIME_PROFILE: '' }
 		}
 	);
+	// The server's own words are the only account of a refusal or a crash on its
+	// side, so they are kept rather than drained.
+	const output = new ProbeRecord();
+	for (const [name, stream] of [
+		['out', child.stdout],
+		['err', child.stderr]
+	] as const) {
+		let pending = '';
+		stream.setEncoding('utf8');
+		stream.on('data', (chunk: string) => {
+			const lines = `${pending}${chunk}`.split('\n');
+			pending = lines.pop() ?? '';
+			for (const line of lines) {
+				// Vite repeats the page's console here. The page's own record has it,
+				// and a few hundred warnings would push the server's words out.
+				if (line.trim().length === 0 || line.includes('[vite] (client) [console.')) continue;
+				output.add(`[server ${name}] ${line}`);
+			}
+		});
+	}
+	child.on('exit', (code, signal) => {
+		output.add(`[server] exited with code ${code} signal ${signal}`);
+	});
 	const stop = async (): Promise<void> => {
 		if (child.exitCode === null) child.kill('SIGTERM');
 		await sleep(250);
@@ -247,11 +308,13 @@ async function startJailedDevServer(jail: VerificationServerJail): Promise<Jaile
 	const deadline = Date.now() + SERVER_READY_TIMEOUT_MS;
 	while (Date.now() < deadline) {
 		if (child.exitCode !== null) {
-			throw new Error(`The jailed dev server exited with ${child.exitCode}.`);
+			throw new Error(
+				`The jailed dev server exited with ${child.exitCode}.\n${output.tailSince(0).join('\n')}`
+			);
 		}
 		try {
 			const response = await fetch(origin);
-			if (response.ok) return { stop };
+			if (response.ok) return { output, stop };
 		} catch {
 			// Not listening yet.
 		}
@@ -310,6 +373,125 @@ async function closeHarnessBrowser(): Promise<void> {
 	socket.close();
 }
 
+/**
+ * What went wrong inside the page, as the browser saw it: requests that failed
+ * and why, responses the origin refused, console errors, and uncaught
+ * exceptions. The export seam reports a failure in one sentence ("Failed to
+ * fetch"); this is what says which request it was.
+ *
+ * It is a second CDP client on the page the run drives, so it reads without
+ * changing what that page does. Request and response bodies are not kept.
+ */
+async function recordPageFaults(): Promise<{ faults: ProbeRecord; close(): void }> {
+	const targets = (await fetch(`http://localhost:${CDP_PORT}/json/list`).then((response) =>
+		response.json()
+	)) as { type?: string; url?: string; webSocketDebuggerUrl?: string }[];
+	const target = targets.find(
+		(candidate) => candidate.type === 'page' && candidate.url?.startsWith(origin) === true
+	);
+	if (!target?.webSocketDebuggerUrl) {
+		throw new Error(`CDP ${CDP_PORT} lists no page at ${origin} to record faults from.`);
+	}
+	const socket = new WebSocket(target.webSocketDebuggerUrl);
+	await new Promise<void>((settle, fail) => {
+		socket.onopen = () => settle();
+		socket.onerror = () => fail(new Error('The CDP page endpoint refused a second client.'));
+	});
+
+	const faults = new ProbeRecord();
+	const requests = new Map<string, string>();
+	const path = (url: string): string => (url.startsWith(origin) ? url.slice(origin.length) : url);
+	const describeArgument = (argument: { value?: unknown; description?: string }): string =>
+		argument.description ??
+		(typeof argument.value === 'string' ? argument.value : JSON.stringify(argument.value));
+
+	socket.onmessage = (event) => {
+		const message = JSON.parse(String(event.data)) as {
+			method?: string;
+			params?: Record<string, unknown>;
+		};
+		const params = message.params ?? {};
+		switch (message.method) {
+			case 'Network.requestWillBeSent': {
+				const request = params.request as { method: string; url: string };
+				requests.set(String(params.requestId), `${request.method} ${path(request.url)}`);
+				break;
+			}
+			case 'Network.responseReceived': {
+				const response = params.response as { status: number; statusText: string };
+				if (response.status >= 400) {
+					faults.add(
+						`[http ${response.status}] ${requests.get(String(params.requestId)) ?? '?'} ${response.statusText}`
+					);
+				}
+				break;
+			}
+			case 'Network.loadingFailed':
+				// A request the page itself let go of is not a fault: every frame
+				// upload ends this way once its empty 204 has been read.
+				if (params.canceled === true) {
+					requests.delete(String(params.requestId));
+					break;
+				}
+				faults.add(
+					`[request failed] ${requests.get(String(params.requestId)) ?? '?'}: ${String(params.errorText)}` +
+						`${params.blockedReason ? ` (blocked: ${String(params.blockedReason)})` : ''}`
+				);
+				requests.delete(String(params.requestId));
+				break;
+			case 'Network.loadingFinished':
+				requests.delete(String(params.requestId));
+				break;
+			case 'Runtime.consoleAPICalled':
+				if (params.type === 'error' || params.type === 'assert') {
+					const args = params.args as { value?: unknown; description?: string }[];
+					faults.add(`[console ${String(params.type)}] ${args.map(describeArgument).join(' ')}`);
+				}
+				break;
+			case 'Runtime.exceptionThrown': {
+				const details = params.exceptionDetails as {
+					text?: string;
+					exception?: { description?: string };
+				};
+				faults.add(`[uncaught] ${details.exception?.description ?? details.text ?? '?'}`);
+				break;
+			}
+			case 'Log.entryAdded': {
+				const entry = params.entry as {
+					level?: string;
+					source?: string;
+					text?: string;
+					url?: string;
+				};
+				if (entry.level === 'error') {
+					faults.add(
+						`[log ${entry.source ?? '?'}] ${entry.text ?? ''}${entry.url ? ` (${path(entry.url)})` : ''}`
+					);
+				}
+				break;
+			}
+			case 'Inspector.targetCrashed':
+				faults.add('[page] the page crashed');
+				break;
+		}
+	};
+	// Bodies are never read, so nothing is buffered for them: an export uploads
+	// hundreds of 4K frames and downloads a file of more than a gigabyte.
+	const commands = [
+		{
+			method: 'Network.enable',
+			params: { maxTotalBufferSize: 0, maxResourceBufferSize: 0, maxPostDataSize: 0 }
+		},
+		{ method: 'Runtime.enable', params: {} },
+		{ method: 'Log.enable', params: {} },
+		{ method: 'Inspector.enable', params: {} }
+	];
+	for (const [index, command] of commands.entries()) {
+		socket.send(JSON.stringify({ id: index + 1, ...command }));
+	}
+	return { faults, close: () => socket.close() };
+}
+
 /** What the Workspace's export seam resolved with, as far as this probe reads it. */
 interface DeliveredExportOutcome {
 	status: string;
@@ -336,16 +518,47 @@ interface ExportedFile {
 	path: string | null;
 	fileBytes: number;
 	faults: string[];
+	/** Filled when the export produced no file: what the page and the server said while it ran. */
+	diagnostics: { pageFaults: string[]; serverOutput: string[] } | null;
+}
+
+/** The page's faults and the server's output, from the first export on. */
+interface ExportDiagnosticsSource {
+	pageFaults: ProbeRecord | null;
+	serverOutput: ProbeRecord;
 }
 
 /** Open one stored Film and export it through the Export button's own path. */
 async function exportStoredFilm(
 	page: CdpRenderPage,
 	exportCase: ExportedFilmCase,
-	scratchDirectory: string
+	scratchDirectory: string,
+	source: ExportDiagnosticsSource,
+	attachPageFaultRecorder: () => Promise<ProbeRecord>
 ): Promise<ExportedFile> {
 	await page.goto(`${origin}/p/${encodeURIComponent(exportCase.slug)}`, {
 		timeout: WORKSPACE_READY_TIMEOUT_MS
+	});
+	// The recorder needs a page at this origin to find, so it attaches after the
+	// first navigation and stays on the page for every export after it.
+	source.pageFaults ??= await attachPageFaultRecorder();
+	const pageFaults = source.pageFaults;
+	const pageFaultMark = pageFaults.mark();
+	const serverOutputMark = source.serverOutput.mark();
+	const withoutFile = (
+		outcome: DeliveredExportOutcome,
+		exportMillis: number,
+		faults: string[]
+	): ExportedFile => ({
+		outcome,
+		exportMillis,
+		path: null,
+		fileBytes: 0,
+		faults,
+		diagnostics: {
+			pageFaults: pageFaults.tailSince(pageFaultMark),
+			serverOutput: source.serverOutput.tailSince(serverOutputMark)
+		}
 	});
 	await page.waitForFunction(
 		(expected) =>
@@ -378,12 +591,12 @@ async function exportStoredFilm(
 	const faults: string[] = [];
 	if (outcome.status !== 'delivered') {
 		faults.push(`export ended ${outcome.status}${outcome.message ? `: ${outcome.message}` : ''}`);
-		return { outcome, exportMillis, path: null, fileBytes: 0, faults };
+		return withoutFile(outcome, exportMillis, faults);
 	}
 	const download = await downloadSettled;
 	if ('error' in download) {
 		faults.push(`the browser never handed the file over: ${download.error.message}`);
-		return { outcome, exportMillis, path: null, fileBytes: 0, faults };
+		return withoutFile(outcome, exportMillis, faults);
 	}
 	const path = join(scratchDirectory, `${exportCase.label}.mov`);
 	await download.download.saveAs(path);
@@ -393,7 +606,7 @@ async function exportStoredFilm(
 			`the receipt says ${outcome.videoByteLength} bytes; the browser handed over ${fileBytes}`
 		);
 	}
-	return { outcome, exportMillis, path, fileBytes, faults };
+	return { outcome, exportMillis, path, fileBytes, faults, diagnostics: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -443,58 +656,42 @@ async function probeStreams(path: string): Promise<ProbedStreams> {
 	};
 }
 
-async function probePresentationSeconds(path: string): Promise<number[]> {
-	const { stdout } = await execFileAsync(
-		FFPROBE,
-		[
-			'-hide_banner',
-			'-loglevel',
-			'error',
-			'-select_streams',
-			'v:0',
-			'-show_entries',
-			'frame=pts_time,best_effort_timestamp_time',
-			'-of',
-			'csv=p=0',
-			path
-		],
-		{ maxBuffer: DECODE_MAX_BUFFER_BYTES }
-	);
-	return stdout
-		.trim()
-		.split('\n')
-		.filter((line) => line.length > 0)
-		.map((line) => {
-			const value = line
-				.split(',')
-				.map((field) => Number(field))
-				.find((field) => Number.isFinite(field));
-			if (value === undefined) throw new Error(`ffprobe reported no timestamp in "${line}".`);
-			return value;
-		});
-}
-
 /**
- * The MD5 of every decoded frame, in order. ffmpeg hashes the decoded picture
- * itself, every plane including alpha, so two files agree on a frame only when
- * a viewer would see the same pixels.
+ * Every decoded frame, in order: the MD5 of its picture and when it presents.
+ * ffmpeg hashes the decoded picture itself, every plane including alpha, so two
+ * files agree on a frame only when a viewer would see the same pixels. One
+ * decode gives both, which matters for a file of more than a gigabyte.
  */
-async function decodeFrameHashes(path: string): Promise<string[]> {
+async function decodeFrames(
+	path: string
+): Promise<{ frameHashes: string[]; presentationSeconds: number[] }> {
 	const { stdout } = await execFileAsync(
 		FFMPEG,
 		['-hide_banner', '-loglevel', 'error', '-i', path, '-map', '0:v:0', '-f', 'framemd5', '-'],
 		{ maxBuffer: DECODE_MAX_BUFFER_BYTES }
 	);
-	return stdout
-		.split('\n')
-		.filter((line) => line.length > 0 && !line.startsWith('#'))
-		.map((line) => {
-			const hash = line.split(',').at(-1)?.trim();
-			if (!hash || !/^[0-9a-f]{32}$/.test(hash)) {
-				throw new Error(`ffmpeg reported no frame hash in "${line}".`);
-			}
-			return hash;
-		});
+	const lines = stdout.split('\n').filter((line) => line.length > 0);
+	// `#tb 0: 1/30`: the unit every `pts` below is counted in.
+	const timeBase = lines
+		.map((line) => /^#tb 0: (\d+)\/(\d+)$/.exec(line))
+		.find((match) => match !== null);
+	if (!timeBase) throw new Error(`ffmpeg reported no time base for ${path}.`);
+	const secondsPerTick = Number(timeBase[1]) / Number(timeBase[2]);
+	const frameHashes: string[] = [];
+	const presentationSeconds: number[] = [];
+	for (const line of lines) {
+		if (line.startsWith('#')) continue;
+		// stream, dts, pts, duration, size, hash
+		const fields = line.split(',').map((field) => field.trim());
+		const pts = Number(fields[2]);
+		const hash = fields.at(-1);
+		if (fields.length !== 6 || !Number.isFinite(pts) || !hash || !/^[0-9a-f]{32}$/.test(hash)) {
+			throw new Error(`ffmpeg reported no frame hash in "${line}".`);
+		}
+		frameHashes.push(hash);
+		presentationSeconds.push(pts * secondsPerTick);
+	}
+	return { frameHashes, presentationSeconds };
 }
 
 /** The whole sound track as interleaved signed 16-bit samples, or `null` when the file has none. */
@@ -508,21 +705,30 @@ async function decodeAudioSamples(path: string, hasAudio: boolean): Promise<Buff
 	return stdout;
 }
 
-/** The lowest and highest alpha of one decoded frame, as 8-bit values. */
+/**
+ * The lowest and highest alpha of one decoded frame, as 8-bit values. ProRes is
+ * all key frames, so the frame is sought, not decoded up to: the seek lands a
+ * quarter of a frame early and the first frame at or after it is the one asked
+ * for.
+ */
 async function decodeFrameAlphaRange(
 	path: string,
-	frameIndex: number
+	frameIndex: number,
+	frameRate: { num: number; den: number }
 ): Promise<{ minimum: number; maximum: number }> {
+	const seekSeconds = Math.max(0, ((frameIndex - 0.25) * frameRate.den) / frameRate.num);
 	const { stdout } = await execFileAsync(
 		FFMPEG,
 		[
 			'-hide_banner',
 			'-loglevel',
 			'error',
+			'-ss',
+			seekSeconds.toFixed(6),
 			'-i',
 			path,
 			'-vf',
-			`select='eq(n\\,${frameIndex})',alphaextract,format=gray`,
+			'alphaextract,format=gray',
 			'-frames:v',
 			'1',
 			'-f',
@@ -564,8 +770,7 @@ async function decodeExportedFile(path: string): Promise<DecodedFile> {
 	const streams = await probeStreams(path);
 	return {
 		streams,
-		frameHashes: await decodeFrameHashes(path),
-		presentationSeconds: await probePresentationSeconds(path),
+		...(await decodeFrames(path)),
 		audio: await decodeAudioSamples(path, streams.audioCodec !== null)
 	};
 }
@@ -618,17 +823,44 @@ async function main(): Promise<void> {
 	const alpha: Record<string, { frame: number; minimum: number; maximum: number }> = {};
 	let server: JailedDevServer | null = null;
 	let browser: Awaited<ReturnType<typeof connectCdpRenderBrowser>> | null = null;
+	let pageFaultRecorder: Awaited<ReturnType<typeof recordPageFaults>> | null = null;
 	const startedAt = new Date().toISOString();
 	try {
 		server = await startJailedDevServer(jail);
 		launchHarnessBrowser(jail);
-		browser = await connectCdpRenderBrowser(`http://localhost:${CDP_PORT}`);
+		// The profile context, not an off-the-record one: the export path holds the
+		// whole output as a Blob, and only a profile's blob store spills to disk.
+		// The hero Scene alone is a 1.4 GB file, which an off-the-record context on
+		// an 8 GB machine cannot hold. The profile is the jail's own, so the run is
+		// still isolated.
+		browser = await connectCdpRenderBrowser(`http://localhost:${CDP_PORT}`, {
+			browserContext: 'profile'
+		});
+		const diagnosticsSource: ExportDiagnosticsSource = {
+			pageFaults: null,
+			serverOutput: server.output
+		};
+		const attachPageFaultRecorder = async (): Promise<ProbeRecord> => {
+			pageFaultRecorder = await recordPageFaults();
+			return pageFaultRecorder.faults;
+		};
 
 		for (const exportCase of cases) {
 			console.log(`exporting ${exportCase.label} (${exportCase.slug})…`);
-			const file = await exportStoredFilm(browser.page, exportCase, scratchDirectory);
+			const file = await exportStoredFilm(
+				browser.page,
+				exportCase,
+				scratchDirectory,
+				diagnosticsSource,
+				attachPageFaultRecorder
+			);
 			exported.set(exportCase.label, file);
 			failures.push(...file.faults.map((fault) => `${exportCase.label}: ${fault}`));
+			if (file.diagnostics !== null) {
+				console.log(`  no file: ${file.faults.join('; ')}`);
+				for (const line of file.diagnostics.pageFaults) console.log(`    page   ${line}`);
+				for (const line of file.diagnostics.serverOutput) console.log(`    server ${line}`);
+			}
 			if (file.path === null) continue;
 			console.log(
 				`  ${file.outcome.plan?.frameCount} frames in ${(file.exportMillis / 1000).toFixed(1)}s, ${file.fileBytes} bytes; decoding…`
@@ -644,11 +876,12 @@ async function main(): Promise<void> {
 				const frame = (sceneIndex === 0 ? 0 : cutFrame) + Math.floor(sceneFrameCount / 2);
 				alpha[film.scenes[sceneIndex].id] = {
 					frame,
-					...(await decodeFrameAlphaRange(filmPath, frame))
+					...(await decodeFrameAlphaRange(filmPath, frame, frameRate))
 				};
 			}
 		}
 	} finally {
+		(pageFaultRecorder as Awaited<ReturnType<typeof recordPageFaults>> | null)?.close();
 		if (browser) await browser.disconnect().catch(() => undefined);
 		await closeHarnessBrowser();
 		if (server) await server.stop();
@@ -726,12 +959,24 @@ async function main(): Promise<void> {
 	}
 
 	// --- the Film against its Scenes -------------------------------------------
+	// Each comparison is reported as run or not run. A comparison that could not
+	// run says which export it was missing; it never reports a count.
 	const filmDecoded = decoded.get('film');
-	const sceneDecoded = [decoded.get('scene-1'), decoded.get('scene-2')];
-	const pixelMismatches: { filmFrame: number; sceneId: string; sceneFrame: number }[] = [];
-	const sound: Record<string, unknown> = {};
-	if (filmDecoded && sceneDecoded[0] && sceneDecoded[1]) {
-		const [firstScene, secondScene] = [sceneDecoded[0], sceneDecoded[1]];
+	const [firstScene, secondScene] = [decoded.get('scene-1'), decoded.get('scene-2')];
+	const missingExports = cases
+		.filter((exportCase) => !decoded.has(exportCase.label))
+		.map((exportCase) => exportCase.label);
+	let pixels: Record<string, unknown>;
+	let sound: Record<string, unknown>;
+	if (!filmDecoded || !firstScene || !secondScene) {
+		const reason = `no decoded file for: ${missingExports.join(', ')}`;
+		pixels = { status: 'not-run', reason };
+		sound = { status: 'not-run', reason };
+		failures.push(
+			`the Film was not compared with its Scenes, picture or sound: ${missingExports.join(', ')} produced no file`
+		);
+	} else {
+		const pixelMismatches: { filmFrame: number; sceneId: string; sceneFrame: number }[] = [];
 		if (
 			filmDecoded.frameHashes.length !==
 			firstScene.frameHashes.length + secondScene.frameHashes.length
@@ -754,16 +999,35 @@ async function main(): Promise<void> {
 			);
 		}
 		// Two flat files would agree frame for frame and prove nothing.
-		if (new Set(filmDecoded.frameHashes).size < 4) {
+		const distinctFrames = new Set(filmDecoded.frameHashes).size;
+		if (distinctFrames < 4) {
 			failures.push(
 				'film: fewer than four distinct frames decoded, so the comparison proves nothing'
 			);
 		}
+		pixels = {
+			status: 'compared',
+			comparedFrames: filmDecoded.frameHashes.length,
+			sceneFrames: [firstScene.frameHashes.length, secondScene.frameHashes.length],
+			distinctFrames,
+			mismatchCount: pixelMismatches.length,
+			mismatches: pixelMismatches.slice(0, 50)
+		};
 
 		const filmAudio = filmDecoded.audio;
 		const [firstAudio, secondAudio] = [firstScene.audio, secondScene.audio];
 		if (!filmAudio || !firstAudio || !secondAudio) {
-			failures.push('film: a sound track is missing, so sound across the cut was not compared');
+			const silentFiles = [
+				['film', filmAudio],
+				['scene-1', firstAudio],
+				['scene-2', secondAudio]
+			]
+				.filter(([, audio]) => !audio)
+				.map(([label]) => label);
+			sound = { status: 'not-run', reason: `no sound track in: ${silentFiles.join(', ')}` };
+			failures.push(
+				`sound across the cut was not compared: ${silentFiles.join(', ')} carries no sound track`
+			);
 		} else {
 			const cutByte = cutSample * BYTES_PER_SAMPLE_FRAME;
 			const windowBytes = CUT_WINDOW_SAMPLES * BYTES_PER_SAMPLE_FRAME;
@@ -777,10 +1041,15 @@ async function main(): Promise<void> {
 				firstAudio.subarray(firstAudio.length - windowBytes)
 			);
 			const windowAfterMatches = windowAfter.equals(secondAudio.subarray(0, windowBytes));
-			Object.assign(sound, {
+			sound = {
+				status: 'compared',
 				cutSample,
 				filmSamples: filmAudio.length / BYTES_PER_SAMPLE_FRAME,
 				expectedFilmSamples: filmSamples,
+				sceneSamples: [
+					firstAudio.length / BYTES_PER_SAMPLE_FRAME,
+					secondAudio.length / BYTES_PER_SAMPLE_FRAME
+				],
 				beforeCut: {
 					matchesSceneAlone: beforeMatches,
 					sha256: sha256(beforeCut),
@@ -799,7 +1068,7 @@ async function main(): Promise<void> {
 						peak: peakSample(windowAfter)
 					}
 				}
-			});
+			};
 			if (filmAudio.length / BYTES_PER_SAMPLE_FRAME !== filmSamples) {
 				failures.push(
 					`film: sound is ${filmAudio.length / BYTES_PER_SAMPLE_FRAME} samples; the Film is exactly ${filmSamples}`
@@ -821,10 +1090,6 @@ async function main(): Promise<void> {
 				);
 			}
 		}
-	} else {
-		failures.push(
-			'one of the three exports produced no file, so the Film was not compared with its Scenes'
-		);
 	}
 
 	// --- class, read off the Film's own alpha ------------------------------------
@@ -865,6 +1130,7 @@ async function main(): Promise<void> {
 				label: exportCase.label,
 				slug: exportCase.slug,
 				outcome: file?.outcome ?? null,
+				diagnostics: file?.diagnostics ?? null,
 				exportMillis: file?.exportMillis ?? null,
 				fileBytes: file?.fileBytes ?? null,
 				streams: decodedFile?.streams ?? null,
@@ -876,12 +1142,7 @@ async function main(): Promise<void> {
 				lastPresentationSeconds: decodedFile?.presentationSeconds.slice(-3) ?? null
 			};
 		}),
-		pixels: {
-			comparedFrames: filmDecoded?.frameHashes.length ?? 0,
-			distinctFrames: filmDecoded ? new Set(filmDecoded.frameHashes).size : 0,
-			mismatches: pixelMismatches.slice(0, 50),
-			mismatchCount: pixelMismatches.length
-		},
+		pixels,
 		cadenceAcrossCut: filmDecoded
 			? {
 					lastFrameOfFirstScene: filmDecoded.presentationSeconds[cutFrame - 1] ?? null,
