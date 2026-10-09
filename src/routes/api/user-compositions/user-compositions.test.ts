@@ -5,6 +5,8 @@ import { afterEach, beforeAll, beforeEach, describe, it, vi } from 'vitest';
 
 import validPreset from '$lib/presets/blank.json';
 import type { Preset } from '$lib/platform/engine-schema';
+import { filmFromPreset, filmToWireFormat, parseFilmIngress } from '$lib/platform/film-ingress';
+import type { FilmSceneOrigin } from '$lib/platform/film-schema';
 import { parsePresetIngress } from '$lib/platform/preset-ingress';
 import {
 	addUserCompositionFileToIndex,
@@ -12,6 +14,8 @@ import {
 } from '$lib/platform/user-composition-file-index.server';
 import { posterKeyForPreset } from '$lib/platform/posters';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
+import transitionWipeDemoPreset from '$lib/presets/transition-wipe-demo.json';
+import { filmDurationSeconds } from '$lib/platform/user-composition-record';
 import { STORED_USER_COMPOSITION_RECORD_FIXTURES } from '$lib/platform/user-composition-record.fixture';
 
 const fsMocks = vi.hoisted(() => ({
@@ -169,6 +173,29 @@ function legacySourceVideoPreset(): unknown {
 	};
 }
 
+/** The Film wire document a Preset document is stored as (ADR-0068 §3). */
+function filmWireOf(presetDocument: unknown, origin: FilmSceneOrigin | null = null): unknown {
+	return JSON.parse(
+		JSON.stringify(filmToWireFormat(filmFromPreset(parsePresetIngress(presetDocument), origin)))
+	);
+}
+
+/** A stored Film has no `kind`, so its poster key is its Preset's as a deliverable. */
+function storedPosterKeyOf(presetDocument: unknown): string {
+	return posterKeyForPreset({ ...parsePresetIngress(presetDocument), kind: 'deliverable' });
+}
+
+function putEvent(slug: string, body: unknown): Parameters<(typeof slugHandlers)['PUT']>[0] {
+	return {
+		params: { slug },
+		request: new Request(`http://localhost/api/user-compositions/${slug}`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		})
+	} as Parameters<(typeof slugHandlers)['PUT']>[0];
+}
+
 function postEvent(body: unknown): Parameters<(typeof collectionHandlers)['POST']>[0] {
 	return {
 		request: new Request('http://localhost/api/user-compositions', {
@@ -184,22 +211,49 @@ function expectHttpError(status: number, message: string): (cause: unknown) => b
 }
 
 describe('user composition handlers', () => {
-	it('rejects invalid slugs and invalid presets', async () => {
+	it('rejects invalid slugs and invalid compositions', async () => {
 		await assert.rejects(
-			async () => collectionHandlers.POST(postEvent({ slug: '../escape', preset: validPreset })),
+			async () =>
+				collectionHandlers.POST(postEvent({ slug: '../escape', film: filmWireOf(validPreset) })),
 			expectHttpError(400, 'slug must be lowercase')
 		);
 		await assert.rejects(
 			async () =>
 				collectionHandlers.POST(postEvent({ slug: 'valid-slug', preset: { name: 'Incomplete' } })),
-			expectHttpError(400, 'Invalid preset')
+			expectHttpError(400, 'Invalid composition')
+		);
+		await assert.rejects(
+			async () =>
+				collectionHandlers.POST(
+					postEvent({ slug: 'valid-slug', film: { schema: 'gfx-film@1', name: 'No Scenes' } })
+				),
+			expectHttpError(400, 'Invalid GFX film')
+		);
+		await assert.rejects(
+			async () => collectionHandlers.POST(postEvent({ slug: 'valid-slug' })),
+			expectHttpError(400, 'exactly one of `preset` and `film`')
 		);
 		assert.equal(fsMocks.writeFile.mock.calls.length, 0);
 	});
 
-	it('writes a valid preset in wire format', async () => {
+	it('refuses to create or save a record under a corpus Preset slug', async () => {
+		await assert.rejects(
+			async () =>
+				collectionHandlers.POST(postEvent({ slug: 'blank', film: filmWireOf(validPreset) })),
+			expectHttpError(409, '"blank" is the slug of a Starter')
+		);
+		await assert.rejects(
+			async () => slugHandlers.PUT(putEvent('blank', filmWireOf(validPreset))),
+			expectHttpError(409, '"blank" is the slug of a Starter')
+		);
+		assert.equal(fsMocks.writeFile.mock.calls.length, 0);
+		assert.equal(fsMocks.rename.mock.calls.length, 0);
+	});
+
+	it('writes a Film record in wire format, with the Scene origin it was given', async () => {
+		const origin = { slug: 'blank', contentKey: storedPosterKeyOf(validPreset) };
 		const response = await collectionHandlers.POST(
-			postEvent({ slug: 'blank-copy', preset: validPreset, forkedFrom: 'blank' })
+			postEvent({ slug: 'blank-copy', film: filmWireOf(validPreset, origin) })
 		);
 
 		assert.equal(response.status, 201);
@@ -208,16 +262,31 @@ describe('user composition handlers', () => {
 
 		const [path, data, encoding] = fsMocks.writeFile.mock.calls[0];
 		const stored = JSON.parse(data) as {
-			meta: { forkedFrom: string | null; savedAt: string };
-			preset: { state: { surface: { content: { body: unknown } } } };
+			meta: { savedAt: string };
+			film: {
+				scenes: { origin: unknown; state: { surface: { content: { body: unknown } } } }[];
+			};
 		};
 		assert.match(path, /GFX\/compositions\/\.[a-f0-9-]+\.tmp$/);
 		assert.equal(fsMocks.rename.mock.calls[0]?.[0], path);
 		assert.match(fsMocks.rename.mock.calls[0]?.[1] ?? '', /GFX\/compositions\/blank-copy\.json$/);
 		assert.equal(encoding, 'utf-8');
-		assert.equal(stored.meta.forkedFrom, 'blank');
+		assert.deepEqual(Object.keys(stored), ['meta', 'film']);
+		// A Film states its Scene's origin itself, so the record keeps no `forkedFrom`.
+		assert.deepEqual(Object.keys(stored.meta), ['savedAt']);
 		assert.equal(Number.isNaN(Date.parse(stored.meta.savedAt)), false);
-		assert.equal(stored.preset.state.surface.content.body, '');
+		assert.deepEqual(stored.film.scenes[0].origin, origin);
+		assert.equal(stored.film.scenes[0].state.surface.content.body, '');
+	});
+
+	it('lifts a legacy Preset body to a Film record on the way in', async () => {
+		await collectionHandlers.POST(postEvent({ slug: 'from-preset', preset: validPreset }));
+
+		const stored = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
+			film: unknown;
+		};
+		assert.deepEqual(Object.keys(stored), ['meta', 'film']);
+		assert.deepEqual(stored.film, filmWireOf(validPreset));
 	});
 
 	it('skips corrupt files when listing compositions', async () => {
@@ -261,7 +330,7 @@ describe('user composition handlers', () => {
 				name: 'Blank',
 				forkedFrom: null,
 				savedAt: '2026-07-14T12:00:00.000Z',
-				posterKey: posterKeyForPreset(parsePresetIngress(validPreset)),
+				posterKey: storedPosterKeyOf(validPreset),
 				durationSeconds: parsePresetIngress(validPreset).state.transport.durationSeconds,
 				surfaceType: parsePresetIngress(validPreset).state.surface.type,
 				media: { assets: [], videoTrack: { clips: [] } },
@@ -349,8 +418,10 @@ describe('user composition handlers', () => {
 		);
 
 		const [first, second] = await Promise.all([firstResponse, secondResponse]);
-		assert.deepEqual(await first.json(), presetToWireFormat(parsePresetIngress(validPreset)));
-		assert.deepEqual(await second.json(), presetToWireFormat(parsePresetIngress(validPreset)));
+		// The legacy record's `forkedFrom` is the lifted Scene's origin.
+		const expected = filmWireOf(validPreset, { slug: 'blank', contentKey: null });
+		assert.deepEqual(await first.json(), expected);
+		assert.deepEqual(await second.json(), expected);
 		assert.equal(fsMocks.readFile.mock.calls.length, 1);
 	});
 
@@ -397,7 +468,7 @@ describe('user composition handlers', () => {
 		);
 	});
 
-	it('returns the standalone wire format accepted by PUT', async () => {
+	it('returns the standalone Film document accepted by PUT', async () => {
 		fsMocks.readFile.mockResolvedValue(
 			JSON.stringify({
 				meta: { forkedFrom: 'blank', savedAt: '2026-07-14T12:00:00.000Z' },
@@ -408,31 +479,48 @@ describe('user composition handlers', () => {
 		const getResponse = await slugHandlers.GET({
 			params: { slug: 'round-trip' }
 		} as Parameters<(typeof slugHandlers)['GET']>[0]);
-		const standalonePreset: unknown = await getResponse.json();
-		const parsed = parsePresetIngress(standalonePreset);
+		const standaloneFilm: unknown = await getResponse.json();
 
-		assert.deepEqual(standalonePreset, presetToWireFormat(parsed));
-		const putResponse = await slugHandlers.PUT({
-			params: { slug: 'round-trip' },
-			request: new Request('http://localhost/api/user-compositions/round-trip', {
-				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(standalonePreset)
-			})
-		} as Parameters<(typeof slugHandlers)['PUT']>[0]);
+		assert.deepEqual(standaloneFilm, filmWireOf(validPreset, { slug: 'blank', contentKey: null }));
+		assert.deepEqual(
+			standaloneFilm,
+			JSON.parse(JSON.stringify(filmToWireFormat(parseFilmIngress(standaloneFilm))))
+		);
+		const putResponse = await slugHandlers.PUT(putEvent('round-trip', standaloneFilm));
 
 		assert.equal(putResponse.status, 204);
 		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
-			preset: unknown;
+			meta: { forkedFrom: string | null };
+			film: unknown;
 		};
-		assert.deepEqual(written.preset, standalonePreset);
+		assert.deepEqual(Object.keys(written), ['meta', 'film']);
+		assert.equal(written.meta.forkedFrom, 'blank');
+		assert.deepEqual(written.film, standaloneFilm);
+	});
+
+	it('still accepts a standalone Preset in PUT and stores it as a Film', async () => {
+		fsMocks.readFile.mockRejectedValue(
+			Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+		);
+
+		const putResponse = await slugHandlers.PUT(putEvent('from-preset', validPreset));
+
+		assert.equal(putResponse.status, 204);
+		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
+			meta: object;
+			film: unknown;
+		};
+		assert.deepEqual(Object.keys(written), ['meta', 'film']);
+		assert.deepEqual(Object.keys(written.meta), ['savedAt']);
+		assert.deepEqual(written.film, filmWireOf(validPreset));
 	});
 
 	it('preserves valid charts and rejects semantic chart errors at POST, GET, and PUT boundaries', async () => {
 		const preset = chartPreset();
 		const wire = presetToWireFormat(preset);
+		const filmWire = filmWireOf(wire);
 		const postResponse = await collectionHandlers.POST(
-			postEvent({ slug: 'agent-chart', preset: wire, forkedFrom: 'blank' })
+			postEvent({ slug: 'agent-chart', film: filmWire })
 		);
 		assert.equal(postResponse.status, 201);
 		const stored = fsMocks.writeFile.mock.calls[0]?.[1];
@@ -442,47 +530,30 @@ describe('user composition handlers', () => {
 		const getResponse = await slugHandlers.GET({
 			params: { slug: 'agent-chart' }
 		} as Parameters<(typeof slugHandlers)['GET']>[0]);
-		assert.deepEqual(await getResponse.json(), wire);
-		const putResponse = await slugHandlers.PUT({
-			params: { slug: 'agent-chart' },
-			request: new Request('http://localhost/api/user-compositions/agent-chart', {
-				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(wire)
-			})
-		} as Parameters<(typeof slugHandlers)['PUT']>[0]);
+		assert.deepEqual(await getResponse.json(), filmWire);
+		const putResponse = await slugHandlers.PUT(putEvent('agent-chart', filmWire));
 		assert.equal(putResponse.status, 204);
 
 		const invalidWire = structuredClone(wire) as Preset;
 		invalidWire.state.surface.chart!.items[0].domain = { min: 500, max: 800 };
+		const invalidFilmWire = structuredClone(filmWire) as { scenes: { state: unknown }[] };
+		invalidFilmWire.scenes[0].state = invalidWire.state;
 		const unknownKeyWire = structuredClone(wire) as unknown as {
 			state: { surface: { chart: { items: Array<Record<string, unknown>> } } };
 		};
 		unknownKeyWire.state.surface.chart.items[0]['literalColor'] = '#ff0000';
 		await assert.rejects(
 			async () =>
-				collectionHandlers.POST(
-					postEvent({ slug: 'unknown-chart-key', preset: unknownKeyWire, forkedFrom: 'blank' })
-				),
-			expectHttpError(400, 'Invalid preset')
+				collectionHandlers.POST(postEvent({ slug: 'unknown-chart-key', preset: unknownKeyWire })),
+			expectHttpError(400, 'Invalid composition')
 		);
 		await assert.rejects(
 			async () =>
-				collectionHandlers.POST(
-					postEvent({ slug: 'invalid-chart', preset: invalidWire, forkedFrom: 'blank' })
-				),
+				collectionHandlers.POST(postEvent({ slug: 'invalid-chart', film: invalidFilmWire })),
 			expectHttpError(400, 'domains must include zero')
 		);
 		await assert.rejects(
-			async () =>
-				slugHandlers.PUT({
-					params: { slug: 'agent-chart' },
-					request: new Request('http://localhost/api/user-compositions/agent-chart', {
-						method: 'PUT',
-						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify(invalidWire)
-					})
-				} as Parameters<(typeof slugHandlers)['PUT']>[0]),
+			async () => slugHandlers.PUT(putEvent('agent-chart', invalidFilmWire)),
 			expectHttpError(400, 'domains must include zero')
 		);
 
@@ -523,26 +594,18 @@ describe('user composition handlers', () => {
 		const getResponse = await slugHandlers.GET({
 			params: { slug: 'agent-composition' }
 		} as Parameters<(typeof slugHandlers)['GET']>[0]);
-		const guiLoadedPreset: unknown = await getResponse.json();
-		const parsed = parsePresetIngress(guiLoadedPreset);
+		const parsed = parseFilmIngress(await getResponse.json());
 		parsed.name = 'Edited in GUI';
 
-		await slugHandlers.PUT({
-			params: { slug: 'agent-composition' },
-			request: new Request('http://localhost/api/user-compositions/agent-composition', {
-				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(presetToWireFormat(parsed))
-			})
-		} as Parameters<(typeof slugHandlers)['PUT']>[0]);
+		await slugHandlers.PUT(putEvent('agent-composition', filmToWireFormat(parsed)));
 
 		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
-			preset: unknown;
+			film: unknown;
 		};
-		const agentReloadedPreset = parsePresetIngress(written.preset);
-		assert.equal(agentReloadedPreset.name, 'Edited in GUI');
-		assert.equal(agentReloadedPreset.state.transport.durationSeconds, 7.5);
-		assert.deepEqual(agentReloadedPreset.state.stage, agentPreset.state.stage);
+		const agentReloadedFilm = parseFilmIngress(written.film);
+		assert.equal(agentReloadedFilm.name, 'Edited in GUI');
+		assert.equal(agentReloadedFilm.scenes[0].state.transport.durationSeconds, 7.5);
+		assert.deepEqual(agentReloadedFilm.scenes[0].state.stage, agentPreset.state.stage);
 	});
 
 	it('preserves composition media through GUI-agent GET/PUT and list metadata round trips', async () => {
@@ -558,24 +621,14 @@ describe('user composition handlers', () => {
 		const getResponse = await slugHandlers.GET({
 			params: { slug: 'media-composition' }
 		} as Parameters<(typeof slugHandlers)['GET']>[0]);
-		const standalonePreset = (await getResponse.json()) as {
-			name: string;
-			state: Record<string, unknown>;
-		};
-		standalonePreset.name = 'Edited by agent';
-		await slugHandlers.PUT({
-			params: { slug: 'media-composition' },
-			request: new Request('http://localhost/api/user-compositions/media-composition', {
-				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(standalonePreset)
-			})
-		} as Parameters<(typeof slugHandlers)['PUT']>[0]);
+		const standaloneFilm = (await getResponse.json()) as { name: string };
+		standaloneFilm.name = 'Edited by agent';
+		await slugHandlers.PUT(putEvent('media-composition', standaloneFilm));
 		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
-			preset: { state: Record<string, unknown> };
+			film: { scenes: { state: Record<string, unknown> }[] };
 		};
-		assert.deepEqual(written.preset.state.media, media);
-		assert.equal(Object.hasOwn(written.preset.state, 'sourceVideo'), false);
+		assert.deepEqual(written.film.scenes[0].state.media, media);
+		assert.equal(Object.hasOwn(written.film.scenes[0].state, 'sourceVideo'), false);
 
 		fsMocks.readdir.mockResolvedValue(['media-composition.json']);
 		const listResponse = await collectionHandlers.GET(
@@ -587,7 +640,7 @@ describe('user composition handlers', () => {
 				name: 'Media composition',
 				forkedFrom: null,
 				savedAt: '2026-07-27T12:00:00.000Z',
-				posterKey: posterKeyForPreset(parsePresetIngress(preset)),
+				posterKey: storedPosterKeyOf(preset),
 				durationSeconds: parsePresetIngress(preset).state.transport.durationSeconds,
 				surfaceType: parsePresetIngress(preset).state.surface.type,
 				media,
@@ -608,28 +661,23 @@ describe('user composition handlers', () => {
 		const loaded = await slugHandlers.GET({
 			params: { slug: 'legacy-source' }
 		} as Parameters<(typeof slugHandlers)['GET']>[0]);
-		const canonicalPreset = (await loaded.json()) as { state: Record<string, unknown> };
-		assert.equal(Object.hasOwn(canonicalPreset.state, 'sourceVideo'), false);
-		assert.ok(canonicalPreset.state.media);
+		const canonical = (await loaded.json()) as { scenes: { state: Record<string, unknown> }[] };
+		assert.equal(Object.hasOwn(canonical.scenes[0].state, 'sourceVideo'), false);
+		assert.ok(canonical.scenes[0].state.media);
 
-		await slugHandlers.PUT({
-			params: { slug: 'legacy-source' },
-			request: new Request('http://localhost/api/user-compositions/legacy-source', {
-				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(canonicalPreset)
-			})
-		} as Parameters<(typeof slugHandlers)['PUT']>[0]);
-		await collectionHandlers.POST(
-			postEvent({ slug: 'legacy-fork', preset, forkedFrom: 'legacy-source' })
-		);
+		await slugHandlers.PUT(putEvent('legacy-source', canonical));
+		await collectionHandlers.POST(postEvent({ slug: 'legacy-copy', preset }));
 
+		assert.equal(fsMocks.writeFile.mock.calls.length, 2);
 		for (const call of fsMocks.writeFile.mock.calls) {
-			const stored = JSON.parse(call[1]) as { preset: { state: Record<string, unknown> } };
-			assert.equal(Object.hasOwn(stored.preset.state, 'sourceVideo'), false);
-			assert.equal(Object.hasOwn(stored.preset.state, 'mediaStatus'), false);
-			assert.equal(Object.hasOwn(stored.preset.state, 'mediaIssues'), false);
-			assert.ok(stored.preset.state.media);
+			const stored = JSON.parse(call[1]) as {
+				film: { scenes: { state: Record<string, unknown> }[] };
+			};
+			const [scene] = stored.film.scenes;
+			assert.equal(Object.hasOwn(scene.state, 'sourceVideo'), false);
+			assert.equal(Object.hasOwn(scene.state, 'mediaStatus'), false);
+			assert.equal(Object.hasOwn(scene.state, 'mediaIssues'), false);
+			assert.ok(scene.state.media);
 		}
 	});
 
@@ -659,7 +707,7 @@ describe('user composition handlers', () => {
 		const loaded = await slugHandlers.GET({
 			params: { slug: 'missing-media' }
 		} as Parameters<(typeof slugHandlers)['GET']>[0]);
-		assert.deepEqual(await loaded.json(), presetToWireFormat(parsePresetIngress(preset)));
+		assert.deepEqual(await loaded.json(), filmWireOf(preset));
 
 		const response = await collectionHandlers.GET(
 			{} as Parameters<(typeof collectionHandlers)['GET']>[0]
@@ -677,41 +725,22 @@ describe('user composition handlers', () => {
 		]);
 
 		await assert.rejects(
-			async () =>
-				slugHandlers.PUT({
-					params: { slug: 'missing-media' },
-					request: new Request('http://localhost/api/user-compositions/missing-media', {
-						method: 'PUT',
-						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify(preset)
-					})
-				} as Parameters<(typeof slugHandlers)['PUT']>[0]),
+			async () => slugHandlers.PUT(putEvent('missing-media', filmWireOf(preset))),
 			expectHttpError(422, 'Referenced media asset')
 		);
 		await assert.rejects(
 			async () =>
-				collectionHandlers.POST(postEvent({ slug: 'missing-media', preset, forkedFrom: 'blank' })),
+				collectionHandlers.POST(postEvent({ slug: 'missing-media', film: filmWireOf(preset) })),
 			expectHttpError(422, 'Referenced media asset')
 		);
 	});
 });
 
 // ADR-0068 §3: the disk store reads the legacy `{ meta, preset }` record and the
-// `{ meta, film }` record, and still hands every caller one standalone Preset.
+// `{ meta, film }` record, hands every caller a Film, and writes Films.
 describe('user composition handlers reading both stored record shapes', () => {
 	function slugEvent(slug: string): Parameters<(typeof slugHandlers)['GET']>[0] {
 		return { params: { slug } } as Parameters<(typeof slugHandlers)['GET']>[0];
-	}
-
-	function putEvent(slug: string, body: unknown): Parameters<(typeof slugHandlers)['PUT']>[0] {
-		return {
-			params: { slug },
-			request: new Request(`http://localhost/api/user-compositions/${slug}`, {
-				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(body)
-			})
-		} as Parameters<(typeof slugHandlers)['PUT']>[0];
 	}
 
 	afterEach(() => {
@@ -722,7 +751,7 @@ describe('user composition handlers reading both stored record shapes', () => {
 		const storedFile = JSON.stringify({ meta: fixture.meta, ...fixture.document });
 
 		if (fixture.outcome === 'opens') {
-			it(`opens and lists the ${fixture.slug} record as its standalone Preset`, async () => {
+			it(`opens and lists the ${fixture.slug} record as its Film`, async () => {
 				const preset = parsePresetIngress(fixture.presetDocument);
 				fsMocks.readFile.mockResolvedValue(storedFile);
 				fsMocks.readdir.mockResolvedValue([`${fixture.slug}.json`]);
@@ -732,15 +761,19 @@ describe('user composition handlers reading both stored record shapes', () => {
 					{} as Parameters<(typeof collectionHandlers)['GET']>[0]
 				);
 
-				assert.deepEqual(await loaded.json(), presetToWireFormat(preset));
+				assert.deepEqual(
+					await loaded.json(),
+					filmWireOf(fixture.presetDocument, fixture.firstSceneOrigin)
+				);
 				assert.deepEqual(await listed.json(), [
 					{
 						slug: fixture.slug,
 						name: preset.name,
-						forkedFrom: fixture.meta.forkedFrom,
+						// The first Scene's origin slug, which a legacy record states as `forkedFrom`.
+						forkedFrom: fixture.firstSceneOrigin?.slug ?? null,
 						savedAt: fixture.meta.savedAt,
 						posterKey: posterKeyForPreset(preset),
-						durationSeconds: preset.state.transport.durationSeconds,
+						durationSeconds: filmDurationSeconds(filmFromPreset(preset, null)),
 						surfaceType: preset.state.surface.type,
 						media: preset.state.media,
 						mediaStatus: 'ready'
@@ -770,24 +803,62 @@ describe('user composition handlers reading both stored record shapes', () => {
 		});
 	}
 
-	it('leaves a legacy file byte-identical when it is read and saved again', async () => {
-		vi.useFakeTimers({ toFake: ['Date'] });
-		vi.setSystemTime(new Date('2026-10-01T12:00:00.000Z'));
-		await collectionHandlers.POST(
-			postEvent({ slug: 'legacy', preset: mediaPreset(), forkedFrom: 'blank' })
-		);
-		const legacyFile = fsMocks.writeFile.mock.calls[0]?.[1] ?? '';
-		assert.deepEqual(Object.keys(JSON.parse(legacyFile) as object), ['meta', 'preset']);
+	it('writes nothing when a legacy file is read, and a Film record the first time it is saved', async () => {
+		const legacyFile = JSON.stringify({
+			meta: { forkedFrom: 'lower-third', savedAt: '2026-10-01T12:00:00.000Z' },
+			preset: mediaPreset()
+		});
 		fsMocks.readFile.mockResolvedValue(legacyFile);
+		fsMocks.readdir.mockResolvedValue(['legacy.json']);
 
 		const loaded = await slugHandlers.GET(slugEvent('legacy'));
+		await collectionHandlers.GET({} as Parameters<(typeof collectionHandlers)['GET']>[0]);
+		assert.equal(fsMocks.writeFile.mock.calls.length, 0);
+		assert.equal(fsMocks.rename.mock.calls.length, 0);
+
 		await slugHandlers.PUT(putEvent('legacy', await loaded.json()));
 
-		assert.equal(fsMocks.writeFile.mock.calls.length, 2);
-		assert.equal(fsMocks.writeFile.mock.calls[1]?.[1], legacyFile);
+		assert.equal(fsMocks.writeFile.mock.calls.length, 1);
+		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
+			meta: { forkedFrom: string | null; savedAt: string };
+			film: { scenes: { origin: unknown }[] };
+		};
+		assert.deepEqual(Object.keys(written), ['meta', 'film']);
+		assert.equal(written.meta.forkedFrom, 'lower-third');
+		assert.notEqual(written.meta.savedAt, '2026-10-01T12:00:00.000Z');
+		assert.deepEqual(
+			written.film,
+			filmWireOf(mediaPreset(), { slug: 'lower-third', contentKey: null })
+		);
 	});
 
-	it('saves over a stored Film as a Preset record, keeping what it was forked from', async () => {
+	it('keeps a legacy transition record in the Preset shape when it is saved (ADR-0068 §3)', async () => {
+		fsMocks.readFile.mockResolvedValue(
+			JSON.stringify({
+				meta: { forkedFrom: null, savedAt: '2026-10-01T12:00:00.000Z' },
+				preset: transitionWipeDemoPreset
+			})
+		);
+
+		const loaded = await slugHandlers.GET(slugEvent('my-transition'));
+		const standalonePreset: unknown = await loaded.json();
+		assert.deepEqual(
+			parsePresetIngress(standalonePreset),
+			parsePresetIngress(transitionWipeDemoPreset)
+		);
+		await slugHandlers.PUT(putEvent('my-transition', standalonePreset));
+
+		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
+			preset: unknown;
+		};
+		assert.deepEqual(Object.keys(written), ['meta', 'preset']);
+		assert.deepEqual(
+			parsePresetIngress(written.preset),
+			parsePresetIngress(transitionWipeDemoPreset)
+		);
+	});
+
+	it('saves over a stored Film as a Film record, keeping its metadata and its Scene origin', async () => {
 		const fixture = STORED_USER_COMPOSITION_RECORD_FIXTURES.find(
 			(candidate) => candidate.slug === 'film-one-scene'
 		);
@@ -795,17 +866,17 @@ describe('user composition handlers reading both stored record shapes', () => {
 		fsMocks.readFile.mockResolvedValue(JSON.stringify({ meta: fixture.meta, ...fixture.document }));
 
 		const loaded = await slugHandlers.GET(slugEvent(fixture.slug));
-		const standalonePreset: unknown = await loaded.json();
-		await slugHandlers.PUT(putEvent(fixture.slug, standalonePreset));
+		const standaloneFilm: unknown = await loaded.json();
+		await slugHandlers.PUT(putEvent(fixture.slug, standaloneFilm));
 
 		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
 			meta: { forkedFrom: string | null };
-			preset: unknown;
+			film: { scenes: { origin: unknown }[] };
 		};
-		// Writers still emit the legacy shape until the Workspace works on a Film.
-		assert.deepEqual(Object.keys(written), ['meta', 'preset']);
+		assert.deepEqual(Object.keys(written), ['meta', 'film']);
 		assert.equal(written.meta.forkedFrom, fixture.meta.forkedFrom);
-		assert.deepEqual(written.preset, standalonePreset);
+		assert.deepEqual(written.film, standaloneFilm);
+		assert.deepEqual(written.film.scenes[0].origin, fixture.firstSceneOrigin);
 	});
 });
 

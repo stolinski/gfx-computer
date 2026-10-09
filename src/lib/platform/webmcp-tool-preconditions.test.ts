@@ -24,7 +24,7 @@ vi.mock('./user-composition-store', () => ({
 	userCompositionStore: {
 		listUserCompositions: vi.fn(),
 		loadUserComposition: vi.fn(),
-		forkUserComposition: vi.fn(),
+		createUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
 		deleteUserComposition: vi.fn()
 	}
@@ -141,13 +141,6 @@ describe('WebMCP preconditions with a composition open', () => {
 
 		compositionMediaGrants.record('clip.mp4', GRANTED_ASSET);
 		expect(readWebmcpCompositionPreconditions()['media-permitted']).toBe(true);
-	});
-
-	it('reports the Starter a fork came from', () => {
-		expect(readWebmcpCompositionPreconditions()['forked-from-starter']).toBe(false);
-
-		compositionMeta.forkedFrom = 'lower-third';
-		expect(readWebmcpCompositionPreconditions()['forked-from-starter']).toBe(true);
 	});
 });
 

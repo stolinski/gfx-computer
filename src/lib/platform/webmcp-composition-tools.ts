@@ -9,8 +9,9 @@
  *
  * Interchange travels as text in both directions: `gfx_composition_export_json`
  * returns one JSON document and `gfx_composition_import_json` takes the same
- * string back. That symmetry is the point — a caller round-trips a composition
- * without reshaping it, and a Legacy Supers document imports as itself
+ * string back. That symmetry is the point — a caller round-trips a Film
+ * without reshaping it, a Preset document still imports as a one-Scene Film,
+ * and a Legacy Supers document imports as itself
  * ([ADR-0053](../../../docs/adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)).
  *
  * A slug argument stays a free string rather than an enum. Session slugs are
@@ -31,8 +32,7 @@ import {
 	runCreateBlankCompositionOperation,
 	runCreateCompositionFromStarterOperation,
 	runImportCompositionJsonOperation,
-	runOpenCompositionOperation,
-	runRevertCompositionToStarterOperation
+	runOpenCompositionOperation
 } from './composition-lifecycle-operations';
 import { runCompositionHistoryTransaction } from './composition-edit-transaction';
 import {
@@ -63,7 +63,7 @@ export function listWebmcpCompositionToolDefinitions(): readonly WebmcpToolDefin
 				properties: {
 					starterSlug: webmcpDerivedEnumProperty(
 						'starter-slug',
-						'Which Starter template to fork into a new session composition.'
+						'Which Starter template to create a new Film from.'
 					)
 				},
 				required: ['starterSlug'],
@@ -104,7 +104,7 @@ export function listWebmcpCompositionToolDefinitions(): readonly WebmcpToolDefin
 					document: {
 						type: 'string',
 						description:
-							'One standalone composition JSON document as text — the same body gfx_composition_export_json returns.',
+							'One standalone JSON document as text: a gfx-film@1 Film — the same body gfx_composition_export_json returns — or a Preset.',
 						minLength: 1
 					}
 				},
@@ -152,16 +152,6 @@ export function listWebmcpCompositionToolDefinitions(): readonly WebmcpToolDefin
 						name: readWebmcpOptionalStringArgument(args, 'name'),
 						description: readWebmcpOptionalStringArgument(args, 'description'),
 						kind: readWebmcpOptionalLiteralArgument(args, 'kind', COMPOSITION_KINDS)
-					})
-				)
-		},
-		{
-			operationId: 'composition.revert-to-starter',
-			inputSchema: webmcpObservedRevisionOnlySchema(),
-			run: (args) =>
-				runWebmcpToolOperation('composition.revert-to-starter', () =>
-					runRevertCompositionToStarterOperation({
-						expectedRevision: readWebmcpObservedRevisionArgument(args)
 					})
 				)
 		},

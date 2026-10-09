@@ -1,12 +1,51 @@
 # User composition workflows
 
-GUI authors and agents read and write the same standalone `gfx@1` Preset through the local user store. The store API is the supported interchange boundary; files under `user-compositions/` are internal metadata wrappers and are not standalone Presets.
+A **User composition** is a **Film** ([ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §3, [`film-format.md`](film-format.md)). GUI authors and agents read and write the same standalone `gfx-film@1` document through the local user store. The store API is the supported interchange boundary; the files in the store are internal `{ meta, film }` records and are not standalone documents ([`film-format.md`](film-format.md#stored-records)).
 
 The local server is always `http://localhost:7263`. All examples below operate on the same User compositions listed on the GFX home screen.
 
 **This whole surface is development-only.** `PUBLIC_GFX_COMPOSITION_STORE` picks which store a build serves: `origin` is the disk-backed store documented here, and `browser` is the Public demo session, which keeps every composition in the visitor's own browser and never sends one to the origin ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). A build configured for `browser` answers 404 to every request below, so none of these commands is a way to read or write a visitor's work on the public origin. In the browser-scoped store the same compositions are reached through the GUI and through the WebMCP `session` and `composition` families, which act on exactly the store the GUI does.
 
-**The store also reads Film records.** A stored record holds a Preset (`{ meta, preset }`) or a Film (`{ meta, film }`), and both stores read either one ([ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §3, [`film-format.md`](film-format.md#stored-records)). Nothing below changes yet: every route still returns and accepts a standalone Preset, and every write still saves a Preset record. A one-Scene Film opens as its Preset. A Film with more than one Scene cannot be opened yet: `GET /api/user-compositions/<slug>` answers **409**, and the listing leaves it out.
+## How a composition comes to exist
+
+A Film holds one Scene today. The Scene is an owned copy of the Preset it was seeded from, and its `origin` records that Preset's slug. Nothing links back: editing a corpus Preset never changes a Film.
+
+- **Open a Starter and edit it.** `/p/<corpus-slug>` always shows the pristine corpus Preset. The first edit stores the edited document as a new Film under a new slug and replaces the URL with `/p/<new-slug>`. The slug comes from the Starter's name and is numbered past every stored slug and every corpus slug: editing `lower-third` makes `lower-third-2`, then `lower-third-3`.
+- **New composition** on the home screen stores a Film seeded from the `blank` Preset, named Untitled, as `untitled`, `untitled-2`, and so on.
+- **Import JSON** on the home screen stores a new Film from a standalone document (see [GUI interchange](#gui-interchange)).
+- Agents use `gfx_composition_create_from_starter`, `gfx_composition_create_blank`, and `gfx_composition_import_json`. Each receipt reports the new slug.
+
+Nothing is ever stored under a corpus Preset's slug. Both stores refuse a create or a save there (the disk store answers **409**). There is no fork of a Starter, no revert to a Starter, and no `?source=builtin` view of one: the Starter's own route is always the Starter. To discard a Film, delete it from the home screen.
+
+Every edit after the first autosaves to the Film's own slug.
+
+**Older records.** A record an older build saved as a standalone Preset (`{ meta, preset }`) still opens: it is read as a one-Scene Film whose `origin` is the Starter the record was forked from. Reading never rewrites it. The first save writes it as a Film. One case keeps the old shape: a composition that still carries a two-endpoint `transition` is saved as `{ meta, preset }`, because a Film cannot hold that recipe until Scene boundaries are live (ADR-0068 §3–4).
+
+A Film with more than one Scene cannot be opened yet: `GET /api/user-compositions/<slug>` answers **409**, and the listing leaves it out.
+
+### Shadow records from the fork model
+
+The retired fork-on-edit model saved an edited Starter under the Starter's own slug. Such a record can no longer be opened, because `/p/<corpus-slug>` shows the Starter. A one-time script re-keys them in a disk store:
+
+```sh
+# Print the plan as JSON. Changes nothing.
+npx tsx scripts/migrate-user-composition-shadow-records.ts "<store-directory>" --dry-run
+
+# Apply it.
+npx tsx scripts/migrate-user-composition-shadow-records.ts "<store-directory>"
+```
+
+The store directory is always given explicitly; the primary one is `~/Library/Application Support/GFX/compositions`. **The script takes no backup. Back the store up first.**
+
+For every record whose slug equals a corpus Preset slug, the script:
+
+1. picks the first free slug of the form `<slug>-2`, `<slug>-3`, …, free against every corpus slug and every stored slug;
+2. writes the record there as `{ meta, film }`, with the Scene's `origin.slug` set to the corpus slug it shadowed and `meta` (including `forkedFrom` and `savedAt`) unchanged — or as `{ meta, preset }` when it carries a `transition`;
+3. moves the old file into the store's trash directory, beside the store. Nothing is deleted.
+
+It prints each move, and each record it skipped with the reason: a record this engine cannot read is left exactly where it is. A second run finds nothing to do. It refuses a directory that holds no stored record or holds other JSON. No sidecar needs moving: the slug index is rebuilt from the directory by a running server, and posters are keyed by content, not by slug. Restart the server afterwards so its index is fresh.
+
+The browser-scoped store of a Public demo session cannot be reached by a script. A record a visitor's browser holds under a corpus slug is still listed on the home screen and can be deleted there, but its card opens the Starter, and the store will not save over it.
 
 ## Agent store access
 
@@ -16,13 +55,13 @@ List User composition metadata:
 curl -fsS http://localhost:7263/api/user-compositions
 ```
 
-Export one standalone Preset:
+Export one standalone Film:
 
 ```sh
 curl -fsS http://localhost:7263/api/user-compositions/my-composition > my-composition.json
 ```
 
-Create or replace a User composition with a standalone Preset:
+Create or replace a User composition with a standalone document:
 
 ```sh
 curl -fsS \
@@ -38,7 +77,9 @@ Delete one User composition:
 curl -fsS -X DELETE http://localhost:7263/api/user-compositions/my-composition
 ```
 
-`GET /api/user-compositions/<slug>` returns the exact standalone wire format accepted by `PUT`: annotation bodies and chat messages are strings, not the engine's transformed runtime structures. This symmetry is the agent edit loop: GET, edit JSON, PUT, reopen in the GUI. Invalid JSON, schema fields, Packs, Pipeline variants, Effect parameters, assets, or cross-references are rejected before persistence with a path-qualified response message.
+`GET /api/user-compositions/<slug>` returns the exact standalone `gfx-film@1` document accepted by `PUT`: annotation bodies and chat messages are strings, not the engine's transformed runtime structures. This symmetry is the agent edit loop: GET, edit JSON, PUT, reopen in the GUI. Invalid JSON, schema fields, Packs, Pipeline variants, Effect parameters, assets, or cross-references are rejected before persistence with a path-qualified response message.
+
+`PUT` also accepts a standalone `gfx@1` Preset and stores it as a one-Scene Film, so a Preset file still imports. `POST /api/user-compositions` takes `{ "slug": "...", "film": {…} }` (or `"preset"`) to create one. A slug that is a corpus Preset's is refused with **409**. The one composition `GET` returns as a Preset is one that still carries a `transition`.
 
 A slug the store holds nothing for is `null`, not an error. A stored composition this engine will not accept — because a schema field or an authoring rule tightened after it was saved — is **409** with every finding named; the store read fine, so this reports the author's work going stale rather than a failure of this origin, and it stays a log line instead of a Sentry issue ([`sentry-dev-flow.md`](sentry-dev-flow.md): 4xx = log, 5xx = issue). Only a file that is not a store document at all is a 500.
 
@@ -131,9 +172,9 @@ curl -fsS \
 npm run gfx -- render --preset episode-title --out ./out/episode-title.mov
 ```
 
-`GET`, `PUT`, GUI JSON import/export, fork-on-edit, and CLI file-Preset import all preserve `state.media`. IDs, names, URLs, clip placement, Source time, and clip audio are stable Preset data. Readiness and probe details are computed from bytes when listing/opening and are not written into `state.media`. GET remains available when previously stored referenced bytes go missing so the composition can be repaired; writes and export reject a referenced missing or undecodable Media asset. An unused Media library entry may remain in the composition, including while unavailable, because it does not participate in rendering.
+`GET`, `PUT`, GUI JSON import/export, the first edit to a Starter, and CLI file-Preset import all preserve each Scene's `state.media`. IDs, names, URLs, clip placement, Source time, and clip audio are stable composition data. Readiness and probe details are computed from bytes when listing/opening and are not written into `state.media`. GET remains available when previously stored referenced bytes go missing so the composition can be repaired; writes and export reject a referenced missing or undecodable Media asset. An unused Media library entry may remain in the composition, including while unavailable, because it does not participate in rendering.
 
-Standalone Preset JSON does not embed or copy video bytes. It is standalone composition data, not a media bundle or Project artifact. Moving a composition to another local GFX workspace therefore requires ingesting each Media asset there and updating the corresponding library entry's `assetUrl` to the content address returned by that workspace. Multiple compositions or entries may reference one deduplicated URL; removing membership never deletes those shared bytes.
+Standalone JSON does not embed or copy video bytes. It is standalone composition data, not a media bundle or Project artifact. Moving a composition to another local GFX workspace therefore requires ingesting each Media asset there and updating the corresponding library entry's `assetUrl` to the content address returned by that workspace. Multiple compositions or entries may reference one deduplicated URL; removing membership never deletes those shared bytes.
 
 ### Website captures
 
@@ -141,9 +182,9 @@ A `website-screenshot` Surface takes exactly one capture source. The GUI's captu
 
 ## GUI interchange
 
-The home screen's **Import JSON** action derives the User composition slug from the filename. Importing `episode-title.json` creates or replaces `episode-title`. Schema and semantic errors block persistence; static-linter warnings and errors do not, because a valid agent-authored Preset must be able to enter the GUI for repair. Its linter findings appear live in the composition inspector after import.
+The home screen's **Import JSON** action accepts a standalone `gfx-film@1` Film, or a `gfx@1` Preset (including a Legacy Supers one), which is lifted to a one-Scene Film. It stores a new Film under a slug derived from the document's `name`, numbered past every stored and corpus slug, and never replaces an existing composition. Schema and semantic errors block persistence and are listed under the action; static-linter warnings and errors do not, because a valid agent-authored document must be able to enter the GUI for repair. Its linter findings appear live in the composition inspector after import. A Film with more than one Scene is refused.
 
-The composition inspector's **Export JSON** action downloads the current standalone wire Preset as `<slug>.json`. **Verify** runs the structural schema, registry-derived semantic validation, deliverable static linter, and current rendered visual audit in one action. Static issues remain live in the inspector while editing; the rendered audit is refreshed only by Verify.
+The composition inspector's **Export JSON** action downloads the current standalone Film as `<slug>.json`. **Verify** runs the structural schema, registry-derived semantic validation, deliverable static linter, and current rendered visual audit in one action. Static issues remain live in the inspector while editing; the rendered audit is refreshed only by Verify.
 
 The existing right rail has two modes: **Inspector** and **Media**. Media mode lists composition-scoped Media library entries, uploads local MP4/MOV/WebM bytes transactionally, shows volatile probe/readiness details, and supplies drag payloads for clip creation. Upload and probe complete before membership changes; failures preserve the last confirmed composition. Removing an entry is allowed only when no Video clip references it, and never deletes shared bytes. This is a mode of the existing rail, not a left panel or permanent fourth workspace zone.
 

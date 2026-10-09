@@ -8,11 +8,13 @@
  * the Composition revision at 0 — a revision names a point in one open
  * document's life, never a global clock.
  *
- * A Starter template is a corpus Preset opened read-only as a fork-base
- * (ADR-0032): `composition.open` on a Starter loads it without writing anything
- * to the session, and the first edit forks it. `composition.create-from-starter`
- * forks it up front into a new session composition, so the Starter itself is
- * never modified either way.
+ * A User composition is a Film, and a Starter template is the corpus Preset a
+ * Film's first Scene is seeded from
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §3):
+ * `composition.open` on a Starter loads it without writing anything to the
+ * session, and the first edit creates a new Film from it under a new slug.
+ * `composition.create-from-starter` creates that Film up front. Either way the
+ * Starter itself is never modified, and nothing is ever stored under its slug.
  *
  * Opening a composition puts it in engine state and moves the visible focus.
  * Keeping the route URL in step with the document these operations opened
@@ -21,12 +23,9 @@
  */
 import {
 	COMPOSITION_RECEIPT_FINDING_LIMIT,
-	readOpenCompositionSlug,
 	refuseCompositionOperation,
 	refuseCompositionSessionStoreFailure,
 	refuseDuringCompositionTransitionCapture,
-	refuseStaleCompositionRevision,
-	refuseUnlessCompositionEditable,
 	requireCompositionOperationRow,
 	type CompositionOperationFailure
 } from './composition-operation-preflight';
@@ -34,20 +33,28 @@ import {
 	boundCompositionFindings,
 	collectCompositionSemanticFindings,
 	collectCompositionValidationFindings,
+	collectFilmSemanticFindings,
 	describeCompositionSchemaFindings
 } from './composition-validation-findings';
-import { applyPreset } from './preset';
+import { applyFilm } from './preset';
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { createCompositionSessionSlug } from '../utils/composition-session-slug';
 import { ensureCompositionRenderersLoaded } from './composition-renderer-readiness';
+import { filmFromPreset, FilmIngressSchema, FilmSceneCountUnsupportedError } from './film-ingress';
+import { FILM_SCHEMA_ID } from './film-schema';
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
 import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
+import {
+	legacyPresetEnvelopeFromPreset,
+	openFilmDocumentFromFilm,
+	savedPresetFromOpenFilm
+} from './open-film-document';
 import { posterKeyForPreset } from './posters';
 import { PresetIngressSchema, readCompositionLegacyUpgrades } from './preset-ingress';
-import { isUserCompositionNotHeldError } from './user-composition-store-errors';
 import { userCompositionStore } from './user-composition-store';
 import { ensurePackLoaded } from './user-pack-runtime';
+import { isRecord } from '../utils/object';
 
 import type {
 	BoundedCompositionFindings,
@@ -55,7 +62,7 @@ import type {
 } from './composition-validation-findings';
 import type { CompositionLegacyUpgrade } from './preset-ingress';
 import type { Preset } from './engine-schema';
-import type { FilmSceneOrigin } from './film-schema';
+import type { UserCompositionDocument } from './user-composition-record';
 import type { WebmcpOperationFocusTarget, WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** The corpus Preset the blank composition is cut from. */
@@ -74,7 +81,10 @@ export interface CompositionLifecycleReceipt {
 	/** The session slug the operation opened, or the one it removed. */
 	slug: string | null;
 	name: string | null;
-	/** The Starter this composition forked from, or null when it began blank or arrived as JSON. */
+	/**
+	 * The Starter this Film's first Scene was seeded from, or null when it began
+	 * blank or arrived as JSON without one. Null for a Starter opened read-only.
+	 */
 	forkedFrom: string | null;
 	/** The Composition revision of the document now open; opening one restarts it at 0. */
 	revision: number;
@@ -100,13 +110,11 @@ export interface OpenCompositionRequest {
 }
 
 export interface ImportCompositionJsonRequest {
-	/** A standalone composition document, including a Legacy Supers one (ADR-0053). */
+	/**
+	 * A standalone composition document: a `gfx-film@1` Film, or a Preset,
+	 * including a Legacy Supers one (ADR-0053), which is lifted to a one-Scene Film.
+	 */
 	document: unknown;
-}
-
-export interface RevertCompositionToStarterRequest {
-	/** The Composition revision the caller last observed; reverting discards it. */
-	expectedRevision: number;
 }
 
 /** The Starter templates a new composition can be cut from: the deliverable corpus. */
@@ -120,10 +128,11 @@ function findStarterTemplate(slug: string): Preset | null {
 
 /**
  * Slugs a new composition must not take. Session slugs are excluded because a
- * slug addresses one composition; corpus slugs are excluded because a session
- * composition at a corpus slug shadows that Starter on its own route.
+ * slug addresses one composition; corpus slugs are excluded because
+ * `/p/<corpus-slug>` is the Starter's own route, and both stores refuse to
+ * write a record under one.
  */
-function reservedCompositionSlugs(sessionSlugs: readonly string[]): string[] {
+function listReservedCompositionSlugs(sessionSlugs: readonly string[]): string[] {
 	return [
 		...sessionSlugs,
 		...listPresets().map((entry) => entry.slug),
@@ -158,22 +167,56 @@ async function refuseUnloadableCompositionRenderers(
 }
 
 /**
- * Open `preset` as a one-Scene Film and record where it came from.
- * `applyPreset` clears the shared history, so the revision restarts here.
- * `sceneOrigin` is the catalogue Preset the Scene was seeded from
- * (ADR-0068 §2), or `null` for a blank or imported composition and for a
- * stored one, whose source the store does not hand back with its Preset.
+ * Store `document` as a new Film under a slug nothing holds, and return that
+ * slug. The slug comes from the Film's name (`createCompositionSessionSlug`)
+ * and is numbered past every session slug and every corpus slug, so a Film is
+ * never stored under a Starter's own slug (ADR-0068 §3).
+ *
+ * Every way a Film comes to exist uses this: the blank composition, a Starter,
+ * an imported document, and the first edit to a Starter opened on its route.
+ * Throws whatever the store throws.
+ */
+export async function storeUserCompositionUnderNewSlug(
+	document: UserCompositionDocument
+): Promise<string> {
+	const sessionSlugs = (await userCompositionStore.listUserCompositions()).map(
+		(entry) => entry.slug
+	);
+	const slug = createCompositionSessionSlug(
+		document.film.name,
+		listReservedCompositionSlugs(sessionSlugs)
+	);
+	await userCompositionStore.createUserComposition(slug, document);
+	return slug;
+}
+
+/** The document a Preset opens as: a one-Scene Film seeded from `starterSlug`, or from nothing. */
+function userCompositionDocumentFromPreset(
+	preset: Preset,
+	starterSlug: string | null
+): UserCompositionDocument {
+	return {
+		film: filmFromPreset(
+			preset,
+			starterSlug === null ? null : { slug: starterSlug, contentKey: posterKeyForPreset(preset) }
+		),
+		legacyPresetEnvelope: legacyPresetEnvelopeFromPreset(preset)
+	};
+}
+
+/**
+ * Open `document` and record where it came from. `applyFilm` clears the shared
+ * history, so the revision restarts here.
  */
 function openCompositionDocument(
 	row: WebmcpOperationRow,
 	slug: string,
-	preset: Preset,
-	forkedFrom: string | null,
+	document: UserCompositionDocument,
 	isSessionComposition: boolean,
-	sceneOrigin: FilmSceneOrigin | null,
 	legacyUpgrades: readonly CompositionLegacyUpgrade[] = []
 ): CompositionLifecycleReceipt {
-	applyPreset(preset, sceneOrigin);
+	const forkedFrom = isSessionComposition ? (document.film.scenes[0]?.origin?.slug ?? null) : null;
+	applyFilm(document.film, document.legacyPresetEnvelope);
 	compositionMeta.isUserComposition = isSessionComposition;
 	compositionMeta.userCompositionSlug = slug;
 	compositionMeta.forkedFrom = forkedFrom;
@@ -184,11 +227,15 @@ function openCompositionDocument(
 		status: 'applied',
 		operationId: row.id,
 		slug,
-		name: preset.name,
+		name: document.film.name,
 		forkedFrom,
 		revision: compositionEditHistory.revision,
 		findings: boundCompositionFindings(
-			collectCompositionValidationFindings(preset),
+			collectCompositionValidationFindings(
+				savedPresetFromOpenFilm(
+					openFilmDocumentFromFilm(document.film, document.legacyPresetEnvelope)
+				)
+			),
 			COMPOSITION_RECEIPT_FINDING_LIMIT
 		),
 		legacyUpgrades,
@@ -196,40 +243,26 @@ function openCompositionDocument(
 	};
 }
 
-/** Store `preset` as a new session composition under a free slug, then open it. */
-async function forkCompositionIntoSession(
+/** Store `document` as a new Film in the session under a free slug, then open it. */
+async function createFilmInSession(
 	row: WebmcpOperationRow,
-	preset: Preset,
-	forkedFrom: string | null,
+	document: UserCompositionDocument,
 	legacyUpgrades: readonly CompositionLegacyUpgrade[] = []
 ): Promise<CompositionLifecycleOutcome> {
-	const rendererRefusal = await refuseUnloadableCompositionRenderers(row, preset);
+	const rendererRefusal = await refuseUnloadableCompositionRenderers(
+		row,
+		savedPresetFromOpenFilm(openFilmDocumentFromFilm(document.film, document.legacyPresetEnvelope))
+	);
 	if (rendererRefusal) return rendererRefusal;
 
-	let sessionSlugs: string[];
+	let slug: string;
 	try {
-		sessionSlugs = (await userCompositionStore.listUserCompositions()).map((entry) => entry.slug);
+		slug = await storeUserCompositionUnderNewSlug(document);
 	} catch (cause) {
 		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
-	const slug = createCompositionSessionSlug(preset.name, reservedCompositionSlugs(sessionSlugs));
-
-	try {
-		await userCompositionStore.forkUserComposition(slug, preset, forkedFrom);
-	} catch (cause) {
-		return refuseCompositionSessionStoreFailure(row, cause);
-	}
-
-	return openCompositionDocument(
-		row,
-		slug,
-		preset,
-		forkedFrom,
-		true,
-		forkedFrom === null ? null : { slug: forkedFrom, contentKey: posterKeyForPreset(preset) },
-		legacyUpgrades
-	);
+	return openCompositionDocument(row, slug, document, true, legacyUpgrades);
 }
 
 /** Create a composition from the blank Preset and open it for editing. */
@@ -249,10 +282,17 @@ export async function runCreateBlankCompositionOperation(): Promise<CompositionL
 		);
 	}
 
-	return forkCompositionIntoSession(row, { ...blank, name: BLANK_COMPOSITION_NAME }, null);
+	return createFilmInSession(
+		row,
+		userCompositionDocumentFromPreset({ ...blank, name: BLANK_COMPOSITION_NAME }, null)
+	);
 }
 
-/** Fork a named Starter template into a new session composition and open it. */
+/**
+ * Create a Film from a named Starter template: a new session composition under
+ * a new slug, whose one Scene is an owned copy of the Starter. The receipt's
+ * `slug` is the new one.
+ */
 export async function runCreateCompositionFromStarterOperation(
 	request: CreateCompositionFromStarterRequest
 ): Promise<CompositionLifecycleOutcome> {
@@ -271,13 +311,13 @@ export async function runCreateCompositionFromStarterOperation(
 		);
 	}
 
-	return forkCompositionIntoSession(row, starter, request.starterSlug);
+	return createFilmInSession(row, userCompositionDocumentFromPreset(starter, request.starterSlug));
 }
 
 /**
  * Open an existing session composition, or a Starter template read-only. A
- * session composition of the same slug wins over the corpus Preset it shadows,
- * matching how the preset route resolves the same slug.
+ * corpus Preset's slug is never a session composition's, matching how the
+ * preset route resolves the same slug: it always opens the pristine Starter.
  */
 export async function runOpenCompositionOperation(
 	request: OpenCompositionRequest
@@ -286,21 +326,33 @@ export async function runOpenCompositionOperation(
 	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
 	if (captureRefusal) return captureRefusal;
 
-	let sessionComposition: Preset | null;
-	try {
-		sessionComposition = await userCompositionStore.loadUserComposition(request.slug);
-	} catch (cause) {
-		return refuseCompositionSessionStoreFailure(row, cause);
-	}
-
-	if (sessionComposition) {
-		const rendererRefusal = await refuseUnloadableCompositionRenderers(row, sessionComposition);
-		if (rendererRefusal) return rendererRefusal;
-		return openCompositionDocument(row, request.slug, sessionComposition, null, true, null);
-	}
-
 	const starter = findStarterTemplate(request.slug);
-	if (!starter) {
+	if (starter) {
+		const starterRendererRefusal = await refuseUnloadableCompositionRenderers(row, starter);
+		if (starterRendererRefusal) return starterRendererRefusal;
+
+		// Read-only: nothing is written here. The first edit creates a new Film
+		// from it under a new slug.
+		return openCompositionDocument(
+			row,
+			request.slug,
+			userCompositionDocumentFromPreset(starter, request.slug),
+			false
+		);
+	}
+
+	let sessionComposition: UserCompositionDocument | null = null;
+	// A fixture is a corpus Preset that is not a Starter template; its slug is
+	// not a session composition's either.
+	if (getPresetBySlug(request.slug) === null) {
+		try {
+			sessionComposition = await userCompositionStore.loadUserComposition(request.slug);
+		} catch (cause) {
+			return refuseCompositionSessionStoreFailure(row, cause);
+		}
+	}
+
+	if (!sessionComposition) {
 		return refuseCompositionOperation(
 			row,
 			compositionEditHistory.revision,
@@ -310,15 +362,14 @@ export async function runOpenCompositionOperation(
 		);
 	}
 
-	const starterRendererRefusal = await refuseUnloadableCompositionRenderers(row, starter);
-	if (starterRendererRefusal) return starterRendererRefusal;
-
-	// Read-only until the first edit forks it, so nothing is written here and
-	// there is no fork to revert to yet.
-	return openCompositionDocument(row, request.slug, starter, null, false, {
-		slug: request.slug,
-		contentKey: posterKeyForPreset(starter)
-	});
+	const rendererRefusal = await refuseUnloadableCompositionRenderers(
+		row,
+		savedPresetFromOpenFilm(
+			openFilmDocumentFromFilm(sessionComposition.film, sessionComposition.legacyPresetEnvelope)
+		)
+	);
+	if (rendererRefusal) return rendererRefusal;
+	return openCompositionDocument(row, request.slug, sessionComposition, true);
 }
 
 /** The composition pointer prefix every Media finding lands under. */
@@ -357,10 +408,13 @@ function describeUnloadableCompositionCause(
 
 /**
  * Import a standalone composition JSON document as a new session composition.
- * A Legacy Supers document imports as itself (ADR-0053) — the ingress boundary
- * folds its schema id, which is a spelling normalization, not a migration, and
- * upgrades a legacy Source video into the canonical Media library. The receipt
- * reports which of those upgrades the document needed.
+ *
+ * A `gfx-film@1` document imports as the Film it is. A Preset document is
+ * lifted to a one-Scene Film. A Legacy Supers Preset imports as itself
+ * (ADR-0053) — the ingress boundary folds its schema id, which is a spelling
+ * normalization, not a migration, and upgrades a legacy Source video into the
+ * canonical Media library. The receipt reports which of those upgrades the
+ * document needed.
  */
 export async function runImportCompositionJsonOperation(
 	request: ImportCompositionJsonRequest
@@ -370,6 +424,45 @@ export async function runImportCompositionJsonOperation(
 	if (captureRefusal) return captureRefusal;
 
 	const revision = compositionEditHistory.revision;
+
+	if (isRecord(request.document) && request.document['schema'] === FILM_SCHEMA_ID) {
+		const parsedFilm = FilmIngressSchema.safeParse(request.document);
+		if (!parsedFilm.success) {
+			return refuseCompositionOperation(
+				row,
+				revision,
+				'schema_invalid',
+				'That document is not a Film this schema accepts, so nothing was imported.',
+				{ findings: describeCompositionSchemaFindings(parsedFilm.error) }
+			);
+		}
+		await ensurePackLoaded(parsedFilm.data.pack);
+		const filmFindings = collectFilmSemanticFindings(parsedFilm.data);
+		if (filmFindings.length > 0) {
+			return refuseCompositionOperation(
+				row,
+				revision,
+				'semantic_invalid',
+				describeUnloadableCompositionCause(filmFindings),
+				{ findings: filmFindings }
+			);
+		}
+		// The Workspace plays one Scene, so a longer Film is refused, not cut.
+		if (parsedFilm.data.scenes.length !== 1) {
+			return refuseCompositionOperation(
+				row,
+				revision,
+				'precondition_unmet',
+				new FilmSceneCountUnsupportedError(parsedFilm.data.name, parsedFilm.data.scenes.length)
+					.message
+			);
+		}
+		return createFilmInSession(row, {
+			film: parsedFilm.data,
+			legacyPresetEnvelope: { kind: 'deliverable' }
+		});
+	}
+
 	const legacyUpgrades = readCompositionLegacyUpgrades(request.document);
 	const parsed = PresetIngressSchema.safeParse(request.document);
 	if (!parsed.success) {
@@ -397,73 +490,9 @@ export async function runImportCompositionJsonOperation(
 		);
 	}
 
-	return forkCompositionIntoSession(row, parsed.data, null, legacyUpgrades);
-}
-
-/**
- * The Starter an open session composition can be returned to: the one it
- * recorded forking from, or its own slug when the fork shadows its Starter at
- * the same slug — which is what editing an opened Starter produces.
- */
-function resolveRevertStarterSlug(): string | null {
-	const slug = compositionMeta.forkedFrom ?? readOpenCompositionSlug();
-	if (slug === null) return null;
-	return findStarterTemplate(slug) ? slug : null;
-}
-
-/**
- * Discard this fork and return to the pristine Starter it came from. Every edit
- * since the fork is lost, which is why it takes the caller's observed revision.
- */
-export async function runRevertCompositionToStarterOperation(
-	request: RevertCompositionToStarterRequest
-): Promise<CompositionLifecycleOutcome> {
-	const row = requireCompositionOperationRow('composition.revert-to-starter');
-	const editableRefusal = refuseUnlessCompositionEditable(row);
-	if (editableRefusal) return editableRefusal;
-
-	const staleRefusal = refuseStaleCompositionRevision(row, request.expectedRevision);
-	if (staleRefusal) return staleRefusal;
-
-	const revision = compositionEditHistory.revision;
-	const slug = readOpenCompositionSlug();
-	if (slug === null || !compositionMeta.isUserComposition) {
-		return refuseCompositionOperation(
-			row,
-			revision,
-			'precondition_unmet',
-			'This composition has no session fork to discard; it is already the pristine Starter.'
-		);
-	}
-
-	const starterSlug = resolveRevertStarterSlug();
-	const starter = starterSlug === null ? null : findStarterTemplate(starterSlug);
-	if (starterSlug === null || !starter) {
-		return refuseCompositionOperation(
-			row,
-			revision,
-			'precondition_unmet',
-			'This composition did not come from a Starter template, so there is nothing to return to.',
-			{ rejected: slug, alternatives: listStarterTemplateSlugs() }
-		);
-	}
-
-	const rendererRefusal = await refuseUnloadableCompositionRenderers(row, starter);
-	if (rendererRefusal) return rendererRefusal;
-
-	try {
-		await userCompositionStore.deleteUserComposition(slug);
-	} catch (cause) {
-		// A fork the store no longer holds is the state this operation was asked
-		// to reach, so it opens the Starter rather than refusing. Anything else is
-		// a store that would not do what it was asked.
-		if (!isUserCompositionNotHeldError(cause)) {
-			return refuseCompositionSessionStoreFailure(row, cause);
-		}
-	}
-
-	return openCompositionDocument(row, starterSlug, starter, null, false, {
-		slug: starterSlug,
-		contentKey: posterKeyForPreset(starter)
-	});
+	return createFilmInSession(
+		row,
+		userCompositionDocumentFromPreset(parsed.data, null),
+		legacyUpgrades
+	);
 }

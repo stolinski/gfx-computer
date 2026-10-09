@@ -20,14 +20,22 @@ import { env } from '$env/dynamic/public';
 import { z } from 'zod';
 
 import { createBrowserUserCompositionStore } from './browser-user-composition-store';
-import { MediaSchema, SurfaceTypeSchema, type Preset } from './engine-schema';
-import { parsePreset } from './preset-parser';
-import { presetToWireFormat } from './preset-pure';
+import { MediaSchema, SurfaceTypeSchema } from './engine-schema';
+import { getPresetBySlug } from './preset-catalog';
 import {
 	parseCompositionSessionStoreConfig,
 	PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS
 } from './public-runtime-contract';
-import { UserCompositionNotHeldError } from './user-composition-store-errors';
+import {
+	readStandaloneUserCompositionDocument,
+	standaloneUserCompositionDocument,
+	userCompositionDocumentWireBody,
+	type UserCompositionDocument
+} from './user-composition-record';
+import {
+	UserCompositionNotHeldError,
+	UserCompositionStarterSlugError
+} from './user-composition-store-errors';
 
 const UserCompositionMediaStatusSchema = z.enum(['ready', 'missing', 'undecodable']);
 const UserCompositionMediaIssueSchema = z.strictObject({
@@ -65,13 +73,26 @@ export interface CompositionSessionStorage {
 	quotaBytes: number | null;
 }
 
+/**
+ * The store contract: a User composition is a Film
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §3).
+ * Every method hands back and accepts a `UserCompositionDocument`, the Film
+ * beside the legacy Preset envelope the Workspace still opens it with.
+ *
+ * A slug a corpus Preset has is never written: `createUserComposition` and
+ * `saveUserComposition` refuse it with `UserCompositionStarterSlugError`.
+ */
 export interface UserCompositionStore {
 	listUserCompositions(): Promise<UserCompositionMeta[]>;
-	/** Resolve a slug to its stored User composition; null means no fork exists. */
-	loadUserComposition(slug: string, requestFetch?: typeof fetch): Promise<Preset | null>;
-	/** Create a User composition, optionally noting which corpus Preset it came from. */
-	forkUserComposition(slug: string, preset: Preset, corpusSlug: string | null): Promise<void>;
-	saveUserComposition(slug: string, preset: Preset): Promise<void>;
+	/** Resolve a slug to its stored User composition; null means nothing is stored there. */
+	loadUserComposition(
+		slug: string,
+		requestFetch?: typeof fetch
+	): Promise<UserCompositionDocument | null>;
+	/** Store a new User composition under `slug`. */
+	createUserComposition(slug: string, document: UserCompositionDocument): Promise<void>;
+	/** Store `document` over the User composition at `slug`, keeping its metadata. */
+	saveUserComposition(slug: string, document: UserCompositionDocument): Promise<void>;
 	deleteUserComposition(slug: string): Promise<void>;
 	/** How much room this store has left, as far as it can measure it. */
 	inspectStorage(): Promise<CompositionSessionStorage>;
@@ -107,6 +128,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * The error a refused write raises. The origin answers 409 only for a Starter's
+ * slug, which is a refusal a caller narrows on rather than reads.
+ */
+async function userCompositionWriteFailure(
+	response: Response,
+	slug: string,
+	action: 'create' | 'save'
+): Promise<Error> {
+	if (response.status === 409 && getPresetBySlug(slug) !== null) {
+		return new UserCompositionStarterSlugError(slug);
+	}
+	return new Error(
+		`Failed to ${action} User composition "${slug}": ${await userCompositionFailureContext(response)}`
+	);
+}
+
 function parseUserCompositionMetaList(value: unknown): UserCompositionMeta[] {
 	if (!Array.isArray(value)) {
 		throw new TypeError('Failed to list User compositions: response must be an array');
@@ -121,10 +159,12 @@ function parseUserCompositionMetaList(value: unknown): UserCompositionMeta[] {
 	});
 }
 
-function parseUserComposition(value: unknown, slug: string): Preset | null {
+function parseUserComposition(value: unknown, slug: string): UserCompositionDocument | null {
 	if (value === null) return null;
 	try {
-		return parsePreset(value, { packScope: 'stored' });
+		// The origin answers with the standalone document: the Film, or the one
+		// legacy Preset shape a transition keeps.
+		return readStandaloneUserCompositionDocument(value, { packScope: 'stored' });
 	} catch (cause) {
 		throw new TypeError(`Failed to load User composition "${slug}": invalid response`, { cause });
 	}
@@ -150,7 +190,10 @@ export const originUserCompositionStore: UserCompositionStore = {
 		return parseUserCompositionMetaList(value);
 	},
 
-	async loadUserComposition(slug: string, requestFetch = fetch): Promise<Preset | null> {
+	async loadUserComposition(
+		slug: string,
+		requestFetch = fetch
+	): Promise<UserCompositionDocument | null> {
 		const response = await requestFetch(`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`);
 		if (!response.ok) {
 			throw new Error(
@@ -164,33 +207,25 @@ export const originUserCompositionStore: UserCompositionStore = {
 		return parseUserComposition(value, slug);
 	},
 
-	async forkUserComposition(
-		slug: string,
-		preset: Preset,
-		corpusSlug: string | null
-	): Promise<void> {
+	async createUserComposition(slug: string, document: UserCompositionDocument): Promise<void> {
 		const response = await fetch(USER_COMPOSITION_API_BASE, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ slug, preset: presetToWireFormat(preset), forkedFrom: corpusSlug })
+			body: JSON.stringify({ slug, ...userCompositionDocumentWireBody(document) })
 		});
 		if (!response.ok) {
-			throw new Error(
-				`Failed to fork User composition "${slug}": ${await userCompositionFailureContext(response)}`
-			);
+			throw await userCompositionWriteFailure(response, slug, 'create');
 		}
 	},
 
-	async saveUserComposition(slug: string, preset: Preset): Promise<void> {
+	async saveUserComposition(slug: string, document: UserCompositionDocument): Promise<void> {
 		const response = await fetch(`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(presetToWireFormat(preset))
+			body: JSON.stringify(standaloneUserCompositionDocument(document))
 		});
 		if (!response.ok) {
-			throw new Error(
-				`Failed to save User composition "${slug}": ${await userCompositionFailureContext(response)}`
-			);
+			throw await userCompositionWriteFailure(response, slug, 'save');
 		}
 	},
 
@@ -201,8 +236,7 @@ export const originUserCompositionStore: UserCompositionStore = {
 		if (response.ok) return;
 		const message = `Failed to delete User composition "${slug}": ${await userCompositionFailureContext(response)}`;
 		// An origin holding nothing at this slug is a different answer from an
-		// origin that would not answer, and reverting a fork depends on the
-		// difference — see UserCompositionNotHeldError.
+		// origin that would not answer — see UserCompositionNotHeldError.
 		if (response.status === 404) throw new UserCompositionNotHeldError(slug, message);
 		throw new Error(message);
 	},
@@ -247,6 +281,7 @@ export const userCompositionStore: UserCompositionStore =
 		? createBrowserUserCompositionStore({
 				resolveStorage: resolveBrowserSessionStorage,
 				storageIdentity: compositionSessionStoreConfig.storageIdentity,
-				limits: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS
+				limits: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
+				isStarterSlug: (slug) => getPresetBySlug(slug) !== null
 			})
 		: originUserCompositionStore;

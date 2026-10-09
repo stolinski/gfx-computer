@@ -4,10 +4,12 @@ import blankPresetJson from '$lib/presets/blank.json';
 
 import { ACCEPTED_COMPOSITION_SCHEMA_IDS } from '../utils/legacy-supers-compatibility';
 import { CompositionSessionStorageError } from './browser-user-composition-store';
-import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PRESET_SCHEMA_ID } from './engine-schema';
+import { filmFromPreset, filmToWireFormat } from './film-ingress';
+import { filmState } from './film-state.svelte';
+import { posterKeyForPreset } from './posters';
 import { applyPreset } from './preset';
 import { getPresetBySlug } from './preset-catalog';
 import { parsePresetIngress } from './preset-ingress';
@@ -19,11 +21,11 @@ import {
 	runCreateCompositionFromStarterOperation,
 	runImportCompositionJsonOperation,
 	runOpenCompositionOperation,
-	runRevertCompositionToStarterOperation,
+	storeUserCompositionUnderNewSlug,
 	type CompositionLifecycleOutcome,
 	type CompositionLifecycleReceipt
 } from './composition-lifecycle-operations';
-import { UserCompositionNotHeldError } from './user-composition-store-errors';
+import { UserCompositionStarterSlugError } from './user-composition-store-errors';
 import { userCompositionStore } from './user-composition-store';
 
 import type { CompositionOperationFailure } from './composition-operation-preflight';
@@ -34,7 +36,7 @@ vi.mock('./user-composition-store', () => ({
 	userCompositionStore: {
 		listUserCompositions: vi.fn(),
 		loadUserComposition: vi.fn(),
-		forkUserComposition: vi.fn(),
+		createUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
 		deleteUserComposition: vi.fn(),
 		inspectStorage: vi.fn()
@@ -82,7 +84,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	sessionStore.listUserCompositions.mockResolvedValue([]);
 	sessionStore.loadUserComposition.mockResolvedValue(null);
-	sessionStore.forkUserComposition.mockResolvedValue(undefined);
+	sessionStore.createUserComposition.mockResolvedValue(undefined);
 	sessionStore.deleteUserComposition.mockResolvedValue(undefined);
 
 	transitionState.capturing = false;
@@ -94,7 +96,7 @@ beforeEach(() => {
 });
 
 describe('creating a composition', () => {
-	it('forks the blank Preset into the session and opens it at revision 0', async () => {
+	it('creates a Film from the blank Preset in the session and opens it at revision 0', async () => {
 		const receipt = expectApplied(await runCreateBlankCompositionOperation());
 
 		expect(receipt.slug).toBe('untitled');
@@ -102,7 +104,7 @@ describe('creating a composition', () => {
 		expect(receipt.forkedFrom).toBeNull();
 		expect(receipt.revision).toBe(0);
 		expect(receipt.focus).toBe('composition-root');
-		expect(sessionStore.forkUserComposition).toHaveBeenCalledTimes(1);
+		expect(sessionStore.createUserComposition).toHaveBeenCalledTimes(1);
 		expect(presetBase.name).toBe(BLANK_COMPOSITION_NAME);
 		expect(compositionMeta.isUserComposition).toBe(true);
 		expect(compositionMeta.userCompositionSlug).toBe('untitled');
@@ -115,20 +117,47 @@ describe('creating a composition', () => {
 		const receipt = expectApplied(await runCreateBlankCompositionOperation());
 
 		expect(receipt.slug).toBe('untitled-2');
-		expect(sessionStore.forkUserComposition).toHaveBeenCalledWith(
+		expect(sessionStore.createUserComposition).toHaveBeenCalledWith(
 			'untitled-2',
-			expect.objectContaining({ name: BLANK_COMPOSITION_NAME }),
-			null
+			expect.objectContaining({
+				film: expect.objectContaining({ name: BLANK_COMPOSITION_NAME })
+			})
 		);
 	});
 
-	it('forks a named Starter without modifying the Starter itself', async () => {
+	it('never takes a corpus slug, even one no session composition holds', async () => {
+		const receipt = expectApplied(
+			await runImportCompositionJsonOperation({
+				document: { ...blankPresetJson, name: 'Lower third' }
+			})
+		);
+
+		// `lower-third` is a Starter's own slug, so the new Film is numbered past it.
+		expect(getPresetBySlug('lower-third')).not.toBeNull();
+		expect(receipt.slug).toBe('lower-third-2');
+	});
+
+	it('creates a Film from a named Starter under a new slug, without modifying the Starter', async () => {
 		const receipt = expectApplied(
 			await runCreateCompositionFromStarterOperation({ starterSlug: STARTER_SLUG })
 		);
+		const starter = getPresetBySlug(STARTER_SLUG);
+		if (!starter) throw new Error(`Expected the corpus to ship "${STARTER_SLUG}".`);
 
 		expect(receipt.forkedFrom).toBe(STARTER_SLUG);
-		expect(receipt.slug).not.toBe(STARTER_SLUG);
+		// The receipt reports the new slug: the Starter's own is never stored under.
+		expect(receipt.slug).toBe('lower-third-2');
+		expect(compositionMeta.userCompositionSlug).toBe('lower-third-2');
+		// The Film's one Scene is an owned copy that remembers where it came from.
+		const [slug, stored] = sessionStore.createUserComposition.mock.calls[0];
+		expect(slug).toBe('lower-third-2');
+		expect(stored.film).toEqual(
+			filmFromPreset(starter, { slug: STARTER_SLUG, contentKey: posterKeyForPreset(starter) })
+		);
+		expect(filmState.scenes[0].origin).toEqual({
+			slug: STARTER_SLUG,
+			contentKey: posterKeyForPreset(starter)
+		});
 		expect(receipt.name).toBe('Lower-third');
 		expect(engineState.overlays.map((overlay) => overlay.type)).toEqual(['lower-third']);
 		expect(getPresetBySlug(STARTER_SLUG)?.name).toBe('Lower-third');
@@ -143,18 +172,20 @@ describe('creating a composition', () => {
 		expect(failure.rejected).toBe('not-a-starter');
 		expect(failure.alternatives.length).toBeGreaterThan(0);
 		expect(listStarterTemplateSlugs()).toContain(failure.alternatives[0]);
-		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 	});
 
 	it('refuses to create anything while the transition snapshot path owns engine state', async () => {
 		transitionState.capturing = true;
 
-		expect(expectFailed(await runCreateBlankCompositionOperation()).code).toBe('precondition_unmet');
-		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
+		expect(expectFailed(await runCreateBlankCompositionOperation()).code).toBe(
+			'precondition_unmet'
+		);
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 	});
 
 	it('reports a session store that did not answer without opening anything', async () => {
-		sessionStore.forkUserComposition.mockRejectedValue(new Error('The store went away'));
+		sessionStore.createUserComposition.mockRejectedValue(new Error('The store went away'));
 
 		const failure = expectFailed(await runCreateBlankCompositionOperation());
 
@@ -164,7 +195,7 @@ describe('creating a composition', () => {
 	});
 
 	it('passes a full session through as the quota refusal it is, not a missing store', async () => {
-		sessionStore.forkUserComposition.mockRejectedValue(
+		sessionStore.createUserComposition.mockRejectedValue(
 			new CompositionSessionStorageError('quota_exceeded', 'This browser session is full.')
 		);
 
@@ -174,18 +205,52 @@ describe('creating a composition', () => {
 		expect(failure.message).toBe('This browser session is full.');
 		expect(compositionMeta.userCompositionSlug).toBeNull();
 	});
+
+	it('reports a store that refused the slug without opening anything', async () => {
+		sessionStore.createUserComposition.mockRejectedValue(
+			new UserCompositionStarterSlugError('untitled')
+		);
+
+		const failure = expectFailed(await runCreateBlankCompositionOperation());
+
+		expect(failure.code).toBe('storage_unavailable');
+		expect(failure.message).toContain('is the slug of a Starter');
+		expect(compositionMeta.userCompositionSlug).toBeNull();
+	});
 });
 
 describe('opening a composition', () => {
-	it('opens a session composition ahead of the corpus Preset it shadows', async () => {
+	it('opens a session composition as the Film the store holds, with its Scene origin', async () => {
 		const stored = parsePresetIngress({ ...blankPresetJson, name: 'My lower third' });
-		sessionStore.loadUserComposition.mockResolvedValue(stored);
+		const origin = { slug: STARTER_SLUG, contentKey: null };
+		sessionStore.loadUserComposition.mockResolvedValue({
+			film: filmFromPreset(stored, origin),
+			legacyPresetEnvelope: { kind: 'deliverable' }
+		});
+
+		const receipt = expectApplied(await runOpenCompositionOperation({ slug: 'my-lower-third' }));
+
+		expect(receipt.name).toBe('My lower third');
+		expect(receipt.forkedFrom).toBe(STARTER_SLUG);
+		expect(compositionMeta.isUserComposition).toBe(true);
+		expect(filmState.scenes[0].origin).toEqual(origin);
+		expect(presetBase.kind).toBe('deliverable');
+		expect(engineState.overlays).toEqual([]);
+	});
+
+	it('opens the pristine Starter at a corpus slug, whatever the session holds there', async () => {
+		// A record an older release stored under the Starter's slug never opens
+		// here: the store is not even asked.
+		sessionStore.loadUserComposition.mockResolvedValue({
+			film: filmFromPreset(parsePresetIngress({ ...blankPresetJson, name: 'Shadow' }), null),
+			legacyPresetEnvelope: { kind: 'deliverable' }
+		});
 
 		const receipt = expectApplied(await runOpenCompositionOperation({ slug: STARTER_SLUG }));
 
-		expect(receipt.name).toBe('My lower third');
-		expect(compositionMeta.isUserComposition).toBe(true);
-		expect(engineState.overlays).toEqual([]);
+		expect(receipt.name).toBe('Lower-third');
+		expect(compositionMeta.isUserComposition).toBe(false);
+		expect(sessionStore.loadUserComposition).not.toHaveBeenCalled();
 	});
 
 	it('opens a Starter read-only, writing nothing to the session', async () => {
@@ -194,7 +259,7 @@ describe('opening a composition', () => {
 		expect(receipt.slug).toBe(STARTER_SLUG);
 		expect(receipt.forkedFrom).toBeNull();
 		expect(compositionMeta.isUserComposition).toBe(false);
-		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 		expect(sessionStore.saveUserComposition).not.toHaveBeenCalled();
 	});
 
@@ -235,9 +300,59 @@ describe('importing a composition document', () => {
 		);
 
 		expect(receipt.legacyUpgrades).toEqual([]);
-		const [, stored] = sessionStore.forkUserComposition.mock.calls[0];
-		expect(stored.schema).toBe(PRESET_SCHEMA_ID);
-		expect(stored.name).toBe('Current piece');
+		const [, stored] = sessionStore.createUserComposition.mock.calls[0];
+		// A Preset document is lifted to a one-Scene Film that came from no Starter.
+		expect(stored.film.schema).toBe('gfx-film@1');
+		expect(stored.film.name).toBe('Current piece');
+		expect(stored.film.scenes.map((scene) => scene.origin)).toEqual([null]);
+	});
+
+	it('imports a gfx-film@1 document as the Film it is', async () => {
+		const film = filmFromPreset(
+			parsePresetIngress({ ...blankPresetJson, kind: 'deliverable', name: 'Exported film' }),
+			{ slug: STARTER_SLUG, contentKey: '0123456789abcdef' }
+		);
+
+		const receipt = expectApplied(
+			await runImportCompositionJsonOperation({
+				document: JSON.parse(JSON.stringify(filmToWireFormat(film)))
+			})
+		);
+
+		expect(receipt.slug).toBe('exported-film');
+		expect(receipt.name).toBe('Exported film');
+		expect(receipt.forkedFrom).toBe(STARTER_SLUG);
+		expect(receipt.legacyUpgrades).toEqual([]);
+		const [, stored] = sessionStore.createUserComposition.mock.calls[0];
+		expect(stored).toEqual({ film, legacyPresetEnvelope: { kind: 'deliverable' } });
+	});
+
+	it('refuses a Film document the schema rejects, and one longer than the Workspace plays', async () => {
+		const film = filmToWireFormat(filmFromPreset(parsePresetIngress(blankPresetJson), null)) as {
+			scenes: { id: string }[];
+			boundaries: unknown[];
+		};
+
+		const malformed = expectFailed(
+			await runImportCompositionJsonOperation({
+				document: { schema: 'gfx-film@1', name: 'No Scenes' }
+			})
+		);
+		expect(malformed.code).toBe('schema_invalid');
+		expect(malformed.findings.total).toBeGreaterThan(0);
+
+		const twoScenes = expectFailed(
+			await runImportCompositionJsonOperation({
+				document: {
+					...film,
+					scenes: [film.scenes[0], { ...film.scenes[0], id: 'scene-2' }],
+					boundaries: [{ kind: 'cut' }]
+				}
+			})
+		);
+		expect(twoScenes.code).toBe('precondition_unmet');
+		expect(twoScenes.message).toContain('this build opens one-Scene Films only');
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 	});
 
 	it('upgrades a legacy Source video into the Media library it imports as', async () => {
@@ -259,9 +374,10 @@ describe('importing a composition document', () => {
 		// namespace's schema id, so both upgrades are reported — they are separate
 		// legacy shapes, and a receipt that folded them together would hide one.
 		expect(receipt.legacyUpgrades).toContain('legacy-source-video');
-		const [, stored] = sessionStore.forkUserComposition.mock.calls[0];
-		expect(stored.state.media.assets.map((asset) => asset.assetUrl)).toEqual([legacyAssetUrl]);
-		expect(stored.state.media.videoTrack.clips).toHaveLength(1);
+		const [, stored] = sessionStore.createUserComposition.mock.calls[0];
+		const { media } = stored.film.scenes[0].state;
+		expect(media.assets.map((asset) => asset.assetUrl)).toEqual([legacyAssetUrl]);
+		expect(media.videoTrack.clips).toHaveLength(1);
 	});
 
 	it('imports media whose bytes are out of reach, leaving it there to repair', async () => {
@@ -295,8 +411,8 @@ describe('importing a composition document', () => {
 		);
 
 		expect(receipt.findings.total).toBe(0);
-		const [, stored] = sessionStore.forkUserComposition.mock.calls[0];
-		expect(stored.state.media.assets[0].assetUrl).toBe(unreachableAssetUrl);
+		const [, stored] = sessionStore.createUserComposition.mock.calls[0];
+		expect(stored.film.scenes[0].state.media.assets[0].assetUrl).toBe(unreachableAssetUrl);
 	});
 
 	it('names the Media reference to correct when that is all that blocked the import', async () => {
@@ -329,7 +445,7 @@ describe('importing a composition document', () => {
 		expect(failure.code).toBe('semantic_invalid');
 		expect(failure.message).toContain('Media');
 		expect(failure.findings.findings[0].path).toBe('/state/media/videoTrack/clips/0/assetId');
-		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 	});
 
 	it('refuses a document the schema rejects and imports nothing', async () => {
@@ -339,7 +455,7 @@ describe('importing a composition document', () => {
 
 		expect(failure.code).toBe('schema_invalid');
 		expect(failure.findings.total).toBeGreaterThan(0);
-		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 		expect(presetBase.name).toBe('Blank');
 	});
 
@@ -356,110 +472,43 @@ describe('importing a composition document', () => {
 	});
 });
 
-describe('reverting to a Starter', () => {
-	it('discards the fork and re-opens the pristine Starter', async () => {
-		compositionMeta.isUserComposition = true;
-		compositionMeta.userCompositionSlug = STARTER_SLUG;
-		compositionMeta.forkedFrom = STARTER_SLUG;
+// What the preset route does on the first edit to a Starter it opened
+// (ADR-0068 §3): the edited document becomes a new Film under a new slug, and
+// the route replaces its URL with that slug.
+describe('the first edit to an opened Starter', () => {
+	it('stores the edited document as a new Film under a new slug, never the Starter slug', async () => {
+		const starter = getPresetBySlug(STARTER_SLUG);
+		if (!starter) throw new Error(`Expected the corpus to ship "${STARTER_SLUG}".`);
+		sessionStore.listUserCompositions.mockResolvedValue([sessionEntry('lower-third-2', starter)]);
+		const edited = {
+			film: filmFromPreset(
+				{ ...starter, state: { ...starter.state, overlays: [] } },
+				{ slug: STARTER_SLUG, contentKey: posterKeyForPreset(starter) }
+			),
+			legacyPresetEnvelope: { kind: starter.kind }
+		};
 
-		const receipt = expectApplied(
-			await runRevertCompositionToStarterOperation({ expectedRevision: 0 })
-		);
+		const slug = await storeUserCompositionUnderNewSlug(edited);
 
-		expect(sessionStore.deleteUserComposition).toHaveBeenCalledWith(STARTER_SLUG);
-		expect(receipt.slug).toBe(STARTER_SLUG);
-		expect(receipt.revision).toBe(0);
-		expect(compositionMeta.isUserComposition).toBe(false);
-		expect(engineState.overlays.map((overlay) => overlay.type)).toEqual(['lower-third']);
+		// Named after the Starter, and numbered past the corpus slug and the stored one.
+		expect(slug).toBe('lower-third-3');
+		expect(sessionStore.createUserComposition).toHaveBeenCalledTimes(1);
+		expect(sessionStore.createUserComposition).toHaveBeenCalledWith('lower-third-3', edited);
+		expect(sessionStore.saveUserComposition).not.toHaveBeenCalled();
+		expect(edited.film.scenes[0].origin?.slug).toBe(STARTER_SLUG);
 	});
 
-	it('returns a fork made under its own slug to the Starter it recorded', async () => {
-		compositionMeta.isUserComposition = true;
-		compositionMeta.userCompositionSlug = 'lower-third-2';
-		compositionMeta.forkedFrom = STARTER_SLUG;
-
-		const receipt = expectApplied(
-			await runRevertCompositionToStarterOperation({ expectedRevision: 0 })
+	it('lets a store refusal reach the route, which reports it', async () => {
+		sessionStore.createUserComposition.mockRejectedValue(
+			new CompositionSessionStorageError('quota_exceeded', 'This browser session is full.')
 		);
+		const blank = parsePresetIngress(blankPresetJson);
 
-		expect(sessionStore.deleteUserComposition).toHaveBeenCalledWith('lower-third-2');
-		expect(receipt.slug).toBe(STARTER_SLUG);
-	});
-
-	// The reported defect: the fork was already gone — discarded from another tab,
-	// or by a revert that had already landed — and the strict delete's refusal
-	// stranded the composition on the fork it was trying to leave.
-	it('opens the Starter when the store no longer holds the fork', async () => {
-		compositionMeta.isUserComposition = true;
-		compositionMeta.userCompositionSlug = STARTER_SLUG;
-		compositionMeta.forkedFrom = STARTER_SLUG;
-		sessionStore.deleteUserComposition.mockRejectedValue(
-			new UserCompositionNotHeldError(
-				STARTER_SLUG,
-				`Failed to delete User composition "${STARTER_SLUG}": 404 Not Found: User composition "${STARTER_SLUG}" not found`
-			)
-		);
-
-		const receipt = expectApplied(
-			await runRevertCompositionToStarterOperation({ expectedRevision: 0 })
-		);
-
-		expect(receipt.slug).toBe(STARTER_SLUG);
-		expect(compositionMeta.isUserComposition).toBe(false);
-		expect(engineState.overlays.map((overlay) => overlay.type)).toEqual(['lower-third']);
-	});
-
-	it('still refuses when the store would not answer at all', async () => {
-		compositionMeta.isUserComposition = true;
-		compositionMeta.userCompositionSlug = STARTER_SLUG;
-		compositionMeta.forkedFrom = STARTER_SLUG;
-		sessionStore.deleteUserComposition.mockRejectedValue(new Error('the store did not respond'));
-
-		const failure = expectFailed(
-			await runRevertCompositionToStarterOperation({ expectedRevision: 0 })
-		);
-
-		expect(failure.code).toBe('storage_unavailable');
-		expect(compositionMeta.isUserComposition).toBe(true);
-	});
-
-	it('refuses when the open composition never came from a Starter', async () => {
-		compositionMeta.isUserComposition = true;
-		compositionMeta.userCompositionSlug = 'untitled';
-		compositionMeta.forkedFrom = null;
-
-		const failure = expectFailed(
-			await runRevertCompositionToStarterOperation({ expectedRevision: 0 })
-		);
-
-		expect(failure.code).toBe('precondition_unmet');
-		expect(sessionStore.deleteUserComposition).not.toHaveBeenCalled();
-	});
-
-	it('refuses a stale revision before discarding any work', async () => {
-		compositionMeta.isUserComposition = true;
-		compositionMeta.userCompositionSlug = STARTER_SLUG;
-		compositionMeta.forkedFrom = STARTER_SLUG;
-		compositionEditHistory.recordApplied({
-			label: 'Set composition identity',
-			undo: () => {},
-			redo: () => {}
-		});
-
-		const failure = expectFailed(
-			await runRevertCompositionToStarterOperation({ expectedRevision: 0 })
-		);
-
-		expect(failure.code).toBe('stale_revision');
-		expect(failure.movedSince).toEqual(['Set composition identity']);
-		expect(sessionStore.deleteUserComposition).not.toHaveBeenCalled();
-	});
-
-	it('refuses when no composition is open at all', async () => {
-		const failure = expectFailed(
-			await runRevertCompositionToStarterOperation({ expectedRevision: 0 })
-		);
-
-		expect(failure.code).toBe('no_composition_open');
+		await expect(
+			storeUserCompositionUnderNewSlug({
+				film: filmFromPreset(blank, { slug: 'blank', contentKey: null }),
+				legacyPresetEnvelope: { kind: blank.kind }
+			})
+		).rejects.toThrow('This browser session is full.');
 	});
 });

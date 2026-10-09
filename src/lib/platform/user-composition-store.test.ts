@@ -5,21 +5,41 @@ import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import type { Preset } from './engine-schema';
+import { filmFromPreset, filmToWireFormat } from './film-ingress';
 import { parsePresetIngress } from './preset-ingress';
-import {
-	LEGACY_SOURCE_VIDEO_ASSET_ID,
-	LEGACY_SOURCE_VIDEO_CLIP_ID
-} from './preset-ingress';
+import { LEGACY_SOURCE_VIDEO_ASSET_ID, LEGACY_SOURCE_VIDEO_CLIP_ID } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
-import { isUserCompositionNotHeldError } from './user-composition-store-errors';
+import {
+	isUserCompositionNotHeldError,
+	isUserCompositionStarterSlugError
+} from './user-composition-store-errors';
 import { userCompositionStore } from './user-composition-store';
 
-const blankPreset: Preset = parsePresetIngress(blankPresetJson);
+import type { UserCompositionDocument } from './user-composition-record';
+
+const blankPreset: Preset = parsePresetIngress({ ...blankPresetJson, kind: 'deliverable' });
 const fetchMock = vi.fn<typeof fetch>();
+
+/** The document a Preset is stored as: a one-Scene Film, seeded from `starterSlug` or nothing. */
+function documentOf(preset: Preset, starterSlug: string | null = null): UserCompositionDocument {
+	return {
+		film: filmFromPreset(
+			preset,
+			starterSlug === null ? null : { slug: starterSlug, contentKey: null }
+		),
+		legacyPresetEnvelope: { kind: 'deliverable' }
+	};
+}
+
+/** The standalone Film document the origin answers a slug GET with. */
+function standaloneFilmOf(preset: Preset, starterSlug: string | null = null): unknown {
+	return filmToWireFormat(documentOf(preset, starterSlug).film);
+}
 
 function mediaPreset(): Preset {
 	return parsePresetIngress({
 		...blankPresetJson,
+		kind: 'deliverable',
 		state: {
 			...blankPresetJson.state,
 			media: {
@@ -51,6 +71,7 @@ function mediaPreset(): Preset {
 function chartPreset(): Preset {
 	return parsePresetIngress({
 		...blankPresetJson,
+		kind: 'deliverable',
 		state: {
 			...blankPresetJson.state,
 			surface: {
@@ -184,36 +205,69 @@ describe('userCompositionStore', () => {
 		assert.equal(Object.hasOwn(result[0].media, 'mediaIssues'), false);
 	});
 
-	it('loads an encoded User composition slug and preserves null as the no-fork response', async () => {
+	it('loads an encoded User composition slug as a Film and preserves null as the nothing-stored response', async () => {
 		fetchMock
-			.mockResolvedValueOnce(jsonResponse(presetToWireFormat(blankPreset)))
+			.mockResolvedValueOnce(jsonResponse(standaloneFilmOf(blankPreset, 'blank')))
 			.mockResolvedValueOnce(jsonResponse(null));
 
 		const loaded = await userCompositionStore.loadUserComposition('blank copy');
 		const missing = await userCompositionStore.loadUserComposition('missing');
 
-		assert.deepEqual(loaded, blankPreset);
+		assert.deepEqual(loaded, documentOf(blankPreset, 'blank'));
+		// The Scene keeps the origin the record stored.
+		assert.deepEqual(loaded?.film.scenes[0].origin, { slug: 'blank', contentKey: null });
 		assert.equal(missing, null);
 		assert.deepEqual(fetchMock.mock.calls[0], ['/api/user-compositions/blank%20copy']);
 		assert.deepEqual(fetchMock.mock.calls[1], ['/api/user-compositions/missing']);
 	});
 
+	it('loads a legacy transition record with its recipe in the envelope', async () => {
+		const transitionPreset = parsePresetIngress({
+			...blankPresetJson,
+			kind: 'deliverable',
+			transition: {
+				from: 'lower-third',
+				to: 'blank',
+				effect: 'mask-wipe',
+				durationMs: 600,
+				params: {}
+			}
+		});
+		fetchMock
+			.mockResolvedValueOnce(jsonResponse(presetToWireFormat(transitionPreset)))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+		const loaded = await userCompositionStore.loadUserComposition('my-transition');
+		assert.ok(loaded);
+		assert.deepEqual(loaded.legacyPresetEnvelope, {
+			kind: 'deliverable',
+			transition: transitionPreset.transition
+		});
+		await userCompositionStore.saveUserComposition('my-transition', loaded);
+
+		// ADR-0068 §3: a Film cannot hold the recipe yet, so the save keeps the Preset shape.
+		assert.deepEqual(parsePresetIngress(requestBodyAt(1)), transitionPreset);
+	});
+
 	it('uses an explicit request fetch instead of global fetch when loading', async () => {
-		const requestFetch = vi.fn<typeof fetch>().mockResolvedValueOnce(
-			jsonResponse(presetToWireFormat(blankPreset))
-		);
+		const requestFetch = vi
+			.fn<typeof fetch>()
+			.mockResolvedValueOnce(jsonResponse(standaloneFilmOf(blankPreset)));
 
 		const loaded = await userCompositionStore.loadUserComposition('request-scoped', requestFetch);
 
-		assert.deepEqual(loaded, blankPreset);
+		assert.deepEqual(loaded, documentOf(blankPreset));
 		assert.deepEqual(requestFetch.mock.calls[0], ['/api/user-compositions/request-scoped']);
 		assert.equal(fetchMock.mock.calls.length, 0);
 	});
 
-	it('forks with POST and serializes the standalone Preset to the existing wire format', async () => {
+	it('creates with POST and serializes the Film to its wire format', async () => {
 		fetchMock.mockResolvedValueOnce(jsonResponse({ slug: 'blank-copy' }, { status: 201 }));
 
-		await userCompositionStore.forkUserComposition('blank-copy', blankPreset, 'blank');
+		await userCompositionStore.createUserComposition(
+			'blank-copy',
+			documentOf(blankPreset, 'blank')
+		);
 
 		const [url, requestInit] = fetchMock.mock.calls[0];
 		assert.equal(url, '/api/user-compositions');
@@ -221,12 +275,16 @@ describe('userCompositionStore', () => {
 		assert.deepEqual(requestInit?.headers, { 'Content-Type': 'application/json' });
 		const body = requestBodyAt(0) as {
 			slug: unknown;
-			preset: { state: { surface: { content: { body: unknown } } } };
-			forkedFrom: unknown;
+			film: {
+				schema: unknown;
+				scenes: { origin: unknown; state: { surface: { content: { body: unknown } } } }[];
+			};
 		};
+		assert.deepEqual(Object.keys(body), ['slug', 'film']);
 		assert.equal(body.slug, 'blank-copy');
-		assert.equal(body.forkedFrom, 'blank');
-		assert.equal(body.preset.state.surface.content.body, '');
+		assert.equal(body.film.schema, 'gfx-film@1');
+		assert.deepEqual(body.film.scenes[0].origin, { slug: 'blank', contentKey: null });
+		assert.equal(body.film.scenes[0].state.surface.content.body, '');
 	});
 
 	it('maps save and delete to the slug PUT and DELETE routes', async () => {
@@ -234,19 +292,42 @@ describe('userCompositionStore', () => {
 			.mockResolvedValueOnce(new Response(null, { status: 204 }))
 			.mockResolvedValueOnce(new Response(null, { status: 204 }));
 
-		await userCompositionStore.saveUserComposition('blank copy', blankPreset);
+		await userCompositionStore.saveUserComposition('blank copy', documentOf(blankPreset));
 		await userCompositionStore.deleteUserComposition('blank copy');
 
 		assert.equal(fetchMock.mock.calls[0]?.[0], '/api/user-compositions/blank%20copy');
 		assert.equal(fetchMock.mock.calls[0]?.[1]?.method, 'PUT');
-		const savedPreset = requestBodyAt(0) as {
-			state: { surface: { content: { body: unknown } } };
+		// The PUT body is the standalone Film document, the same one GET returns.
+		const saved = requestBodyAt(0) as {
+			schema: unknown;
+			scenes: { state: { surface: { content: { body: unknown } } } }[];
 		};
-		assert.equal(savedPreset.state.surface.content.body, '');
+		assert.equal(saved.schema, 'gfx-film@1');
+		assert.equal(saved.scenes[0].state.surface.content.body, '');
 		assert.deepEqual(fetchMock.mock.calls[1], [
 			'/api/user-compositions/blank%20copy',
 			{ method: 'DELETE' }
 		]);
+	});
+
+	it('names a write under a Starter slug as the typed refusal it is', async () => {
+		const refusal = (): Response =>
+			jsonResponse(
+				{ message: '"blank" is the slug of a Starter this engine ships' },
+				{ status: 409 }
+			);
+		fetchMock.mockResolvedValueOnce(refusal()).mockResolvedValueOnce(refusal());
+
+		for (const write of [
+			() => userCompositionStore.createUserComposition('blank', documentOf(blankPreset, 'blank')),
+			() => userCompositionStore.saveUserComposition('blank', documentOf(blankPreset, 'blank'))
+		]) {
+			await assert.rejects(write(), (cause) => {
+				assert.ok(isUserCompositionStarterSlugError(cause));
+				assert.equal(cause.slug, 'blank');
+				return true;
+			});
+		}
 	});
 
 	it('includes the operation, slug, status, and status text in HTTP failures', async () => {
@@ -260,9 +341,8 @@ describe('userCompositionStore', () => {
 		);
 	});
 
-	// The origin half of the reported revert defect: a delete of a slug this
-	// origin never had has to be tellable apart from an origin that would not
-	// answer, so reverting a fork that is already gone can finish.
+	// A delete of a slug this origin never had has to be tellable apart from an
+	// origin that would not answer.
 	it('names a delete of a slug the origin does not hold as a not-held refusal', async () => {
 		fetchMock.mockResolvedValueOnce(
 			jsonResponse({ message: 'User composition "blank-copy" not found' }, { status: 404 })
@@ -290,12 +370,12 @@ describe('userCompositionStore', () => {
 
 	it('includes an actionable API error message in HTTP failures', async () => {
 		fetchMock.mockResolvedValueOnce(
-			jsonResponse({ message: 'Invalid preset: state.surface is required' }, { status: 400 })
+			jsonResponse({ message: 'Invalid composition: state.surface is required' }, { status: 400 })
 		);
 
 		await assert.rejects(
-			userCompositionStore.saveUserComposition('blank-copy', blankPreset),
-			/400: Invalid preset: state\.surface is required/
+			userCompositionStore.saveUserComposition('blank-copy', documentOf(blankPreset)),
+			/Failed to save User composition "blank-copy": 400: Invalid composition: state\.surface is required/
 		);
 	});
 
@@ -319,7 +399,7 @@ describe('userCompositionStore', () => {
 		);
 	});
 
-	it('preserves canonical media through list, load, fork, and save transport', async () => {
+	it('preserves canonical media through list, load, create, and save transport', async () => {
 		const preset = mediaPreset();
 		const metadata = {
 			slug: 'media-copy',
@@ -334,24 +414,28 @@ describe('userCompositionStore', () => {
 		};
 		fetchMock
 			.mockResolvedValueOnce(jsonResponse([metadata]))
-			.mockResolvedValueOnce(jsonResponse(presetToWireFormat(preset)))
+			.mockResolvedValueOnce(jsonResponse(standaloneFilmOf(preset, 'blank')))
 			.mockResolvedValueOnce(jsonResponse({ slug: 'media-copy' }, { status: 201 }))
 			.mockResolvedValueOnce(new Response(null, { status: 204 }));
 
 		assert.deepEqual(await userCompositionStore.listUserCompositions(), [metadata]);
-		assert.deepEqual(await userCompositionStore.loadUserComposition('media-copy'), preset);
-		await userCompositionStore.forkUserComposition('media-copy', preset, 'blank');
-		await userCompositionStore.saveUserComposition('media-copy', preset);
+		const loaded = await userCompositionStore.loadUserComposition('media-copy');
+		assert.deepEqual(loaded, documentOf(preset, 'blank'));
+		assert.ok(loaded);
+		await userCompositionStore.createUserComposition('media-copy-2', loaded);
+		await userCompositionStore.saveUserComposition('media-copy', loaded);
 
-		const forkBody = requestBodyAt(2) as { preset: { state: Record<string, unknown> } };
-		const saveBody = requestBodyAt(3) as { state: Record<string, unknown> };
-		assert.deepEqual(forkBody.preset.state.media, preset.state.media);
-		assert.deepEqual(saveBody.state.media, preset.state.media);
-		assert.equal(Object.hasOwn(forkBody.preset.state, 'sourceVideo'), false);
-		assert.equal(Object.hasOwn(saveBody.state, 'sourceVideo'), false);
+		const createBody = requestBodyAt(2) as {
+			film: { scenes: { state: Record<string, unknown> }[] };
+		};
+		const saveBody = requestBodyAt(3) as { scenes: { state: Record<string, unknown> }[] };
+		for (const scene of [createBody.film.scenes[0], saveBody.scenes[0]]) {
+			assert.deepEqual(scene.state.media, preset.state.media);
+			assert.equal(Object.hasOwn(scene.state, 'sourceVideo'), false);
+		}
 	});
 
-	it('preserves a valid chart through load, fork, and save and rejects invalid chart loads', async () => {
+	it('preserves a valid chart through load, create, and save and rejects invalid chart loads', async () => {
 		const preset = chartPreset();
 		const invalidWire = structuredClone(presetToWireFormat(preset)) as Preset;
 		invalidWire.state.surface.chart!.items[0].domain = { min: 500, max: 800 };
@@ -360,7 +444,7 @@ describe('userCompositionStore', () => {
 		};
 		unknownKeyWire.state.surface.chart.items[0]['literalColor'] = '#ff0000';
 		fetchMock
-			.mockResolvedValueOnce(jsonResponse(presetToWireFormat(preset)))
+			.mockResolvedValueOnce(jsonResponse(standaloneFilmOf(preset)))
 			.mockResolvedValueOnce(jsonResponse({ slug: 'agent-chart-copy' }, { status: 201 }))
 			.mockResolvedValueOnce(new Response(null, { status: 204 }))
 			.mockResolvedValueOnce(jsonResponse(invalidWire))
@@ -368,14 +452,15 @@ describe('userCompositionStore', () => {
 
 		const loaded = await userCompositionStore.loadUserComposition('agent-chart');
 		assert.ok(loaded);
-		assert.deepEqual(loaded.state.surface.chart, preset.state.surface.chart);
-		await userCompositionStore.forkUserComposition('agent-chart-copy', loaded, 'agent-chart');
+		assert.deepEqual(loaded.film.scenes[0].state.surface.chart, preset.state.surface.chart);
+		await userCompositionStore.createUserComposition('agent-chart-copy', loaded);
 		await userCompositionStore.saveUserComposition('agent-chart-copy', loaded);
 
-		const forkBody = requestBodyAt(1) as { preset: Preset };
-		const saveBody = requestBodyAt(2) as Preset;
-		assert.deepEqual(forkBody.preset.state.surface.chart, preset.state.surface.chart);
-		assert.deepEqual(saveBody.state.surface.chart, preset.state.surface.chart);
+		const createBody = requestBodyAt(1) as { film: { scenes: { state: Preset['state'] }[] } };
+		const saveBody = requestBodyAt(2) as { scenes: { state: Preset['state'] }[] };
+		for (const scene of [createBody.film.scenes[0], saveBody.scenes[0]]) {
+			assert.deepEqual(scene.state.surface.chart, preset.state.surface.chart);
+		}
 		await assert.rejects(
 			userCompositionStore.loadUserComposition('invalid-chart'),
 			/invalid response/
@@ -386,7 +471,7 @@ describe('userCompositionStore', () => {
 		);
 	});
 
-	it('upgrades legacy Source video input to canonical media on the first autosave', async () => {
+	it('upgrades a legacy Source video document to a Film with canonical media on the first autosave', async () => {
 		fetchMock
 			.mockResolvedValueOnce(jsonResponse(legacySourceVideoPreset()))
 			.mockResolvedValueOnce(new Response(null, { status: 204 }));
@@ -395,9 +480,13 @@ describe('userCompositionStore', () => {
 		assert.ok(loaded);
 		await userCompositionStore.saveUserComposition('legacy-source', loaded);
 
-		const saveBody = requestBodyAt(1) as { state: Record<string, unknown> };
-		assert.equal(Object.hasOwn(saveBody.state, 'sourceVideo'), false);
-		assert.deepEqual(saveBody.state.media, {
+		const saveBody = requestBodyAt(1) as {
+			schema: unknown;
+			scenes: { state: Record<string, unknown> }[];
+		};
+		assert.equal(saveBody.schema, 'gfx-film@1');
+		assert.equal(Object.hasOwn(saveBody.scenes[0].state, 'sourceVideo'), false);
+		assert.deepEqual(saveBody.scenes[0].state.media, {
 			assets: [
 				{
 					id: LEGACY_SOURCE_VIDEO_ASSET_ID,

@@ -49,7 +49,23 @@ export function isFilePreset(value: string): boolean {
 	return value.endsWith('.json') || value.includes('/') || value.includes('\\');
 }
 
+/**
+ * The output format a composition document declares. A stored User composition
+ * is a `gfx-film@1` Film, which states `format` once for all its Scenes
+ * (ADR-0068 §1); a corpus Preset or a Preset file states it in its transport.
+ */
 function presetTransportFormat(value: unknown, description: string): PresetTransportFormat {
+	if (
+		typeof value === 'object' &&
+		value !== null &&
+		'schema' in value &&
+		value.schema === 'gfx-film@1'
+	) {
+		if (!('format' in value) || (value.format !== 'webm' && value.format !== 'prores')) {
+			throw new TypeError(`${description} does not declare a Film format.`);
+		}
+		return value.format;
+	}
 	if (
 		typeof value !== 'object' ||
 		value === null ||

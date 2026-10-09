@@ -1,6 +1,6 @@
 # GFX Film format (`gfx-film@1`)
 
-> **Open in the Workspace, not yet written.** This format implements [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §1–3 and §8. The schema, ingress, and frame maths exist and are tested. Both User composition stores read a stored Film (see [Stored records](#stored-records)). The document open in the Workspace is a Film with one Scene, and the edit transaction core, undo, and the Composition revision work on that Film (see [The open Film](#the-open-film)). Nothing writes a Film yet: every store write still saves a Preset, export renders one Scene, and no operation adds a second Scene. Until that changes, [`preset-format.md`](preset-format.md) describes what is stored.
+> **Stored, opened, and written as one Scene.** This format implements [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §1–3 and §8. The schema, ingress, and frame maths exist and are tested. A User composition is a Film: both stores read and write Film records (see [Stored records](#stored-records)), standalone JSON export writes a Film, and import reads one. The document open in the Workspace is a Film with one Scene, and the edit transaction core, undo, and the Composition revision work on that Film (see [The open Film](#the-open-film)). Not built yet: the Workspace plays one Scene, export renders one Scene, and no operation adds a second. A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`.
 
 A **Film** is an ordered list of **Scenes** with a **Scene boundary** between each pair of neighbours. A Scene is one Preset's complete state, owned by the Film. A one-off piece is a Film with one Scene. Terms: [`CONTEXT.md`](CONTEXT.md).
 
@@ -120,10 +120,11 @@ Two Preset fields are not carried:
 The document open in the Workspace is a Film with exactly one Scene (ADR-0068 §8). The code is `src/lib/platform/film-state.svelte.ts` and `src/lib/platform/open-film-document.ts`; [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film) describes how they fit the engine.
 
 - A corpus Preset opens as an unsaved one-Scene Film through `filmFromPreset`. Its Scene's `origin` is `{ slug, contentKey }`, with the content key the Preset's poster uses.
-- A stored composition opens as the Preset its record reads to, lifted the same way. Its Scene's `origin` is `null`: the stores hand back a Preset, which does not say what it was forked from. That changes when the stores hand back Films.
+- A stored composition opens as the Film its record holds, with each Scene's real `origin`. A legacy Preset record is lifted to a one-Scene Film first; its Scene's `origin` is `{ slug: meta.forkedFrom, contentKey: null }`.
+- The first edit to an opened corpus Preset stores the edited document as a new Film under a new slug. Nothing is ever stored under the corpus Preset's own slug.
 - The selected Scene's state is live in engine state. The Film keeps the Scene list, each `origin`, and the boundaries beside it.
-- `kind` and `transition` are not Film fields, and both must keep working. They travel beside the open Film as the legacy Preset envelope. `kind` goes when the stores write Films. `transition` goes when a transition Preset is read as a two-Scene Film.
-- What is saved is `presetFromSingleSceneFilm` with that envelope put back (`readOpenFilmAsSavedPreset`). The stored bytes are the same as before the open document was a Film.
+- `kind` and `transition` are not Film fields. They travel beside the open Film as the legacy Preset envelope. `kind` stays because the open document is also how a corpus Preset is shown, and a stored Film opens as a `deliverable`. `transition` goes when a transition Preset is read as a two-Scene Film.
+- What is saved is the Film (`readOpenFilmAsUserCompositionDocument`). `readOpenFilmAsSavedPreset` is the same Film as one Preset, for inspection and verification.
 
 Every existing operation still edits a Preset-shaped draft of the selected Scene and reports the Scene's own pointers, such as `/state/overlays`. Its receipt names the Scene in `sceneId`. An edit to `name`, `description`, `pack`, or the transport's `orientation`, `fps`, or `format` lands on the Film's own field, because a Film has one of each.
 
@@ -134,27 +135,42 @@ Every existing operation still edits a Preset-shaped draft of the selected Scene
 
 ## Stored records
 
-Both User composition stores keep one record per composition: its metadata beside one composition document. There are two record shapes (`src/lib/platform/user-composition-record.ts`):
+Both User composition stores keep one record per composition: its metadata beside one composition document (`src/lib/platform/user-composition-record.ts`).
 
 ```jsonc
-// Legacy. Every write still saves this shape.
-{ "meta": { "forkedFrom": "lower-third", "savedAt": "2026-10-01T12:00:00.000Z" }, "preset": {/* gfx@1 */} }
+// Film. Every write saves this shape.
+{ "meta": { "savedAt": "2026-10-08T12:00:00.000Z" }, "film": {/* gfx-film@1 */} }
 
-// Film. Read today; written from the next phase on.
-{ "meta": { "forkedFrom": "lower-third", "savedAt": "2026-10-01T12:00:00.000Z" }, "film": {/* gfx-film@1 */} }
+// Legacy. Read, and written only for a transition (below).
+{ "meta": { "forkedFrom": "lower-third", "savedAt": "2026-10-01T12:00:00.000Z" }, "preset": {/* gfx@1 */} }
 ```
 
-The disk store keeps this record as `<store>/<slug>.json`. The browser store keeps `forkedFrom` and `savedAt` flat on its own envelope, beside `preset` or `film`. A record holds exactly one of `preset` and `film`.
+The disk store keeps this record as `<store>/<slug>.json`. The browser store keeps `savedAt` (and a legacy `forkedFrom`) flat on its own envelope, beside `film` or `preset`. A record holds exactly one of `film` and `preset`.
+
+A Film record's `meta` holds `savedAt` only. Where a Scene came from is the Scene's own `origin`. `meta.forkedFrom` is read from a legacy record and carried through a save of it, so nothing a record already said is dropped.
+
+### Reading
 
 `readStoredUserCompositionRecord(record)` reads either shape and always returns a Film:
 
 - A `film` record is parsed with `parseFilm`.
 - A `preset` record is parsed as a Preset, so a document with the Legacy Supers schema id still loads ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). It is then lifted with `filmFromPreset`. The Scene's `origin` is `{ slug: meta.forkedFrom, contentKey: null }`, or `null` when the record was not forked.
 
-Both stores then open the record as one Preset with `presetForStoredUserComposition`:
+`userCompositionDocumentFromReading` turns that into what both stores hand back, a `UserCompositionDocument`: `{ film, legacyPresetEnvelope }`. A Film record's envelope is `{ kind: "deliverable" }`. A legacy record's envelope holds the `kind` and `transition` its Preset stated.
 
-- A `preset` record opens as the Preset it stored. Its `kind` and `transition` are kept, which the lifted Film cannot carry.
-- A one-Scene `film` record opens through `presetFromSingleSceneFilm`.
-- A `film` record with more than one Scene is refused: this build opens one-Scene Films. The disk store answers 409, and the browser store leaves the record out of the session. Both leave the stored record untouched. The next phase removes this limit.
+A Film with more than one Scene is refused with `FilmSceneCountUnsupportedError`: the Workspace plays one Scene. The disk store answers 409, and the browser store leaves the record out of the session. Both leave the stored record untouched.
 
-Saving over a `film` record writes a `preset` record. The Scene's `origin` is not kept, because a Preset has nowhere to hold it.
+Reading never rewrites a record. One older rule remains in the browser store: a record in a Legacy Supers shape is rewritten in its current Preset form the first time it is read (ADR-0053). It stays a Preset record.
+
+### Writing
+
+`userCompositionWriteShape(document)` chooses the shape, in one place, for both stores, the client transport, and JSON export:
+
+- **A Film**, in every case but one. The first save of a legacy `{ meta, preset }` record therefore replaces it with `{ meta, film }`. `kind` is not saved: a user Film has none.
+- **The legacy Preset**, while the document's envelope carries a `transition` (ADR-0068 §3). A Film cannot hold a two-endpoint transition until the live Scene boundaries change reads a transition Preset as a two-Scene Film. Until then such a record keeps `{ meta, preset }`, with its `kind`, so the recipe is not lost.
+
+Neither store writes a record under a corpus Preset's slug. `/p/<corpus-slug>` always shows the pristine Starter, so both refuse with `UserCompositionStarterSlugError` (409 from the disk store).
+
+### Posters
+
+A User composition's poster key is `posterKeyForPreset` of the Film as the one Preset it is stored as (`storedPresetViewOfUserComposition`). A one-Scene Film whose content equals a `deliverable` Preset has that Preset's key, so posters captured before stores wrote Films stay valid. A legacy record whose Preset said `kind: "fixture"` gets a new key once, because a Film does not save `kind`.

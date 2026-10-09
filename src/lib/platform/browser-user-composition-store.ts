@@ -24,11 +24,14 @@
  * That same ingress is what makes an older release's record recoverable rather
  * than lost. A record left behind in a Legacy Supers shape (ADR-0053) still
  * opens, and reading it rewrites it in its current form once, so the session
- * stops carrying an upgrade it has already performed.
+ * stops carrying an upgrade it has already performed. That rewrite keeps the
+ * record a Preset record; it is the one write a read makes.
  *
- * A record holds a Preset or a Film (ADR-0068 §3). Both read through
- * `readStoredUserCompositionRecord`, the reader the disk store shares, and both
- * open as one Preset; every write still stores a Preset.
+ * A record holds a Film; one an older release left may hold a Preset
+ * (ADR-0068 §3). Both read through `readStoredUserCompositionRecord`, the reader
+ * the disk store shares, and both open as a Film. Every write stores what
+ * `userCompositionWriteShape` chooses, which is a Film but for one exception,
+ * so the first save of a legacy record replaces it with a Film.
  *
  * Two tabs are the one concurrency this store has. They share the storage area
  * and neither knows the other exists, so every write is stamped and a save that
@@ -39,14 +42,20 @@ import { posterKeyForPreset } from './posters';
 import { readCompositionLegacyUpgrades } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
 import {
-	presetForStoredUserComposition,
-	readStoredUserCompositionRecord
+	filmDurationSeconds,
+	readStoredUserCompositionRecord,
+	storedPresetViewOfUserComposition,
+	userCompositionDocumentFromReading,
+	userCompositionDocumentWireBody,
+	type UserCompositionDocument
 } from './user-composition-record';
-import { UserCompositionNotHeldError } from './user-composition-store-errors';
+import {
+	UserCompositionNotHeldError,
+	UserCompositionStarterSlugError
+} from './user-composition-store-errors';
 import { COMPOSITION_SESSION_SLUG_PATTERN } from '../utils/composition-session-slug';
 
 import type { Preset } from './engine-schema';
-import type { Film } from './film-schema';
 import type { PublicCompositionSessionStorageLimits } from './public-runtime-contract';
 import type {
 	CompositionSessionStorage,
@@ -80,15 +89,13 @@ export function isCompositionSessionStorageError(
 }
 
 /**
- * The stored envelope: the composition's wire format plus the provenance the
- * Preset itself does not carry. Same split as the development store's disk
- * format, so a composition means the same thing in either one.
- *
- * This is the envelope every write produces. A read also accepts the same
- * envelope around a Film (`StoredBrowserFilmUserComposition`).
+ * What every stored envelope carries beside its composition document: the
+ * provenance the document itself does not hold. Same split as the development
+ * store's disk format, so a composition means the same thing in either one.
  */
-interface StoredBrowserUserComposition {
-	forkedFrom: string | null;
+interface StoredBrowserUserCompositionProvenance {
+	/** The corpus Preset a legacy record was forked from. New records do not write it. */
+	forkedFrom?: string | null;
 	savedAt: string;
 	/**
 	 * The write that produced this record, unique to it. A store instance
@@ -97,14 +104,13 @@ interface StoredBrowserUserComposition {
 	 * Absent in a record a release that stamped nothing left behind.
 	 */
 	writeToken?: string;
-	preset: unknown;
 }
 
-/**
- * The same envelope around a Film's wire format instead of a Preset's
- * (ADR-0068 §3). Read, never written yet: readers ship before writers.
- */
-type StoredBrowserFilmUserComposition = Omit<StoredBrowserUserComposition, 'preset'> & {
+/** The legacy envelope, around a Preset's wire format. */
+type StoredBrowserUserComposition = StoredBrowserUserCompositionProvenance & { preset: unknown };
+
+/** The envelope around a Film's wire format (ADR-0068 §3). */
+type StoredBrowserFilmUserComposition = StoredBrowserUserCompositionProvenance & {
 	film: unknown;
 };
 
@@ -120,7 +126,9 @@ function isStoredBrowserUserCompositionEnvelope(
 ): value is StoredBrowserUserCompositionEnvelope {
 	if (!isRecord(value)) return false;
 	return (
-		(value.forkedFrom === null || typeof value.forkedFrom === 'string') &&
+		(value.forkedFrom === undefined ||
+			value.forkedFrom === null ||
+			typeof value.forkedFrom === 'string') &&
 		typeof value.savedAt === 'string' &&
 		(value.writeToken === undefined || typeof value.writeToken === 'string') &&
 		// Exactly one composition document, so an envelope is never ambiguous.
@@ -149,6 +157,12 @@ export interface BrowserUserCompositionStoreOptions {
 	resolveStorage: () => Storage | null;
 	storageIdentity: string;
 	limits: PublicCompositionSessionStorageLimits;
+	/**
+	 * Whether a corpus Preset has this slug. A record is never written under one
+	 * (`UserCompositionStarterSlugError`). Injected so this module does not pull
+	 * the whole corpus in.
+	 */
+	isStarterSlug: (slug: string) => boolean;
 }
 
 /** One composition parsed out of storage. */
@@ -157,10 +171,8 @@ interface BrowserSessionRecord {
 	forkedFrom: string | null;
 	savedAt: string;
 	writeToken: string | undefined;
-	/** What the record holds, whichever shape stored it. */
-	film: Film;
-	/** The one Preset that Film opens as, which is what this store's callers receive. */
-	preset: Preset;
+	/** What the record opens as, whichever shape stored it. */
+	document: UserCompositionDocument;
 }
 
 /**
@@ -210,6 +222,7 @@ export function createBrowserUserCompositionStore(
 				`"${slug}" is not a composition slug this session can store; use lowercase letters, digits, hyphens, and underscores.`
 			);
 		}
+		if (options.isStarterSlug(slug)) throw new UserCompositionStarterSlugError(slug);
 		return slug;
 	}
 
@@ -243,33 +256,35 @@ export function createBrowserUserCompositionStore(
 		if (!stored) return null;
 
 		// Either shape reads as a Film through the reader the disk store shares
-		// (ADR-0068 §3), then opens as the one Preset this store's callers work
-		// on. A record that does not survive is dropped, which includes a Film of
-		// more than one Scene: this build opens one-Scene Films.
-		const meta = { forkedFrom: stored.forkedFrom, savedAt: stored.savedAt };
-		let film: Film;
-		let preset: Preset;
+		// (ADR-0068 §3). A record that does not survive is dropped, which includes
+		// a Film of more than one Scene: this build opens one-Scene Films.
+		const meta = { forkedFrom: stored.forkedFrom ?? null, savedAt: stored.savedAt };
+		let document: UserCompositionDocument;
+		let legacyPreset: Preset | null = null;
 		try {
 			const reading = readStoredUserCompositionRecord(
 				'film' in stored ? { meta, film: stored.film } : { meta, preset: stored.preset }
 			);
-			film = reading.film;
-			preset = presetForStoredUserComposition(reading);
+			document = userCompositionDocumentFromReading(reading);
+			if (reading.recordShape === 'preset') legacyPreset = reading.preset;
 		} catch {
 			return null;
 		}
 
-		if ('preset' in stored && readCompositionLegacyUpgrades(stored.preset).length > 0) {
-			migrateStoredRecord(storage, key, stored, preset);
+		if (
+			'preset' in stored &&
+			legacyPreset !== null &&
+			readCompositionLegacyUpgrades(stored.preset).length > 0
+		) {
+			migrateStoredRecord(storage, key, stored, legacyPreset);
 		}
 
 		return {
 			slug,
-			forkedFrom: stored.forkedFrom,
+			forkedFrom: document.film.scenes[0]?.origin?.slug ?? stored.forkedFrom ?? null,
 			savedAt: stored.savedAt,
 			writeToken: stored.writeToken,
-			film,
-			preset
+			document
 		};
 	}
 
@@ -366,7 +381,9 @@ export function createBrowserUserCompositionStore(
 	function writeRecord(
 		storage: Storage,
 		slug: string,
-		record: Omit<StoredBrowserUserComposition, 'writeToken'>
+		record:
+			| Omit<StoredBrowserUserComposition, 'writeToken'>
+			| Omit<StoredBrowserFilmUserComposition, 'writeToken'>
 	): void {
 		const key = storageKeyForSlug(slug);
 		refuseWriteOverAnotherTab(storage, slug, key);
@@ -406,16 +423,18 @@ export function createBrowserUserCompositionStore(
 	}
 
 	function metaForRecord(record: BrowserSessionRecord): UserCompositionMeta {
-		const [firstScene] = record.film.scenes;
+		const { film } = record.document;
+		const [firstScene] = film.scenes;
+		const preset = storedPresetViewOfUserComposition(record.document);
 		return {
 			slug: record.slug,
-			name: record.film.name,
+			name: film.name,
 			forkedFrom: record.forkedFrom,
 			savedAt: record.savedAt,
-			posterKey: posterKeyForPreset(record.preset),
-			durationSeconds: firstScene.state.transport.durationSeconds,
+			posterKey: posterKeyForPreset(preset),
+			durationSeconds: filmDurationSeconds(film),
 			surfaceType: firstScene.state.surface.type,
-			media: record.preset.state.media,
+			media: preset.state.media,
 			// `missing` and `undecodable` describe an asset the origin was asked for
 			// and could not serve. A browser-scoped session asks the origin for
 			// nothing, so there is no such answer to report here; a media asset this
@@ -429,38 +448,35 @@ export function createBrowserUserCompositionStore(
 			return readAllRecords(requireStorage()).map(metaForRecord);
 		},
 
-		async loadUserComposition(slug: string): Promise<Preset | null> {
+		async loadUserComposition(slug: string): Promise<UserCompositionDocument | null> {
 			const storage = requireStorage();
 			const record = readRecordAt(storage, storageKeyForSlug(slug));
 			if (!record) return null;
 			// Opening the composition is what earns this tab the right to save over
 			// it: from here on, it holds the version the record carries.
 			if (record.writeToken !== undefined) observedWriteTokens.set(slug, record.writeToken);
-			return record.preset;
+			return record.document;
 		},
 
-		async forkUserComposition(
-			slug: string,
-			preset: Preset,
-			corpusSlug: string | null
-		): Promise<void> {
+		async createUserComposition(slug: string, document: UserCompositionDocument): Promise<void> {
 			const storage = requireStorage();
+			// A Film states where each Scene came from in the Scene's own `origin`,
+			// so a new record's provenance is only when it was saved.
 			writeRecord(storage, requireStorableSlug(slug), {
-				forkedFrom: corpusSlug,
 				savedAt: new Date().toISOString(),
-				preset: presetToWireFormat(preset)
+				...userCompositionDocumentWireBody(document)
 			});
 		},
 
-		async saveUserComposition(slug: string, preset: Preset): Promise<void> {
+		async saveUserComposition(slug: string, document: UserCompositionDocument): Promise<void> {
 			const storage = requireStorage();
 			const existing = readStoredEnvelope(storage, storageKeyForSlug(slug));
+			// The first save of a legacy Preset record lands here and stores a Film
+			// in its place (ADR-0068 §3), keeping the `forkedFrom` it recorded.
 			writeRecord(storage, requireStorableSlug(slug), {
-				// A save keeps the Starter this composition was cut from; only a fork
-				// decides that, and it decided it once.
-				forkedFrom: existing?.forkedFrom ?? null,
+				...(existing?.forkedFrom !== undefined ? { forkedFrom: existing.forkedFrom } : {}),
 				savedAt: new Date().toISOString(),
-				preset: presetToWireFormat(preset)
+				...userCompositionDocumentWireBody(document)
 			});
 		},
 

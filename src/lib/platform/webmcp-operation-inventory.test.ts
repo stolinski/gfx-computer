@@ -186,7 +186,6 @@ describe('WebMCP operation inventory', () => {
 
 	it('requires the observed revision before destroying or delivering work', () => {
 		for (const id of [
-			'composition.revert-to-starter',
 			'session.delete-composition',
 			'composition.undo',
 			'composition.redo',
@@ -238,7 +237,6 @@ describe('WebMCP operation inventory', () => {
 			'always',
 			'composition-open',
 			'composition-editable',
-			'forked-from-starter',
 			'session-composition-present',
 			'user-pack-store-served',
 			'user-pack-present',

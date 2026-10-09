@@ -17,7 +17,6 @@
  */
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMediaGrants } from './composition-media-grants.svelte';
-import { compositionMeta } from './composition-meta.svelte';
 import { getSurfaceDefinition } from './pipelines/definition-registry';
 import {
 	readOpenCompositionDocument,
@@ -107,7 +106,6 @@ function closedCompositionPreconditions(): WebmcpCompositionPreconditions {
 		always: true,
 		'composition-open': false,
 		'composition-editable': false,
-		'forked-from-starter': false,
 		'undo-available': false,
 		'redo-available': false,
 		'overlay-present': false,
@@ -153,7 +151,6 @@ export function readWebmcpCompositionPreconditions(): WebmcpCompositionPrecondit
 		always: true,
 		'composition-open': true,
 		'composition-editable': editable,
-		'forked-from-starter': compositionMeta.forkedFrom !== null,
 		'undo-available': editable && compositionEditHistory.canUndo,
 		'redo-available': editable && compositionEditHistory.canRedo,
 		'overlay-present': editable && state.overlays.length > 0,

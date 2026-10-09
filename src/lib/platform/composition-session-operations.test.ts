@@ -26,7 +26,7 @@ vi.mock('./user-composition-store', () => ({
 	userCompositionStore: {
 		listUserCompositions: vi.fn(),
 		loadUserComposition: vi.fn(),
-		forkUserComposition: vi.fn(),
+		createUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
 		deleteUserComposition: vi.fn(),
 		inspectStorage: vi.fn()
@@ -168,7 +168,8 @@ describe('deleting one session composition', () => {
 		);
 
 		expect(failure.code).toBe('precondition_unmet');
-		expect(failure.alternatives).toEqual(['composition.revert-to-starter']);
+		expect(failure.alternatives).toEqual(['composition.open']);
+		expect(failure.message).toContain('open another composition');
 		expect(sessionStore.deleteUserComposition).not.toHaveBeenCalled();
 	});
 

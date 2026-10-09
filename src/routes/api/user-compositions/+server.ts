@@ -6,23 +6,20 @@ import { json, error, type RequestHandler } from '@sveltejs/kit';
 import { assertOriginCompositionStoreServed } from '$lib/platform/origin-composition-routes.server';
 import { addUserCompositionFileToIndex } from '$lib/platform/user-composition-file-index.server';
 import { writeUserCompositionFileAtomically } from '$lib/platform/user-composition-file-write.server';
-import { PresetIngressSchema } from '$lib/platform/preset-ingress';
 import { posterKeyForPreset } from '$lib/platform/posters';
-import { presetToWireFormat } from '$lib/platform/preset-pure';
-import {
-	formatPresetSemanticIssues,
-	validatePresetSemantics
-} from '$lib/platform/preset-validation';
-import {
-	assertUserCompositionMediaReady,
-	inspectUserCompositionMedia
-} from '$lib/platform/user-composition-media.server';
+import { inspectUserCompositionMedia } from '$lib/platform/user-composition-media.server';
 import { requireUserCompositionStoreLocation } from '$lib/platform/user-composition-store-location.server';
 import {
-	presetForStoredUserComposition,
+	filmDurationSeconds,
 	readStoredUserCompositionRecord,
-	type StoredPresetUserCompositionRecord
+	storedPresetViewOfUserComposition,
+	storedUserCompositionRecordFromDocument,
+	userCompositionDocumentFromReading
 } from '$lib/platform/user-composition-record';
+import {
+	readUserCompositionWriteRequest,
+	refuseUserCompositionWriteAtStarterSlug
+} from '$lib/platform/user-composition-write.server';
 import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 import { COMPOSITION_SESSION_SLUG_PATTERN } from '$lib/utils/composition-session-slug';
 
@@ -64,15 +61,17 @@ export const GET: RequestHandler = async (event) => {
 			const reading = readStoredUserCompositionRecord(storedUserComposition, {
 				packScope: 'stored'
 			});
-			const preset = presetForStoredUserComposition(reading);
+			const preset = storedPresetViewOfUserComposition(userCompositionDocumentFromReading(reading));
 			const [firstScene] = reading.film.scenes;
 			const cardMetadata = {
 				slug: userCompositionSlug,
 				name: reading.film.name,
-				forkedFrom: reading.meta.forkedFrom,
+				// Where the first Scene came from. A legacy record states it in
+				// `meta.forkedFrom`, which the reader lifts into the Scene's origin.
+				forkedFrom: firstScene.origin?.slug ?? reading.meta.forkedFrom ?? null,
 				savedAt: reading.meta.savedAt,
 				posterKey: posterKeyForPreset(preset),
-				durationSeconds: firstScene.state.transport.durationSeconds,
+				durationSeconds: filmDurationSeconds(reading.film),
 				surfaceType: firstScene.state.surface.type
 			};
 			if (cardView) {
@@ -107,43 +106,25 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, 'Invalid JSON body');
 	}
 
-	if (typeof body !== 'object' || body === null || !('slug' in body) || !('preset' in body)) {
-		error(400, 'Body must have { slug, preset }');
+	if (typeof body !== 'object' || body === null || !('slug' in body)) {
+		error(400, 'Body must have { slug, film }');
 	}
 
-	const { slug, preset, forkedFrom } = body as {
-		slug: unknown;
-		preset: unknown;
-		forkedFrom?: unknown;
-	};
+	const { slug } = body as { slug: unknown };
 
 	if (typeof slug !== 'string' || !COMPOSITION_SESSION_SLUG_PATTERN.test(slug)) {
 		error(400, 'slug must be lowercase alphanumeric/hyphen/underscore');
 	}
+	refuseUserCompositionWriteAtStarterSlug(slug);
 
-	const result = PresetIngressSchema.safeParse(preset);
-	if (!result.success) {
-		error(400, `Invalid preset: ${result.error.message}`);
-	}
-	const semanticIssues = validatePresetSemantics(result.data, { packScope: 'stored' });
-	if (semanticIssues.length > 0) {
-		error(400, `Invalid preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
-	}
-	try {
-		assertUserCompositionMediaReady(await inspectUserCompositionMedia(result.data));
-	} catch (cause) {
-		error(422, cause instanceof Error ? cause.message : 'Referenced media asset is unavailable');
-	}
+	const document = await readUserCompositionWriteRequest(body, 'keyed-document');
 
-	const storedUserComposition: StoredPresetUserCompositionRecord = {
-		meta: {
-			forkedFrom: typeof forkedFrom === 'string' ? forkedFrom : null,
-			savedAt: new Date().toISOString()
-		},
-		// Store the wire format (body as text), not the transformed parse output,
-		// so GET can re-parse it through PresetSchema without a type mismatch.
-		preset: presetToWireFormat(result.data)
-	};
+	// A Film states where each Scene came from in the Scene's own `origin`, so a
+	// new record's metadata is only when it was saved.
+	const storedUserComposition = storedUserCompositionRecordFromDocument(
+		{ savedAt: new Date().toISOString() },
+		document
+	);
 
 	await writeUserCompositionFileAtomically(
 		join(storeDirectory, `${slug}.json`),

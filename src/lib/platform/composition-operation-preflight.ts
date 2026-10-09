@@ -193,7 +193,8 @@ export function refuseDuringCompositionTransitionCapture(
 
 /**
  * An open composition the caller may edit right now. Every open composition is
- * editable — a Starter opened read-only forks on its first edit (ADR-0032) — so
+ * editable — the first edit to a Starter opened read-only creates a new Film
+ * from it (ADR-0068 §3) — so
  * this is openness plus the transition-capture window.
  */
 export function refuseUnlessCompositionEditable(

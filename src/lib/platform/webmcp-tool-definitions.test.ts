@@ -58,7 +58,7 @@ vi.mock('./user-composition-store', () => ({
 	userCompositionStore: {
 		listUserCompositions: vi.fn(),
 		loadUserComposition: vi.fn(),
-		forkUserComposition: vi.fn(),
+		createUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
 		deleteUserComposition: vi.fn()
 	}
@@ -789,6 +789,6 @@ describe('WebMCP tool arguments', () => {
 		});
 
 		expect(readPayload(result)).toMatchObject({ code: 'invalid_argument' });
-		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 	});
 });

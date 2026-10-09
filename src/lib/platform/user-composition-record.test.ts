@@ -7,16 +7,25 @@ import transitionWipeDemoPresetJson from '$lib/presets/transition-wipe-demo.json
 
 import {
 	filmFromPreset,
+	filmToWireFormat,
 	isFilmSceneCountUnsupportedError,
 	presetFromSingleSceneFilm
 } from './film-ingress';
+import { posterKeyForPreset } from './posters';
 import { parsePresetIngress, readCompositionLegacyUpgrades } from './preset-ingress';
+import { presetToWireFormat } from './preset-pure';
 import {
+	filmDurationSeconds,
 	isStoredUserCompositionRecordError,
 	isStoredUserCompositionRefusal,
-	presetForStoredUserComposition,
 	readStoredUserCompositionMeta,
-	readStoredUserCompositionRecord
+	readStoredUserCompositionRecord,
+	readUserCompositionDocumentWireBody,
+	standaloneUserCompositionDocument,
+	storedPresetViewOfUserComposition,
+	storedUserCompositionRecordFromDocument,
+	userCompositionDocumentFromReading,
+	userCompositionWriteShape
 } from './user-composition-record';
 import { STORED_USER_COMPOSITION_RECORD_FIXTURES } from './user-composition-record.fixture';
 
@@ -45,14 +54,14 @@ describe('readStoredUserCompositionRecord', () => {
 		}
 
 		if (fixture.outcome === 'scene-count-refused') {
-			it(`reads the ${fixture.slug} record as a Film and refuses to open it as one Preset`, () => {
+			it(`reads the ${fixture.slug} record as a Film and refuses to open it`, () => {
 				const reading = readStoredUserCompositionRecord(record);
 
 				assert.equal(reading.recordShape, 'film');
 				assert.equal(reading.film.scenes.length, 2);
 				assert.deepEqual(reading.film.scenes[0].origin, fixture.firstSceneOrigin);
 				assert.throws(
-					() => presetForStoredUserComposition(reading),
+					() => userCompositionDocumentFromReading(reading),
 					(cause) => {
 						assert.ok(isFilmSceneCountUnsupportedError(cause));
 						assert.equal(cause.sceneCount, 2);
@@ -74,7 +83,10 @@ describe('readStoredUserCompositionRecord', () => {
 			assert.deepEqual(reading.meta, fixture.meta);
 			assert.deepEqual(reading.film, filmFromPreset(preset, fixture.firstSceneOrigin));
 			assert.deepEqual(presetFromSingleSceneFilm(reading.film), preset);
-			assert.deepEqual(presetForStoredUserComposition(reading), preset);
+			const document = userCompositionDocumentFromReading(reading);
+			assert.deepEqual(document.film, reading.film);
+			assert.deepEqual(document.legacyPresetEnvelope, { kind: preset.kind });
+			assert.deepEqual(storedPresetViewOfUserComposition(document), preset);
 		});
 	}
 
@@ -87,7 +99,7 @@ describe('readStoredUserCompositionRecord', () => {
 		assert.deepEqual(readCompositionLegacyUpgrades(fixture.document.preset), ['legacy-schema-id']);
 	});
 
-	it('opens a legacy record as the Preset it stored, with the fields a Film cannot carry', () => {
+	it('opens a legacy record with the two fields a Film cannot carry in the envelope', () => {
 		const fixturePreset = parsePresetIngress(blankPresetJson);
 		const transitionPreset = parsePresetIngress(transitionWipeDemoPresetJson);
 		assert.equal(fixturePreset.kind, 'fixture');
@@ -98,12 +110,14 @@ describe('readStoredUserCompositionRecord', () => {
 			[transitionWipeDemoPresetJson, transitionPreset]
 		] as const) {
 			const reading = readStoredUserCompositionRecord({ meta: META, preset: document });
+			const opened = userCompositionDocumentFromReading(reading);
 
-			assert.deepEqual(presetForStoredUserComposition(reading), preset);
+			assert.equal(opened.legacyPresetEnvelope.kind, preset.kind);
+			assert.deepEqual(opened.legacyPresetEnvelope.transition, preset.transition);
 			// The lifted Film is the same composition without `kind` and `transition`.
 			const liftedPreset: Preset = { ...preset, kind: 'deliverable' };
 			delete liftedPreset.transition;
-			assert.deepEqual(presetFromSingleSceneFilm(reading.film), liftedPreset);
+			assert.deepEqual(presetFromSingleSceneFilm(opened.film), liftedPreset);
 		}
 	});
 
@@ -137,6 +151,7 @@ describe('readStoredUserCompositionRecord', () => {
 			'text',
 			{ preset: blankPresetJson },
 			{ meta: { forkedFrom: null, savedAt: 42 }, preset: blankPresetJson },
+			{ meta: { forkedFrom: 7, savedAt: META.savedAt }, preset: blankPresetJson },
 			{ meta: META },
 			{ meta: META, preset: blankPresetJson, film: { schema: 'gfx-film@1' } }
 		];
@@ -162,6 +177,117 @@ describe('readStoredUserCompositionMeta', () => {
 		assert.deepEqual(readStoredUserCompositionMeta({ meta, preset: { no: 1 } }), meta);
 		assert.deepEqual(readStoredUserCompositionMeta({ meta, film: { no: 1 } }), meta);
 		assert.equal(readStoredUserCompositionMeta({ meta: { forkedFrom: 7, savedAt: '' } }), null);
+		// A Film record states each Scene's origin itself, so it writes no `forkedFrom`.
+		assert.deepEqual(readStoredUserCompositionMeta({ meta: { savedAt: meta.savedAt } }), {
+			savedAt: meta.savedAt
+		});
 		assert.equal(readStoredUserCompositionMeta([]), null);
+	});
+});
+
+describe('userCompositionWriteShape', () => {
+	const savedAt = '2026-10-02T08:00:00.000Z';
+
+	it('writes a legacy Preset record as a Film record the first time it is saved', () => {
+		const legacyMeta = { forkedFrom: 'lower-third', savedAt: META.savedAt };
+		const legacyPreset = parsePresetIngress({ ...blankPresetJson, kind: 'deliverable' });
+		const opened = userCompositionDocumentFromReading(
+			readStoredUserCompositionRecord({
+				meta: legacyMeta,
+				preset: presetToWireFormat(legacyPreset)
+			})
+		);
+
+		const saved = storedUserCompositionRecordFromDocument({ ...legacyMeta, savedAt }, opened);
+
+		assert.deepEqual(Object.keys(saved), ['meta', 'film']);
+		assert.deepEqual(saved, {
+			meta: { forkedFrom: 'lower-third', savedAt },
+			film: filmToWireFormat(
+				filmFromPreset(legacyPreset, { slug: 'lower-third', contentKey: null })
+			)
+		});
+		// The Film record reads back as the same document, with its real origin.
+		const reopened = userCompositionDocumentFromReading(readStoredUserCompositionRecord(saved));
+		assert.deepEqual(reopened.film, opened.film);
+		assert.deepEqual(reopened.film.scenes[0].origin, { slug: 'lower-third', contentKey: null });
+	});
+
+	it('keeps the legacy Preset shape while the envelope carries a transition (ADR-0068 §3)', () => {
+		const transitionPreset = parsePresetIngress(transitionWipeDemoPresetJson);
+		const opened = userCompositionDocumentFromReading(
+			readStoredUserCompositionRecord({ meta: META, preset: transitionWipeDemoPresetJson })
+		);
+
+		assert.equal(userCompositionWriteShape(opened).recordShape, 'preset');
+		const saved = storedUserCompositionRecordFromDocument({ ...META, savedAt }, opened);
+
+		assert.deepEqual(Object.keys(saved), ['meta', 'preset']);
+		assert.ok('preset' in saved);
+		assert.deepEqual(parsePresetIngress(saved.preset), transitionPreset);
+		assert.deepEqual(standaloneUserCompositionDocument(opened), saved.preset);
+
+		// Removing the transition is what lets the next save write a Film.
+		const withoutTransition = {
+			film: opened.film,
+			legacyPresetEnvelope: { kind: opened.legacyPresetEnvelope.kind }
+		};
+		assert.equal(userCompositionWriteShape(withoutTransition).recordShape, 'film');
+		assert.deepEqual(
+			standaloneUserCompositionDocument(withoutTransition),
+			filmToWireFormat(opened.film)
+		);
+	});
+
+	it('does not save `kind` for a Film, and keeps the poster key of a deliverable Preset', () => {
+		const deliverable = parsePresetIngress({ ...blankPresetJson, kind: 'deliverable' });
+		const fixture = parsePresetIngress(blankPresetJson);
+		const fromDeliverable = userCompositionDocumentFromReading(
+			readStoredUserCompositionRecord({ meta: META, preset: presetToWireFormat(deliverable) })
+		);
+		const fromFixture = userCompositionDocumentFromReading(
+			readStoredUserCompositionRecord({ meta: META, preset: presetToWireFormat(fixture) })
+		);
+
+		assert.equal(
+			posterKeyForPreset(storedPresetViewOfUserComposition(fromDeliverable)),
+			posterKeyForPreset(deliverable)
+		);
+		assert.equal(fromFixture.legacyPresetEnvelope.kind, 'fixture');
+		assert.equal(storedPresetViewOfUserComposition(fromFixture).kind, 'deliverable');
+		assert.equal(
+			JSON.stringify(storedUserCompositionRecordFromDocument(META, fromFixture)).includes(
+				'"kind":"fixture"'
+			),
+			false
+		);
+	});
+
+	it('reads a write request body of either shape, and refuses any other', () => {
+		const preset = parsePresetIngress({ ...blankPresetJson, kind: 'deliverable' });
+		const film = filmFromPreset(preset, { slug: 'blank', contentKey: 'abc' });
+
+		const fromFilm = readUserCompositionDocumentWireBody({ film: filmToWireFormat(film) });
+		assert.deepEqual(fromFilm, { film, legacyPresetEnvelope: { kind: 'deliverable' } });
+		const fromPreset = readUserCompositionDocumentWireBody({ preset: presetToWireFormat(preset) });
+		assert.deepEqual(fromPreset.film, filmFromPreset(preset, null));
+
+		for (const body of [null, {}, presetToWireFormat(preset), { film: 1 }]) {
+			assert.throws(
+				() => readUserCompositionDocumentWireBody(body),
+				(cause) => isStoredUserCompositionRecordError(cause) && cause.code === 'not_a_stored_record'
+			);
+		}
+	});
+});
+
+describe('filmDurationSeconds', () => {
+	it('counts a Film in frames at its exact rate rather than summing seconds', () => {
+		const preset = parsePresetIngress(blankPresetJson);
+		const film = filmFromPreset(preset, null);
+
+		assert.equal(filmDurationSeconds(film), preset.state.transport.durationSeconds);
+		const ntscFrames = Math.round((preset.state.transport.durationSeconds * 30000) / 1001);
+		assert.equal(filmDurationSeconds({ ...film, fps: 29.97 }), (ntscFrames * 1001) / 30000);
 	});
 });

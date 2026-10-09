@@ -825,7 +825,8 @@
 		// typeface per composition while the stage carries a body.
 		const localStage = engineState.stage;
 		const hasBodies =
-			localStage?.type === 'depth' && partitionStageOverlays(engineState.overlays).bodies.length > 0;
+			localStage?.type === 'depth' &&
+			partitionStageOverlays(engineState.overlays).bodies.length > 0;
 		const slugs = hasBodies ? [resolveStageTypefaceRole(getPack(packState.slug))] : [];
 		untrack(() => {
 			stageTypefaceController.update({ stageIdentity: localStage ?? null, slugs });
@@ -1489,14 +1490,6 @@
 		<span class="topbar__chip topbar__chip--pack">
 			<i aria-hidden="true"></i>{getAuthoringPackOption(packState.slug).label}
 		</span>
-		{#if compositionMeta.isUserComposition}
-			<span class="topbar__chip topbar__chip--forked">Forked</span>
-			{#if compositionMeta.revertUserComposition}
-				<button type="button" class="topbar__revert" onclick={compositionMeta.revertUserComposition}
-					>Revert</button
-				>
-			{/if}
-		{/if}
 		<span class="topbar__spacer"></span>
 		<div class="topbar__orientation" role="group" aria-label="Orientation">
 			<button
@@ -1750,27 +1743,6 @@
 		border-radius: 2px;
 		display: inline-block;
 		inline-size: 7px;
-	}
-
-	.topbar__chip--forked {
-		border-color: color-mix(in srgb, #ffd608 55%, var(--chrome-hairline));
-		color: #ffd608;
-	}
-
-	.topbar__revert {
-		background: transparent;
-		border: 0;
-		color: var(--chrome-muted);
-		cursor: pointer;
-		flex-shrink: 0;
-		font-size: 0.6875rem;
-		padding: 0;
-		text-decoration: underline;
-		text-underline-offset: 3px;
-	}
-
-	.topbar__revert:hover {
-		color: var(--chrome-text);
 	}
 
 	.topbar__spacer {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
+import transitionWipeDemoPresetJson from '$lib/presets/transition-wipe-demo.json';
 
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
@@ -14,6 +15,7 @@ import {
 	type CompositionJsonExportReceipt
 } from './composition-document-operations';
 import { engineState, transitionState } from './engine-state.svelte';
+import { parseFilmIngress } from './film-ingress';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 import { presetBase } from './preset-base.svelte';
@@ -116,8 +118,24 @@ describe('composition JSON export', () => {
 		const receipt = expectExported(runExportCompositionJsonOperation());
 
 		expect(receipt.characterCount).toBe(receipt.json.length);
-		expect(() => parsePresetIngress(JSON.parse(receipt.json))).not.toThrow();
-		expect(parsePresetIngress(JSON.parse(receipt.json)).name).toBe('Blank');
+		// The standalone document is the Film (ADR-0068 §3), and it reads back.
+		const film = parseFilmIngress(JSON.parse(receipt.json));
+		expect(film.schema).toBe('gfx-film@1');
+		expect(film.name).toBe('Blank');
+		expect(film.scenes).toHaveLength(1);
+		expect(film.scenes[0].state).toEqual(parsePresetIngress(blankPresetJson).state);
+	});
+
+	it('exports the legacy Preset document while the composition carries a transition', () => {
+		applyPreset(parsePresetIngress(transitionWipeDemoPresetJson));
+		compositionMeta.userCompositionSlug = 'my-transition';
+
+		const receipt = expectExported(runExportCompositionJsonOperation());
+
+		// ADR-0068 §3: a Film cannot hold a two-endpoint transition yet.
+		expect(parsePresetIngress(JSON.parse(receipt.json))).toEqual(
+			parsePresetIngress(transitionWipeDemoPresetJson)
+		);
 	});
 
 	it('refuses to export when no composition is open', () => {

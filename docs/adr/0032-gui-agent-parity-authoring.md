@@ -4,6 +4,8 @@
 
 **Canon.** Fork/autosave persistence, create-from-blank, schema coverage, the three-zone authoring interface, standalone interchange, GUI validation/verification, shared agent store access, and deterministic automated rendering are shipped. Operational workflows are documented in [`user-composition-workflows.md`](../user-composition-workflows.md).
 
+**§3–4 superseded for the fork model by [ADR-0068](0068-films-scenes-and-live-scene-boundaries.md) §3 (2026-10-08).** A User composition is now a Film stored under its own slug. Fork-on-edit, shadowing a Starter under its slug, and revert-to-starter are gone. The rest of this record stands.
+
 Date: 2026-06-26
 Relates to: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one preset engine), [ADR-0014](0014-pack-preset-split.md) / [ADR-0023](0023-pack-is-appearance-only.md) (Pack/Preset split, appearance-only), [ADR-0004](0004-recipe-cookbook-over-schema-chrome.md) (Starter templates), [ADR-0025](0025-static-linter-checks-safety-and-readability-only.md) (linter scope)
 

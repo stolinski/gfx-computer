@@ -13,7 +13,8 @@
  * document keeps autosaving itself back into the store, so deleting underneath
  * it would either resurrect the entry or leave the author editing a document
  * that no longer exists — the exact half-state the transaction contract exists
- * to prevent. Discarding the open fork is `composition.revert-to-starter`.
+ * to prevent. To discard the open composition, open another one first and then
+ * delete it.
  */
 import {
 	COMPOSITION_RECEIPT_FINDING_LIMIT,
@@ -74,15 +75,14 @@ export interface ClearCompositionSessionRequest {
 }
 
 export type CompositionSessionInspectionOutcome =
-	| CompositionSessionInspectionReceipt
-	| CompositionOperationFailure;
+	CompositionSessionInspectionReceipt | CompositionOperationFailure;
 
 export type CompositionSessionOutcome = CompositionLifecycleReceipt | CompositionOperationFailure;
 
 /**
  * The session composition currently open — the one that would autosave itself
  * back into the store. A Starter opened read-only is not one: nothing of it is
- * in the session until an edit forks it.
+ * in the session until an edit creates a Film from it.
  */
 function readOpenSessionCompositionSlug(): string | null {
 	return compositionMeta.isUserComposition ? readOpenCompositionSlug() : null;
@@ -96,8 +96,8 @@ function refuseRemovingOpenComposition(
 		row,
 		compositionEditHistory.revision,
 		'precondition_unmet',
-		`"${slug}" is the composition currently open and would autosave itself back; discard it with composition.revert-to-starter instead.`,
-		{ rejected: slug, alternatives: ['composition.revert-to-starter'] }
+		`"${slug}" is the composition currently open and would autosave itself back; open another composition with composition.open first, then delete it.`,
+		{ rejected: slug, alternatives: ['composition.open'] }
 	);
 }
 

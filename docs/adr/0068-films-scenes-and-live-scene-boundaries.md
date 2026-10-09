@@ -2,7 +2,9 @@
 
 ## Status
 
-**Designed, not built** (planned 2026-10-08 with Scott; Dex epic `70u0qn13`). Nothing in this record is engine truth until its phase lands. Until then the fork-on-edit model of [ADR-0032](0032-gui-agent-parity-authoring.md) and the frozen-endpoint transitions of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md) remain current.
+**Designed, not built — phase 1 in progress: schema, readers, open document, writers landed** (planned 2026-10-08 with Scott; Dex epic `70u0qn13`). Built: §1–2 as a one-Scene Film, §3's first two points (fork-on-edit is gone and both stores write Films), and §8's transaction core. The rest of this record is not engine truth until its phase lands. Until then the frozen-endpoint transitions of [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md) remain current, and a stored document that carries a two-endpoint `transition` keeps the legacy Preset record shape.
+
+Two things differ from §3 as written. Shadow records an older build left in a disk store are re-keyed by a one-time script, `scripts/migrate-user-composition-shadow-records.ts`, not at runtime. `?source=builtin` no longer selects a document, but the preset route still reads it to mean "never save", which the verification scripts rely on.
 
 Date: 2026-10-08
 
