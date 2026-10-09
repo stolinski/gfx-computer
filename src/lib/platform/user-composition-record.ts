@@ -8,7 +8,8 @@
  * shape holds a standalone Preset, `{ meta, preset }`. The Film shape holds a
  * Film, `{ meta, film }`. Readers ship before writers: both stores read either
  * shape through `readStoredUserCompositionRecord`, and every writer still emits
- * `{ meta, preset }` until the Workspace works on a Film.
+ * `{ meta, preset }`, although the Workspace opens what it reads as a Film
+ * (`./film-state.svelte.ts`).
  *
  * The disk store keeps this record as `<store>/<slug>.json`. The browser-scoped
  * store keeps the same two metadata fields flat on its own envelope, beside a

@@ -1,6 +1,6 @@
 # GFX Film format (`gfx-film@1`)
 
-> **Read by the stores, not yet written.** This format implements [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §1–3. The schema, ingress, and frame maths exist and are tested, and both User composition stores read a stored Film (see [Stored records](#stored-records)). Nothing writes a Film yet: the Workspace, export, and the operation inventory still work on one Preset, and every store write still saves a Preset. Until that changes, [`preset-format.md`](preset-format.md) describes what the engine loads.
+> **Open in the Workspace, not yet written.** This format implements [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §1–3 and §8. The schema, ingress, and frame maths exist and are tested. Both User composition stores read a stored Film (see [Stored records](#stored-records)). The document open in the Workspace is a Film with one Scene, and the edit transaction core, undo, and the Composition revision work on that Film (see [The open Film](#the-open-film)). Nothing writes a Film yet: every store write still saves a Preset, export renders one Scene, and no operation adds a second Scene. Until that changes, [`preset-format.md`](preset-format.md) describes what is stored.
 
 A **Film** is an ordered list of **Scenes** with a **Scene boundary** between each pair of neighbours. A Scene is one Preset's complete state, owned by the Film. A one-off piece is a Film with one Scene. Terms: [`CONTEXT.md`](CONTEXT.md).
 
@@ -114,6 +114,18 @@ Two Preset fields are not carried:
 - `transition`. A transition Preset becomes a two-Scene Film in a later phase (ADR-0068 §3).
 
 `presetFromSingleSceneFilm(film)` goes the other way, for the code that still works on one Preset. The Preset takes the Film's `name`, `description`, and `pack`, a copy of the Scene's state under the Film's transport, and `kind: "deliverable"`. A Film with any other number of Scenes is refused.
+
+## The open Film
+
+The document open in the Workspace is a Film with exactly one Scene (ADR-0068 §8). The code is `src/lib/platform/film-state.svelte.ts` and `src/lib/platform/open-film-document.ts`; [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film) describes how they fit the engine.
+
+- A corpus Preset opens as an unsaved one-Scene Film through `filmFromPreset`. Its Scene's `origin` is `{ slug, contentKey }`, with the content key the Preset's poster uses.
+- A stored composition opens as the Preset its record reads to, lifted the same way. Its Scene's `origin` is `null`: the stores hand back a Preset, which does not say what it was forked from. That changes when the stores hand back Films.
+- The selected Scene's state is live in engine state. The Film keeps the Scene list, each `origin`, and the boundaries beside it.
+- `kind` and `transition` are not Film fields, and both must keep working. They travel beside the open Film as the legacy Preset envelope. `kind` goes when the stores write Films. `transition` goes when a transition Preset is read as a two-Scene Film.
+- What is saved is `presetFromSingleSceneFilm` with that envelope put back (`readOpenFilmAsSavedPreset`). The stored bytes are the same as before the open document was a Film.
+
+Every existing operation still edits a Preset-shaped draft of the selected Scene and reports the Scene's own pointers, such as `/state/overlays`. Its receipt names the Scene in `sceneId`. An edit to `name`, `description`, `pack`, or the transport's `orientation`, `fps`, or `format` lands on the Film's own field, because a Film has one of each.
 
 ## To and from JSON
 

@@ -150,7 +150,9 @@ export function readOpenCompositionSlug(): string | null {
 }
 
 /**
- * The open composition as the document a prospective edit starts from. An
+ * The open composition as the document a prospective edit starts from: the
+ * open Film's selected Scene in its Preset-shaped view (ADR-0068 §8), read
+ * straight from live state, which is where that Scene lives. An
  * operation that has to resolve targets, load renderers, or reject an argument
  * before it opens a transaction reads the composition here; the transaction
  * itself re-captures the document, so this copy is for preflight only and is

@@ -9,6 +9,12 @@ import { cloneJsonValue } from '$lib/utils/json-clone';
  * the RootInspector, and read back by the preset page when it serializes the
  * composition for autosave/fork. Distinct from `compositionMeta`, which
  * tracks provenance (User composition vs corpus, fork origin) — this is Preset data.
+ *
+ * The open document is a Film (ADR-0068 §8, `./film-state.svelte.ts`). `name`
+ * and `description` are the open Film's own. `kind` and `transition` are the
+ * legacy Preset envelope a Film does not carry (`LegacyPresetEnvelope` in
+ * `./open-film-document.ts`): `kind` goes when the stores write Films, and
+ * `transition` when a transition Preset is read as a two-Scene Film.
  */
 export const presetBase = $state<{
 	name: string;

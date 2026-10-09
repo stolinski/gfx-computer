@@ -102,7 +102,8 @@
 		stageDollyDistance,
 		stageOrbitDegreesForDrag
 	} from './stage-camera-editing';
-	import { STAGE_CAMERA_POSE_LIMITS, type Preset, type StageCameraPose } from './engine-schema';
+	import { STAGE_CAMERA_POSE_LIMITS, type StageCameraPose } from './engine-schema';
+	import type { OpenFilmDocument } from './open-film-document';
 	import { getStageModel } from './stage-models';
 	import {
 		canvasElementSelection,
@@ -2907,7 +2908,7 @@
 		originPitch: number;
 		frameHeightPx: number;
 		moved: boolean;
-		document: Preset | null;
+		document: OpenFilmDocument | null;
 	}
 
 	let orbitGesture: StageOrbitGesture | null = null;
@@ -2967,7 +2968,7 @@
 
 	// A wheel is a burst of events; the dolly records once when the hand rests.
 	const STAGE_DOLLY_SETTLE_MS = 300;
-	let dollyOrigin: Preset | null = null;
+	let dollyOrigin: OpenFilmDocument | null = null;
 	let dollySettleTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function settleStageDolly(): void {

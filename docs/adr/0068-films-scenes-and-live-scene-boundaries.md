@@ -110,7 +110,7 @@ A **Hit reaction** binds a Hit lane to an animatable channel of one element: on 
 Films add no sixteenth operation family.
 
 - `composition` owns Scene membership (`/scenes`: add from a Starter, remove, reorder, select) and boundaries (`/boundaries`).
-- Existing operations keep their `/state/...` pointers and act on the selected Scene. Receipts prefix what changed with `/scenes/<id>`.
+- Existing operations keep their `/state/...` pointers and act on the selected Scene. A receipt for a Scene-scoped change names that Scene in one added field, `sceneId`, and its pointers stay relative to the Scene; they are not prefixed. A receipt for a Film-level change (Scene membership, boundaries) names Film pointers and has no `sceneId`.
 - `sound` owns the Score. `motion` owns Hit reactions and magic-move pairs.
 - One **Composition revision** and one undo history cover the whole Film.
 

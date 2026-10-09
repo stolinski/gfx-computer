@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { engineState, packState } from './engine-state.svelte';
+	import { engineState } from './engine-state.svelte';
 	import { downloadBlob } from './export-video';
-	import { presetBase } from './preset-base.svelte';
-	import { presetToWireFormat, serializeCompositionState } from './preset-pure';
+	import { readOpenFilmAsSavedPreset } from './film-state.svelte';
+	import { presetToWireFormat } from './preset-pure';
 	import {
 		appendVisualVerificationIssues,
 		verifyPresetArtifact,
@@ -16,7 +16,7 @@
 	// schema+visual verification pass. "Verified" only shows while the
 	// verified artifact matches the current composition byte-for-byte.
 	const liveArtifact = $derived.by(() => {
-		const preset = serializeCompositionState(presetBase, engineState, packState.slug);
+		const preset = readOpenFilmAsSavedPreset();
 		const wirePreset = presetToWireFormat(preset);
 		return {
 			preset,

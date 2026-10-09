@@ -3,11 +3,11 @@ import { z } from 'zod';
 import { EngineStateSchema, PresetSchema, type EngineState } from './engine-schema.ts';
 
 /**
- * The Film wire format id (ADR-0068 §1). A Film is read, not yet written: both
- * User composition stores accept a stored `{ meta, film }` record
- * (`./user-composition-record.ts`), and nothing in the Workspace, export, or
- * the operation inventory works on a Film yet. Ingress is `./film-ingress.ts`;
- * frame maths is `./film-playhead.ts`.
+ * The Film wire format id (ADR-0068 §1). A Film is read and opened, not yet
+ * written: both User composition stores accept a stored `{ meta, film }` record
+ * (`./user-composition-record.ts`), and the document open in the Workspace is a
+ * one-Scene Film (`./film-state.svelte.ts`). Every store write still saves a
+ * Preset. Ingress is `./film-ingress.ts`; frame maths is `./film-playhead.ts`.
  */
 export const FILM_SCHEMA_ID = 'gfx-film@1' as const;
 
@@ -41,7 +41,7 @@ export const FILM_SCENE_LIMIT = 200;
 
 // The same format as a Motion Beat id (`MotionBeatIdSchema`): lowercase
 // letters, digits, and hyphens, at most 40 characters. A Scene id is written
-// into operation receipts as `/scenes/<id>` (ADR-0068 §8), so it stays safe in
+// into operation receipts as `sceneId` (ADR-0068 §8) and is kept safe to put in
 // a path. Declared here rather than reused so a refused id is reported as a
 // Scene id; `film-schema.test.ts` holds the two formats together.
 export const FilmSceneIdSchema = z

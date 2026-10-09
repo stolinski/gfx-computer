@@ -14,7 +14,10 @@
 import type { z } from 'zod';
 
 import type { Preset } from './engine-schema';
+import { sceneStateForPlayback, validateFilmSemantics } from './film-ingress';
+import type { Film } from './film-schema';
 import { getPresetBySlug } from './preset-catalog';
+import { serializeCompositionState } from './preset-pure';
 import { lintPreset } from './preset-rubric';
 import { truncateMiddle } from '../utils/string';
 import { validatePresetSemantics } from './preset-validation';
@@ -118,6 +121,44 @@ export function collectCompositionValidationFindings(
 		...collectCompositionSemanticFindings(document),
 		...collectCompositionLintFindings(document)
 	];
+}
+
+/**
+ * Why a schema-valid Film is not one the engine can open: every Scene's own
+ * semantic findings under `/scenes/<index>/state/...`, the Pack once at
+ * `/pack`, and the rules that tie the Film's lists together (`validateFilmSemantics`).
+ */
+export function collectFilmSemanticFindings(film: Film): readonly CompositionValidationFinding[] {
+	return validateFilmSemantics(film, {
+		resolvePreset: getPresetBySlug,
+		packScope: 'runtime'
+	}).map((issue) => ({
+		source: 'semantic' as const,
+		rule: null,
+		severity: 'error' as const,
+		path: formatCompositionPointerPath(issue.path),
+		message: boundMessage(issue.message)
+	}));
+}
+
+/**
+ * Every semantic and static-linter finding a Film carries. Each Scene is linted
+ * as the Preset it would be alone, and its findings keep the rubric's dotted
+ * path under `scenes.<index>`.
+ */
+export function collectFilmValidationFindings(film: Film): readonly CompositionValidationFinding[] {
+	const findings: CompositionValidationFinding[] = [...collectFilmSemanticFindings(film)];
+	for (const [sceneIndex, scene] of film.scenes.entries()) {
+		const sceneAsPreset = serializeCompositionState(
+			{ name: film.name, description: film.description, kind: 'deliverable' },
+			sceneStateForPlayback(film, scene.id),
+			film.pack
+		);
+		for (const finding of collectCompositionLintFindings(sceneAsPreset)) {
+			findings.push({ ...finding, path: `scenes.${sceneIndex}.${finding.path}` });
+		}
+	}
+	return findings;
 }
 
 function findingKey(finding: CompositionValidationFinding): string {

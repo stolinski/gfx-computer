@@ -6,7 +6,7 @@
 		captureCompositionGestureOrigin,
 		recordCompositionGestureEdit
 	} from './composition-edit-transaction';
-	import type { Preset } from './engine-schema';
+	import type { OpenFilmDocument } from './open-film-document';
 	import {
 		clearKeyframeSelection,
 		keyframeSelection,
@@ -77,7 +77,7 @@
 		unifiedOrigin?: UnifiedDragOrigin;
 		pointerStartX: number;
 		containerWidth: number;
-		document: Preset | null;
+		document: OpenFilmDocument | null;
 	}
 
 	interface SeekDragState {
@@ -99,7 +99,7 @@
 		pointerStartX: number;
 		containerWidth: number;
 		moved: boolean;
-		document: Preset | null;
+		document: OpenFilmDocument | null;
 	}
 
 	// A Motion Beat flag drag (ADR-0064): previews the move live on the beat and

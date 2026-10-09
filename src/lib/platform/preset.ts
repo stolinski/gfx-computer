@@ -16,6 +16,15 @@ import {
 import { cloneOverlayPlacement } from '../utils/overlay-placement';
 import { cloneJsonValue } from '../utils/json-clone';
 import { compositionEditHistory } from './composition-edit-history';
+import { filmFromPreset } from './film-ingress';
+import { holdOpenFilmDocument } from './film-state.svelte';
+import {
+	legacyPresetEnvelopeFromPreset,
+	openFilmDocumentFromFilm,
+	selectedScenePresetOfOpenFilm,
+	type LegacyPresetEnvelope,
+	type OpenFilmDocument
+} from './open-film-document';
 import { getPresetBySlug } from './preset-catalog';
 import {
 	engineState,
@@ -25,6 +34,8 @@ import {
 } from './engine-state.svelte';
 import { applyPresetBase } from './preset-base.svelte';
 import { isTransitionEffectType } from './pipelines/transition-definition-registry';
+
+import type { Film, FilmSceneOrigin } from './film-schema';
 
 function cloneCascadeAnchor(anchor: CascadeAnchor): CascadeAnchor {
 	if (anchor === 'surface') {
@@ -324,16 +335,46 @@ export function resolveTransition(
 }
 
 /**
- * Load a Preset: apply its composition, seed the GUI-editable `presetBase`
- * metadata (name / description / kind / transition), then resolve its
- * transition recipe (if any) into `transitionState` for the Workspace to act
- * on. This is what the route calls for the active Preset. An unresolved
- * transition ref leaves the transition inactive (the validator already
- * rejects such Presets, so this is defence in depth).
+ * Replace the open Film with `document` (ADR-0068 §8): hold the Film beside
+ * engine state (`filmState`), then write its selected Scene into live state —
+ * the Pack and the Scene's `state`, the Film's name and description, and the
+ * legacy envelope's `kind` and transition recipe, resolved for the Workspace.
+ *
+ * It keeps the shared history: an edit, its undo, and its redo are all points
+ * in one open document's life. Opening a different Film is `applyFilm`.
  */
-export function applyPreset(preset: Preset): void {
+export function applyOpenFilmDocument(document: OpenFilmDocument): void {
+	holdOpenFilmDocument(document);
+	const scenePreset = selectedScenePresetOfOpenFilm(document);
+	applyCompositionState(scenePreset);
+	applyPresetBase(scenePreset);
+	transitionState.active = resolveTransition(scenePreset.transition);
+}
+
+/**
+ * Open a Film with its first Scene selected. Clears the shared history, so the
+ * Composition revision restarts: a revision names a point in one open Film's
+ * life. `legacyPresetEnvelope` carries the two Preset fields a Film does not
+ * hold yet (`./open-film-document.ts`).
+ */
+export function applyFilm(film: Film, legacyPresetEnvelope: LegacyPresetEnvelope): void {
 	compositionEditHistory.clear();
-	applyCompositionState(preset);
-	applyPresetBase(preset);
-	transitionState.active = resolveTransition(preset.transition);
+	applyOpenFilmDocument(openFilmDocumentFromFilm(film, legacyPresetEnvelope));
+}
+
+/**
+ * Open a Preset as an unsaved one-Scene Film (`filmFromPreset`), with its
+ * `kind` and transition recipe carried in the legacy envelope. Live state ends
+ * up exactly as a Preset load always left it: the composition applied, the
+ * GUI-editable `presetBase` metadata seeded, and the transition recipe (if any)
+ * resolved into `transitionState` for the Workspace to act on. An unresolved
+ * transition ref leaves the transition inactive (the validator already rejects
+ * such Presets, so this is defence in depth).
+ *
+ * `origin` is where the Scene came from: `{ slug, contentKey }` for a catalogue
+ * Preset, with the content key its poster uses (`posterKeyForPreset`), or
+ * `null` for a Scene that was not seeded from one.
+ */
+export function applyPreset(preset: Preset, origin: FilmSceneOrigin | null = null): void {
+	applyFilm(filmFromPreset(preset, origin), legacyPresetEnvelopeFromPreset(preset));
 }

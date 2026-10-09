@@ -17,7 +17,8 @@
 		recordCompositionGestureEdit
 	} from './composition-edit-transaction';
 	import { compositionMediaInspection } from './composition-media-inspection.svelte';
-	import type { Media, Preset, VideoClip } from './engine-schema';
+	import type { Media, VideoClip } from './engine-schema';
+	import type { OpenFilmDocument } from './open-film-document';
 	import { engineState } from './engine-state.svelte';
 	import { inspectorRailMode } from './inspector-rail-mode.svelte';
 	import { MEDIA_LIBRARY_ASSET_MIME } from './media-library-drag-transfer';
@@ -52,7 +53,7 @@
 		originalClips: VideoClip[];
 		currentClip: VideoClip;
 		/** The open composition at press, for the one undo entry the release records (ADR-0060 §6). */
-		originDocument: Preset | null;
+		originDocument: OpenFilmDocument | null;
 	}
 
 	let { track, timeline }: Props = $props();
