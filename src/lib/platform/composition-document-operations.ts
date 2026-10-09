@@ -29,11 +29,17 @@ import {
 	boundCompositionFindings,
 	collectCompositionValidationFindings
 } from './composition-validation-findings';
+import { filmSceneFrameCount } from './film-playhead';
+import { filmSceneDisplayName } from './film-scene-display-name';
 import {
+	filmState,
+	readOpenFilm,
 	readOpenFilmAsSavedPreset,
 	readOpenFilmAsUserCompositionDocument
 } from './film-state.svelte';
+import { resolveFrameRate } from '../utils/composition-timing';
 import { isPresetOpaque } from '../utils/output-classification';
+import { truncateMiddle } from '../utils/string';
 import { standaloneUserCompositionDocument } from './user-composition-record';
 import {
 	runCompositionEditTransaction,
@@ -67,6 +73,29 @@ export interface BoundedCompositionLayerEntries {
 	truncated: boolean;
 }
 
+/** How many Scenes an inspection names before it reports only the total. */
+export const COMPOSITION_INSPECTION_SCENE_LIMIT = 24;
+
+/** How much of a Scene name an inspection quotes. */
+const COMPOSITION_INSPECTION_SCENE_NAME_LIMIT = 48;
+
+/** One Scene of the open Film, named the way the Scene operations target it. */
+export interface CompositionSceneEntry {
+	/** The id `composition.select-scene`, `remove-scene`, and `reorder-scene` take. */
+	id: string;
+	/** What the Scene strip calls it (`filmSceneDisplayName`). */
+	name: string;
+	/** How many frames the Scene runs at the Film's rate. */
+	frameCount: number;
+}
+
+/** The Film's Scenes in order, trimmed to the receipt budget, still reporting the true count. */
+export interface BoundedCompositionSceneEntries {
+	entries: readonly CompositionSceneEntry[];
+	total: number;
+	truncated: boolean;
+}
+
 /** What the composition delivers as, which is what a background fill decides. */
 export type CompositionOutputClass = 'transparent-overlay' | 'full-frame';
 
@@ -87,6 +116,13 @@ export interface CompositionInspectionReceipt {
 	outputClass: CompositionOutputClass;
 	/** The declared background fill, or null for the transparent overlay lane. */
 	backgroundFill: string | null;
+	/** The Film's Scenes in order (ADR-0068 §8). A one-off piece has one. */
+	scenes: BoundedCompositionSceneEntries;
+	/**
+	 * The Scene open for editing. `transport`, `outputClass`, `backgroundFill`,
+	 * `layers`, and `findings` describe this Scene.
+	 */
+	sceneId: string;
 	layers: BoundedCompositionLayerEntries;
 	findings: BoundedCompositionFindings;
 	/**
@@ -180,9 +216,26 @@ function boundCompositionLayerEntries(
 	};
 }
 
+function summarizeOpenFilmScenes(): BoundedCompositionSceneEntries {
+	const film = readOpenFilm();
+	const rate = resolveFrameRate(film.fps);
+	return {
+		entries: film.scenes.slice(0, COMPOSITION_INSPECTION_SCENE_LIMIT).map((scene, sceneIndex) => ({
+			id: scene.id,
+			name: truncateMiddle(
+				filmSceneDisplayName(scene, sceneIndex),
+				COMPOSITION_INSPECTION_SCENE_NAME_LIMIT
+			),
+			frameCount: filmSceneFrameCount(scene, rate)
+		})),
+		total: film.scenes.length,
+		truncated: film.scenes.length > COMPOSITION_INSPECTION_SCENE_LIMIT
+	};
+}
+
 /**
- * Report the open composition's revision, identity, transport, Pack, and Layer
- * tree. The cheap "what am I working on" call, which is why it never carries
+ * Report the open composition's revision, identity, transport, Pack, Scenes, and
+ * the open Scene's Layer tree. The cheap "what am I working on" call, which is why it never carries
  * the document body.
  */
 export function runInspectCompositionOperation(): CompositionInspectionOutcome {
@@ -205,6 +258,8 @@ export function runInspectCompositionOperation(): CompositionInspectionOutcome {
 		transport: { ...document.state.transport },
 		outputClass: isPresetOpaque(document) ? 'full-frame' : 'transparent-overlay',
 		backgroundFill: document.state.backgroundFill ?? null,
+		scenes: summarizeOpenFilmScenes(),
+		sceneId: filmState.selectedSceneId,
 		layers: boundCompositionLayerEntries(
 			summarizeCompositionLayers(document),
 			COMPOSITION_INSPECTION_LAYER_LIMIT

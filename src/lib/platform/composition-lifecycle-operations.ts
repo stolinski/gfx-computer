@@ -42,14 +42,20 @@ import {
 	collectFilmSemanticFindings,
 	describeCompositionSchemaFindings
 } from './composition-validation-findings';
-import { applyFilm } from './preset';
+import { applyFilm, applyOpenFilmDocument } from './preset';
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { createCompositionSessionSlug } from '../utils/composition-session-slug';
 import { ensureFilmRenderersLoaded } from './composition-renderer-readiness';
-import { filmFromPreset, FilmIngressSchema } from './film-ingress';
-import { FILM_SCHEMA_ID } from './film-schema';
-import { readOpenFilmAsUserCompositionDocument } from './film-state.svelte';
+import {
+	filmFromCorpusPreset,
+	filmFromPreset,
+	FilmIngressSchema,
+	filmToWireFormat
+} from './film-ingress';
+import { insertFilmScene, mintFilmSceneId } from './film-scene-membership';
+import { FILM_SCHEMA_ID, type Film } from './film-schema';
+import { filmState, readOpenFilmAsUserCompositionDocument } from './film-state.svelte';
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
 import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
 import { moveToOpenCompositionAddress } from './open-composition-address';
@@ -62,7 +68,9 @@ import { posterKeyForPreset } from './posters';
 import { PresetIngressSchema, readCompositionLegacyUpgrades } from './preset-ingress';
 import { userCompositionStore } from './user-composition-store';
 import { ensurePackLoaded } from './user-pack-runtime';
+import { cloneJsonValue } from '../utils/json-clone';
 import { isRecord } from '../utils/object';
+import { truncateMiddle } from '../utils/string';
 
 import type {
 	BoundedCompositionFindings,
@@ -105,6 +113,14 @@ export interface CompositionLifecycleReceipt {
 	 */
 	legacyUpgrades: readonly CompositionLegacyUpgrade[];
 	focus: WebmcpOperationFocusTarget;
+	/** The Scene the operation added and left open. Only `composition.add-open-to-film` sets it. */
+	sceneId?: string;
+	/**
+	 * One bounded sentence on what the operation decided for the caller: the
+	 * Pack or rate an added Scene gave up for the Film's. Absent when there is
+	 * nothing to say.
+	 */
+	summary?: string;
 }
 
 export type CompositionLifecycleOutcome = CompositionLifecycleReceipt | CompositionOperationFailure;
@@ -115,6 +131,11 @@ export interface CreateCompositionFromStarterRequest {
 
 export interface OpenCompositionRequest {
 	slug: string;
+}
+
+export interface AddOpenCompositionToFilmRequest {
+	/** The session slug of the stored Film the open Starter is added to. */
+	filmSlug: string;
 }
 
 export interface ImportCompositionJsonRequest {
@@ -130,7 +151,8 @@ export function listStarterTemplateSlugs(): readonly string[] {
 	return listPresets().map((entry) => entry.slug);
 }
 
-function findStarterTemplate(slug: string): Preset | null {
+/** The Starter template with `slug`, or null when the deliverable corpus holds none. */
+export function findStarterTemplate(slug: string): Preset | null {
 	return listPresets().find((entry) => entry.slug === slug)?.preset ?? null;
 }
 
@@ -159,7 +181,7 @@ function describeOperationFailureCause(cause: unknown, fallback: string): string
  * module load (ADR-0068 §4). A document this browser cannot draw never enters
  * the session and never replaces the one the author is looking at.
  */
-async function refuseUnloadableFilmRenderers(
+export async function refuseUnloadableFilmRenderers(
 	row: WebmcpOperationRow,
 	document: UserCompositionDocument
 ): Promise<CompositionOperationFailure | null> {
@@ -200,16 +222,22 @@ export async function storeUserCompositionUnderNewSlug(
 	return slug;
 }
 
-/** The document a Preset opens as: a one-Scene Film seeded from `starterSlug`, or from nothing. */
-function userCompositionDocumentFromPreset(
+/**
+ * The document a Preset opens as: a one-Scene Film seeded from `starterSlug`,
+ * its Scene named for that Starter, or from nothing.
+ */
+export function userCompositionDocumentFromPreset(
 	preset: Preset,
 	starterSlug: string | null
 ): UserCompositionDocument {
 	return {
-		film: filmFromPreset(
-			preset,
-			starterSlug === null ? null : { slug: starterSlug, contentKey: posterKeyForPreset(preset) }
-		),
+		film:
+			starterSlug === null
+				? filmFromPreset(preset, null)
+				: filmFromCorpusPreset(preset, {
+						slug: starterSlug,
+						contentKey: posterKeyForPreset(preset)
+					}),
 		legacyPresetEnvelope: legacyPresetEnvelopeFromPreset(preset)
 	};
 }
@@ -218,18 +246,28 @@ function userCompositionDocumentFromPreset(
  * Open `document`, record where it came from, and move the page to its
  * address. `applyFilm` clears the shared history, so the revision restarts
  * here; the receipt reports the revision the page then arrives with. A Film of
- * several Scenes opens on its first, and the receipt's findings are that
- * Scene's, in its own pointers, as every Scene-scoped receipt's are.
+ * several Scenes opens on its first unless `selectedSceneId` names another, and
+ * the receipt's findings are the open Scene's, in its own pointers, as every
+ * Scene-scoped receipt's are.
  */
 async function openCompositionDocument(
 	row: WebmcpOperationRow,
 	slug: string,
 	document: UserCompositionDocument,
 	isSessionComposition: boolean,
-	legacyUpgrades: readonly CompositionLegacyUpgrade[] = []
+	legacyUpgrades: readonly CompositionLegacyUpgrade[] = [],
+	selectedSceneId: string | null = null
 ): Promise<CompositionLifecycleReceipt> {
 	const forkedFrom = isSessionComposition ? (document.film.scenes[0]?.origin?.slug ?? null) : null;
-	applyFilm(document.film, document.legacyPresetEnvelope);
+	const openDocument = openFilmDocumentFromFilm(document.film, document.legacyPresetEnvelope);
+	if (selectedSceneId === null) {
+		applyFilm(document.film, document.legacyPresetEnvelope);
+	} else {
+		openDocument.selectedSceneId = selectedSceneId;
+		// What `applyFilm` does, for a Film that opens on a Scene other than its first.
+		compositionEditHistory.clear();
+		applyOpenFilmDocument(openDocument);
+	}
 	compositionMeta.isUserComposition = isSessionComposition;
 	compositionMeta.userCompositionSlug = slug;
 	compositionMeta.forkedFrom = forkedFrom;
@@ -245,11 +283,7 @@ async function openCompositionDocument(
 		forkedFrom,
 		revision: compositionEditHistory.revision,
 		findings: boundCompositionFindings(
-			collectCompositionValidationFindings(
-				savedPresetFromOpenFilm(
-					openFilmDocumentFromFilm(document.film, document.legacyPresetEnvelope)
-				)
-			),
+			collectCompositionValidationFindings(savedPresetFromOpenFilm(openDocument)),
 			COMPOSITION_RECEIPT_FINDING_LIMIT
 		),
 		legacyUpgrades,
@@ -361,6 +395,163 @@ export async function runCreateFilmFromOpenCompositionOperation(): Promise<Compo
 	}
 
 	return openCompositionDocument(row, slug, document, true);
+}
+
+/** How much of an authored name a receipt summary quotes before it is cut. */
+const LIFECYCLE_SUMMARY_NAME_LIMIT = 60;
+
+/**
+ * Add the open Starter, with every edit made to it, to a Film this session
+ * already holds, as that Film's new last Scene with a `cut` before it
+ * (ADR-0068 §3, §8). The Film is saved and becomes the open document with the
+ * new Scene open, so the history and the Composition revision restart, and the
+ * page moves to the Film.
+ *
+ * A Film has one Pack and one transport (ADR-0068 §1), so the added Scene takes
+ * the Film's: where the Starter's Pack, rate, orientation, or format differs,
+ * the Film's wins, and the receipt's `summary` says which did. The Scene keeps
+ * its own duration, is named for the Starter, and records the Starter as its
+ * origin.
+ */
+export async function runAddOpenCompositionToFilmOperation(
+	request: AddOpenCompositionToFilmRequest
+): Promise<CompositionLifecycleOutcome> {
+	const row = requireCompositionOperationRow('composition.add-open-to-film');
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
+	const openRefusal = refuseUnlessCompositionOpen(row);
+	if (openRefusal) return openRefusal;
+
+	if (compositionMeta.isUserComposition) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'precondition_unmet',
+			'The open composition is already a stored Film; only an unsaved Starter is added to another Film.',
+			{ rejected: readOpenCompositionSlug() ?? '' }
+		);
+	}
+
+	let targetFilm: UserCompositionDocument | null = null;
+	let sessionSlugs: string[];
+	try {
+		sessionSlugs = (await userCompositionStore.listUserCompositions()).map((entry) => entry.slug);
+		// A corpus Preset's slug is never a stored Film's.
+		if (getPresetBySlug(request.filmSlug) === null && sessionSlugs.includes(request.filmSlug)) {
+			targetFilm = await userCompositionStore.loadUserComposition(request.filmSlug);
+		}
+	} catch (cause) {
+		return refuseCompositionSessionStoreFailure(row, cause);
+	}
+	if (!targetFilm) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'unknown_target',
+			`This session holds no Film named "${request.filmSlug}".`,
+			{ rejected: request.filmSlug, alternatives: sessionSlugs }
+		);
+	}
+	// ADR-0068 §3: a document that still carries a two-endpoint transition is
+	// stored as one legacy Preset, which cannot hold a second Scene.
+	if (targetFilm.legacyPresetEnvelope.transition !== undefined) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'precondition_unmet',
+			`"${request.filmSlug}" is a legacy transition composition, which holds exactly one Scene.`,
+			{ rejected: request.filmSlug }
+		);
+	}
+
+	const openDocument = readOpenFilmAsUserCompositionDocument();
+	const openScene = openDocument.film.scenes.find(
+		(scene) => scene.id === filmState.selectedSceneId
+	);
+	if (!openScene) {
+		throw new TypeError(
+			`The open document holds no Scene "${filmState.selectedSceneId}" to add to a Film.`
+		);
+	}
+
+	const sceneId = mintFilmSceneId(targetFilm.film);
+	const sceneName = openScene.name ?? openDocument.film.name;
+	const prospectiveFilm = cloneJsonValue(targetFilm.film);
+	insertFilmScene(
+		prospectiveFilm,
+		{ id: sceneId, name: sceneName, origin: openScene.origin, state: openScene.state },
+		prospectiveFilm.scenes.length
+	);
+
+	const parsedFilm = FilmIngressSchema.safeParse(filmToWireFormat(prospectiveFilm));
+	if (!parsedFilm.success) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'schema_invalid',
+			`Adding this Scene would make "${request.filmSlug}" a Film the schema rejects, so nothing was changed.`,
+			{ findings: describeCompositionSchemaFindings(parsedFilm.error) }
+		);
+	}
+	const nextDocument: UserCompositionDocument = {
+		film: parsedFilm.data,
+		legacyPresetEnvelope: targetFilm.legacyPresetEnvelope
+	};
+
+	const rendererRefusal = await refuseUnloadableFilmRenderers(row, nextDocument);
+	if (rendererRefusal) return rendererRefusal;
+	const semanticFindings = collectFilmSemanticFindings(nextDocument.film);
+	if (semanticFindings.length > 0) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'semantic_invalid',
+			`Adding this Scene would make "${request.filmSlug}" a Film the engine cannot open, so nothing was changed.`,
+			{ findings: semanticFindings }
+		);
+	}
+
+	try {
+		await userCompositionStore.saveUserComposition(request.filmSlug, nextDocument);
+	} catch (cause) {
+		return refuseCompositionSessionStoreFailure(row, cause);
+	}
+
+	const adopted = describeFilmFieldsAdoptedByScene(openDocument.film, nextDocument.film);
+	const receipt = await openCompositionDocument(
+		row,
+		request.filmSlug,
+		nextDocument,
+		true,
+		[],
+		sceneId
+	);
+	return {
+		...receipt,
+		sceneId,
+		summary: `"${truncateMiddle(sceneName, LIFECYCLE_SUMMARY_NAME_LIMIT)}" is Scene ${nextDocument.film.scenes.length} of "${truncateMiddle(nextDocument.film.name, LIFECYCLE_SUMMARY_NAME_LIMIT)}".${adopted}`
+	};
+}
+
+/**
+ * The sentence a receipt adds when a Scene gave up its own Pack or transport
+ * for the Film's (ADR-0068 §1), or the empty string when the two agreed.
+ */
+function describeFilmFieldsAdoptedByScene(sceneSource: Film, film: Film): string {
+	const adopted: string[] = [];
+	if (sceneSource.pack !== film.pack) {
+		adopted.push(`Pack "${film.pack}" in place of "${sceneSource.pack}"`);
+	}
+	if (sceneSource.fps !== film.fps) {
+		adopted.push(`${film.fps} fps in place of ${sceneSource.fps}`);
+	}
+	if (sceneSource.orientation !== film.orientation) {
+		adopted.push(`the ${film.orientation} orientation`);
+	}
+	if (sceneSource.format !== film.format) {
+		adopted.push(`the ${film.format} format`);
+	}
+	return adopted.length === 0 ? '' : ` It took the Film's ${adopted.join(', ')}.`;
 }
 
 /**

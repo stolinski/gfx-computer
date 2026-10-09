@@ -698,6 +698,82 @@ describe('WebMCP authoring without an interface', () => {
 		expect(JSON.stringify(engineState.surface.typeField)).toBe(before);
 	});
 
+	it('builds a three-Scene Film from Starters, reorders it, and removes a Scene through tools alone', async () => {
+		expect(typeof document).toBe('undefined');
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/');
+
+		const call = async (
+			operationId: string,
+			args: Record<string, unknown> = {}
+		): Promise<Record<string, unknown>> => {
+			const row = rowFor(operationId);
+			// Every Scene tool is core: no family is prepared anywhere in this arc.
+			expect(
+				[...host.getTools()].map((tool) => tool.name),
+				`${row.toolName} is not offered in this state`
+			).toContain(row.toolName);
+			const payload = readPayload(
+				await host.call(row.toolName, {
+					...(row.requiresExpectedRevision
+						? { expectedRevision: compositionEditHistory.revision }
+						: {}),
+					...args
+				})
+			);
+			expect(payload.status, `${operationId}: ${JSON.stringify(payload)}`).not.toBe('failed');
+			await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+			return payload;
+		};
+		const inspectScenes = async (): Promise<{ ids: string[]; open: unknown }> => {
+			const inspection = await call('composition.inspect');
+			const scenes = inspection.scenes as { entries: { id: string; name: string }[] };
+			return { ids: scenes.entries.map((scene) => scene.id), open: inspection.sceneId };
+		};
+
+		// One Scene: a Film made from a Starter.
+		await call('composition.create-from-starter', { starterSlug: 'lower-third' });
+		expect([...host.getTools()].map((tool) => tool.name)).not.toContain(
+			rowFor('composition.remove-scene').toolName
+		);
+
+		// Three Scenes, each an owned copy of a Starter, read back by id.
+		const firstAdd = await call('composition.add-scene-from-starter', {
+			starterSlug: 'chapter-card-descent'
+		});
+		expect(firstAdd).toMatchObject({
+			status: 'applied',
+			changed: { pointers: ['/scenes', '/boundaries'] }
+		});
+		await call('composition.add-scene-from-starter', { starterSlug: 'counter-milestone' });
+		const built = await inspectScenes();
+		expect(built.ids).toHaveLength(3);
+		const [first, second, third] = built.ids;
+		expect(built.open).toBe(first);
+
+		// Open the second Scene; the receipt carries the revision the next edit needs.
+		const selected = await call('composition.select-scene', { sceneId: second });
+		expect(selected).toMatchObject({ status: 'selected', sceneId: second, sceneIndex: 1 });
+		expect(selected.revision).toBe(compositionEditHistory.revision);
+		expect(engineState.surface.type).toBe('chapter-card');
+
+		// Reorder: the last Scene goes first.
+		await call('composition.reorder-scene', { sceneId: third, toSceneIndex: 0 });
+		expect((await inspectScenes()).ids).toEqual([third, first, second]);
+
+		// Remove the open Scene: its neighbour opens, and two Scenes are left.
+		await call('composition.remove-scene', { sceneId: second });
+		const remaining = await inspectScenes();
+		expect(remaining.ids).toEqual([third, first]);
+		expect(remaining.open).toBe(first);
+
+		// The whole arc is on the one shared history.
+		await call('composition.undo');
+		expect((await inspectScenes()).ids).toEqual([third, first, second]);
+		expect(sessionStore.createUserComposition).toHaveBeenCalledTimes(1);
+	});
+
 	it('reports a focus its own inventory row declares on every edit it applied', async () => {
 		openEditableComposition();
 		const host = new FakeModelContext();

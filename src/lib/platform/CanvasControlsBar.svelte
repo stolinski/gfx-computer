@@ -1,8 +1,13 @@
 <script lang="ts">
-	import { formatClockTime, resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
+	import { formatClockTime, framesToSeconds, resolveFrameRate } from '$lib/utils/composition-timing';
 
 	import type { Timeline } from './timeline.svelte';
 	import { engineState } from './engine-state.svelte';
+	import {
+		readOpenFilmFrame,
+		readOpenFilmFrameCount,
+		stepOpenFilmFrames
+	} from './film-scene-selection';
 	import { IS_HOSTED_ORIGIN } from './hosted-origin';
 
 	interface BackdropEntry {
@@ -88,40 +93,45 @@
 	const zoomLabel = $derived(`${Math.round(zoom * 100)}%`);
 
 	const isPlaying = $derived(timeline?.isPlaying ?? false);
-	// Frame counting runs on the exact rational (ADR-0042), matching the
-	// export's whole-frame quantization at fractional NTSC rates.
-	const currentFrame = $derived.by(() => {
-		if (!timeline) return 0;
-		const rate = resolveFrameRate(timeline.fps);
-		return Math.min(
-			Math.max(1, secondsToFrames(timeline.durationSeconds, rate)),
-			secondsToFrames(timeline.time, rate) + 1
-		);
-	});
-	const totalFrames = $derived.by(() => {
-		if (!timeline) return 0;
-		return Math.max(1, secondsToFrames(timeline.durationSeconds, resolveFrameRate(timeline.fps)));
-	});
-	const currentTime = $derived(timeline ? timeline.time : 0);
+	// The transport reads and steps Film time (ADR-0068 §2, §4): the frame of the
+	// whole Film the playhead is on, which for a one-Scene Film is the Scene's
+	// own. The Timeline below keeps the open Scene's clock on its ruler. Frames
+	// are counted on the exact rational (ADR-0042), matching the export's
+	// whole-frame quantization at fractional NTSC rates.
+	const filmFrame = $derived(timeline ? readOpenFilmFrame() : 0);
+	const totalFrames = $derived(timeline ? readOpenFilmFrameCount() : 0);
+	const currentFrame = $derived(timeline ? filmFrame + 1 : 0);
+	const currentTime = $derived(
+		timeline ? framesToSeconds(filmFrame, resolveFrameRate(timeline.fps)) : 0
+	);
 
 	function togglePlayPause(): void {
 		timeline?.toggle();
 	}
 
+	// A Film frame in another Scene selects that Scene, which is how a step or a
+	// jump crosses a cut. A step past either end of the Film lands on that end.
+	function stepFilmFrames(frames: number): void {
+		if (!timeline) return;
+		stepOpenFilmFrames(frames).catch((error) => {
+			console.error('Failed to move Film time', error);
+		});
+	}
+
 	function jumpToStart(): void {
-		timeline?.seek(0);
+		stepFilmFrames(-readOpenFilmFrameCount());
 	}
 
 	function jumpToEnd(): void {
-		if (timeline) timeline.seek(timeline.durationSeconds);
+		stepFilmFrames(readOpenFilmFrameCount());
 	}
 
 	function stepBack(): void {
-		timeline?.stepFrames(-1);
+		stepFilmFrames(-1);
 	}
 
 	function stepForward(): void {
-		timeline?.stepFrames(1);
+		stepFilmFrames(1);
 	}
 
 	const isLooping = $derived(timeline?.loop ?? true);

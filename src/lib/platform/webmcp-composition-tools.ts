@@ -22,13 +22,16 @@
 import { COMPOSITION_KINDS } from './composition-document-operations';
 import {
 	readWebmcpJsonArgument,
+	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
 	readWebmcpOptionalLiteralArgument,
+	readWebmcpOptionalNumberArgument,
 	readWebmcpOptionalStringArgument,
 	readWebmcpStringArgument,
 	runWebmcpToolOperation
 } from './webmcp-tool-arguments';
 import {
+	runAddOpenCompositionToFilmOperation,
 	runCreateBlankCompositionOperation,
 	runCreateCompositionFromStarterOperation,
 	runCreateFilmFromOpenCompositionOperation,
@@ -37,12 +40,19 @@ import {
 } from './composition-lifecycle-operations';
 import { runCompositionHistoryTransaction } from './composition-edit-transaction';
 import {
+	runAddCompositionSceneFromStarterOperation,
+	runRemoveCompositionSceneOperation,
+	runReorderCompositionSceneOperation,
+	runSelectCompositionSceneOperation
+} from './composition-scene-operations';
+import {
 	runExportCompositionJsonOperation,
 	runInspectCompositionOperation,
 	runSetCompositionIdentityOperation
 } from './composition-document-operations';
 import {
 	webmcpDerivedEnumProperty,
+	webmcpEntityIdProperty,
 	webmcpObservedRevisionOnlySchema,
 	webmcpObservedRevisionProperty,
 	WEBMCP_NO_ARGUMENTS_SCHEMA
@@ -81,6 +91,28 @@ export function listWebmcpCompositionToolDefinitions(): readonly WebmcpToolDefin
 			operationId: 'composition.create-film-from-open',
 			inputSchema: WEBMCP_NO_ARGUMENTS_SCHEMA,
 			run: () => runCreateFilmFromOpenCompositionOperation()
+		},
+		{
+			operationId: 'composition.add-open-to-film',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					filmSlug: {
+						type: 'string',
+						description:
+							'The session slug of the stored Film to add the open Starter to, as gfx_session_inspect lists it.',
+						minLength: 1
+					}
+				},
+				required: ['filmSlug'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('composition.add-open-to-film', () =>
+					runAddOpenCompositionToFilmOperation({
+						filmSlug: readWebmcpStringArgument(args, 'filmSlug')
+					})
+				)
 		},
 		{
 			operationId: 'composition.open',
@@ -158,6 +190,109 @@ export function listWebmcpCompositionToolDefinitions(): readonly WebmcpToolDefin
 						name: readWebmcpOptionalStringArgument(args, 'name'),
 						description: readWebmcpOptionalStringArgument(args, 'description'),
 						kind: readWebmcpOptionalLiteralArgument(args, 'kind', COMPOSITION_KINDS)
+					})
+				)
+		},
+		{
+			operationId: 'composition.add-scene-from-starter',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					starterSlug: webmcpDerivedEnumProperty(
+						'starter-slug',
+						'Which Starter template the new Scene is an owned copy of.'
+					),
+					sceneIndex: {
+						type: 'integer',
+						description:
+							'Where the Scene goes in the Film, from 0 (first). Leave it out to add the Scene last.',
+						minimum: 0
+					}
+				},
+				required: ['expectedRevision', 'starterSlug'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('composition.add-scene-from-starter', () =>
+					runAddCompositionSceneFromStarterOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						starterSlug: readWebmcpStringArgument(args, 'starterSlug'),
+						sceneIndex: readWebmcpOptionalNumberArgument(args, 'sceneIndex')
+					})
+				)
+		},
+		{
+			operationId: 'composition.remove-scene',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					sceneId: webmcpEntityIdProperty(
+						'The id of the Scene to remove, as gfx_composition_inspect lists it.'
+					)
+				},
+				required: ['expectedRevision', 'sceneId'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('composition.remove-scene', () =>
+					runRemoveCompositionSceneOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						sceneId: readWebmcpStringArgument(args, 'sceneId')
+					})
+				)
+		},
+		{
+			operationId: 'composition.reorder-scene',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					sceneId: webmcpEntityIdProperty(
+						'The id of the Scene to move, as gfx_composition_inspect lists it.'
+					),
+					toSceneIndex: {
+						type: 'integer',
+						description: 'The index the Scene has once it has moved, from 0 (first).',
+						minimum: 0
+					}
+				},
+				required: ['expectedRevision', 'sceneId', 'toSceneIndex'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('composition.reorder-scene', () =>
+					runReorderCompositionSceneOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						sceneId: readWebmcpStringArgument(args, 'sceneId'),
+						toSceneIndex: readWebmcpNumberArgument(args, 'toSceneIndex')
+					})
+				)
+		},
+		{
+			operationId: 'composition.select-scene',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					sceneId: webmcpEntityIdProperty(
+						'The id of the Scene to open, as gfx_composition_inspect lists it.'
+					),
+					sceneFrame: {
+						type: 'integer',
+						description:
+							'The frame of that Scene to park its playhead on, from 0. Leave it out for frame 0 of a Scene that was not open.',
+						minimum: 0
+					}
+				},
+				required: ['sceneId'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('composition.select-scene', () =>
+					runSelectCompositionSceneOperation({
+						sceneId: readWebmcpStringArgument(args, 'sceneId'),
+						sceneFrame: readWebmcpOptionalNumberArgument(args, 'sceneFrame')
 					})
 				)
 		},

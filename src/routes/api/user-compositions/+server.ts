@@ -25,7 +25,14 @@ import { COMPOSITION_SESSION_SLUG_PATTERN } from '$lib/utils/composition-session
 
 type UserCompositionCardMetadata = Pick<
 	UserCompositionMeta,
-	'slug' | 'name' | 'forkedFrom' | 'savedAt' | 'posterKey' | 'durationSeconds' | 'surfaceType'
+	| 'slug'
+	| 'name'
+	| 'forkedFrom'
+	| 'savedAt'
+	| 'posterKey'
+	| 'durationSeconds'
+	| 'sceneCount'
+	| 'surfaceType'
 >;
 
 export const GET: RequestHandler = async (event) => {
@@ -72,6 +79,7 @@ export const GET: RequestHandler = async (event) => {
 				savedAt: reading.meta.savedAt,
 				posterKey: posterKeyForPreset(preset),
 				durationSeconds: filmDurationSeconds(reading.film),
+				sceneCount: reading.film.scenes.length,
 				surfaceType: firstScene.state.surface.type
 			};
 			if (cardView) {

@@ -148,6 +148,8 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'composition-open': false,
 	'composition-editable': false,
 	'composition-unsaved': false,
+	'film-stored': false,
+	'film-multi-scene': false,
 	'undo-available': false,
 	'redo-available': false,
 	'overlay-present': false,
@@ -187,6 +189,7 @@ const SESSION_ENTRY: UserCompositionMeta = {
 	savedAt: '2026-08-29T12:00:00.000Z',
 	posterKey: null,
 	durationSeconds: 6,
+	sceneCount: 1,
 	surfaceType: 'plain',
 	media: { assets: [], videoTrack: { clips: [] } },
 	mediaStatus: 'ready'

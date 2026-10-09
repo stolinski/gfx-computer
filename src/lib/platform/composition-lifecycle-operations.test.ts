@@ -9,7 +9,12 @@ import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PRESET_SCHEMA_ID } from './engine-schema';
-import { FILM_FIRST_SCENE_ID, filmFromPreset, filmToWireFormat } from './film-ingress';
+import {
+	FILM_FIRST_SCENE_ID,
+	filmFromCorpusPreset,
+	filmFromPreset,
+	filmToWireFormat
+} from './film-ingress';
 import { filmState } from './film-state.svelte';
 import {
 	discardOpenCompositionArrival,
@@ -17,6 +22,7 @@ import {
 	takeOpenCompositionArrival,
 	type OpenCompositionAddress
 } from './open-composition-address';
+import { PACK_REGISTRY } from './packs/registry';
 import { posterKeyForPreset } from './posters';
 import { applyPreset } from './preset';
 import { getPresetBySlug } from './preset-catalog';
@@ -25,6 +31,7 @@ import { presetBase } from './preset-base.svelte';
 import {
 	BLANK_COMPOSITION_NAME,
 	listStarterTemplateSlugs,
+	runAddOpenCompositionToFilmOperation,
 	runCreateBlankCompositionOperation,
 	runCreateCompositionFromStarterOperation,
 	runImportCompositionJsonOperation,
@@ -38,6 +45,7 @@ import { userCompositionStore } from './user-composition-store';
 
 import type { CompositionOperationFailure } from './composition-operation-preflight';
 import type { Preset } from './engine-schema';
+import type { UserCompositionDocument } from './user-composition-record';
 import type { UserCompositionMeta } from './user-composition-store';
 
 vi.mock('./user-composition-store', () => ({
@@ -68,6 +76,7 @@ function sessionEntry(slug: string, preset: Preset): UserCompositionMeta {
 		savedAt: '2026-08-28T12:00:00.000Z',
 		posterKey: null,
 		durationSeconds: preset.state.transport.durationSeconds,
+		sceneCount: 1,
 		surfaceType: preset.state.surface.type,
 		media: preset.state.media,
 		mediaStatus: 'ready'
@@ -93,6 +102,7 @@ beforeEach(() => {
 	sessionStore.listUserCompositions.mockResolvedValue([]);
 	sessionStore.loadUserComposition.mockResolvedValue(null);
 	sessionStore.createUserComposition.mockResolvedValue(undefined);
+	sessionStore.saveUserComposition.mockResolvedValue(undefined);
 	sessionStore.deleteUserComposition.mockResolvedValue(undefined);
 
 	transitionState.capturing = false;
@@ -160,7 +170,10 @@ describe('creating a composition', () => {
 		const [slug, stored] = sessionStore.createUserComposition.mock.calls[0];
 		expect(slug).toBe('lower-third-2');
 		expect(stored.film).toEqual(
-			filmFromPreset(starter, { slug: STARTER_SLUG, contentKey: posterKeyForPreset(starter) })
+			filmFromCorpusPreset(starter, {
+				slug: STARTER_SLUG,
+				contentKey: posterKeyForPreset(starter)
+			})
 		);
 		expect(filmState.scenes[0].origin).toEqual({
 			slug: STARTER_SLUG,
@@ -579,6 +592,202 @@ describe('making a Film from the open document', () => {
 		expect(compositionMeta.userCompositionSlug).toBe(STARTER_SLUG);
 		expect(presetBase.name).toBe('My edited lower third');
 		expect(compositionEditHistory.revision).toBe(1);
+	});
+});
+
+describe('adding the open Starter to a stored Film', () => {
+	const FILM_SLUG = 'my-film';
+	const OTHER_PACK = Object.keys(PACK_REGISTRY).find(
+		(slug) => slug !== getPresetBySlug(STARTER_SLUG)?.pack
+	);
+
+	/** A stored one-Scene Film at 24 fps under a Pack the Starter does not use. */
+	function storedFilmDocument(): UserCompositionDocument {
+		if (!OTHER_PACK) throw new Error('Expected the registry to ship a second Pack.');
+		const preset = parsePresetIngress({ ...blankPresetJson, name: 'My film', pack: OTHER_PACK });
+		preset.state.transport.fps = 24;
+		return {
+			film: filmFromPreset(preset, null),
+			legacyPresetEnvelope: { kind: 'deliverable' }
+		};
+	}
+
+	function holdStoredFilm(document: UserCompositionDocument = storedFilmDocument()): void {
+		sessionStore.listUserCompositions.mockResolvedValue([
+			sessionEntry(FILM_SLUG, parsePresetIngress({ ...blankPresetJson, name: 'My film' }))
+		]);
+		sessionStore.loadUserComposition.mockResolvedValue(document);
+	}
+
+	async function openStarter(): Promise<Preset> {
+		const starter = getPresetBySlug(STARTER_SLUG);
+		if (!starter) throw new Error(`Expected the corpus to ship "${STARTER_SLUG}".`);
+		expectApplied(await runOpenCompositionOperation({ slug: STARTER_SLUG }));
+		return starter;
+	}
+
+	it('appends the open document as the Film’s last Scene, saves the Film, and opens it there', async () => {
+		holdStoredFilm();
+		const starter = await openStarter();
+		// An unsaved edit to the open Starter travels with it.
+		engineState.transport.durationSeconds = starter.state.transport.durationSeconds + 1;
+
+		const receipt = expectApplied(
+			await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG })
+		);
+
+		expect(receipt.operationId).toBe('composition.add-open-to-film');
+		expect(receipt.slug).toBe(FILM_SLUG);
+		expect(receipt.name).toBe('My film');
+		expect(receipt.sceneId).toBe('scene-2');
+		expect(receipt.revision).toBe(0);
+		expect(receipt.focus).toBe('composition-root');
+
+		expect(sessionStore.saveUserComposition).toHaveBeenCalledTimes(1);
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
+		const [slug, stored] = sessionStore.saveUserComposition.mock.calls[0];
+		expect(slug).toBe(FILM_SLUG);
+		expect(stored.film.scenes.map((scene) => scene.id)).toEqual([FILM_FIRST_SCENE_ID, 'scene-2']);
+		expect(stored.film.boundaries).toEqual([{ kind: 'cut' }]);
+		const added = stored.film.scenes[1];
+		expect(added.name).toBe(starter.name);
+		expect(added.origin).toEqual({ slug: STARTER_SLUG, contentKey: posterKeyForPreset(starter) });
+		expect(added.state.transport.durationSeconds).toBe(starter.state.transport.durationSeconds + 1);
+		expect(added.state.overlays.map((overlay) => overlay.type)).toEqual(['lower-third']);
+
+		// The Film is the open document, a stored one, on the new Scene.
+		expect(compositionMeta.isUserComposition).toBe(true);
+		expect(compositionMeta.userCompositionSlug).toBe(FILM_SLUG);
+		expect(filmState.selectedSceneId).toBe('scene-2');
+		expect(presetBase.name).toBe('My film');
+		expect(engineState.overlays.map((overlay) => overlay.type)).toEqual(['lower-third']);
+		expect(compositionEditHistory.canUndo).toBe(false);
+	});
+
+	it('gives the Scene the Film’s Pack and transport, and says so in the receipt', async () => {
+		holdStoredFilm();
+		const starter = await openStarter();
+
+		const receipt = expectApplied(
+			await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG })
+		);
+
+		const [, stored] = sessionStore.saveUserComposition.mock.calls[0];
+		expect(stored.film.pack).toBe(OTHER_PACK);
+		expect(stored.film.fps).toBe(24);
+		expect(stored.film.scenes[1].state.transport.fps).toBe(24);
+		expect(packState.slug).toBe(OTHER_PACK);
+		expect(engineState.transport.fps).toBe(24);
+		expect(receipt.summary).toBe(
+			`"${starter.name}" is Scene 2 of "My film". It took the Film's Pack "${OTHER_PACK}" in place of "${starter.pack}", 24 fps in place of ${starter.state.transport.fps}.`
+		);
+		expect((receipt.summary ?? '').length).toBeLessThan(400);
+	});
+
+	it('says nothing about Pack or transport when the Film and the Starter agree', async () => {
+		const starter = getPresetBySlug(STARTER_SLUG);
+		if (!starter) throw new Error(`Expected the corpus to ship "${STARTER_SLUG}".`);
+		holdStoredFilm({
+			film: filmFromPreset(parsePresetIngress({ ...blankPresetJson, name: 'My film' }), null),
+			legacyPresetEnvelope: { kind: 'deliverable' }
+		});
+		expect(parsePresetIngress(blankPresetJson).pack).toBe(starter.pack);
+		await openStarter();
+
+		const receipt = expectApplied(
+			await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG })
+		);
+
+		expect(receipt.summary).toBe(`"${starter.name}" is Scene 2 of "My film".`);
+	});
+
+	it('moves the page to the Film with its document already open', async () => {
+		const moves: string[] = [];
+		const removeNavigator = installOpenCompositionAddressNavigator(
+			async ({ slug }: OpenCompositionAddress) => {
+				moves.push(`${slug}:${filmState.selectedSceneId}`);
+			}
+		);
+		try {
+			holdStoredFilm();
+			await openStarter();
+			moves.length = 0;
+
+			expectApplied(await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG }));
+
+			expect(moves).toEqual([`${FILM_SLUG}:scene-2`]);
+		} finally {
+			removeNavigator();
+			discardOpenCompositionArrival();
+		}
+	});
+
+	it('refuses a slug this session holds no Film under, naming the ones it does', async () => {
+		holdStoredFilm();
+		await openStarter();
+
+		for (const filmSlug of ['no-such-film', STARTER_SLUG]) {
+			const failure = expectFailed(await runAddOpenCompositionToFilmOperation({ filmSlug }));
+
+			expect(failure.code).toBe('unknown_target');
+			expect(failure.rejected).toBe(filmSlug);
+			expect(failure.alternatives).toEqual([FILM_SLUG]);
+		}
+		expect(sessionStore.saveUserComposition).not.toHaveBeenCalled();
+		expect(compositionMeta.isUserComposition).toBe(false);
+	});
+
+	it('refuses when the open composition is already a stored Film, or none is open', async () => {
+		holdStoredFilm();
+
+		expect(
+			expectFailed(await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG })).code
+		).toBe('no_composition_open');
+
+		compositionMeta.isUserComposition = true;
+		compositionMeta.userCompositionSlug = 'untitled';
+		const failure = expectFailed(
+			await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG })
+		);
+
+		expect(failure.code).toBe('precondition_unmet');
+		expect(failure.rejected).toBe('untitled');
+		expect(sessionStore.saveUserComposition).not.toHaveBeenCalled();
+	});
+
+	it('refuses a legacy transition composition, which holds exactly one Scene', async () => {
+		const transitionPreset = getPresetBySlug('transition-wipe-demo');
+		if (!transitionPreset?.transition) throw new Error('Expected a transition Preset fixture.');
+		holdStoredFilm({
+			film: filmFromPreset(transitionPreset, null),
+			legacyPresetEnvelope: { kind: 'fixture', transition: transitionPreset.transition }
+		});
+		await openStarter();
+
+		const failure = expectFailed(
+			await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG })
+		);
+
+		expect(failure.code).toBe('precondition_unmet');
+		expect(sessionStore.saveUserComposition).not.toHaveBeenCalled();
+	});
+
+	it('reports a store that would not save and leaves the Starter open and unsaved', async () => {
+		holdStoredFilm();
+		const starter = await openStarter();
+		sessionStore.saveUserComposition.mockRejectedValue(
+			new CompositionSessionStorageError('quota_exceeded', 'This browser session is full.')
+		);
+
+		const failure = expectFailed(
+			await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG })
+		);
+
+		expect(failure.code).toBe('quota_exceeded');
+		expect(compositionMeta.isUserComposition).toBe(false);
+		expect(compositionMeta.userCompositionSlug).toBe(STARTER_SLUG);
+		expect(presetBase.name).toBe(starter.name);
+		expect(filmState.scenes).toHaveLength(1);
 	});
 });
 

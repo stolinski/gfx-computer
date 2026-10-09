@@ -337,6 +337,7 @@ describe('user composition handlers', () => {
 				savedAt: '2026-07-14T12:00:00.000Z',
 				posterKey: storedPosterKeyOf(validPreset),
 				durationSeconds: parsePresetIngress(validPreset).state.transport.durationSeconds,
+				sceneCount: 1,
 				surfaceType: parsePresetIngress(validPreset).state.surface.type,
 				media: { assets: [], videoTrack: { clips: [] } },
 				mediaStatus: 'ready'
@@ -647,6 +648,7 @@ describe('user composition handlers', () => {
 				savedAt: '2026-07-27T12:00:00.000Z',
 				posterKey: storedPosterKeyOf(preset),
 				durationSeconds: parsePresetIngress(preset).state.transport.durationSeconds,
+				sceneCount: 1,
 				surfaceType: parsePresetIngress(preset).state.surface.type,
 				media,
 				mediaStatus: 'ready'
@@ -779,6 +781,7 @@ describe('user composition handlers reading both stored record shapes', () => {
 						savedAt: fixture.meta.savedAt,
 						posterKey: posterKeyForPreset(preset),
 						durationSeconds: filmDurationSeconds(filmFromPreset(preset, null)),
+						sceneCount: 1,
 						surfaceType: preset.state.surface.type,
 						media: preset.state.media,
 						mediaStatus: 'ready'
@@ -817,6 +820,7 @@ describe('user composition handlers reading both stored record shapes', () => {
 						// The card stands for the Scene the Film opens on.
 						posterKey: posterKeyForPreset(firstScenePreset),
 						durationSeconds: filmDurationSeconds(film),
+						sceneCount: film.scenes.length,
 						surfaceType: firstScenePreset.state.surface.type,
 						media: firstScenePreset.state.media,
 						mediaStatus: 'ready'

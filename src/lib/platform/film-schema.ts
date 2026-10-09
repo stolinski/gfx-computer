@@ -66,6 +66,10 @@ export const FilmSceneOriginSchema = z.strictObject({
 
 export const FilmSceneSchema = z.strictObject({
 	id: FilmSceneIdSchema,
+	// What the Scene strip calls the Scene. Optional: a Scene stored before names
+	// existed has none, and `filmSceneDisplayName` (`./film-scene-display-name.ts`)
+	// says what is shown for it. When present it is not empty, as a Film's name is.
+	name: z.string().min(1, 'A Scene name is not empty').optional(),
 	// `null` for a Scene started blank. Required, so a writer states which.
 	origin: FilmSceneOriginSchema.nullable(),
 	state: EngineStateSchema

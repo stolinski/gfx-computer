@@ -36,7 +36,8 @@ export type WebmcpOperationFamilyName =
  * or an undo entry.
  *
  * - `read` — returns state; changes nothing.
- * - `view` — moves ephemeral view state (the playhead); no document write.
+ * - `view` — moves ephemeral view state (the playhead, which Scene of the Film
+ *   is open); no document write.
  * - `context` — changes only which tool descriptors an agent reads.
  * - `write` — edits the open composition through the transaction core.
  * - `history` — replays a recorded edit (undo / redo).
@@ -56,6 +57,9 @@ export type WebmcpOperationPrecondition =
 	| 'composition-open'
 	| 'composition-editable'
 	| 'composition-unsaved'
+	| 'film-stored'
+	| 'film-multi-scene'
+	| 'open-addable-to-film'
 	| 'session-composition-present'
 	| 'user-pack-store-served'
 	| 'user-pack-present'
@@ -220,16 +224,22 @@ export const WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET = 262144;
  */
 export const WEBMCP_ALWAYS_REGISTERED_CEILING = 9;
 
-/** Core operations visible with a composition open before a family is prepared. */
-export const WEBMCP_CORE_REGISTERED_CEILING = 20;
+/**
+ * Core operations visible with a composition open before a family is prepared.
+ * Raised from 20 to 23 for the five Scene tools of the `composition` family
+ * (ADR-0068 §8; ADR-0054 2026-10-09 amendment).
+ */
+export const WEBMCP_CORE_REGISTERED_CEILING = 23;
 
 /**
  * Core operations plus the largest single on-demand authoring family. Raised
  * from 35 to 37 for the Figure domain (ADR-0067; ADR-0054 2026-10-06 amendment):
  * the layer and motion families were full, and each gains one Figure row. It
- * returns to 35 if the ADR-0067 migration review retires the chart rows.
+ * returns to 35 if the ADR-0067 migration review retires the chart rows. Raised
+ * again from 37 to 42 for the five Scene tools, which are core
+ * (ADR-0054 2026-10-09 amendment).
  */
-export const WEBMCP_DISCLOSED_REGISTERED_CEILING = 37;
+export const WEBMCP_DISCLOSED_REGISTERED_CEILING = 42;
 
 /**
  * Corrective failure codes. Every failure names one of these, the exact target
@@ -293,13 +303,18 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 	},
 	{
 		name: 'composition',
-		domain: 'Which composition exists and is open, and how the document identifies itself.',
+		domain:
+			'Which composition exists and is open, how the document identifies itself, and which Scenes a Film holds, in what order, with what between them.',
 		toolNamePrefix: 'gfx_composition_',
 		disclosure: 'core',
 		ownedPaths: [
 			{ pointer: '/name', scope: 'value' },
 			{ pointer: '/description', scope: 'value' },
-			{ pointer: '/kind', scope: 'value' }
+			{ pointer: '/kind', scope: 'value' },
+			// Film pointers (ADR-0068 §8). A Scene's own state is edited through the
+			// Scene's `/state/...` pointers, which the other families own.
+			{ pointer: '/scenes', scope: 'membership' },
+			{ pointer: '/boundaries', scope: 'value' }
 		]
 	},
 	{
@@ -612,7 +627,23 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		cancellable: false,
 		focus: ['composition-root'],
 		exposure: 'agent-tool',
-		guiSurface: 'src/lib/platform/Workspace.svelte'
+		guiSurface: 'src/lib/platform/AddToFilmMenu.svelte'
+	},
+	{
+		id: 'composition.add-open-to-film',
+		family: 'composition',
+		toolName: 'gfx_composition_add_open_to_film',
+		summary:
+			"Add the open Starter, with every edit made to it, as the last Scene of a Film this session holds, save that Film, and open it on the new Scene. The Scene takes the Film's Pack and transport.",
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'open-addable-to-film',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/AddToFilmMenu.svelte'
 	},
 	{
 		id: 'composition.open',
@@ -692,6 +723,73 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['composition-root'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
+	},
+	// Scenes of the open Film (ADR-0068 §8). Membership edits are Film-level
+	// writes; selecting a Scene is view state that advances the revision and
+	// records no undo entry.
+	{
+		id: 'composition.add-scene-from-starter',
+		family: 'composition',
+		toolName: 'gfx_composition_add_scene_from_starter',
+		summary:
+			"Add a Scene to the open Film as an owned copy of a named Starter template, last unless an index is given, with a cut beside it. The Scene plays under the Film's Pack and transport.",
+		effect: 'write',
+		writes: ['/scenes', '/boundaries'],
+		precondition: 'film-stored',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FilmSceneStarterPicker.svelte'
+	},
+	{
+		id: 'composition.remove-scene',
+		family: 'composition',
+		toolName: 'gfx_composition_remove_scene',
+		summary:
+			'Remove one Scene from the open Film, with the boundary on its leading side. Removing the open Scene opens its neighbour. A Film keeps at least one Scene.',
+		effect: 'write',
+		writes: ['/scenes', '/boundaries'],
+		precondition: 'film-multi-scene',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FilmSceneStrip.svelte'
+	},
+	{
+		id: 'composition.reorder-scene',
+		family: 'composition',
+		toolName: 'gfx_composition_reorder_scene',
+		summary:
+			'Move one Scene of the open Film to another place in its order. Boundaries keep their kinds by position.',
+		effect: 'write',
+		writes: ['/scenes'],
+		precondition: 'film-multi-scene',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FilmSceneStrip.svelte'
+	},
+	{
+		id: 'composition.select-scene',
+		family: 'composition',
+		toolName: 'gfx_composition_select_scene',
+		summary:
+			"Open one Scene of the Film for editing; every other family's tools then act on it. The Composition revision advances when the open Scene changes, so continue from the revision this returns.",
+		effect: 'view',
+		writes: [],
+		precondition: 'film-multi-scene',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: ['timeline-playhead'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FilmSceneStrip.svelte'
 	},
 	{
 		id: 'composition.undo',

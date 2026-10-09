@@ -7,8 +7,8 @@
  * `presetBase` the Film's name and description. Those modules did not change
  * when the open document became a Film, so nothing that reads them changed
  * either. This module holds the rest of the Film — which Scenes it has, where
- * each came from, the state of every Scene that is not selected, and the
- * boundaries — and which Scene is selected.
+ * each came from and is called, the state of every Scene that is not selected,
+ * and the boundaries — and which Scene is selected.
  *
  * The open Film is always `filmState` plus the live state written into the
  * selected Scene; `readOpenFilm` is that sum. Selecting another Scene parks the
@@ -39,6 +39,8 @@ import type { UserCompositionDocument } from './user-composition-record';
 /** One Scene of the open Film as this module holds it. */
 export interface OpenFilmScene {
 	id: string;
+	/** The Scene's own name, absent for a Scene that was never given one. */
+	name?: string;
 	origin: FilmSceneOrigin | null;
 	/**
 	 * The Scene's state while it is not selected. `null` for the selected Scene,
@@ -110,6 +112,7 @@ export function readOpenFilm(): Film {
 		format: engineState.transport.format,
 		scenes: filmState.scenes.map((scene) => ({
 			id: scene.id,
+			...(scene.name !== undefined ? { name: scene.name } : {}),
 			origin: scene.origin,
 			state: scene.id === filmState.selectedSceneId ? engineState : requireParkedSceneState(scene)
 		})),
@@ -159,6 +162,7 @@ export function openFilmDocumentAroundScenePreset(scenePreset: Preset): OpenFilm
 		format: scenePreset.state.transport.format,
 		scenes: filmState.scenes.map((scene) => ({
 			id: scene.id,
+			...(scene.name !== undefined ? { name: scene.name } : {}),
 			origin: scene.origin === null ? null : { ...scene.origin },
 			state:
 				scene.id === filmState.selectedSceneId ? scenePreset.state : requireParkedSceneState(scene)
@@ -213,7 +217,7 @@ export function isOpenFilmEngineStateInTransit(): boolean {
 
 /**
  * Hold everything of `document` that is not live state: the Scene list with
- * each origin, the state of every Scene that is not selected, the boundaries,
+ * each name and origin, the state of every Scene that is not selected, the boundaries,
  * and the selection. Writing the selected Scene into engine state is the
  * caller's half (`applyOpenFilmDocument` in `./preset.ts`), so the two are
  * never out of step for longer than that one call.
@@ -228,6 +232,7 @@ export function holdOpenFilmDocument(document: OpenFilmDocument): void {
 	}
 	filmState.scenes = document.film.scenes.map((scene) => ({
 		id: scene.id,
+		...(scene.name !== undefined ? { name: scene.name } : {}),
 		origin: scene.origin === null ? null : { ...scene.origin },
 		parkedState: scene.id === document.selectedSceneId ? null : scene.state
 	}));

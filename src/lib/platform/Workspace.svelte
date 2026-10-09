@@ -26,8 +26,10 @@
 		type CompositionFrameRenderResources,
 		type CompositionReadableProbeMode
 	} from './composition-frame-renderer';
+	import AddToFilmMenu from './AddToFilmMenu.svelte';
 	import CanvasControlsBar from './CanvasControlsBar.svelte';
 	import CanvasEditingOverlay from './CanvasEditingOverlay.svelte';
+	import FilmSceneStrip from './FilmSceneStrip.svelte';
 	import Inspector from './Inspector.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
 	import TimelineOutline from './TimelineOutline.svelte';
@@ -56,7 +58,6 @@
 	import { getPresetBySlug } from './preset-catalog';
 	import { presetBase } from './preset-base.svelte';
 	import { serializeCompositionState } from './preset-pure';
-	import { runCreateFilmFromOpenCompositionOperation } from './composition-lifecycle-operations';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getAuthoringPackOption } from './packs/catalog';
 	import { getPack } from './packs/registry';
@@ -73,7 +74,8 @@
 	import {
 		cutOpenFilmPlaybackToNextScene,
 		openFilmSceneSettlerHandle,
-		seekOpenFilmFrame
+		seekOpenFilmFrame,
+		stepOpenFilmFrames
 	} from './film-scene-selection';
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import {
@@ -393,14 +395,6 @@
 
 	// Composition history and transport keys. Native field/button editing keeps
 	// its own keyboard behavior; canvas commands use the shared authoring history.
-	// `composition.create-film-from-open`: the one way an edited corpus Preset is
-	// kept. The operation stores the open document as a new Film, opens it, and
-	// moves the page to the Film's own URL (ADR-0068 §3).
-	async function createFilmFromOpenDocument(): Promise<void> {
-		const outcome = await runCreateFilmFromOpenCompositionOperation();
-		if (outcome.status !== 'applied') compositionMeta.persistenceError = outcome.message;
-	}
-
 	function handleKeydown(event: KeyboardEvent): void {
 		const target = event.target as HTMLElement | null;
 		const tag = target?.tagName;
@@ -429,8 +423,12 @@
 			timeline?.toggle();
 			return;
 		}
+		// The arrow keys step Film time, as the transport's step controls do, so a
+		// step off the end of a Scene crosses the cut.
 		const direction = event.key === 'ArrowRight' ? 1 : -1;
-		timeline?.stepFrames(direction * (event.shiftKey ? 10 : 1));
+		stepOpenFilmFrames(direction * (event.shiftKey ? 10 : 1)).catch((error) => {
+			console.error('Failed to step Film time', error);
+		});
 	}
 
 	// ── Top-bar identity strip ───────────────────────────────────────────────
@@ -1562,9 +1560,7 @@
 			<i aria-hidden="true"></i>{getAuthoringPackOption(packState.slug).label}
 		</span>
 		{#if !compositionMeta.isUserComposition}
-			<button type="button" class="topbar__new-film" onclick={createFilmFromOpenDocument}
-				>New Film</button
-			>
+			<AddToFilmMenu />
 		{/if}
 		<span class="topbar__spacer"></span>
 		<div class="topbar__orientation" role="group" aria-label="Orientation">
@@ -1717,6 +1713,7 @@
 				onpointerdown={onTimelineResizeStart}
 			></div>
 		{/if}
+		<FilmSceneStrip />
 		{#if timeline}
 			<TimelineOutline {timeline} {tracks} />
 		{/if}
@@ -1833,8 +1830,7 @@
 		overflow: hidden;
 	}
 
-	.topbar__orientation button,
-	.topbar__new-film {
+	.topbar__orientation button {
 		background: transparent;
 		border: 0;
 		color: var(--chrome-muted);
@@ -1853,18 +1849,9 @@
 		color: var(--chrome-text);
 	}
 
-	.topbar__orientation button:focus-visible,
-	.topbar__new-film:focus-visible {
+	.topbar__orientation button:focus-visible {
 		outline: 2px solid #ffd608;
 		outline-offset: -2px;
-	}
-
-	/* The orientation buttons take their frame from their group; a lone action
-	   carries the same one itself. */
-	.topbar__new-film {
-		border: 1px solid var(--chrome-hairline);
-		border-radius: 6px;
-		flex-shrink: 0;
 	}
 
 	.topbar__resolution {
@@ -2033,11 +2020,19 @@
 		grid-area: controls;
 	}
 
+	/* Two rows: the Scene strip of a stored Film, then the Timeline. With no
+	   strip the first row is empty and the Timeline has the whole area. */
 	.workspace__timeline {
+		display: grid;
 		grid-area: timeline;
+		grid-template-rows: auto minmax(0, 1fr);
 		min-block-size: 0;
 		overflow: hidden;
 		position: relative;
+	}
+
+	.workspace__timeline > :global(.outline) {
+		grid-row: 2;
 	}
 
 	/* Landscape-only drag handle to resize the timeline against the canvas. */

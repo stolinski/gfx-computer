@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
+	// A composition's poster still on the alpha checker: the preview stage of a
+	// library card (`./PosterCard.svelte`) and the thumbnail of a Film in the
+	// Workspace's Add to Film menu. It takes the inline size it is given.
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Attachment } from 'svelte/attachments';
 
@@ -12,28 +14,18 @@
 	const contentViewBoxCache = new SvelteMap<string, string | null>();
 
 	interface Props {
-		slug: string;
 		// URL of this composition's own poster — a committed still for a library
 		// Preset, the store's capture for a User composition — passed ONLY when
-		// the server load knows it exists. Null means "no own poster": the card
+		// the caller knows it exists. Null means "no own poster": the thumb
 		// starts on the surface default immediately instead of discovering
 		// absence through a 404 (console noise).
 		thumbSrc: string | null;
-		name: string;
 		type: SurfaceType;
-		badge: string | null;
-		/** Family / surface chip under the name (e.g. "Checklist", "Social beats"). */
-		kindLabel: string;
-		/** Composition run length; null while a user composition is still resolving. */
-		durationSeconds: number | null;
-		/** Deliverables reflow 16:9 ↔ 9:16 by doctrine — fixtures don't claim it. */
-		reflow: boolean;
-		/** Grid-wide preview aspect from the toolrow toggle. */
+		/** The preview's aspect; a library grid flips every thumb at once. */
 		aspect: 'wide' | 'tall';
 	}
 
-	let { slug, thumbSrc, name, type, badge, kindLabel, durationSeconds, reflow, aspect }: Props =
-		$props();
+	let { thumbSrc, type, aspect }: Props = $props();
 
 	// Fallback chain: this composition's own poster → the committed
 	// surface-type default → the surface glyph. The base level comes from
@@ -103,95 +95,47 @@
 	}
 </script>
 
-<a class="poster-card" href={resolve('/p/[slug]', { slug })}>
-	<span class="poster-card__preview" class:is-tall={aspect === 'tall'} {@attach loadVisiblePoster}>
-		{#if src && shouldLoad}
-			<img
-				class="poster-card__thumb"
-				class:is-ready={ready}
-				{src}
-				alt=""
-				decoding="async"
-				style:object-view-box={contentViewBox}
-				onload={handleLoad}
-				onerror={handleError}
-			/>
+<span class="poster-thumb" class:is-tall={aspect === 'tall'} {@attach loadVisiblePoster}>
+	{#if src && shouldLoad}
+		<img
+			class="poster-thumb__image"
+			class:is-ready={ready}
+			{src}
+			alt=""
+			decoding="async"
+			style:object-view-box={contentViewBox}
+			onload={handleLoad}
+			onerror={handleError}
+		/>
+	{/if}
+	{#if !ready}
+		{#if level === 'failed'}
+			<span class="poster-thumb__glyph"><SurfaceIcon {type} /></span>
+		{:else}
+			<span class="poster-thumb__skeleton" aria-hidden="true"></span>
 		{/if}
-		{#if !ready}
-			{#if level === 'failed'}
-				<span class="poster-card__glyph"><SurfaceIcon {type} /></span>
-			{:else}
-				<span class="poster-card__skeleton" aria-hidden="true"></span>
-			{/if}
-		{/if}
-	</span>
-	<span class="poster-card__body">
-		<span class="poster-card__name">{name}</span>
-		<span class="poster-card__meta">
-			<span class="poster-card__kind">{kindLabel}</span>
-			{#if badge}
-				<span class="poster-card__badge">{badge}</span>
-			{/if}
-			{#if reflow}
-				<span
-					class="poster-card__reflow"
-					title="Reflows 16:9 ↔ 9:16"
-					aria-label="Reflows 16:9 and 9:16">▭▯</span
-				>
-			{/if}
-			{#if durationSeconds !== null}
-				<span class="poster-card__duration">{durationSeconds.toFixed(1)} s</span>
-			{/if}
-		</span>
-	</span>
-</a>
+	{/if}
+</span>
 
 <style>
-	/* Palette rides the page-level spec-ladder custom properties (DESIGN.md);
-	   fallbacks keep the card correct if rendered outside .home. */
-	.poster-card {
-		background: var(--panel, #131315);
-		font-size: 1rem;
-		border-top: 1px solid var(--line, #26262a);
-		border-radius: 7px;
-		color: var(--text, #e8e8ea);
-		display: grid;
-		grid-template-rows: auto 1fr;
-		overflow: hidden;
-		text-decoration: none;
-		transition:
-			background 120ms ease,
-			border-color 120ms ease;
-	}
-
-	.poster-card:hover {
-		background: var(--raised, #1a1a1d);
-		border-color: #aaa;
-	}
-
-	.poster-card:focus-visible {
-		border-color: var(--selection, #ffd608);
-		outline: 2px solid var(--selection, #ffd608);
-		outline-offset: 3px;
-	}
-
 	/* Preview stage — edge-to-edge on the alpha checker, the same ground the
 	   Workspace canvas uses: transparent compositions read as transparent, and a
 	   poster shown whole (object-fit contain) letterboxes onto checker, never
 	   onto dead black. */
-	.poster-card__preview {
+	.poster-thumb {
 		aspect-ratio: 16 / 9;
+		display: block;
 		background: repeating-conic-gradient(#17171a 0% 25%, #101013 0% 50%) 0 0 / 18px 18px;
 		overflow: hidden;
 		position: relative;
 		transition: aspect-ratio 160ms var(--ease-smooth, ease);
 	}
 
-	.poster-card__preview.is-tall {
+	.poster-thumb.is-tall {
 		aspect-ratio: 9 / 16;
 	}
 
-	.poster-card__thumb {
+	.poster-thumb__image {
 		block-size: 100%;
 		inline-size: 100%;
 		inset: 0;
@@ -201,11 +145,11 @@
 		transition: opacity 300ms var(--ease-smooth, ease);
 	}
 
-	.poster-card__thumb.is-ready {
+	.poster-thumb__image.is-ready {
 		opacity: 1;
 	}
 
-	.poster-card__glyph {
+	.poster-thumb__glyph {
 		block-size: 34%;
 		color: var(--muted, #8a8a90);
 		inset-block-start: 50%;
@@ -214,7 +158,7 @@
 		translate: -50% -50%;
 	}
 
-	.poster-card__skeleton {
+	.poster-thumb__skeleton {
 		background: linear-gradient(
 			100deg,
 			transparent 30%,
@@ -237,91 +181,12 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.poster-card__skeleton {
+		.poster-thumb__skeleton {
 			animation: none;
 		}
 
-		.poster-card__preview {
+		.poster-thumb {
 			transition: none;
 		}
-	}
-
-	.poster-card__body {
-		align-content: start;
-		border-block-start: 1px solid var(--line, #26262a);
-		display: grid;
-		gap: 0.32rem;
-		min-inline-size: 0;
-		padding: 0.6rem 0.7rem 0.65rem;
-	}
-
-	.poster-card__name {
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		color: var(--text, #e8e8ea);
-		display: -webkit-box;
-		font-family: Archivo, sans-serif;
-		font-size: 0.78125rem;
-		font-weight: 600;
-		letter-spacing: 0.01em;
-		line-height: 1.28;
-		overflow: hidden;
-	}
-
-	.poster-card__meta {
-		align-items: center;
-		display: flex;
-		flex-wrap: nowrap;
-		gap: 0.42rem;
-		min-inline-size: 0;
-	}
-
-	.poster-card__kind {
-		border: 1px solid var(--line, #26262a);
-		border-radius: 4px;
-		color: var(--muted, #8a8a90);
-		font-family: 'Paper Mono', monospace;
-		font-size: 0.59375rem;
-		font-weight: 400;
-		letter-spacing: 0.06em;
-		overflow: hidden;
-		padding: 1px 6px;
-		text-overflow: ellipsis;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-
-	.poster-card__badge {
-		background: var(--ink, #0c0c0e);
-		border: 1px solid var(--line, #26262a);
-		border-radius: 4px;
-		color: var(--text, #e8e8ea);
-		flex-shrink: 0;
-		font-family: 'Paper Mono', monospace;
-		font-size: 0.59375rem;
-		font-weight: 400;
-		letter-spacing: 0.02em;
-		padding: 0.12em 0.5em;
-		white-space: nowrap;
-	}
-
-	.poster-card__reflow {
-		color: var(--muted, #8a8a90);
-		flex-shrink: 0;
-		font-family: 'Paper Mono', monospace;
-		font-size: 0.59375rem;
-		letter-spacing: 0.1em;
-	}
-
-	.poster-card__duration {
-		color: var(--muted, #8a8a90);
-		flex-shrink: 0;
-		font-family: 'Paper Mono', monospace;
-		font-size: 0.59375rem;
-		font-variant-numeric: tabular-nums;
-		font-weight: 400;
-		margin-inline-start: auto;
-		white-space: nowrap;
 	}
 </style>

@@ -11,6 +11,7 @@ import { EngineStateSchema, type Preset } from './engine-schema';
 import {
 	FILM_FIRST_SCENE_ID,
 	FilmIngressSchema,
+	filmFromCorpusPreset,
 	filmFromPreset,
 	filmToWireFormat,
 	parseFilm,
@@ -232,6 +233,24 @@ describe('filmFromPreset', () => {
 
 		assert.equal(film.scenes[0].origin, null);
 		assert.equal('description' in film, false);
+	});
+});
+
+describe('filmFromCorpusPreset', () => {
+	it('names the Scene for the Preset and changes nothing else of filmFromPreset', () => {
+		const preset = parsePresetIngress(lowerThirdPresetJson);
+		const origin = { slug: 'lower-third', contentKey: posterKeyForPreset(preset) };
+
+		const film = filmFromCorpusPreset(preset, origin);
+		const unnamed = filmFromPreset(preset, origin);
+
+		assert.equal(film.scenes[0].name, preset.name);
+		assert.equal('name' in unnamed.scenes[0], false);
+		assert.deepEqual({ ...film, scenes: [] }, { ...unnamed, scenes: [] });
+		assert.deepEqual(film.scenes[0].origin, origin);
+		assert.deepEqual(film.scenes[0].state, unnamed.scenes[0].state);
+		// The name survives the wire format and the ingress boundary.
+		assert.equal(parseFilmIngress(filmToWireFormat(film)).scenes[0].name, preset.name);
 	});
 });
 

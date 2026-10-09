@@ -433,6 +433,7 @@ export function createBrowserUserCompositionStore(
 			savedAt: record.savedAt,
 			posterKey: posterKeyForPreset(preset),
 			durationSeconds: filmDurationSeconds(film),
+			sceneCount: film.scenes.length,
 			surfaceType: firstScene.state.surface.type,
 			media: preset.state.media,
 			// `missing` and `undecodable` describe an asset the origin was asked for

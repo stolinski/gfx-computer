@@ -8,16 +8,30 @@ The local server is always `http://localhost:7263`. All examples below operate o
 
 ## How a composition comes to exist
 
-A Film made in the Workspace holds one Scene today, because no operation adds a second yet. A Film document with several Scenes is stored, opened, and played with a hard cut between Scenes. Each Scene is an owned copy of the Preset it was seeded from, and its `origin` records that Preset's slug. Nothing links back: editing a corpus Preset never changes a Film.
+A Film holds one or more Scenes, played in order with a hard cut between them. Each Scene is an owned copy of the Preset it was seeded from, and its `origin` records that Preset's slug. Nothing links back: editing a corpus Preset never changes a Film.
 
-- **Open a Starter, try things, then choose New Film.** `/p/<corpus-slug>` always shows the corpus Preset, and its page never saves. Edits change only the open document, with full undo and redo, and leaving the page discards them. **New Film** in the top bar stores the open document, edits included, as a new Film under a new slug and replaces the URL with `/p/<new-slug>`. The slug comes from the document's name and is numbered past every stored slug and every corpus slug: `lower-third` becomes `lower-third-2`, then `lower-third-3`.
+- **Open a Starter, try things, then choose Add to Film.** `/p/<corpus-slug>` always shows the corpus Preset, and its page never saves. Edits change only the open document, with full undo and redo, and leaving the page discards them. **Add to Film** in the top bar opens a menu. Its first entry, **New Film**, stores the open document, edits included, as a new Film under a new slug and replaces the URL with `/p/<new-slug>`. The slug comes from the document's name and is numbered past every stored slug and every corpus slug: `lower-third` becomes `lower-third-2`, then `lower-third-3`.
+- **Add to Film, then a Film.** Below **New Film** the menu lists your stored Films, each with its poster and Scene count. Choosing one adds the open document, edits included, as that Film's last Scene, saves the Film, and opens it on the new Scene at `/p/<film-slug>`. The Scene takes the Film's Pack, orientation, rate, and format, and keeps its own duration.
 - **New composition** on the home screen stores a Film seeded from the `blank` Preset, named Untitled, as `untitled`, `untitled-2`, and so on.
 - **Import JSON** on the home screen stores a new Film from a standalone document (see [GUI interchange](#gui-interchange)).
-- Agents use `gfx_composition_create_film_from_open` (the open Starter with its edits), `gfx_composition_create_from_starter` (a pristine Starter by slug), `gfx_composition_create_blank`, and `gfx_composition_import_json`. Each receipt reports the new slug. `gfx_composition_create_film_from_open` is registered only while the open document is an unsaved corpus Preset.
+- Agents use `gfx_composition_create_film_from_open` (the open Starter with its edits), `gfx_composition_create_from_starter` (a pristine Starter by slug), `gfx_composition_create_blank`, and `gfx_composition_import_json`. Each receipt reports the new slug. `gfx_composition_create_film_from_open` is registered only while the open document is an unsaved corpus Preset. `gfx_composition_add_open_to_film` adds that open document to a stored Film by slug; it is registered only while an unsaved corpus Preset is open and the session holds a Film.
 
 Nothing is ever stored under a corpus Preset's slug. Both stores refuse a create or a save there (the disk store answers **409**). There is no fork of a Starter and no revert to one. To discard a Film, delete it from the home screen.
 
 A stored Film autosaves every edit to its own slug.
+
+### Scenes
+
+A stored Film shows a **Scene strip** above the Timeline: one segment per Scene, in order, each as wide as its share of the Film. An unsaved Starter has no strip.
+
+- **Open a Scene:** click its segment. The Timeline below shows that Scene on its own clock; the transport above shows the time and frame of the whole Film.
+- **Add a Scene:** the `+` at the end of the strip opens the Starters as poster cards with a search field. Choosing one adds it as the last Scene.
+- **Reorder:** drag a segment along the strip.
+- **Remove:** the `×` on the open Scene's segment, or Delete or Backspace with that segment focused. A Film keeps at least one Scene.
+
+Adding, removing, and reordering are each one undo step. Opening a Scene is not an edit.
+
+Agents use `gfx_composition_add_scene_from_starter`, `gfx_composition_remove_scene`, `gfx_composition_reorder_scene`, and `gfx_composition_select_scene`. `gfx_composition_inspect` lists the Scene ids. Every other family's tools act on the Scene that is open.
 
 **Older records.** A record an older build saved as a standalone Preset (`{ meta, preset }`) still opens: it is read as a one-Scene Film whose `origin` is the Starter the record was forked from. Reading never rewrites it. The first save writes it as a Film. One case keeps the old shape: a composition that still carries a two-endpoint `transition` is saved as `{ meta, preset }`, because a Film cannot hold that recipe until Scene boundaries are live (ADR-0068 §3–4).
 

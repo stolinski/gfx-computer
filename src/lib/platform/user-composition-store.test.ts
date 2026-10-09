@@ -163,6 +163,7 @@ describe('userCompositionStore', () => {
 				savedAt: '2026-07-21T12:00:00.000Z',
 				posterKey: null,
 				durationSeconds: blankPreset.state.transport.durationSeconds,
+				sceneCount: 1,
 				surfaceType: blankPreset.state.surface.type,
 				media: blankPreset.state.media,
 				mediaStatus: 'ready'
@@ -191,6 +192,7 @@ describe('userCompositionStore', () => {
 			savedAt: '2026-07-21T12:00:00.000Z',
 			posterKey: null,
 			durationSeconds: preset.state.transport.durationSeconds,
+			sceneCount: 1,
 			surfaceType: preset.state.surface.type,
 			media: preset.state.media,
 			mediaStatus: 'missing' as const,
@@ -408,6 +410,7 @@ describe('userCompositionStore', () => {
 			savedAt: '2026-07-27T12:00:00.000Z',
 			posterKey: null,
 			durationSeconds: preset.state.transport.durationSeconds,
+			sceneCount: 1,
 			surfaceType: preset.state.surface.type,
 			media: preset.state.media,
 			mediaStatus: 'ready' as const

@@ -1,3 +1,4 @@
+import { listPosterKeys } from '$lib/platform/poster-store.server';
 import { getPresetBySlug } from '$lib/platform/preset-catalog';
 import { areDevelopmentOnlySurfacesServed } from '$lib/platform/public-runtime-profile.server';
 
@@ -14,13 +15,21 @@ import type { PageServerLoad } from './$types';
  * A public host knows one Starter fewer: a fixture is development-only
  * (ADR-0039), so its slug resolves to nothing there rather than opening a
  * composition the homepage does not list.
+ *
+ * `posterKeys` are the User composition posters the disk store holds, for the
+ * Add to Film menu's thumbnails, read the way the home page's load reads them:
+ * a public host has no poster store and reports none.
  */
 export const load = (async ({ params }) => {
 	const slug = params.slug;
 	const corpusPreset = getPresetBySlug(slug);
+	const developmentOnlySurfacesServed = areDevelopmentOnlySurfacesServed();
 	const served =
-		corpusPreset !== null &&
-		(corpusPreset.kind !== 'fixture' || areDevelopmentOnlySurfacesServed());
+		corpusPreset !== null && (corpusPreset.kind !== 'fixture' || developmentOnlySurfacesServed);
 
-	return { slug, corpusPreset: served ? corpusPreset : null };
+	return {
+		slug,
+		corpusPreset: served ? corpusPreset : null,
+		posterKeys: developmentOnlySurfacesServed ? await listPosterKeys() : []
+	};
 }) satisfies PageServerLoad;

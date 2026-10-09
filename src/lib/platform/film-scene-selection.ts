@@ -153,6 +153,19 @@ export async function seekOpenFilmFrame(filmFrame: number): Promise<FilmTranspor
 }
 
 /**
+ * Move Film time by `frames` whole frames, back or forward, held inside the
+ * Film: a step past either end lands on that end. This is the transport's
+ * frame step, so a step off the end of a Scene crosses the cut into its
+ * neighbour (`seekOpenFilmFrame`).
+ *
+ * Rejects with a `TypeError` when `frames` is not a whole number.
+ */
+export async function stepOpenFilmFrames(frames: number): Promise<FilmTransportPosition> {
+	const lastFilmFrame = readOpenFilmFrameCount() - 1;
+	return seekOpenFilmFrame(Math.min(Math.max(readOpenFilmFrame() + frames, 0), lastFilmFrame));
+}
+
+/**
  * The cut playback takes when it reaches the end of the live Scene: the next
  * Scene selected at its frame 0, or the first Scene again when the last one
  * ends and the transport loops. `null` when there is no cut to take
