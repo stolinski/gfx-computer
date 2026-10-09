@@ -7,27 +7,22 @@
 	import GfxMarkHomeLink from '$lib/identity/GfxMarkHomeLink.svelte';
 	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
+	import { collectFilmRendererRequirements } from '$lib/platform/composition-renderer-readiness';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
 	import {
 		filmState,
+		isOpenFilmEngineStateInTransit,
 		readOpenFilmAsUserCompositionDocument
 	} from '$lib/platform/film-state.svelte';
 	import { filmFromPreset } from '$lib/platform/film-ingress';
-	import {
-		legacyPresetEnvelopeFromPreset,
-		openFilmDocumentFromFilm,
-		savedPresetFromOpenFilm
-	} from '$lib/platform/open-film-document';
+	import { legacyPresetEnvelopeFromPreset } from '$lib/platform/open-film-document';
 	import {
 		discardOpenCompositionArrival,
 		isOpenCompositionArrivingAt,
 		takeOpenCompositionArrival
 	} from '$lib/platform/open-composition-address';
-	import { getPack } from '$lib/platform/packs/registry';
-	import { collectPresetRendererRequirements } from '$lib/platform/pipelines/preset-renderer-requirements';
 	import { pipelineRendererRuntime } from '$lib/platform/pipelines/runtime-context.svelte';
 	import { posterKeyForPreset } from '$lib/platform/posters';
-	import { getPresetBySlug } from '$lib/platform/preset-catalog';
 	import { applyFilm } from '$lib/platform/preset';
 	import { presetBase } from '$lib/platform/preset-base.svelte';
 	import { staleBuildRecovery } from '$lib/platform/stale-build-recovery-runtime';
@@ -146,6 +141,7 @@
 		storedSlug = null;
 		transitionState.active = null;
 		transitionState.capturing = false;
+		filmState.isSwappingScene = false;
 		compositionMeta.isUserComposition = false;
 		compositionMeta.userCompositionSlug = null;
 		compositionMeta.forkedFrom = null;
@@ -184,27 +180,23 @@
 			resolutionStatus = 'missing';
 			return;
 		}
-		const preset = savedPresetFromOpenFilm(
-			openFilmDocumentFromFilm(document.film, document.legacyPresetEnvelope)
-		);
 
 		try {
 			// ADR-0055: a User Pack is loaded from the store before anything reads
 			// it; one the store no longer holds fails here, with the slug named, and
-			// nothing substitutes another look.
-			const packResolution = await ensurePackLoaded(preset.pack);
+			// nothing substitutes another look. A Film has one Pack (ADR-0068 §1).
+			const packResolution = await ensurePackLoaded(document.film.pack);
 			if (!isCurrentLoad()) return;
 			if (packResolution.kind === 'missing') {
 				resolutionStatus = 'error';
 				rendererLoadError = packResolution.message;
 				return;
 			}
-			const requirements = collectPresetRendererRequirements(preset, {
-				pack: getPack(preset.pack),
-				resolvePack: getPack,
-				resolvePreset: getPresetBySlug
-			});
-			const rendererBundle = await pipelineRendererRuntime.resolve(requirements);
+			// Every Scene's renderers load before the Film opens, so a cut never
+			// waits on a module (ADR-0068 §4).
+			const rendererBundle = await pipelineRendererRuntime.resolve(
+				collectFilmRendererRequirements(document)
+			);
 			if (!isCurrentLoad()) return;
 			pipelineRendererRuntime.activate(rendererBundle);
 			applyFilm(document.film, document.legacyPresetEnvelope);
@@ -244,14 +236,14 @@
 	// Autosave: run on any change to the open Film — engineState, presetBase,
 	// the pack, or filmState.
 	// Skips a corpus Preset, which is never saved from its own page, when state
-	// matches the post-load snapshot, and while the transition snapshot path is
-	// mid-capture — engineState is a scratch buffer holding a swapped-in from/to
-	// state during that window.
+	// matches the post-load snapshot, and while engine state is in transit: the
+	// transition snapshot path is mid-capture (engineState is a scratch buffer
+	// holding a swapped-in from/to state), or a Scene swap has not settled.
 	$effect(() => {
 		const currentRouteKey = routeKey;
 		if (
 			resolutionStatus !== 'ready' ||
-			transitionState.capturing ||
+			isOpenFilmEngineStateInTransit() ||
 			appliedRouteKey !== currentRouteKey
 		) {
 			return;

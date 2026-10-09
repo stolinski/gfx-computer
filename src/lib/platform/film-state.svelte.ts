@@ -11,15 +11,16 @@
  * boundaries — and which Scene is selected.
  *
  * The open Film is always `filmState` plus the live state written into the
- * selected Scene; `readOpenFilm` is that sum. A Film holds exactly one Scene
- * today, and nothing in the Workspace shows Scenes yet.
+ * selected Scene; `readOpenFilm` is that sum. Selecting another Scene parks the
+ * live state and makes that Scene live (`./film-scene-selection.ts`). Nothing
+ * in the Workspace shows Scenes yet.
  *
  * The legacy Preset envelope (`LegacyPresetEnvelope`: `kind` and `transition`)
  * is live in `presetBase`, where the RootInspector edits it, and travels beside
  * the Film in every `OpenFilmDocument`. `./open-film-document.ts` says what
  * still needs each field.
  */
-import { engineState, packState } from './engine-state.svelte';
+import { engineState, packState, transitionState } from './engine-state.svelte';
 import { FILM_FIRST_SCENE_ID } from './film-ingress';
 import { FILM_SCHEMA_ID } from './film-schema';
 import {
@@ -58,6 +59,15 @@ class OpenFilmState {
 		{ id: FILM_FIRST_SCENE_ID, origin: null, parkedState: null }
 	]);
 	boundaries = $state.raw<readonly FilmSceneBoundary[]>([]);
+	/**
+	 * True from the moment another Scene is written into engine state until the
+	 * Workspace has settled it (`./film-scene-selection.ts`). Engine state is a
+	 * real Scene throughout, but the DOM, the animation manifest, and the canvas
+	 * are still the previous Scene's. Autosave, edit operations, and tool
+	 * registration stay off for that window, as they do for
+	 * `transitionState.capturing`.
+	 */
+	isSwappingScene = $state(false);
 }
 
 export const filmState = new OpenFilmState();
@@ -108,8 +118,8 @@ export function readOpenFilm(): Film {
 }
 
 /**
- * The open Film as the one Preset it is, detached from live state
- * (`savedPresetFromOpenFilm`).
+ * The selected Scene of the open Film as a saved Preset, detached from live
+ * state (`savedPresetFromOpenFilm`).
  */
 export function readOpenFilmAsSavedPreset(): Preset {
 	return savedPresetFromOpenFilm({
@@ -160,6 +170,45 @@ export function openFilmDocumentAroundScenePreset(scenePreset: Preset): OpenFilm
 		selectedSceneId: filmState.selectedSceneId,
 		legacyPresetEnvelope: legacyPresetEnvelopeFromPreset(scenePreset)
 	};
+}
+
+/**
+ * The open Film as a detached document with `sceneId` selected, ready for
+ * `applyOpenFilmDocument`. The Scene that is live now is read out of engine
+ * state into the document, which is what parks it; every Scene that was already
+ * parked is carried as it is. Nothing is written here.
+ *
+ * Throws a `RangeError` when the open Film holds no Scene with that id.
+ */
+export function readOpenFilmDocumentSelectingScene(sceneId: string): OpenFilmDocument {
+	if (!filmState.scenes.some((scene) => scene.id === sceneId)) {
+		throw new RangeError(
+			`The open Film "${presetBase.name}" has no Scene with id "${sceneId}" to select.`
+		);
+	}
+	const film = readOpenFilm();
+	return {
+		film: {
+			...film,
+			scenes: film.scenes.map((scene) =>
+				scene.id === filmState.selectedSceneId
+					? { ...scene, state: cloneJsonValue(engineState) }
+					: scene
+			)
+		},
+		selectedSceneId: sceneId,
+		legacyPresetEnvelope: readOpenFilmLegacyPresetEnvelope()
+	};
+}
+
+/**
+ * Whether engine state is, right now, not the open document at rest: the
+ * transition snapshot path holds a scratch composition in it, or a Scene swap
+ * has not settled. Persistence and tool registration read nothing while this is
+ * true.
+ */
+export function isOpenFilmEngineStateInTransit(): boolean {
+	return transitionState.capturing || filmState.isSwappingScene;
 }
 
 /**

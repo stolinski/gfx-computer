@@ -8,7 +8,7 @@ import transitionWipeDemoPresetJson from '$lib/presets/transition-wipe-demo.json
 import {
 	filmFromPreset,
 	filmToWireFormat,
-	isFilmSceneCountUnsupportedError,
+	presetFromFilmScene,
 	presetFromSingleSceneFilm
 } from './film-ingress';
 import { posterKeyForPreset } from './posters';
@@ -23,6 +23,7 @@ import {
 	readUserCompositionDocumentWireBody,
 	standaloneUserCompositionDocument,
 	storedPresetViewOfUserComposition,
+	storedScenePresetViewsOfUserComposition,
 	storedUserCompositionRecordFromDocument,
 	userCompositionDocumentFromReading,
 	userCompositionWriteShape
@@ -53,23 +54,43 @@ describe('readStoredUserCompositionRecord', () => {
 			continue;
 		}
 
-		if (fixture.outcome === 'scene-count-refused') {
-			it(`reads the ${fixture.slug} record as a Film and refuses to open it`, () => {
+		if (fixture.outcome === 'opens-several-scenes') {
+			it(`reads the ${fixture.slug} record as a Film of several Scenes and opens it whole`, () => {
+				const firstScenePreset: Preset = {
+					...parsePresetIngress(fixture.presetDocument),
+					kind: 'deliverable'
+				};
+
 				const reading = readStoredUserCompositionRecord(record);
 
 				assert.equal(reading.recordShape, 'film');
-				assert.equal(reading.film.scenes.length, 2);
+				assert.ok(reading.film.scenes.length > 1);
+				assert.equal(reading.film.boundaries.length, reading.film.scenes.length - 1);
 				assert.deepEqual(reading.film.scenes[0].origin, fixture.firstSceneOrigin);
-				assert.throws(
-					() => userCompositionDocumentFromReading(reading),
-					(cause) => {
-						assert.ok(isFilmSceneCountUnsupportedError(cause));
-						assert.equal(cause.sceneCount, 2);
-						assert.match(cause.message, /this build opens one-Scene Films/);
-						assert.equal(isStoredUserCompositionRefusal(cause), true);
-						return true;
-					}
+				const document = userCompositionDocumentFromReading(reading);
+				assert.equal(document.film, reading.film);
+				assert.deepEqual(document.legacyPresetEnvelope, { kind: 'deliverable' });
+				// The card stands for the Scene the Film opens on.
+				assert.deepEqual(storedPresetViewOfUserComposition(document), firstScenePreset);
+				assert.deepEqual(
+					storedScenePresetViewsOfUserComposition(document),
+					reading.film.scenes.map((scene) => presetFromFilmScene(reading.film, scene.id))
 				);
+			});
+
+			it(`stores the ${fixture.slug} Film with every Scene and reads the same Film back`, () => {
+				const reading = readStoredUserCompositionRecord(record);
+				const document = userCompositionDocumentFromReading(reading);
+
+				const written = JSON.parse(
+					JSON.stringify(storedUserCompositionRecordFromDocument(fixture.meta, document))
+				) as { film: { scenes: unknown[] } };
+				const readBack = readStoredUserCompositionRecord(written);
+
+				assert.equal('preset' in written, false);
+				assert.equal(written.film.scenes.length, reading.film.scenes.length);
+				assert.deepEqual(readBack.film, reading.film);
+				assert.deepEqual(readBack.meta, fixture.meta);
 			});
 			continue;
 		}

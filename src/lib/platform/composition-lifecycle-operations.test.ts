@@ -9,7 +9,7 @@ import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PRESET_SCHEMA_ID } from './engine-schema';
-import { filmFromPreset, filmToWireFormat } from './film-ingress';
+import { FILM_FIRST_SCENE_ID, filmFromPreset, filmToWireFormat } from './film-ingress';
 import { filmState } from './film-state.svelte';
 import {
 	discardOpenCompositionArrival,
@@ -335,12 +335,7 @@ describe('importing a composition document', () => {
 		expect(stored).toEqual({ film, legacyPresetEnvelope: { kind: 'deliverable' } });
 	});
 
-	it('refuses a Film document the schema rejects, and one longer than the Workspace plays', async () => {
-		const film = filmToWireFormat(filmFromPreset(parsePresetIngress(blankPresetJson), null)) as {
-			scenes: { id: string }[];
-			boundaries: unknown[];
-		};
-
+	it('refuses a Film document the schema rejects', async () => {
 		const malformed = expectFailed(
 			await runImportCompositionJsonOperation({
 				document: { schema: 'gfx-film@1', name: 'No Scenes' }
@@ -348,19 +343,34 @@ describe('importing a composition document', () => {
 		);
 		expect(malformed.code).toBe('schema_invalid');
 		expect(malformed.findings.total).toBeGreaterThan(0);
+		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
+	});
 
-		const twoScenes = expectFailed(
+	it('imports a Film of several Scenes whole and opens it on its first Scene', async () => {
+		const film = filmToWireFormat(
+			filmFromPreset(
+				parsePresetIngress({ ...blankPresetJson, kind: 'deliverable', name: 'Two ideas' }),
+				null
+			)
+		) as { scenes: { id: string }[]; boundaries: unknown[] };
+
+		const receipt = expectApplied(
 			await runImportCompositionJsonOperation({
-				document: {
-					...film,
-					scenes: [film.scenes[0], { ...film.scenes[0], id: 'scene-2' }],
-					boundaries: [{ kind: 'cut' }]
-				}
+				document: JSON.parse(
+					JSON.stringify({
+						...film,
+						scenes: [film.scenes[0], { ...film.scenes[0], id: 'scene-2' }],
+						boundaries: [{ kind: 'cut' }]
+					})
+				)
 			})
 		);
-		expect(twoScenes.code).toBe('precondition_unmet');
-		expect(twoScenes.message).toContain('this build opens one-Scene Films only');
-		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
+
+		expect(receipt.slug).toBe('two-ideas');
+		const [, stored] = sessionStore.createUserComposition.mock.calls[0];
+		expect(stored.film.scenes.map((scene) => scene.id)).toEqual([FILM_FIRST_SCENE_ID, 'scene-2']);
+		expect(filmState.scenes.map((scene) => scene.id)).toEqual([FILM_FIRST_SCENE_ID, 'scene-2']);
+		expect(filmState.selectedSceneId).toBe(FILM_FIRST_SCENE_ID);
 	});
 
 	it('upgrades a legacy Source video into the Media library it imports as', async () => {

@@ -155,55 +155,44 @@ export function filmFromPreset(preset: Preset, origin: FilmSceneOrigin | null): 
 }
 
 /**
- * The refusal `presetFromSingleSceneFilm` raises for a Film that is not exactly
- * one Scene long. The stores still hand back and save one Preset, so this
- * build opens one-Scene Films only; the limit goes when the stores write Films
- * (ADR-0068 §3).
- */
-export class FilmSceneCountUnsupportedError extends Error {
-	readonly sceneCount: number;
-
-	constructor(filmName: string, sceneCount: number) {
-		super(
-			`The Film "${filmName}" has ${sceneCount} Scenes, and this build opens one-Scene Films only.`
-		);
-		this.name = 'FilmSceneCountUnsupportedError';
-		this.sceneCount = sceneCount;
-	}
-}
-
-export function isFilmSceneCountUnsupportedError(
-	value: unknown
-): value is FilmSceneCountUnsupportedError {
-	return value instanceof FilmSceneCountUnsupportedError;
-}
-
-/**
- * The Preset a one-Scene Film is, for the callers that still work on one
- * Preset: the inverse of `filmFromPreset`. The Preset takes the Film's name,
- * description, and Pack, and a copy of the Scene's state under the Film's
- * transport.
+ * One Scene of a Film as the Preset it would be alone: the Film's name,
+ * description, and Pack around a copy of the Scene's state under the Film's
+ * transport. The inverse of `filmFromPreset` for that Scene.
  *
  * `kind` is `deliverable`. A Film does not carry the field, and `deliverable`
  * is the kind of user work (`PresetSchema` defaults to it). A Film holds no
  * `transition` recipe either, so the Preset has none. The Scene's `origin` is
  * not part of a Preset; a caller that needs it reads it off the Film.
  *
- * Throws `FilmSceneCountUnsupportedError` for any other number of Scenes.
+ * Throws a `RangeError` when the Film has no Scene with that id.
  */
-export function presetFromSingleSceneFilm(film: Film): Preset {
-	const [scene] = film.scenes;
-	if (scene === undefined || film.scenes.length !== 1) {
-		throw new FilmSceneCountUnsupportedError(film.name, film.scenes.length);
-	}
+export function presetFromFilmScene(film: Film, sceneId: string): Preset {
 	return {
 		schema: PRESET_SCHEMA_ID,
 		name: film.name,
 		...(film.description !== undefined ? { description: film.description } : {}),
 		pack: film.pack,
 		kind: 'deliverable',
-		state: cloneJsonValue(sceneStateUnderFilmTransport(film, scene))
+		state: cloneJsonValue(sceneStateForPlayback(film, sceneId))
 	};
+}
+
+/**
+ * The Preset a one-Scene Film is (`presetFromFilmScene` of its only Scene), for
+ * the one caller that can still write only one Preset: the legacy record shape
+ * `userCompositionWriteShape` keeps for a two-endpoint transition.
+ *
+ * Throws a `RangeError` for any other number of Scenes: a longer Film is not
+ * one Preset, and writing one Scene of it would drop the rest.
+ */
+export function presetFromSingleSceneFilm(film: Film): Preset {
+	const [scene] = film.scenes;
+	if (scene === undefined || film.scenes.length !== 1) {
+		throw new RangeError(
+			`The Film "${film.name}" has ${film.scenes.length} Scenes, so it is not one Preset.`
+		);
+	}
+	return presetFromFilmScene(film, scene.id);
 }
 
 /**

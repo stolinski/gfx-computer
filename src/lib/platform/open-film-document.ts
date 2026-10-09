@@ -11,7 +11,7 @@
  * beside it — is `./film-state.svelte.ts`.
  */
 import { FILM_SCHEMA_ID, type Film } from './film-schema';
-import { presetFromSingleSceneFilm, sceneStateForPlayback } from './film-ingress';
+import { presetFromFilmScene, sceneStateForPlayback } from './film-ingress';
 import { serializeCompositionState } from './preset-pure';
 import { cloneJsonValue } from '../utils/json-clone';
 import { hashObject } from '../utils/object';
@@ -140,17 +140,35 @@ export function openFilmWithSelectedScenePreset(
 }
 
 /**
- * The open Film as the one Preset it is, with the legacy envelope's live `kind`
- * and transition put back, in the key order `serializeCompositionState` has
- * always written. `composition.inspect` and the Interchange verification pass
- * read this. What is stored and exported is the Film
+ * Every Scene of `document` as its Preset-shaped view, in Scene order
+ * (`selectedScenePresetOfOpenFilm` for each). Opening a Film reads what all of
+ * its Scenes need to render from this, so a cut never waits on a renderer
+ * (ADR-0068 §4). Each state is shared with the document, not copied.
+ */
+export function scenePresetsOfOpenFilm(
+	document: Pick<OpenFilmDocument, 'film' | 'legacyPresetEnvelope'>
+): Preset[] {
+	return document.film.scenes.map((scene) =>
+		selectedScenePresetOfOpenFilm({
+			film: document.film,
+			selectedSceneId: scene.id,
+			legacyPresetEnvelope: document.legacyPresetEnvelope
+		})
+	);
+}
+
+/**
+ * The selected Scene of the open Film as a saved Preset, detached: the Film's
+ * name, description, and Pack around a copy of the Scene's state, with the
+ * legacy envelope's live `kind` and transition put back, in the key order
+ * `serializeCompositionState` has always written. A one-Scene Film is exactly
+ * this Preset. `composition.inspect` and the Interchange verification pass
+ * read this: like every Scene-scoped operation, they report the Scene that is
+ * open (ADR-0068 §8). What is stored and exported is the Film
  * (`./user-composition-record.ts`).
- *
- * Throws `FilmSceneCountUnsupportedError` for a Film that is not one Scene
- * long, which is all the Workspace plays.
  */
 export function savedPresetFromOpenFilm(document: OpenFilmDocument): Preset {
-	const scenePreset = presetFromSingleSceneFilm(document.film);
+	const scenePreset = presetFromFilmScene(document.film, document.selectedSceneId);
 	return serializeCompositionState(
 		{
 			name: scenePreset.name,

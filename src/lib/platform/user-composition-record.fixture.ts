@@ -1,3 +1,4 @@
+import blankPresetJson from '../presets/blank.json';
 import lowerThirdPresetJson from '../presets/lower-third.json';
 
 import type { FilmSceneOrigin } from './film-schema';
@@ -16,11 +17,15 @@ export interface StoredUserCompositionRecordFixture {
 	/** The composition document beside `meta`: exactly one of the two shapes. */
 	document: { preset: unknown } | { film: unknown };
 	/**
-	 * `opens`: reads, and opens as `presetDocument`. `scene-count-refused`: reads
-	 * as a Film this build cannot open. `composition-refused`: does not read.
+	 * `opens`: reads, and opens as the one-Scene Film `presetDocument` is.
+	 * `opens-several-scenes`: reads and opens as a Film of more than one Scene,
+	 * whose first Scene is `presetDocument`. `composition-refused`: does not read.
 	 */
-	outcome: 'opens' | 'scene-count-refused' | 'composition-refused';
-	/** The standalone Preset document the record opens as; `null` when it does not open. */
+	outcome: 'opens' | 'opens-several-scenes' | 'composition-refused';
+	/**
+	 * The standalone Preset document the record's first Scene is, which is the
+	 * whole record for `opens`; `null` when the record does not open.
+	 */
 	presetDocument: unknown;
 	/** The origin of the first Scene of the Film the record reads as. */
 	firstSceneOrigin: FilmSceneOrigin | null;
@@ -67,9 +72,13 @@ const mediaLibraryPresetDocument = {
 	}
 };
 
+/**
+ * A Film document under `presetDocument`'s name, Pack, and transport. A Scene
+ * that states no `state` of its own is a copy of `presetDocument`'s.
+ */
 function filmDocumentOf(
 	presetDocument: typeof currentPresetDocument,
-	scenes: readonly { id: string; origin: FilmSceneOrigin | null }[]
+	scenes: readonly { id: string; origin: FilmSceneOrigin | null; state?: unknown }[]
 ): unknown {
 	return {
 		schema: 'gfx-film@1',
@@ -79,12 +88,20 @@ function filmDocumentOf(
 		orientation: presetDocument.state.transport.orientation,
 		fps: presetDocument.state.transport.fps,
 		format: presetDocument.state.transport.format,
-		scenes: scenes.map((scene) => ({ ...scene, state: presetDocument.state })),
+		scenes: scenes.map((scene) => ({ ...scene, state: scene.state ?? presetDocument.state })),
 		boundaries: scenes.slice(1).map(() => ({ kind: 'cut' }))
 	};
 }
 
 const filmSceneOrigin: FilmSceneOrigin = { slug: 'lower-third', contentKey: '0123456789abcdef' };
+
+/** A second kind of Scene: the blank Preset's state, on a plain Surface with its own duration. */
+function blankSceneState(durationSeconds: number): unknown {
+	return {
+		...blankPresetJson.state,
+		transport: { ...blankPresetJson.state.transport, durationSeconds }
+	};
+}
 
 export const STORED_USER_COMPOSITION_RECORD_FIXTURES: readonly StoredUserCompositionRecordFixture[] =
 	[
@@ -139,12 +156,26 @@ export const STORED_USER_COMPOSITION_RECORD_FIXTURES: readonly StoredUserComposi
 			document: {
 				film: filmDocumentOf(currentPresetDocument, [
 					{ id: 'intro', origin: filmSceneOrigin },
-					{ id: 'outro', origin: null }
+					{ id: 'outro', origin: null, state: blankSceneState(2.5) }
 				])
 			},
-			outcome: 'scene-count-refused',
-			presetDocument: null,
+			outcome: 'opens-several-scenes',
+			presetDocument: currentPresetDocument,
 			firstSceneOrigin: filmSceneOrigin
+		},
+		{
+			slug: 'film-three-scenes',
+			meta: { forkedFrom: null, savedAt: SAVED_AT },
+			document: {
+				film: filmDocumentOf(currentPresetDocument, [
+					{ id: 'intro', origin: null },
+					{ id: 'middle', origin: { slug: 'blank', contentKey: null }, state: blankSceneState(1) },
+					{ id: 'outro', origin: filmSceneOrigin, state: blankSceneState(4.2) }
+				])
+			},
+			outcome: 'opens-several-scenes',
+			presetDocument: currentPresetDocument,
+			firstSceneOrigin: null
 		},
 		{
 			slug: 'film-malformed',

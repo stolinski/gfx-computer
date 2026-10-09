@@ -6,7 +6,6 @@
  */
 import { error } from '@sveltejs/kit';
 
-import { isFilmSceneCountUnsupportedError } from './film-ingress';
 import { getPresetBySlug } from './preset-catalog';
 import {
 	assertUserCompositionMediaReady,
@@ -16,7 +15,7 @@ import {
 	isStoredUserCompositionRecordError,
 	readStandaloneUserCompositionDocument,
 	readUserCompositionDocumentWireBody,
-	storedPresetViewOfUserComposition,
+	storedScenePresetViewsOfUserComposition,
 	type UserCompositionDocument
 } from './user-composition-record';
 import { UserCompositionStarterSlugError } from './user-composition-store-errors';
@@ -53,15 +52,15 @@ export async function readUserCompositionWriteRequest(
 				? readStandaloneUserCompositionDocument(body, { packScope: 'stored' })
 				: readUserCompositionDocumentWireBody(body, { packScope: 'stored' });
 	} catch (cause) {
-		if (isStoredUserCompositionRecordError(cause) || isFilmSceneCountUnsupportedError(cause)) {
+		if (isStoredUserCompositionRecordError(cause)) {
 			error(400, `Invalid composition: ${cause.message}`);
 		}
 		throw cause;
 	}
 	try {
-		assertUserCompositionMediaReady(
-			await inspectUserCompositionMedia(storedPresetViewOfUserComposition(document))
-		);
+		for (const scenePreset of storedScenePresetViewsOfUserComposition(document)) {
+			assertUserCompositionMediaReady(await inspectUserCompositionMedia(scenePreset));
+		}
 	} catch (cause) {
 		error(422, cause instanceof Error ? cause.message : 'Referenced media asset is unavailable');
 	}

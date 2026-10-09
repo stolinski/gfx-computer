@@ -57,7 +57,7 @@ export const GET: RequestHandler = async (event) => {
 			const storedUserComposition: unknown = JSON.parse(raw);
 			// Either record shape reads as a Film (ADR-0068 §3). A record this
 			// build cannot open throws here and is skipped with the unreadable
-			// ones below, which includes a Film of more than one Scene.
+			// ones below. A Film of several Scenes is listed by its first Scene.
 			const reading = readStoredUserCompositionRecord(storedUserComposition, {
 				packScope: 'stored'
 			});

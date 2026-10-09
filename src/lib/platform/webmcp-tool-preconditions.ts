@@ -23,7 +23,7 @@ import {
 	readOpenCompositionDocument,
 	readOpenCompositionSlug
 } from './composition-operation-preflight';
-import { transitionState } from './engine-state.svelte';
+import { isOpenFilmEngineStateInTransit } from './film-state.svelte';
 import { parseCompositionSessionStoreConfig } from './public-runtime-contract';
 import { userCompositionStore } from './user-composition-store';
 import { userPackStore } from './user-pack-store';
@@ -146,7 +146,7 @@ export function readWebmcpCompositionPreconditions(): WebmcpCompositionPrecondit
 
 	const document: Preset = readOpenCompositionDocument();
 	const state = document.state;
-	const editable = !transitionState.capturing;
+	const editable = !isOpenFilmEngineStateInTransit();
 	const surface = getSurfaceDefinition(state.surface.type);
 
 	return {

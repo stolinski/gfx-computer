@@ -8,7 +8,7 @@ The local server is always `http://localhost:7263`. All examples below operate o
 
 ## How a composition comes to exist
 
-A Film holds one Scene today. The Scene is an owned copy of the Preset it was seeded from, and its `origin` records that Preset's slug. Nothing links back: editing a corpus Preset never changes a Film.
+A Film made in the Workspace holds one Scene today, because no operation adds a second yet. A Film document with several Scenes is stored, opened, and played with a hard cut between Scenes. Each Scene is an owned copy of the Preset it was seeded from, and its `origin` records that Preset's slug. Nothing links back: editing a corpus Preset never changes a Film.
 
 - **Open a Starter, try things, then choose New Film.** `/p/<corpus-slug>` always shows the corpus Preset, and its page never saves. Edits change only the open document, with full undo and redo, and leaving the page discards them. **New Film** in the top bar stores the open document, edits included, as a new Film under a new slug and replaces the URL with `/p/<new-slug>`. The slug comes from the document's name and is numbered past every stored slug and every corpus slug: `lower-third` becomes `lower-third-2`, then `lower-third-3`.
 - **New composition** on the home screen stores a Film seeded from the `blank` Preset, named Untitled, as `untitled`, `untitled-2`, and so on.
@@ -21,7 +21,7 @@ A stored Film autosaves every edit to its own slug.
 
 **Older records.** A record an older build saved as a standalone Preset (`{ meta, preset }`) still opens: it is read as a one-Scene Film whose `origin` is the Starter the record was forked from. Reading never rewrites it. The first save writes it as a Film. One case keeps the old shape: a composition that still carries a two-endpoint `transition` is saved as `{ meta, preset }`, because a Film cannot hold that recipe until Scene boundaries are live (ADR-0068 §3–4).
 
-A Film with more than one Scene cannot be opened yet: `GET /api/user-compositions/<slug>` answers **409**, and the listing leaves it out.
+A Film with several Scenes opens on its first Scene. The listing shows it by that Scene: its poster, Surface type, and media.
 
 ### Shadow records from the fork model
 
@@ -182,7 +182,7 @@ A `website-screenshot` Surface takes exactly one capture source. The GUI's captu
 
 ## GUI interchange
 
-The home screen's **Import JSON** action accepts a standalone `gfx-film@1` Film, or a `gfx@1` Preset (including a Legacy Supers one), which is lifted to a one-Scene Film. It stores a new Film under a slug derived from the document's `name`, numbered past every stored and corpus slug, and never replaces an existing composition. Schema and semantic errors block persistence and are listed under the action; static-linter warnings and errors do not, because a valid agent-authored document must be able to enter the GUI for repair. Its linter findings appear live in the composition inspector after import. A Film with more than one Scene is refused.
+The home screen's **Import JSON** action accepts a standalone `gfx-film@1` Film, or a `gfx@1` Preset (including a Legacy Supers one), which is lifted to a one-Scene Film. It stores a new Film under a slug derived from the document's `name`, numbered past every stored and corpus slug, and never replaces an existing composition. Schema and semantic errors block persistence and are listed under the action; static-linter warnings and errors do not, because a valid agent-authored document must be able to enter the GUI for repair. Its linter findings appear live in the composition inspector after import.
 
 The composition inspector's **Export JSON** action downloads the current standalone Film as `<slug>.json`. **Verify** runs the structural schema, registry-derived semantic validation, deliverable static linter, and current rendered visual audit in one action. Static issues remain live in the inspector while editing; the rendered audit is refreshed only by Verify.
 

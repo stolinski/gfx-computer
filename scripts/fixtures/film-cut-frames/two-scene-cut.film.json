@@ -1,0 +1,194 @@
+{
+	"schema": "gfx-film@1",
+	"name": "Film cut frames fixture",
+	"description": "Two Scenes with different Surface types and one hard cut, for scripts/cdp-film-cut-frames.mjs. Not a deliverable.",
+	"pack": "syntax",
+	"orientation": "horizontal",
+	"fps": 30,
+	"format": "webm",
+	"scenes": [
+		{
+			"id": "hero",
+			"origin": {
+				"slug": "type-hero-vantage",
+				"contentKey": null
+			},
+			"state": {
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 6,
+					"fps": 30,
+					"format": "webm"
+				},
+				"backgroundFill": "pack",
+				"typography": {
+					"fontFamily": "sans",
+					"paperColor": "#0a0a09",
+					"inkColor": "#f7f6f2"
+				},
+				"marks": {
+					"defaults": {},
+					"timings": []
+				},
+				"surface": {
+					"type": "type-hero",
+					"variant": "single",
+					"content": {
+						"title": "VANTAGE",
+						"author": "EPISODE 52 — SYNTAX.FM",
+						"body": ""
+					},
+					"enter": {
+						"start": 0,
+						"duration": 0.05,
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
+					},
+					"exit": {
+						"start": 0.92,
+						"duration": 0.04,
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
+					}
+				},
+				"textAnimations": [
+					{
+						"id": "hero-resolve",
+						"target": {
+							"kind": "surface",
+							"slot": "title"
+						},
+						"effect": "micro-scale-fade",
+						"enter": {
+							"start": 0.04,
+							"duration": 0.06,
+							"ease": "settled",
+							"sound": {
+								"mute": true
+							}
+						},
+						"exit": {
+							"start": 0.9,
+							"duration": 0.04,
+							"ease": "smooth",
+							"sound": {
+								"mute": true
+							}
+						}
+					},
+					{
+						"id": "stamp-fade",
+						"target": {
+							"kind": "surface",
+							"slot": "author"
+						},
+						"effect": "fade-through",
+						"enter": {
+							"start": 0.22,
+							"duration": 0.06,
+							"ease": "settled",
+							"sound": {
+								"mute": true
+							}
+						},
+						"exit": {
+							"start": 0.88,
+							"duration": 0.04,
+							"ease": "smooth",
+							"sound": {
+								"mute": true
+							}
+						}
+					}
+				],
+				"overlays": [],
+				"effects": [
+					{
+						"type": "paper-grain",
+						"id": "grain",
+						"params": {
+							"warmth": 0.45,
+							"density": 0.32
+						}
+					}
+				],
+				"audioCues": []
+			}
+		},
+		{
+			"id": "lower-third",
+			"origin": {
+				"slug": "lower-third",
+				"contentKey": null
+			},
+			"state": {
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 6.7,
+					"fps": 30,
+					"format": "webm"
+				},
+				"typography": {
+					"fontFamily": "sans",
+					"paperColor": "#ffffff",
+					"inkColor": "#f5f5f5"
+				},
+				"marks": {
+					"defaults": {},
+					"timings": []
+				},
+				"surface": {
+					"type": "plain",
+					"content": {
+						"body": ""
+					}
+				},
+				"overlays": [
+					{
+						"type": "lower-third",
+						"id": "main",
+						"content": {
+							"variant": "standard",
+							"kicker": "CHAPTER 01",
+							"title": "Origins",
+							"subtitle": "How it began"
+						},
+						"position": {
+							"anchor": "bottom-left",
+							"offset": {
+								"x": 0.0625,
+								"y": 0.15
+							}
+						},
+						"enter": {
+							"start": 0.1,
+							"duration": 0.18,
+							"ease": "settled",
+							"sound": {
+								"mute": true
+							}
+						},
+						"exit": {
+							"start": 0.82,
+							"duration": 0.16,
+							"ease": "smooth",
+							"sound": {
+								"mute": true
+							}
+						}
+					}
+				],
+				"effects": []
+			}
+		}
+	],
+	"boundaries": [
+		{
+			"kind": "cut"
+		}
+	]
+}

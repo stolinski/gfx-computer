@@ -66,6 +66,15 @@
 	import { collectPresetRendererRequirements } from './pipelines/preset-renderer-requirements';
 	import { pipelineRendererController } from './pipelines/runtime-loader';
 
+	import {
+		settleSwappedCompositionState,
+		type CompositionStateSwapSettleDependencies
+	} from './composition-state-swap-settle';
+	import {
+		cutOpenFilmPlaybackToNextScene,
+		openFilmSceneSettlerHandle,
+		seekOpenFilmFrame
+	} from './film-scene-selection';
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import {
 		COMPOSITION_EXPORT_FORMAT_LABELS,
@@ -727,6 +736,39 @@
 		animState.globalProgress = snapshotProgress;
 	}
 
+	async function waitForCompositionLayout(): Promise<void> {
+		await nextFrame();
+		await nextFrame();
+	}
+
+	// How a whole state written into engine state is settled, for both callers
+	// that swap one in: the transition snapshot bracket and Scene selection.
+	const compositionStateSwapSettleDependencies: CompositionStateSwapSettleDependencies = {
+		flushDom: tick,
+		waitForFonts: fontsReady,
+		waitForLayout: waitForCompositionLayout,
+		settlePaint: () => settleCompositionPaint(new AbortController().signal),
+		settleAnimation: rebuildAnimationAtProgress
+	};
+
+	// The Workspace's half of a Scene swap (`./film-scene-selection.ts`). Engine
+	// state already holds the Scene and the Timeline is already cut to it. The
+	// first flush mounts the Scene's DOM and runs the effects that follow engine
+	// state (render resources, stage, media); the resource wait covers what
+	// those started, which is more than fonts when the Scene brings its own
+	// substrate, body, or video. Then the shared settle. A paused frame is exact
+	// once this resolves; until then live preview may show the hitch of the
+	// remount (ADR-0068 §4).
+	async function settleOpenFilmSceneAt(sceneSeconds: number): Promise<void> {
+		const durationSeconds = engineState.transport.durationSeconds;
+		await tick();
+		await waitForActiveCompositionResources();
+		await settleSwappedCompositionState(
+			compositionStateSwapSettleDependencies,
+			durationSeconds > 0 ? sceneSeconds / durationSeconds : 0
+		);
+	}
+
 	$effect(() => {
 		const active = transitionState.active;
 		if (!active) {
@@ -751,14 +793,7 @@
 				writeCapturing: (value) => {
 					transitionState.capturing = value;
 				},
-				flushDom: tick,
-				waitForFonts: fontsReady,
-				waitForLayout: async () => {
-					await nextFrame();
-					await nextFrame();
-				},
-				settlePaint: () => settleCompositionPaint(new AbortController().signal),
-				settleAnimation: rebuildAnimationAtProgress,
+				...compositionStateSwapSettleDependencies,
 				renderFrame: (outputView, timestamp) =>
 					renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
 				isActiveTransition: (candidate) => transitionState.active === candidate,
@@ -901,7 +936,10 @@
 						audioPreview
 							.start(engineState, () => timeline?.time ?? 0)
 							.catch((error) => console.error('Preview audio failed to restart.', error));
-					}
+					},
+					// Film playback (ADR-0068 §4): the end of a Scene is a hard cut to
+					// the next one. A one-Scene Film has no cut and loops as before.
+					onPlayReachedEnd: () => cutOpenFilmPlaybackToNextScene(timeline?.loop ?? true)
 				});
 				if (typeof window !== 'undefined') {
 					window.__gfxTimeline = timeline;
@@ -917,6 +955,7 @@
 				// The inspector's keyframe rows navigate the playhead through this
 				// handle (prev/next jumps + add-at-playhead).
 				timelineHandle.current = timeline;
+				openFilmSceneSettlerHandle.current = { settleSceneAt: settleOpenFilmSceneAt };
 				animationManager.rebuild(
 					buildCompositionAnimationManifest({
 						state: engineState,
@@ -1156,6 +1195,22 @@
 			return { ...settled, settleMilliseconds: performance.now() - startedAt };
 		};
 		window.__settleGfxDeterministicCompositionFrame = settleDeterministicCompositionFrame;
+		// Scripted Film-time seam (`scripts/cdp-film-cut-frames.mjs`): move Film
+		// time to one frame, crossing a cut when the frame is in another Scene,
+		// then land on it through the one deterministic settle above. The settle
+		// is read off `window` after the seek, because a Scene swap can re-run
+		// this effect and replace it.
+		window.__settleGfxFilmFrame = async (filmFrame) => {
+			const position = await seekOpenFilmFrame(filmFrame);
+			const settle = window.__settleGfxDeterministicCompositionFrame;
+			if (!settle) throw new Error('The Workspace was destroyed while Film time was settling.');
+			const frameRate = resolveFrameRate(engineState.transport.fps);
+			await settle({
+				address: deterministicFrameAddressFor(position.localFrame, frameRate),
+				frameRate: { num: frameRate.num, den: frameRate.den }
+			});
+			return position;
+		};
 
 		function deterministicFrameRequestFor(frame: number): DeterministicFrameRequest {
 			const frameRate = resolveFrameRate(engineState.transport.fps);
@@ -1395,6 +1450,7 @@
 			window.__readGfxRuntimeRenderRegistryIdentity = undefined;
 			window.__captureGfxDeterministicFrameGeometry = undefined;
 			window.__settleGfxDeterministicCompositionFrame = undefined;
+			window.__settleGfxFilmFrame = undefined;
 			window.__configureGfxDeterministicRenderCell = undefined;
 			window.removeEventListener('pointermove', onTimelineResizeMove);
 			window.removeEventListener('pointerup', onTimelineResizeEnd);
@@ -1402,6 +1458,7 @@
 		timeline?.dispose();
 		timeline = null;
 		timelineHandle.current = null;
+		openFilmSceneSettlerHandle.current = null;
 		compositionExportHandle.current = null;
 		audioPreview.dispose();
 		transitionSnapshotController.dispose();

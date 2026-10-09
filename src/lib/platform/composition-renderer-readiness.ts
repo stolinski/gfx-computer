@@ -12,8 +12,12 @@
  * whose chrome Effect has not loaded renders a frame without its chrome, which
  * is silently wrong output rather than a visible failure.
  */
-import { collectPresetRendererRequirements } from './pipelines/preset-renderer-requirements';
+import {
+	collectPresetRendererRequirements,
+	collectScenePresetRendererRequirements
+} from './pipelines/preset-renderer-requirements';
 import { compositionEditHistory } from './composition-edit-history';
+import { scenePresetsOfOpenFilm, type OpenFilmDocument } from './open-film-document';
 import { getPack, UnknownPackError } from './packs/registry';
 import { getPresetBySlug } from './preset-catalog';
 import { ensurePackLoaded } from './user-pack-runtime';
@@ -24,7 +28,11 @@ import {
 } from './composition-operation-preflight';
 
 import type { Preset } from './engine-schema';
+import type { PipelineRendererRequirements } from './pipelines/runtime-loader';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
+
+/** The part of an open document that decides what has to render: the Film and its legacy envelope. */
+export type FilmRendererSubject = Pick<OpenFilmDocument, 'film' | 'legacyPresetEnvelope'>;
 
 /**
  * Load and activate every Pipeline renderer `document` needs. Rejects when a
@@ -45,6 +53,37 @@ export async function ensureCompositionRenderersLoaded(document: Preset): Promis
 		})
 	);
 	pipelineRendererRuntime.activate(bundle);
+}
+
+/**
+ * What every Scene of a Film needs to render, as one set of requirements: the
+ * union over its Scenes, under the Film's one Pack (ADR-0068 §1). The Pack must
+ * already be registered (`ensurePackLoaded`).
+ */
+export function collectFilmRendererRequirements(
+	document: FilmRendererSubject
+): PipelineRendererRequirements {
+	return collectScenePresetRendererRequirements(scenePresetsOfOpenFilm(document), {
+		pack: getPack(document.film.pack),
+		resolvePack: getPack,
+		resolvePreset: getPresetBySlug
+	});
+}
+
+/**
+ * Load and activate the Film's Pack and every Pipeline renderer any of its
+ * Scenes needs, before the Film becomes the open document. A cut then swaps
+ * engine state to a Scene whose renderers are already here, and never waits on
+ * a module load (ADR-0068 §4). Rejects when the Pack is absent or a renderer
+ * module cannot load.
+ */
+export async function ensureFilmRenderersLoaded(document: FilmRendererSubject): Promise<void> {
+	if ((await ensurePackLoaded(document.film.pack)).kind === 'missing') {
+		throw new UnknownPackError(document.film.pack);
+	}
+	pipelineRendererRuntime.activate(
+		await pipelineRendererRuntime.resolve(collectFilmRendererRequirements(document))
+	);
 }
 
 /**

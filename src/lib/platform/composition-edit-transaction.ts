@@ -51,7 +51,7 @@ import {
 import {
 	COMPOSITION_RECEIPT_FINDING_LIMIT,
 	refuseCompositionOperation,
-	refuseDuringCompositionTransitionCapture,
+	refuseWhileCompositionStateIsSwapped,
 	refuseStaleCompositionRevision,
 	requireCompositionOperationRow,
 	type CompositionOperationFailure
@@ -361,8 +361,8 @@ async function runOpenFilmTransaction(
 		);
 	}
 
-	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
-	if (captureRefusal) return captureRefusal;
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
 
 	const staleRefusal = refuseStaleCompositionRevision(row, request.expectedRevision);
 	if (staleRefusal) return staleRefusal;
@@ -589,8 +589,8 @@ export function runCompositionHistoryTransaction(
 	const row = requireCompositionHistoryRow(direction);
 	const focus: CompositionWorkspaceFocus = { target: 'composition-root' };
 
-	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
-	if (captureRefusal) return captureRefusal;
+	const swapRefusal = refuseWhileCompositionStateIsSwapped(row);
+	if (swapRefusal) return swapRefusal;
 
 	const staleRefusal = refuseStaleCompositionRevision(row, expectedRevision);
 	if (staleRefusal) return staleRefusal;

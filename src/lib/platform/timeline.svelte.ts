@@ -11,7 +11,23 @@ export interface TimelineOptions {
 	 *  ADR-0033 §6). Scrub/seek intentionally has no hook: scrub is silent. */
 	onPlay?: (atSeconds: number) => void;
 	onPause?: () => void;
+	/** Play wrapped to a new start: the same Scene's frame 0, or the Scene a cut made live. */
 	onLoop?: () => void;
+	/**
+	 * Film playback (ADR-0068 §4). Called when play reaches the end of what the
+	 * transport runs over, before that end is shown. Returns `null` when there is
+	 * no other Scene to cut to, and the Timeline then loops or stops as it always
+	 * has. Otherwise returns a promise that settles once the next Scene is live
+	 * and the transport has been cut to it (`cutTo`); play resumes from there.
+	 */
+	onPlayReachedEnd?: () => Promise<void> | null;
+}
+
+/** What the transport runs over after a cut: the Scene now live, and where its playhead is. */
+export interface TimelineCut {
+	durationSeconds: number;
+	fps: number;
+	time: number;
 }
 
 export interface TimelineSelection {
@@ -34,6 +50,9 @@ export class Timeline {
 	#onPlay: TimelineOptions['onPlay'];
 	#onPause: TimelineOptions['onPause'];
 	#onLoop: TimelineOptions['onLoop'];
+	#onPlayReachedEnd: TimelineOptions['onPlayReachedEnd'];
+	/** Counts `play()` calls, so a cut that settles after a pause and a new play resumes nothing. */
+	#playSession = 0;
 
 	constructor(options: TimelineOptions) {
 		this.durationSeconds = options.durationSeconds;
@@ -43,6 +62,20 @@ export class Timeline {
 		this.#onPlay = options.onPlay;
 		this.#onPause = options.onPause;
 		this.#onLoop = options.onLoop;
+		this.#onPlayReachedEnd = options.onPlayReachedEnd;
+	}
+
+	/**
+	 * Point the transport at another Scene without ticking: its duration, its
+	 * rate, and the Scene time its playhead is on. Scene selection calls this in
+	 * the same step that writes the Scene into engine state, so the first tick
+	 * after the swap already asks for the right frame of the right Scene. The
+	 * caller drives that tick once the Scene's animation is rebuilt.
+	 */
+	cutTo(cut: TimelineCut): void {
+		this.durationSeconds = cut.durationSeconds;
+		this.fps = cut.fps;
+		this.time = Math.max(0, Math.min(cut.time, cut.durationSeconds));
 	}
 
 	seek(timestamp: number): void {
@@ -68,6 +101,7 @@ export class Timeline {
 		}
 
 		this.isPlaying = true;
+		this.#playSession += 1;
 		this.#playStartedAt = performance.now();
 		this.#playStartedFrom = this.time;
 		this.#rafId = requestAnimationFrame(this.#loop);
@@ -120,6 +154,17 @@ export class Timeline {
 		const elapsed = (now - this.#playStartedAt) / 1000;
 		const next = Math.min(this.#playStartedFrom + elapsed, this.durationSeconds);
 
+		if (next >= this.durationSeconds) {
+			// The end of a Scene is the first frame of the next one, so a cut is
+			// taken before this Scene's end is ticked: the outgoing Scene never
+			// shows a frame past its last.
+			const cut = this.#onPlayReachedEnd?.() ?? null;
+			if (cut) {
+				this.#resumeAfterCut(cut);
+				return;
+			}
+		}
+
 		this.time = next;
 		this.#tick(next);
 
@@ -140,6 +185,29 @@ export class Timeline {
 
 		this.#rafId = requestAnimationFrame(this.#loop);
 	};
+
+	/**
+	 * Hold play while a cut settles, then run the clock again from where the cut
+	 * left the playhead. The time the settle took is not played back: preview
+	 * does not skip frames of the incoming Scene to catch up.
+	 */
+	#resumeAfterCut(cut: Promise<void>): void {
+		this.#rafId = null;
+		const playSession = this.#playSession;
+		cut.then(
+			() => {
+				if (!this.isPlaying || this.#playSession !== playSession) return;
+				this.#playStartedAt = performance.now();
+				this.#playStartedFrom = this.time;
+				this.#rafId = requestAnimationFrame(this.#loop);
+				this.#onLoop?.();
+			},
+			(error: unknown) => {
+				console.error('Film playback could not cut to the next Scene.', error);
+				if (this.#playSession === playSession) this.pause();
+			}
+		);
+	}
 }
 
 declare global {
