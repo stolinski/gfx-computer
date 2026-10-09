@@ -297,7 +297,7 @@ describe('refused export correctiveness', () => {
 				{
 					shape: 'frameCount',
 					status: 400,
-					message: 'Export asks for 901 frames; the public limit is 900.',
+					message: 'Export asks for 901 frames; the limit is 900.',
 					exportDirectoriesAfter: 0,
 					wasAdmitted: false
 				},
@@ -358,7 +358,7 @@ describe('refused export correctiveness', () => {
 			{
 				shape: 'frameRate',
 				status: 400,
-				message: 'Export runs at 120 fps; the public limit is 60 fps.',
+				message: 'Export runs at 120 fps; the limit is 60 fps.',
 				exportDirectoriesAfter: 2,
 				wasAdmitted: false
 			},

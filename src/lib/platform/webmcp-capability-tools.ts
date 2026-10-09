@@ -27,6 +27,7 @@ import {
 	runInspectCapabilityVocabularyOperation,
 	runPrepareCapabilityAuthoringFamilyOperation
 } from './composition-capability-operations';
+import { fetchServedExportRuntimeLimits } from './export-video';
 import { WEBMCP_ON_DEMAND_FAMILY_NAMES } from './webmcp-operation-inventory';
 
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
@@ -66,7 +67,9 @@ export function listWebmcpCapabilityToolDefinitions(): readonly WebmcpToolDefini
 		{
 			operationId: 'capability.inspect-limits',
 			inputSchema: WEBMCP_NO_ARGUMENTS_SCHEMA,
-			run: async () => runInspectCapabilityLimitsOperation()
+			// The envelope is the serving origin's, so it is read from the origin
+			// on every call rather than assumed from the public contract.
+			run: async () => runInspectCapabilityLimitsOperation(await fetchServedExportRuntimeLimits())
 		},
 		{
 			operationId: 'capability.prepare-authoring-family',

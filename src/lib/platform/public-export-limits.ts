@@ -91,7 +91,10 @@ export function findExportConcurrencyRejection(
 }
 
 /**
- * Whether a well-formed session request fits the public envelope. Duration is
+ * Whether a well-formed session request fits the envelope — the public one
+ * unless the caller passes the limits its host serves. The message names the
+ * bound without calling it public, because a development host refuses against
+ * a longer envelope with the same words. Duration is
  * measured from the exact frame-rate rational, never the display literal, so a
  * 900-frame 59.94 request is correctly seen as 15.015 seconds rather than 15.
  */
@@ -104,14 +107,14 @@ export function findExportEnvelopeRejection(
 		return {
 			limit: 'frameRate',
 			status: 400,
-			message: `Export runs at ${formatFrameRateRational(rate)} fps; the public limit is ${limits.maxFrameRate} fps.`
+			message: `Export runs at ${formatFrameRateRational(rate)} fps; the limit is ${limits.maxFrameRate} fps.`
 		};
 	}
 	if (request.frameCount > limits.maxFrameCount) {
 		return {
 			limit: 'frameCount',
 			status: 400,
-			message: `Export asks for ${request.frameCount} frames; the public limit is ${limits.maxFrameCount}.`
+			message: `Export asks for ${request.frameCount} frames; the limit is ${limits.maxFrameCount}.`
 		};
 	}
 	const durationSeconds = framesToSeconds(request.frameCount, rate);
@@ -120,14 +123,14 @@ export function findExportEnvelopeRejection(
 		return {
 			limit: 'durationSeconds',
 			status: 400,
-			message: `Export spans ${durationSeconds.toFixed(3)} seconds; the public limit is ${limits.maxDurationSeconds} seconds (${admissibleFrames} frames at ${formatFrameRateRational(rate)} fps).`
+			message: `Export spans ${durationSeconds.toFixed(3)} seconds; the limit is ${limits.maxDurationSeconds} seconds (${admissibleFrames} frames at ${formatFrameRateRational(rate)} fps).`
 		};
 	}
 	if (request.audioBytes > limits.maxAudioBytes) {
 		return {
 			limit: 'audioBytes',
 			status: 413,
-			message: `Export declares ${request.audioBytes} bytes of audio; the public limit is ${limits.maxAudioBytes}.`
+			message: `Export declares ${request.audioBytes} bytes of audio; the limit is ${limits.maxAudioBytes}.`
 		};
 	}
 	const projectedOutputBytes =
@@ -136,7 +139,7 @@ export function findExportEnvelopeRejection(
 		return {
 			limit: 'outputBytes',
 			status: 413,
-			message: `A ${request.frameCount}-frame ${request.format} export is projected at ${projectedOutputBytes} bytes; the public limit is ${limits.maxOutputBytes}.`
+			message: `A ${request.frameCount}-frame ${request.format} export is projected at ${projectedOutputBytes} bytes; the limit is ${limits.maxOutputBytes}.`
 		};
 	}
 	return null;
@@ -174,7 +177,7 @@ export function findExportFrameBytesRejection(
 		return {
 			limit: 'frameBytes',
 			status: 413,
-			message: `Export frame is ${frameBytes} bytes; the public limit is ${limits.maxFrameBytes} per frame.`
+			message: `Export frame is ${frameBytes} bytes; the limit is ${limits.maxFrameBytes} per frame.`
 		};
 	}
 	const sessionBytes = session.uploadedBytes + frameBytes;
@@ -197,7 +200,7 @@ export function findExportOutputRejection(
 	return {
 		limit: 'outputBytes',
 		status: 413,
-		message: `Export output is ${outputBytes} bytes; the public limit is ${limits.maxOutputBytes}.`
+		message: `Export output is ${outputBytes} bytes; the limit is ${limits.maxOutputBytes}.`
 	};
 }
 

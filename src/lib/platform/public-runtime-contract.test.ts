@@ -8,7 +8,9 @@ import {
 } from '$lib/platform/export-session.server';
 import {
 	DEFAULT_COMPOSITION_SESSION_STORAGE_IDENTITY,
+	DEVELOPMENT_EXPORT_RUNTIME_LIMITS,
 	parseCompositionSessionStoreConfig,
+	parseExportRuntimeLimits,
 	parsePublicRuntimeConfig,
 	PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
 	PUBLIC_EXPORT_RUNTIME_LIMITS,
@@ -185,6 +187,121 @@ describe('bounded public export limits', () => {
 		assert.ok(
 			PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs <
 				PUBLIC_EXPORT_RUNTIME_LIMITS.sessionMaxLifetimeMs
+		);
+	});
+});
+
+/** ADR-0068 §9: the envelope a development host admits so it can render a Film. */
+describe('bounded development export limits', () => {
+	it('admits the longest and fastest composition the transport schema allows', () => {
+		assert.equal(DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxDurationSeconds, 600);
+		assert.equal(DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameRate, 120);
+	});
+
+	it('keeps the frame ceiling consistent with the duration and rate ceilings', () => {
+		assert.equal(
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameCount,
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxDurationSeconds *
+				DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameRate
+		);
+	});
+
+	it('sizes the output ceiling above the measured worst-case native lane', () => {
+		for (const bytesPerFrame of Object.values(RATIFIED_NATIVE_OUTPUT_BYTES_PER_FRAME)) {
+			assert.ok(
+				bytesPerFrame * DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameCount <=
+					DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxOutputBytes,
+				`a full-length export at ${bytesPerFrame} bytes per frame exceeds maxOutputBytes`
+			);
+		}
+	});
+
+	it('names the temp disk every concurrent session at the output ceiling can occupy', () => {
+		assert.ok(
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.requiredTemporaryDiskBytes >=
+				worstCaseTemporaryDiskBytes(DEVELOPMENT_EXPORT_RUNTIME_LIMITS)
+		);
+	});
+
+	it('admits one uncompressed native-target frame', () => {
+		assert.ok(DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameBytes > 3840 * 2160 * 4);
+	});
+
+	// The audio bed is one request, and the adapter's body ceiling is maxFrameBytes
+	// on every profile, so a larger audio limit would promise an upload the adapter
+	// refuses. The bed it does admit is shorter than the longest composition.
+	it('admits no more audio than one request body can carry', () => {
+		assert.equal(
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes,
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameBytes
+		);
+		const stereo48kHz16BitBytesPerSecond = 48_000 * 2 * 2;
+		assert.equal(
+			Math.floor(DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes / stereo48kHz16BitBytesPerSecond),
+			349
+		);
+	});
+
+	it('expires an idle session well inside its hard lifetime', () => {
+		assert.ok(
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs <
+				DEVELOPMENT_EXPORT_RUNTIME_LIMITS.sessionMaxLifetimeMs
+		);
+	});
+
+	it('gives a full-length render more than a second for each frame', () => {
+		assert.ok(
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS.sessionMaxLifetimeMs /
+				DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameCount >=
+				1_000
+		);
+	});
+
+	it('is never tighter than the public envelope on any bound', () => {
+		const development: Readonly<Record<string, number>> = {
+			...DEVELOPMENT_EXPORT_RUNTIME_LIMITS
+		};
+		for (const [name, bound] of Object.entries(PUBLIC_EXPORT_RUNTIME_LIMITS)) {
+			assert.ok(
+				development[name] >= bound,
+				`${name} is tighter on a development host than on a public one`
+			);
+		}
+	});
+});
+
+describe('export limits read back over the wire', () => {
+	it('round-trips both ratified envelopes through JSON', () => {
+		for (const limits of [PUBLIC_EXPORT_RUNTIME_LIMITS, DEVELOPMENT_EXPORT_RUNTIME_LIMITS]) {
+			assert.deepEqual(parseExportRuntimeLimits(JSON.parse(JSON.stringify(limits))), limits);
+		}
+	});
+
+	it('refuses a payload missing any one bound, so a partial answer is never trusted', () => {
+		for (const name of Object.keys(PUBLIC_EXPORT_RUNTIME_LIMITS)) {
+			const partial = Object.fromEntries(
+				Object.entries(DEVELOPMENT_EXPORT_RUNTIME_LIMITS).filter(([key]) => key !== name)
+			);
+			assert.equal(parseExportRuntimeLimits(partial), null, `${name} was not required`);
+		}
+	});
+
+	it('refuses a bound that is not a positive whole number, and anything that is not an object', () => {
+		for (const bound of [0, -1, 1.5, '600', null, Number.NaN]) {
+			assert.equal(
+				parseExportRuntimeLimits({ ...PUBLIC_EXPORT_RUNTIME_LIMITS, maxDurationSeconds: bound }),
+				null
+			);
+		}
+		for (const value of [null, undefined, 'limits', 600, [PUBLIC_EXPORT_RUNTIME_LIMITS]]) {
+			assert.equal(parseExportRuntimeLimits(value), null);
+		}
+	});
+
+	it('drops fields the contract does not name', () => {
+		assert.deepEqual(
+			parseExportRuntimeLimits({ ...PUBLIC_EXPORT_RUNTIME_LIMITS, freeBytes: 1 }),
+			PUBLIC_EXPORT_RUNTIME_LIMITS
 		);
 	});
 });

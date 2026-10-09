@@ -24,11 +24,13 @@
  */
 
 import {
+	DEVELOPMENT_EXPORT_RUNTIME_LIMITS,
 	PUBLIC_EXPORT_RUNTIME_LIMITS,
 	PublicRuntimeConfigError,
 	isHostedOrigin,
 	parseCompositionSessionStoreConfig,
-	parsePublicRuntimeConfig
+	parsePublicRuntimeConfig,
+	type PublicExportRuntimeLimits
 } from '$lib/platform/public-runtime-contract';
 
 /**
@@ -89,6 +91,22 @@ export function parsePublicRuntimeProfile(
 		);
 	}
 	return declared ?? 'development';
+}
+
+/**
+ * The export envelope a host of this profile admits. Only a `development` host
+ * gets the long one, so a local checkout can render a Film
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §9);
+ * `public` keeps the ratified fifteen seconds, and so does `hosted`, whose
+ * browser lane holds the whole file in the page. Lives here rather than beside
+ * the numbers because this module already imports the contract.
+ */
+export function exportRuntimeLimitsForProfile(
+	profile: PublicRuntimeProfile
+): PublicExportRuntimeLimits {
+	return profile === 'development'
+		? DEVELOPMENT_EXPORT_RUNTIME_LIMITS
+		: PUBLIC_EXPORT_RUNTIME_LIMITS;
 }
 
 /**

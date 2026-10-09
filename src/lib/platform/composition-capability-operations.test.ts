@@ -5,7 +5,10 @@ import {
 	runInspectCapabilityLimitsOperation,
 	runInspectCapabilityVocabularyOperation
 } from './composition-capability-operations';
-import { PUBLIC_EXPORT_RUNTIME_LIMITS } from './public-runtime-contract';
+import {
+	DEVELOPMENT_EXPORT_RUNTIME_LIMITS,
+	PUBLIC_EXPORT_RUNTIME_LIMITS
+} from './public-runtime-contract';
 import {
 	readWebmcpDerivedEnums,
 	readWebmcpVocabularySections
@@ -75,7 +78,7 @@ describe('capability vocabulary', () => {
 
 describe('capability limits', () => {
 	it('reports the ratified public envelope and the result budgets', () => {
-		const receipt = runInspectCapabilityLimitsOperation();
+		const receipt = runInspectCapabilityLimitsOperation(PUBLIC_EXPORT_RUNTIME_LIMITS);
 
 		expect(receipt.transport).toEqual({
 			maxDurationSeconds: PUBLIC_EXPORT_RUNTIME_LIMITS.maxDurationSeconds,
@@ -91,5 +94,29 @@ describe('capability limits', () => {
 			characterBudget: WEBMCP_RESULT_CHARACTER_BUDGET,
 			wholeDocumentCharacterBudget: WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET
 		});
+	});
+
+	// ADR-0068 §9: an agent on a development host is told the envelope that host
+	// serves, so it does not cut a Film down to the public demo's fifteen seconds.
+	it('reports the limits it is handed rather than assuming the public ones', () => {
+		const receipt = runInspectCapabilityLimitsOperation(DEVELOPMENT_EXPORT_RUNTIME_LIMITS);
+
+		expect(receipt.transport).toEqual({
+			maxDurationSeconds: 600,
+			maxFrameRate: 120,
+			maxFrameCount: 72_000,
+			rates: STANDARD_TRANSPORT_RATES
+		});
+		expect(receipt.output).toEqual({
+			maxOutputBytes: DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxOutputBytes,
+			maxFrameBytes: DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameBytes,
+			maxAudioBytes: DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxAudioBytes
+		});
+		expect(receipt.exportSession).toEqual({
+			maxConcurrent: DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxConcurrentSessions,
+			idleTimeoutMs: DEVELOPMENT_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs,
+			maxLifetimeMs: DEVELOPMENT_EXPORT_RUNTIME_LIMITS.sessionMaxLifetimeMs
+		});
+		expect(JSON.stringify(receipt).length).toBeLessThanOrEqual(WEBMCP_RESULT_CHARACTER_BUDGET);
 	});
 });

@@ -251,6 +251,81 @@ export const PUBLIC_EXPORT_RUNTIME_LIMITS: PublicExportRuntimeLimits = {
 };
 
 /**
+ * The export envelope a `development` host admits instead: a local checkout
+ * renders Films, whose exports run far past the public demo's fifteen seconds
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §9).
+ * The `public` and `hosted` profiles never read it —
+ * `exportRuntimeLimitsForProfile` in `public-runtime-deployment.ts` is the one
+ * place a profile becomes an envelope.
+ *
+ * - Duration and rate are the composition schema's own transport ceilings (600
+ *   seconds, 120 fps), so no composition the schema admits is refused for its
+ *   length; the frame ceiling is their product.
+ * - `maxAudioBytes` equals `maxFrameBytes` because the audio bed is uploaded in
+ *   one request and both share the adapter's `BODY_SIZE_LIMIT`; a larger number
+ *   here would promise an upload the adapter refuses. 64 MiB is about 349
+ *   seconds of 16-bit 48 kHz stereo, so a longer piece carries its audio only
+ *   as mono or at a lower sample rate until the bed is uploaded in parts.
+ * - `maxOutputBytes` covers 72,000 frames at the ratified ProRes cost
+ *   (126,000,000,000 bytes), rounded up to 128 GiB.
+ * - `sessionMaxLifetimeMs` is 24 hours: 1.2 seconds for each of 72,000 frames
+ *   to be rendered at the native target, PNG-encoded, uploaded, and encoded.
+ *   The idle timeout is unchanged, so an abandoned session is still reclaimed
+ *   in fifteen minutes; the lifetime only bounds a render that keeps working.
+ * - `requiredTemporaryDiskBytes` is the worst case — every concurrent session
+ *   at the output ceiling. `/api/health` does not hold a development host to
+ *   it (see `inspectTemporaryDisk`): it is a local machine, a real Film is far
+ *   smaller than the ceiling, and an encode that fills the disk fails by
+ *   itself.
+ *
+ * `public-runtime-contract.test.ts` keeps these consistent with each other.
+ */
+export const DEVELOPMENT_EXPORT_RUNTIME_LIMITS: PublicExportRuntimeLimits = {
+	maxDurationSeconds: 600,
+	maxFrameRate: 120,
+	maxFrameCount: 72_000,
+	maxFrameBytes: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameBytes,
+	maxAudioBytes: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameBytes,
+	maxOutputBytes: 128 * 1024 * 1024 * 1024,
+	maxConcurrentSessions: PUBLIC_EXPORT_RUNTIME_LIMITS.maxConcurrentSessions,
+	sessionIdleTimeoutMs: PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs,
+	sessionMaxLifetimeMs: 24 * 60 * 60 * 1000,
+	requiredTemporaryDiskBytes: 256 * 1024 * 1024 * 1024
+};
+
+const EXPORT_RUNTIME_LIMIT_NAMES = [
+	'maxDurationSeconds',
+	'maxFrameRate',
+	'maxFrameCount',
+	'maxFrameBytes',
+	'maxAudioBytes',
+	'maxOutputBytes',
+	'maxConcurrentSessions',
+	'sessionIdleTimeoutMs',
+	'sessionMaxLifetimeMs',
+	'requiredTemporaryDiskBytes'
+] as const satisfies readonly (keyof PublicExportRuntimeLimits)[];
+
+/**
+ * Narrow the `/api/export/limits` payload to the limits it claims to be, or
+ * `null` when any bound is missing or is not a positive whole number. The page
+ * reads its own origin's limits over the wire, so they arrive as `unknown`.
+ */
+export function parseExportRuntimeLimits(value: unknown): PublicExportRuntimeLimits | null {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+	const document: Readonly<Record<string, unknown>> = { ...value };
+	// Every name below is overwritten or the parse fails, so the public numbers
+	// this starts from never reach the caller.
+	const limits: PublicExportRuntimeLimits = { ...PUBLIC_EXPORT_RUNTIME_LIMITS };
+	for (const name of EXPORT_RUNTIME_LIMIT_NAMES) {
+		const bound = document[name];
+		if (typeof bound !== 'number' || !Number.isSafeInteger(bound) || bound < 1) return null;
+		limits[name] = bound;
+	}
+	return limits;
+}
+
+/**
  * Output-cost ceiling for one native-target frame, per lane. Set just above the
  * worst case measured from a high-entropy 3840x2160 source with audio
  * (444,437 webm / 1,669,843 ProRes bytes per frame — see the probe evidence).

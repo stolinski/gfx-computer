@@ -40,6 +40,7 @@ import { PNG } from 'pngjs';
 import { format, resolveConfig } from 'prettier';
 
 import {
+	DEVELOPMENT_EXPORT_RUNTIME_LIMITS,
 	PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
 	PUBLIC_EXPORT_RUNTIME_LIMITS
 } from '../src/lib/platform/public-runtime-contract.ts';
@@ -79,6 +80,13 @@ const POLL_INTERVAL_MS = 250;
 const SCENARIO_DURATION_SECONDS = 2;
 const SCENARIO_FPS = 30;
 const SCENARIO_FRAME_COUNT = SCENARIO_DURATION_SECONDS * SCENARIO_FPS;
+
+/**
+ * The longest duration `transport.set-timing` accepts — the composition
+ * schema's ceiling (`engine-schema.ts`), which a development host's export
+ * envelope reaches.
+ */
+const TRANSPORT_SCHEMA_MAX_DURATION_SECONDS = DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxDurationSeconds;
 
 /** Two frames far enough apart to be in visibly different motion states. */
 const COMPARED_FRAME = 45;
@@ -990,9 +998,16 @@ try {
 		{ maxDurationSeconds?: number } | undefined;
 	const advertisedStorage = limits.payload.sessionStorage as
 		{ maxCompositionBytes?: number } | undefined;
+	// The origin serves the envelope of its runtime profile (ADR-0068 §9): the
+	// Film-length one on a development host, the public one otherwise. Either is
+	// ratified; anything else is an envelope nobody declared.
+	const advertisedEnvelope =
+		[PUBLIC_EXPORT_RUNTIME_LIMITS, DEVELOPMENT_EXPORT_RUNTIME_LIMITS].find(
+			(limits) => limits.maxDurationSeconds === advertisedTransport?.maxDurationSeconds
+		) ?? null;
 	expect(
 		'the-limits-an-agent-is-told-about-are-the-ratified-ones',
-		advertisedTransport?.maxDurationSeconds === PUBLIC_EXPORT_RUNTIME_LIMITS.maxDurationSeconds &&
+		advertisedEnvelope !== null &&
 			advertisedStorage?.maxCompositionBytes ===
 				PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxCompositionBytes,
 		JSON.stringify(limits.payload)
@@ -1484,37 +1499,50 @@ try {
 	// envelope belongs to the operation that ships the file, and that is where
 	// the corrective refusal has to arrive.
 	startPhase('negative-export-envelope');
-	await applyWebmcpEdit(page, 'transport.set-timing', {
-		durationSeconds: PUBLIC_EXPORT_RUNTIME_LIMITS.maxDurationSeconds + 5
-	});
-	const beforeRefusedExport = new Set((await listDownloads(downloadDirectory)).keys());
-	const overEnvelope = await callWebmcpOperation(page, 'delivery.export-video', {
-		expectedRevision: observedRevision
-	});
-	const refusedDownload = await awaitNewDownload(
-		downloadDirectory,
-		beforeRefusedExport,
-		NO_DOWNLOAD_TIMEOUT_MS
-	);
-	negatives.exportEnvelope = overEnvelope.payload;
-	expect(
-		'an-export-past-the-public-envelope-is-refused-with-the-bound-it-missed',
-		overEnvelope.isError &&
-			overEnvelope.payload.code === 'export_failed' &&
-			[
-				String(PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount),
-				String(PUBLIC_EXPORT_RUNTIME_LIMITS.maxDurationSeconds)
-			].some((bound) => String(overEnvelope.payload.message).includes(bound)),
-		JSON.stringify(overEnvelope.payload).slice(0, 400)
-	);
-	expect(
-		'a-refused-export-hands-the-browser-no-file',
-		refusedDownload === null,
-		`the browser received ${JSON.stringify(refusedDownload)}`
-	);
-	await applyWebmcpEdit(page, 'transport.set-timing', {
-		durationSeconds: SCENARIO_DURATION_SECONDS
-	});
+	// A development host's envelope reaches the transport schema's own ceilings,
+	// so no composition the schema admits is past it and there is nothing to
+	// refuse. The negative runs wherever the served envelope is the shorter one.
+	const servedEnvelope = advertisedEnvelope ?? PUBLIC_EXPORT_RUNTIME_LIMITS;
+	const overEnvelopeDurationSeconds = servedEnvelope.maxDurationSeconds + 5;
+	if (overEnvelopeDurationSeconds <= TRANSPORT_SCHEMA_MAX_DURATION_SECONDS) {
+		await applyWebmcpEdit(page, 'transport.set-timing', {
+			durationSeconds: overEnvelopeDurationSeconds
+		});
+		const beforeRefusedExport = new Set((await listDownloads(downloadDirectory)).keys());
+		const overEnvelope = await callWebmcpOperation(page, 'delivery.export-video', {
+			expectedRevision: observedRevision
+		});
+		const refusedDownload = await awaitNewDownload(
+			downloadDirectory,
+			beforeRefusedExport,
+			NO_DOWNLOAD_TIMEOUT_MS
+		);
+		negatives.exportEnvelope = overEnvelope.payload;
+		expect(
+			'an-export-past-the-served-envelope-is-refused-with-the-bound-it-missed',
+			overEnvelope.isError &&
+				overEnvelope.payload.code === 'export_failed' &&
+				[String(servedEnvelope.maxFrameCount), String(servedEnvelope.maxDurationSeconds)].some(
+					(bound) => String(overEnvelope.payload.message).includes(bound)
+				),
+			JSON.stringify(overEnvelope.payload).slice(0, 400)
+		);
+		expect(
+			'a-refused-export-hands-the-browser-no-file',
+			refusedDownload === null,
+			`the browser received ${JSON.stringify(refusedDownload)}`
+		);
+		await applyWebmcpEdit(page, 'transport.set-timing', {
+			durationSeconds: SCENARIO_DURATION_SECONDS
+		});
+	} else {
+		negatives.exportEnvelope = {
+			maxDurationSeconds: servedEnvelope.maxDurationSeconds,
+			skipped:
+				'This origin admits every duration the transport schema allows, so no authorable composition is past its export envelope.'
+		};
+		console.log('skip an-export-past-the-served-envelope-is-refused: envelope covers the schema');
+	}
 
 	// --- the visitor who walks away mid-export -------------------------------
 	// A route change ends every registration, and a call still in flight on one

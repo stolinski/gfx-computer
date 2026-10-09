@@ -4,6 +4,11 @@ import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
 import { framesToSeconds, resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
 
 import { fontsReady } from './fonts';
+import {
+	parseExportRuntimeLimits,
+	PUBLIC_EXPORT_RUNTIME_LIMITS,
+	type PublicExportRuntimeLimits
+} from './public-runtime-contract';
 
 export interface TransparentVideoExportOptions {
 	canvas: HTMLCanvasElement | OffscreenCanvas;
@@ -130,6 +135,24 @@ async function responseFailure(response: Response, fallback: string): Promise<Er
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The export limits this page's origin enforces. The runtime profile is private
+ * to the origin, so the page asks: a development host answers with the
+ * Film-length envelope, a public host with the ratified one. The hosted origin
+ * serves no `/api/export/` route at all and encodes in the browser inside the
+ * public envelope, so its 404 resolves to the public limits rather than failing.
+ */
+export async function fetchServedExportRuntimeLimits(
+	signal?: AbortSignal
+): Promise<PublicExportRuntimeLimits> {
+	const response = await fetch('/api/export/limits', { signal });
+	if (response.status === 404) return PUBLIC_EXPORT_RUNTIME_LIMITS;
+	if (!response.ok) throw await responseFailure(response, 'Export limits request failed');
+	const limits = parseExportRuntimeLimits(await response.json());
+	if (!limits) throw new Error('Export limits returned an invalid document.');
+	return limits;
 }
 
 async function createExportSession(options: {
@@ -367,7 +390,9 @@ export async function exportTransparentProRes({
  * `Response.blob()` is what keeps this affordable: the bytes live in the
  * browser's blob storage, which spills to disk, rather than in the page's heap.
  * A full-length public export runs to `PUBLIC_EXPORT_RUNTIME_LIMITS.maxOutputBytes`,
- * far past what an in-page buffer should hold.
+ * and a development host's Film-length one to
+ * `DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxOutputBytes` — both far past what an
+ * in-page buffer should hold.
  *
  * A browser-encoded export is already a Blob in that storage, so it is handed
  * over directly; there is no session to cancel and no transfer to observe.

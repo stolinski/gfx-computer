@@ -1,6 +1,6 @@
 /**
  * The `capability` family: what this engine can express, and the limits the
- * public demo enforces
+ * serving origin enforces
  * ([ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §2).
  *
  * Vocabulary and limits answer before anything exists, which makes them the
@@ -8,14 +8,14 @@
  * composition opens and changes agent context alone. None writes the document.
  *
  * Neither restates anything either. The vocabulary is the live registry read in
- * `webmcp-derived-tool-schemas`, and the limits are the ratified public export
- * envelope in `public-runtime-contract` plus the result budgets the operation
- * contract declares. A member offered here is a member an operation accepts,
+ * `webmcp-derived-tool-schemas`, and the limits are the export envelope the
+ * origin serves for its runtime profile (`public-runtime-contract`) plus the
+ * result budgets the operation contract declares. A member offered here is a member an operation accepts,
  * because there is only one list.
  */
 import {
 	PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
-	PUBLIC_EXPORT_RUNTIME_LIMITS
+	type PublicExportRuntimeLimits
 } from './public-runtime-contract';
 import { readWebmcpDerivedEnums } from './webmcp-derived-tool-schemas';
 import {
@@ -79,7 +79,7 @@ export interface CapabilityVocabularyReceipt {
 export interface CapabilityLimitsReceipt {
 	status: 'inspected';
 	operationId: string;
-	/** What a composition may declare before the public export lane refuses it. */
+	/** What a composition may declare before this origin's export lane refuses it. */
 	transport: {
 		maxDurationSeconds: number;
 		maxFrameRate: number;
@@ -163,28 +163,35 @@ export function runInspectCapabilityVocabularyOperation(
  * Report the limits that reject work before it starts. An agent that reads this
  * first authors a piece the export lane will actually take, rather than
  * discovering a 40-second duration at the end of a render.
+ *
+ * The export limits are passed in because they belong to the origin serving the
+ * page, not to this module: a development host admits a Film-length export and
+ * a public or hosted one the ratified fifteen seconds. The WebMCP tool reads
+ * them with `fetchServedExportRuntimeLimits`.
  */
-export function runInspectCapabilityLimitsOperation(): CapabilityLimitsReceipt {
+export function runInspectCapabilityLimitsOperation(
+	exportLimits: PublicExportRuntimeLimits
+): CapabilityLimitsReceipt {
 	const row = requireCompositionOperationRow('capability.inspect-limits');
 
 	return {
 		status: 'inspected',
 		operationId: row.id,
 		transport: {
-			maxDurationSeconds: PUBLIC_EXPORT_RUNTIME_LIMITS.maxDurationSeconds,
-			maxFrameRate: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameRate,
-			maxFrameCount: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount,
+			maxDurationSeconds: exportLimits.maxDurationSeconds,
+			maxFrameRate: exportLimits.maxFrameRate,
+			maxFrameCount: exportLimits.maxFrameCount,
 			rates: STANDARD_TRANSPORT_RATES
 		},
 		output: {
-			maxOutputBytes: PUBLIC_EXPORT_RUNTIME_LIMITS.maxOutputBytes,
-			maxFrameBytes: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameBytes,
-			maxAudioBytes: PUBLIC_EXPORT_RUNTIME_LIMITS.maxAudioBytes
+			maxOutputBytes: exportLimits.maxOutputBytes,
+			maxFrameBytes: exportLimits.maxFrameBytes,
+			maxAudioBytes: exportLimits.maxAudioBytes
 		},
 		exportSession: {
-			maxConcurrent: PUBLIC_EXPORT_RUNTIME_LIMITS.maxConcurrentSessions,
-			idleTimeoutMs: PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs,
-			maxLifetimeMs: PUBLIC_EXPORT_RUNTIME_LIMITS.sessionMaxLifetimeMs
+			maxConcurrent: exportLimits.maxConcurrentSessions,
+			idleTimeoutMs: exportLimits.sessionIdleTimeoutMs,
+			maxLifetimeMs: exportLimits.sessionMaxLifetimeMs
 		},
 		sessionStorage: {
 			maxStorageBytes: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxStorageBytes,

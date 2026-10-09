@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import {
+	DEVELOPMENT_EXPORT_RUNTIME_LIMITS,
 	PUBLIC_EXPORT_RUNTIME_LIMITS,
 	PublicRuntimeConfigError
 } from '$lib/platform/public-runtime-contract';
 import {
 	assertPublicRuntimeDeployment,
+	exportRuntimeLimitsForProfile,
 	findPublicRuntimeDeploymentFailures,
 	parseBodySizeLimitBytes,
 	parsePublicRuntimeProfile
@@ -54,6 +56,35 @@ const HOSTED_DEPLOYMENT: Readonly<Record<string, string>> = {
 	PUBLIC_GFX_COMPOSITION_STORE: 'browser',
 	GFX_RELEASE: 'gfx@0123456789abcdef0123456789abcdef01234567'
 };
+
+/** ADR-0068 §9: only a development host admits a Film-length export. */
+describe('export limits by runtime profile', () => {
+	it('gives a development host the long envelope', () => {
+		assert.equal(exportRuntimeLimitsForProfile('development'), DEVELOPMENT_EXPORT_RUNTIME_LIMITS);
+		assert.equal(exportRuntimeLimitsForProfile('development').maxDurationSeconds, 600);
+	});
+
+	it('keeps the public and hosted origins on the ratified fifteen seconds', () => {
+		assert.equal(exportRuntimeLimitsForProfile('public'), PUBLIC_EXPORT_RUNTIME_LIMITS);
+		assert.equal(exportRuntimeLimitsForProfile('hosted'), PUBLIC_EXPORT_RUNTIME_LIMITS);
+		assert.equal(exportRuntimeLimitsForProfile('public').maxDurationSeconds, 15);
+	});
+
+	it('follows the profile an environment declares', () => {
+		assert.equal(
+			exportRuntimeLimitsForProfile(parsePublicRuntimeProfile({})),
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS
+		);
+		assert.equal(
+			exportRuntimeLimitsForProfile(parsePublicRuntimeProfile(PUBLIC_DEPLOYMENT)),
+			PUBLIC_EXPORT_RUNTIME_LIMITS
+		);
+		assert.equal(
+			exportRuntimeLimitsForProfile(parsePublicRuntimeProfile({ PUBLIC_GFX_HOSTED: '1' })),
+			PUBLIC_EXPORT_RUNTIME_LIMITS
+		);
+	});
+});
 
 describe('hosted runtime profile', () => {
 	it('is declared by the presence of the PUBLIC_ input the page also reads', () => {

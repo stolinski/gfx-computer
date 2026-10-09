@@ -45,6 +45,10 @@ import {
 	type PublicExportRuntimeLimits
 } from '$lib/platform/public-runtime-contract';
 import {
+	exportRuntimeLimitsForProfile,
+	parsePublicRuntimeProfile
+} from '$lib/platform/public-runtime-deployment';
+import {
 	dropTimecodeToFrames,
 	formatFrameRateRational,
 	isDropTimecode,
@@ -156,7 +160,10 @@ interface ExportSessionStoreOptions {
 	ttlMs?: number;
 	maxLifetimeMs?: number;
 	maxConcurrentSessions?: number;
-	/** Envelope to admit against. Shrink it to exercise a bound in a fixture. */
+	/**
+	 * Envelope to admit against. Absent, it is the one the host's runtime profile
+	 * serves. Shrink it to exercise a bound in a fixture.
+	 */
 	limits?: PublicExportRuntimeLimits;
 	now?: () => number;
 	spawnEncoder?: typeof spawn;
@@ -507,7 +514,11 @@ export class ExportSessionStore {
 		this.#temporaryDirectory =
 			options.temporaryDirectory ?? runtime.exportTemporaryDirectory ?? tmpdir();
 		this.#ffmpegPath = options.ffmpegPath ?? runtime.ffmpegPath;
-		this.#limits = options.limits ?? PUBLIC_EXPORT_RUNTIME_LIMITS;
+		// The envelope follows the profile, read from the same environment the
+		// `init` hook validated: a development host admits a Film-length export,
+		// and a public host keeps the ratified fifteen seconds (ADR-0068 §9).
+		this.#limits =
+			options.limits ?? exportRuntimeLimitsForProfile(parsePublicRuntimeProfile(process.env));
 		this.#ttlMs = options.ttlMs ?? runtime.exportSessionIdleTimeoutMs;
 		this.#maxLifetimeMs = options.maxLifetimeMs ?? this.#limits.sessionMaxLifetimeMs;
 		this.#maxConcurrentSessions =
@@ -525,6 +536,21 @@ export class ExportSessionStore {
 		return this.#sessions.size;
 	}
 
+	/**
+	 * The limits this store really enforces: its envelope, with the concurrency,
+	 * idle timeout, and lifetime the host configured in place of the defaults.
+	 * `/api/export/limits` serves this, so what a page or an agent is told is what
+	 * a session is held to.
+	 */
+	get servedLimits(): PublicExportRuntimeLimits {
+		return {
+			...this.#limits,
+			maxConcurrentSessions: this.#maxConcurrentSessions,
+			sessionIdleTimeoutMs: this.#ttlMs,
+			sessionMaxLifetimeMs: this.#maxLifetimeMs
+		};
+	}
+
 	/** The most recent disposals and what each one released. */
 	get cleanupReceipts(): readonly ExportCleanupReceipt[] {
 		return [...this.#cleanupReceipts];
@@ -532,7 +558,7 @@ export class ExportSessionStore {
 
 	/**
 	 * Admit one export session, or refuse it. Every bound is decided here — the
-	 * caller's origin, transport shape, the public envelope, then a free
+	 * caller's origin, transport shape, the served envelope, then a free
 	 * concurrency slot — so nothing that will be refused ever reaches ffmpeg or
 	 * the filesystem. The slot is claimed in the same tick it is checked, so two
 	 * callers racing for the last one cannot both win it.
@@ -1194,6 +1220,8 @@ export class ExportSessionStore {
  * `retainedDirectoryNames` are directories a live session still owns; the sweep
  * decides on age alone, and a session draining a long download has not written
  * to its directory since the encode finished.
+ *
+ * The default age is the idle timeout, which every runtime profile shares.
  */
 export async function cleanupOrphanedExportDirectories(
 	temporaryDirectory = tmpdir(),

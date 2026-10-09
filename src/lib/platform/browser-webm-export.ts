@@ -33,6 +33,8 @@ import {
 	type VideoExportDownload
 } from './export-video';
 import { fontsReady } from './fonts';
+import { findExportEnvelopeRejection } from './public-export-limits';
+import { PUBLIC_EXPORT_RUNTIME_LIMITS } from './public-runtime-contract';
 
 function nextAnimationFrame(): Promise<void> {
 	return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -44,6 +46,11 @@ function nextAnimationFrame(): Promise<void> {
  * discards it, so the output class matches the origin lane's. The offline audio
  * mix, when present, becomes the Opus track. Aborting cancels the encoder and
  * releases whatever it had written.
+ *
+ * An export outside the public envelope is refused before a frame renders, in
+ * the words the Node lane's session admission uses. This lane is the hosted
+ * origin's, which has no session to refuse at, and it buffers the whole file in
+ * the page — so a Film-length piece must stop here, not at an exhausted tab.
  */
 export async function exportWebMInBrowser(
 	options: TransparentVideoExportOptions
@@ -60,6 +67,16 @@ export async function exportWebMInBrowser(
 		timestampForFrame,
 		signal
 	} = options;
+	const rate = resolveFrameRate(fps);
+	const frameCount = plannedFrameCount ?? Math.max(1, secondsToFrames(durationSeconds, rate));
+	// No WAV is uploaded on this lane, so the audio bound has nothing to measure;
+	// the duration bound already limits how long the mix can be.
+	const overEnvelope = findExportEnvelopeRejection(
+		{ format: 'webm', fps, frameCount, audioBytes: 0 },
+		PUBLIC_EXPORT_RUNTIME_LIMITS
+	);
+	if (overEnvelope) throw new Error(overEnvelope.message);
+
 	return Sentry.startSpan(
 		{
 			name: 'export.webm',
@@ -76,8 +93,6 @@ export async function exportWebMInBrowser(
 			await fontsReady();
 			signal?.throwIfAborted();
 
-			const rate = resolveFrameRate(fps);
-			const frameCount = plannedFrameCount ?? Math.max(1, secondsToFrames(durationSeconds, rate));
 			const frameDuration = rate.den / rate.num;
 			const yieldEvery = Math.max(1, Math.round(rate.num / rate.den));
 			exportSpan.setAttribute('export.frames', frameCount);

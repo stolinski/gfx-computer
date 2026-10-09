@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it, vi } from 'vitest';
 
-import { downloadBlob, downloadVideoExport, exportTransparentWebM } from './export-video';
+import {
+	downloadBlob,
+	downloadVideoExport,
+	exportTransparentWebM,
+	fetchServedExportRuntimeLimits
+} from './export-video';
+import {
+	DEVELOPMENT_EXPORT_RUNTIME_LIMITS,
+	PUBLIC_EXPORT_RUNTIME_LIMITS
+} from './public-runtime-contract';
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -313,5 +322,36 @@ describe('export session client', () => {
 		await assert.rejects(pending, /abort/i);
 		assert.ok(calls.includes('DELETE /session'));
 		assert.equal(calls.includes('POST /session/complete'), false);
+	});
+});
+
+/** ADR-0068 §9: the page asks its origin which export envelope it enforces. */
+describe('fetchServedExportRuntimeLimits', () => {
+	it('reads the limits the origin serves', async () => {
+		const requests: string[] = [];
+		vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+			requests.push(String(input));
+			return Response.json(DEVELOPMENT_EXPORT_RUNTIME_LIMITS);
+		});
+
+		assert.deepEqual(await fetchServedExportRuntimeLimits(), DEVELOPMENT_EXPORT_RUNTIME_LIMITS);
+		assert.deepEqual(requests, ['/api/export/limits']);
+	});
+
+	it('resolves to the public envelope on the hosted origin, which serves no export route', async () => {
+		vi.stubGlobal('fetch', async () => new Response('Not found', { status: 404 }));
+
+		assert.equal(await fetchServedExportRuntimeLimits(), PUBLIC_EXPORT_RUNTIME_LIMITS);
+	});
+
+	it('fails rather than guessing when the origin answers with something else', async () => {
+		vi.stubGlobal('fetch', async () => new Response('Export host is restarting.', { status: 503 }));
+		await assert.rejects(() => fetchServedExportRuntimeLimits(), /Export host is restarting\./);
+
+		vi.stubGlobal('fetch', async () => Response.json({ maxDurationSeconds: 600 }));
+		await assert.rejects(
+			() => fetchServedExportRuntimeLimits(),
+			/Export limits returned an invalid document\./
+		);
 	});
 });

@@ -88,6 +88,13 @@ async function inspectFfmpeg(ffmpegPath: string): Promise<FfmpegReadiness> {
 	}
 }
 
+/**
+ * The reserve is the public envelope's on every profile, deliberately. It is the
+ * gate a host passes before it admits public traffic; a development host admits
+ * the far larger `DEVELOPMENT_EXPORT_RUNTIME_LIMITS`, whose worst case is 256 GiB,
+ * and holding a local machine's health to that would report nearly every one
+ * unavailable for a reserve a real Film never approaches.
+ */
 async function inspectTemporaryDisk(directory: string): Promise<TemporaryDiskReadiness> {
 	const requiredBytes = PUBLIC_EXPORT_RUNTIME_LIMITS.requiredTemporaryDiskBytes;
 	let probeDirectory: string | null = null;

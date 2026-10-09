@@ -537,7 +537,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'capability',
 		toolName: 'gfx_capability_inspect_limits',
 		summary:
-			'Report the public demo limits that reject work before it starts: duration, rate, frame count, export size, session storage, and result character budgets.',
+			'Report the limits that reject work before it starts — the public demo limits, or the longer export limits a development origin serves: duration, rate, frame count, export size, session storage, and result character budgets.',
 		effect: 'read',
 		writes: [],
 		precondition: 'always',

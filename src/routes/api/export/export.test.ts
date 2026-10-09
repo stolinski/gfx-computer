@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 
-import { afterEach, describe, it } from 'vitest';
+import { afterEach, describe, it, vi } from 'vitest';
 
 import {
 	cleanupOrphanedExportDirectories,
@@ -24,11 +24,14 @@ import {
 	isExportSessionIdentity
 } from '$lib/platform/public-export-security';
 import {
+	DEVELOPMENT_EXPORT_RUNTIME_LIMITS,
+	parseExportRuntimeLimits,
 	PUBLIC_EXPORT_RUNTIME_LIMITS,
 	RATIFIED_NATIVE_OUTPUT_BYTES_PER_FRAME,
 	type PublicExportRuntimeLimits
 } from '$lib/platform/public-runtime-contract';
 
+import * as exportLimitsRoute from './limits/+server';
 import * as sessionsCollectionRoute from './sessions/+server';
 
 const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
@@ -36,6 +39,7 @@ const TEST_ORIGIN = 'http://localhost';
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
+	vi.unstubAllEnvs();
 	await Promise.all(
 		temporaryDirectories.splice(0).map((path) => rm(path, { recursive: true, force: true }))
 	);
@@ -130,9 +134,16 @@ interface TestStoreOptions {
 	ttlMs?: number;
 	maxLifetimeMs?: number;
 	maxConcurrentSessions?: number;
+	/**
+	 * Absent, the store takes the envelope of the profile it is running under,
+	 * which under the test runner is `development`. A fixture that means the
+	 * public envelope says so with `PUBLIC_ENVELOPE`.
+	 */
 	limits?: PublicExportRuntimeLimits;
 	now?: () => number;
 }
+
+const PUBLIC_ENVELOPE: TestStoreOptions = { limits: PUBLIC_EXPORT_RUNTIME_LIMITS };
 
 async function createStore(
 	options: FakeEncoderOptions = {},
@@ -644,7 +655,7 @@ describe('export session encoding', () => {
 /** ADR-0052: the ratified envelope, refused before ffmpeg or a work directory. */
 describe('bounded public export limit enforcement', () => {
 	it('refuses an over-envelope session without spawning ffmpeg or allocating a directory', async () => {
-		const { store, directory, encoder } = await createStore();
+		const { store, directory, encoder } = await createStore({}, PUBLIC_ENVELOPE);
 		await assert.rejects(
 			() =>
 				openSession(store, {
@@ -652,14 +663,11 @@ describe('bounded public export limit enforcement', () => {
 					fps: 60,
 					frameCount: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount + 1
 				}),
-			isLimitStatus(
-				400,
-				new RegExp(`public limit is ${PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount}`)
-			)
+			isLimitStatus(400, new RegExp(`the limit is ${PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount}`))
 		);
 		await assert.rejects(
 			() => openSession(store, { ...WEBM_SINGLE_FRAME, fps: 120 }),
-			isLimitStatus(400, /public limit is 60 fps/)
+			isLimitStatus(400, /the limit is 60 fps/)
 		);
 		await assert.rejects(
 			() =>
@@ -674,7 +682,7 @@ describe('bounded public export limit enforcement', () => {
 	});
 
 	it('admits the longest export the envelope allows', async () => {
-		const { store } = await createStore();
+		const { store } = await createStore({}, PUBLIC_ENVELOPE);
 		const session = await openSession(store, {
 			...WEBM_SINGLE_FRAME,
 			fps: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameRate,
@@ -916,6 +924,89 @@ describe('bounded public export limit enforcement', () => {
 			isLimitStatus(413, new RegExp(`Export output is ${maxOutputBytes + 1} bytes`))
 		);
 		assert.deepEqual(await readdir(directory), []);
+	});
+});
+
+/**
+ * ADR-0068 §9: a development host admits a Film-length export; a public host
+ * keeps the ratified envelope. The store reads which one it is from the
+ * environment it starts in, and `/api/export/limits` reports what it enforces.
+ */
+describe('export limits by runtime profile', () => {
+	const FILM_LENGTH_REQUEST = {
+		...WEBM_SINGLE_FRAME,
+		fps: 30,
+		frameCount: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount + 1
+	} as const;
+
+	it('admits an export past the public envelope on a development host', async () => {
+		const { store } = await createStore();
+		assert.deepEqual(store.servedLimits, DEVELOPMENT_EXPORT_RUNTIME_LIMITS);
+
+		const session = await openSession(store, FILM_LENGTH_REQUEST);
+		assert.ok(session.sessionId);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('admits the longest composition the transport schema allows, and nothing longer', async () => {
+		const { store, directory } = await createStore();
+		const session = await openSession(store, {
+			...WEBM_SINGLE_FRAME,
+			fps: 120,
+			frameCount: DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxFrameCount
+		});
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+
+		await assert.rejects(
+			() =>
+				openSession(store, {
+					...WEBM_SINGLE_FRAME,
+					fps: 30,
+					frameCount: DEVELOPMENT_EXPORT_RUNTIME_LIMITS.maxDurationSeconds * 30 + 1
+				}),
+			isLimitStatus(400, /^Export spans 600\.033 seconds; the limit is 600 seconds/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('holds a public host to the ratified envelope', async () => {
+		vi.stubEnv('GFX_RUNTIME_PROFILE', 'public');
+		const { store, directory, encoder } = await createStore();
+		assert.deepEqual(store.servedLimits, PUBLIC_EXPORT_RUNTIME_LIMITS);
+
+		await assert.rejects(
+			() => openSession(store, FILM_LENGTH_REQUEST),
+			isLimitStatus(400, /^Export asks for 901 frames; the limit is 900\.$/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+		assert.deepEqual(encoder.spawnedArguments, []);
+	});
+
+	it('reports the session bounds a host configured rather than the defaults', async () => {
+		const { store } = await createStore(
+			{},
+			{ ttlMs: 60_000, maxLifetimeMs: 120_000, maxConcurrentSessions: 1 }
+		);
+		assert.deepEqual(store.servedLimits, {
+			...DEVELOPMENT_EXPORT_RUNTIME_LIMITS,
+			maxConcurrentSessions: 1,
+			sessionIdleTimeoutMs: 60_000,
+			sessionMaxLifetimeMs: 120_000
+		});
+	});
+
+	it('serves the limits the host enforces, uncached, and only to a read', async () => {
+		assert.deepEqual(Object.keys(exportLimitsRoute), ['GET']);
+		// The handler reads nothing from the request, so it is called with none.
+		const response = await exportLimitsRoute.GET({} as Parameters<typeof exportLimitsRoute.GET>[0]);
+
+		assert.equal(response.status, 200);
+		assert.equal(response.headers.get('cache-control'), 'no-store');
+		assert.match(response.headers.get('content-type') ?? '', /^application\/json/);
+		assert.deepEqual(
+			parseExportRuntimeLimits(await response.json()),
+			DEVELOPMENT_EXPORT_RUNTIME_LIMITS
+		);
 	});
 });
 
