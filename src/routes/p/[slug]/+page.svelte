@@ -8,7 +8,7 @@
 	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { collectFilmRendererRequirements } from '$lib/platform/composition-renderer-readiness';
-	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
+	import { transitionState } from '$lib/platform/engine-state.svelte';
 	import {
 		filmState,
 		isOpenFilmEngineStateInTransit,
@@ -30,6 +30,7 @@
 		storedPresetViewOfUserComposition,
 		type UserCompositionDocument
 	} from '$lib/platform/user-composition-record';
+	import { UserCompositionAutosaveLedger } from '$lib/platform/user-composition-autosave';
 	import { userCompositionStore } from '$lib/platform/user-composition-store';
 	import { ensurePackLoaded } from '$lib/platform/user-pack-runtime';
 	import { isCurrentPresetRouteRendererLoad } from '$lib/utils/preset-route-renderer-load';
@@ -54,12 +55,16 @@
 	// Null for a library Preset: its poster is a committed still (ADR-0061).
 	let posterKey = $state<string | null>(null);
 
-	// Snapshot taken immediately after the document is applied — used to detect
-	// the first real edit (anything different from a fresh load must be user
-	// input). Opening a document seeds `engineState`, `presetBase`, and
-	// `filmState`, so the snapshot covers composition, metadata, and Scene-list
-	// edits alike.
-	let loadSnapshot = '';
+	// What the store last held for the open Film: recorded right after the
+	// document is applied, and again after each save lands. Autosave writes only
+	// a document whose stored content differs from it, so selecting a Scene or
+	// playing through a cut, which change engine state and not the Film, never
+	// save (`user-composition-autosave.ts`).
+	const autosaveLedger = new UserCompositionAutosaveLedger();
+	// Counts the saves that have landed. Autosave reads it, so the open Film is
+	// compared again once the store holds a save: a change made and undone while
+	// that save was in flight would otherwise leave the store one step behind.
+	let landedSaveCount = $state(0);
 	let appliedRouteKey = $state<string | null>(null);
 	let rendererLoadError = $state<string | null>(null);
 	let routeLoadGeneration = 0;
@@ -109,8 +114,8 @@
 	// receipt reported stay as they are. The operation loaded the Pack and the
 	// renderers before it applied the document. What is set here is only this
 	// route's own bookkeeping: any load still in flight is abandoned, the poster
-	// key and the autosave target are read off the open document, and the
-	// snapshot autosave compares against is taken now.
+	// key and the autosave target are read off the open document, and the open
+	// document is recorded as what the store holds.
 	function keepOpenDocument(): void {
 		routeLoadGeneration += 1;
 		rendererLoadError = null;
@@ -121,7 +126,8 @@
 				)
 			: null;
 		storedSlug = isStoredFilm ? data.slug : null;
-		loadSnapshot = snapshotState();
+		autosaveLedger.clear();
+		if (isStoredFilm) autosaveLedger.recordStored(readOpenFilmAsUserCompositionDocument());
 		resolutionStatus = 'ready';
 		appliedRouteKey = data.slug;
 	}
@@ -137,7 +143,7 @@
 		rendererLoadError = null;
 		resolutionStatus = 'loading';
 		posterKey = null;
-		loadSnapshot = '';
+		autosaveLedger.clear();
 		storedSlug = null;
 		transitionState.active = null;
 		transitionState.capturing = false;
@@ -207,7 +213,11 @@
 				? posterKeyForPreset(storedPresetViewOfUserComposition(sessionComposition))
 				: null;
 			storedSlug = sessionComposition ? nextData.slug : null;
-			loadSnapshot = snapshotState();
+			// Read back out of live state, so the comparison is between two
+			// documents made the same way.
+			if (sessionComposition) {
+				autosaveLedger.recordStored(readOpenFilmAsUserCompositionDocument());
+			}
 			compositionMeta.isUserComposition = sessionComposition !== null;
 			compositionMeta.userCompositionSlug = nextData.slug;
 			compositionMeta.forkedFrom = sessionComposition?.film.scenes[0]?.origin?.slug ?? null;
@@ -233,14 +243,17 @@
 		}
 	}
 
-	// Autosave: run on any change to the open Film — engineState, presetBase,
-	// the pack, or filmState.
-	// Skips a corpus Preset, which is never saved from its own page, when state
-	// matches the post-load snapshot, and while engine state is in transit: the
-	// transition snapshot path is mid-capture (engineState is a scratch buffer
-	// holding a swapped-in from/to state), or a Scene swap has not settled.
+	// Autosave: runs on any change to the open Film (engineState, presetBase,
+	// the Pack, or filmState) and saves when the Film would be stored differently
+	// from what the store holds. Skips a corpus Preset, which is never saved from
+	// its own page, and while engine state is in transit: the transition snapshot
+	// path is mid-capture (engineState is a scratch buffer holding a swapped-in
+	// from/to state), or a Scene swap has not settled.
 	$effect(() => {
 		const currentRouteKey = routeKey;
+		// Editor mutations that remove optional topology wake this explicitly.
+		void compositionAutosaveInvalidation.revision;
+		void landedSaveCount;
 		if (
 			resolutionStatus !== 'ready' ||
 			isOpenFilmEngineStateInTransit() ||
@@ -249,22 +262,17 @@
 			return;
 		}
 
-		const currentSnap = snapshotState();
-
 		// The open document must still be this route's Film. A lifecycle operation
 		// that just opened another one has not moved the page yet, and that
 		// document is not saved under this slug.
-		if (
-			currentSnap === loadSnapshot ||
-			storedSlug === null ||
-			compositionMeta.userCompositionSlug !== storedSlug
-		) {
+		if (storedSlug === null || compositionMeta.userCompositionSlug !== storedSlug) {
 			return;
 		}
 
 		const capturedSlug = storedSlug;
 		// Serialize before the debounce so this save cannot observe a later route's state.
 		const document = readOpenFilmAsUserCompositionDocument();
+		if (!autosaveLedger.wouldChangeStore(document)) return;
 
 		const timer = setTimeout(() => {
 			if (
@@ -278,6 +286,8 @@
 				.saveUserComposition(capturedSlug, document)
 				.then(() => {
 					if (!isCurrentAppliedRoute(currentRouteKey)) return;
+					autosaveLedger.recordStored(document);
+					landedSaveCount += 1;
 					compositionMeta.persistenceError = null;
 				})
 				.catch((error: unknown) => {
@@ -290,17 +300,6 @@
 
 		return () => clearTimeout(timer);
 	});
-
-	function snapshotState(): string {
-		return (
-			JSON.stringify(engineState) +
-			JSON.stringify(presetBase) +
-			packState.slug +
-			filmState.selectedSceneId +
-			JSON.stringify(filmState.scenes.map((scene) => scene.id)) +
-			compositionAutosaveInvalidation.revision
-		);
-	}
 
 	function isCurrentAppliedRoute(expectedRouteKey: string): boolean {
 		return appliedRouteKey === expectedRouteKey && routeKey === expectedRouteKey;

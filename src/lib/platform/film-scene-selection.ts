@@ -9,15 +9,19 @@
  * frame 0, and seeking Film time into another Scene's range selects that Scene
  * at the frame asked for.
  *
- * Selection is not an edit. It records nothing in the shared history and does
- * not advance the Composition revision, because the Film it leaves open is the
- * Film that was open: only which of its Scenes is live has changed. There is no
- * operation row for it yet (the Scene strip lands with one); these functions
- * are what that operation and the transport both call.
+ * Selection is not an edit: it records nothing in the undo history. It does
+ * advance the Composition revision, once, whenever the selected Scene changes
+ * (`compositionEditHistory.recordSceneSelection`). Every Scene-scoped operation
+ * acts on the selected Scene, so an operation that carries a revision read
+ * before the change fails as `stale_revision` and lands nowhere. This module is
+ * the only place selection moves the revision. There is no operation row for
+ * selection yet (the Scene strip lands with one); these functions are what
+ * that operation and the transport both call.
  *
  * Film time is not stored (`./film-transport.ts`): it is read from the selected
  * Scene and the Timeline's Scene time.
  */
+import { compositionEditHistory } from './composition-edit-history';
 import { engineState, transitionState } from './engine-state.svelte';
 import { filmFrameCount, filmFrameForSceneFrame } from './film-playhead';
 import { filmState, readOpenFilm, readOpenFilmDocumentSelectingScene } from './film-state.svelte';
@@ -78,6 +82,7 @@ async function swapOpenFilmToScene(sceneId: string, sceneFrame: number): Promise
 	filmState.isSwappingScene = true;
 	try {
 		applyOpenFilmDocument(next);
+		compositionEditHistory.recordSceneSelection(sceneId);
 		// The transport is cut in the same step, so no tick can ask the new Scene
 		// for the old Scene's time.
 		timelineHandle.current?.cutTo({
@@ -96,10 +101,11 @@ async function swapOpenFilmToScene(sceneId: string, sceneFrame: number): Promise
  * `sceneFrame`, and wait until the Workspace shows it.
  *
  * The Scene that was live is parked exactly as it stood, edits included, so
- * selecting away and back loses nothing. While the swap settles
+ * selecting away and back loses nothing. The Composition revision advances by
+ * one and no undo entry is recorded. While the swap settles
  * `filmState.isSwappingScene` is true, and autosave and every operation stay
  * off the composition. Selecting the Scene that is already live only moves its
- * playhead.
+ * playhead and leaves the revision alone.
  *
  * Rejects with a `RangeError` when the open Film has no Scene with that id or
  * `sceneFrame` is outside it, a `TypeError` when `sceneFrame` is not a whole
@@ -152,6 +158,11 @@ export async function seekOpenFilmFrame(filmFrame: number): Promise<FilmTranspor
  * ends and the transport loops. `null` when there is no cut to take
  * (`filmSceneAfterForPlayback`), which is always the answer for a one-Scene
  * Film.
+ *
+ * Play and loop act on the Film. With loop off, play stops at the end of the
+ * last Scene. Pressing play with the playhead parked at the end of a Scene
+ * takes this same cut as if looping: the next Scene, or the Film again from
+ * its first Scene's frame 0.
  */
 export function cutOpenFilmPlaybackToNextScene(isLooping: boolean): Promise<void> | null {
 	const nextSceneId = filmSceneAfterForPlayback(

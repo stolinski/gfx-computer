@@ -73,6 +73,8 @@ The operations still exist, still run in-process, and still name their GUI surfa
 
 The composition carries a monotonic **revision**. Every mutating operation takes the revision the caller last observed.
 
+The revision advances on every applied edit, undo, and redo. Since [ADR-0068](0068-films-scenes-and-live-scene-boundaries.md) §8 (2026-10-09) it also advances whenever another Scene of the open Film becomes the selected one, by selection, by a seek across a cut, or by a playback cut, with no undo entry. Operations act on the selected Scene, so a revision read while another Scene was open is stale in exactly the way this section exists to catch.
+
 - **Stale revision fails.** A mismatch returns `stale_revision` with the current revision and a bounded summary of what moved, and applies nothing. An agent that read the composition, thought for ten seconds while the human dragged an Overlay, and then wrote, does not silently overwrite that drag.
 - **Preflight, then apply.** The operation validates its arguments, resolves its targets, and runs schema and semantic validation on the prospective document **before** touching live state. A rejected edit leaves the composition byte-identical.
 - **All or nothing.** An operation that writes several pointers writes all of them or none. There is no half-applied edit, including on cancellation.

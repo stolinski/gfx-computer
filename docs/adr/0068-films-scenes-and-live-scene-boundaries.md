@@ -6,7 +6,7 @@
 
 One thing differs from §3 as written. Shadow records an older build left in a disk store are re-keyed by a one-time script, `scripts/migrate-user-composition-shadow-records.ts`, not at runtime.
 
-Three notes on the cut as built (2026-10-09). Selecting a Scene is a platform function, not yet an operation: it records no undo entry and does not advance the Composition revision, and §8's `select` row lands with the Scene strip. Film time is not stored; it is read from the selected Scene and the Timeline's Scene time. A cut in live preview holds play while the incoming Scene mounts and settles, so playback is not real time across a cut; a paused frame is exact, and `scripts/cdp-film-cut-frames.mjs` is the check. Export still renders the selected Scene only.
+Three notes on the cut as built (2026-10-09). Selecting a Scene is a platform function, not yet an operation; §8's `select` row lands with the Scene strip, and §8 says what selection does to the revision. Film time is not stored; it is read from the selected Scene and the Timeline's Scene time. A cut in live preview holds play while the incoming Scene mounts and settles, so playback is not real time across a cut; a paused frame is exact, and `scripts/cdp-film-cut-frames.mjs` is the check. Export still renders the selected Scene only.
 
 Date: 2026-10-08
 
@@ -117,6 +117,7 @@ Films add no sixteenth operation family.
 - Existing operations keep their `/state/...` pointers and act on the selected Scene. A receipt for a Scene-scoped change names that Scene in one added field, `sceneId`, and its pointers stay relative to the Scene; they are not prefixed. A receipt for a Film-level change (Scene membership, boundaries) names Film pointers and has no `sceneId`.
 - `sound` owns the Score. `motion` owns Hit reactions and magic-move pairs.
 - One **Composition revision** and one undo history cover the whole Film.
+- **Changing the selected Scene advances the Composition revision and records no undo entry.** _Decided by Scott on 2026-10-09._ Existing operations act on the selected Scene, so an operation that carries a revision read before the Scene changed would otherwise land in a Scene its caller never looked at. It now fails as `stale_revision` and applies nothing. This holds however the Scene changed: a direct selection, a Film-time seek that crosses into another Scene, or a playback cut. Selecting the Scene that is already selected changes nothing. Selection is not an edit, so there is nothing to undo, and what could be redone stays redoable. Undo and redo restore the whole Film as the edit left it, including which Scene was open, so undoing an edit made in another Scene opens that Scene; that is one advance of the revision, the undo's own. A Film-level edit may move the selection as part of what it changes (removing the selected Scene), but one that changes nothing else is refused as a defect, so `selectOpenFilmScene` is the only way selection alone moves the revision.
 
 Every new capability lands with its inventory row and its GUI surface together (ADR-0054).
 

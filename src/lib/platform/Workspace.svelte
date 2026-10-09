@@ -939,7 +939,10 @@
 					},
 					// Film playback (ADR-0068 §4): the end of a Scene is a hard cut to
 					// the next one. A one-Scene Film has no cut and loops as before.
-					onPlayReachedEnd: () => cutOpenFilmPlaybackToNextScene(timeline?.loop ?? true)
+					onPlayReachedEnd: () => cutOpenFilmPlaybackToNextScene(timeline?.loop ?? true),
+					// Play pressed at the end of a Scene goes on with the Film: the next
+					// Scene, or the first Scene again after the last.
+					onPlayFromEnd: () => cutOpenFilmPlaybackToNextScene(true)
 				});
 				if (typeof window !== 'undefined') {
 					window.__gfxTimeline = timeline;

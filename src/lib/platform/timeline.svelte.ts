@@ -21,6 +21,15 @@ export interface TimelineOptions {
 	 * and the transport has been cut to it (`cutTo`); play resumes from there.
 	 */
 	onPlayReachedEnd?: () => Promise<void> | null;
+	/**
+	 * Film playback. Called when play is pressed with the playhead parked at the
+	 * end of what the transport runs over. Returns `null` when there is no other
+	 * Scene, and the Timeline then rewinds to its own frame 0 as it always has.
+	 * Otherwise returns a promise that settles once the Scene play starts from
+	 * is live and the transport has been cut to it (`cutTo`): the next Scene, or
+	 * the Film's first Scene after its last.
+	 */
+	onPlayFromEnd?: () => Promise<void> | null;
 }
 
 /** What the transport runs over after a cut: the Scene now live, and where its playhead is. */
@@ -51,6 +60,7 @@ export class Timeline {
 	#onPause: TimelineOptions['onPause'];
 	#onLoop: TimelineOptions['onLoop'];
 	#onPlayReachedEnd: TimelineOptions['onPlayReachedEnd'];
+	#onPlayFromEnd: TimelineOptions['onPlayFromEnd'];
 	/** Counts `play()` calls, so a cut that settles after a pause and a new play resumes nothing. */
 	#playSession = 0;
 
@@ -63,6 +73,7 @@ export class Timeline {
 		this.#onPause = options.onPause;
 		this.#onLoop = options.onLoop;
 		this.#onPlayReachedEnd = options.onPlayReachedEnd;
+		this.#onPlayFromEnd = options.onPlayFromEnd;
 	}
 
 	/**
@@ -97,6 +108,13 @@ export class Timeline {
 		}
 
 		if (this.time >= this.durationSeconds) {
+			const cut = this.#onPlayFromEnd?.() ?? null;
+			if (cut) {
+				this.isPlaying = true;
+				this.#playSession += 1;
+				this.#resumeAfterCut(cut, () => this.#onPlay?.(this.time));
+				return;
+			}
 			this.time = 0;
 		}
 
@@ -160,7 +178,7 @@ export class Timeline {
 			// shows a frame past its last.
 			const cut = this.#onPlayReachedEnd?.() ?? null;
 			if (cut) {
-				this.#resumeAfterCut(cut);
+				this.#resumeAfterCut(cut, () => this.#onLoop?.());
 				return;
 			}
 		}
@@ -189,9 +207,10 @@ export class Timeline {
 	/**
 	 * Hold play while a cut settles, then run the clock again from where the cut
 	 * left the playhead. The time the settle took is not played back: preview
-	 * does not skip frames of the incoming Scene to catch up.
+	 * does not skip frames of the incoming Scene to catch up. `announce` tells
+	 * the playback-only side channels that play is running again.
 	 */
-	#resumeAfterCut(cut: Promise<void>): void {
+	#resumeAfterCut(cut: Promise<void>, announce: () => void): void {
 		this.#rafId = null;
 		const playSession = this.#playSession;
 		cut.then(
@@ -200,7 +219,7 @@ export class Timeline {
 				this.#playStartedAt = performance.now();
 				this.#playStartedFrom = this.time;
 				this.#rafId = requestAnimationFrame(this.#loop);
-				this.#onLoop?.();
+				announce();
 			},
 			(error: unknown) => {
 				console.error('Film playback could not cut to the next Scene.', error);

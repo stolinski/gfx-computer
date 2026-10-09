@@ -19,7 +19,9 @@
 // last frame of Scene 1 again after cutting back. It captures the same Scene
 // frames with each Scene opened alone and compares SHA-256 hashes of the
 // canvas PNG. The mid frames are there because a first or last frame is often
-// empty, and two empty frames agree without proving anything.
+// empty, and two empty frames agree without proving anything. Each capture
+// reports how many distinct colours a 96×96 sample of its PNG holds, and the
+// run fails when a mid frame holds only one.
 //
 // Prints a JSON report, writes it to <out>/report.json, and exits 1 when any
 // pair differs. Environment: GFX_FILM_CUT_PORT (server, default 7296), CDP_PORT
@@ -280,8 +282,8 @@ async function openStoredFilm(page, slug, film) {
 
 /**
  * Land Film time on one frame and read the canvas back: where the frame
- * landed, the SHA-256 of the canvas PNG, and how many distinct colours a small
- * downscale of it holds (1 means an empty or flat frame).
+ * landed, the SHA-256 of the canvas PNG, and how many distinct colours a 96×96
+ * nearest-neighbour sample of that PNG holds (1 means an empty or flat frame).
  */
 async function captureFilmFrame(page, filmFrame) {
 	return page.evaluate(`(() => {
@@ -295,10 +297,24 @@ async function captureFilmFrame(page, filmFrame) {
 			const sha256 = [...new Uint8Array(digest)]
 				.map((byte) => byte.toString(16).padStart(2, '0'))
 				.join('');
+			// Sample the PNG that was hashed, not the canvas: a 2D drawImage of a
+			// WebGPU canvas reads an empty image once the frame has been presented.
+			const bitmap = await createImageBitmap(blob, {
+				resizeWidth: 96,
+				resizeHeight: 96,
+				resizeQuality: 'pixelated'
+			});
 			const sample = new OffscreenCanvas(96, 96);
 			const context = sample.getContext('2d', { willReadFrequently: true });
-			context.drawImage(canvas, 0, 0, 96, 96);
-			const pixels = new Uint32Array(context.getImageData(0, 0, 96, 96).data.buffer);
+			context.drawImage(bitmap, 0, 0);
+			bitmap.close();
+			const rgba = context.getImageData(0, 0, 96, 96).data;
+			const sampleColors = new Set();
+			for (let offset = 0; offset < rgba.length; offset += 4) {
+				sampleColors.add(
+					(rgba[offset] << 24) | (rgba[offset + 1] << 16) | (rgba[offset + 2] << 8) | rgba[offset + 3]
+				);
+			}
 			let pngBase64 = null;
 			if (${SAVE_FRAMES}) {
 				let binary = '';
@@ -315,7 +331,7 @@ async function captureFilmFrame(page, filmFrame) {
 				width: canvas.width,
 				height: canvas.height,
 				sha256,
-				sampleColorCount: new Set(pixels).size,
+				sampleColorCount: sampleColors.size,
 				pngBase64
 			};
 		})();
@@ -511,6 +527,24 @@ for (const { orientation, comparisons } of report.orientations) {
 				? `Pixels differ: in the Film ${comparison.inFilm.sha256}, alone ${comparison.sceneAlone.sha256}.`
 				: `The seek landed on ${comparison.inFilm.sceneId} frame ${comparison.inFilm.sceneFrame}, not ${comparison.sceneId} frame ${comparison.sceneFrame}.`
 		});
+	}
+}
+// A mid frame is there to be a frame with something on it. One flat colour
+// means the comparison above agreed about nothing.
+for (const { orientation, comparisons } of report.orientations) {
+	for (const comparison of comparisons) {
+		if (!comparison.label.endsWith('-mid')) continue;
+		for (const [source, capture] of [
+			['in the Film', comparison.inFilm],
+			['alone', comparison.sceneAlone]
+		]) {
+			if (capture.sampleColorCount > 1) continue;
+			report.failures.push({
+				orientation,
+				label: comparison.label,
+				reason: `The mid frame of ${comparison.sceneId} ${source} is one flat colour, so it proves nothing about the cut.`
+			});
+		}
 	}
 }
 report.passed = report.failures.length === 0 && report.orientations.length === ORIENTATIONS.length;

@@ -25,8 +25,9 @@ const COMPOSITION_REVISION_LOG_LIMIT = 32;
  *
  * This is also where the **Composition revision** lives. One monotonic counter
  * advances on every recorded edit, undo, and redo, whichever transport caused
- * it, so a caller's observed revision is stale exactly when someone else has
- * edited since. Loading a different composition clears the history and restarts
+ * it, and whenever another Scene of the open Film becomes the selected one
+ * (`recordSceneSelection`). So a caller's observed revision is stale exactly
+ * when the document, or the Scene its edits would land in, has moved since. Loading a different composition clears the history and restarts
  * the counter: a revision names a point in one open document's life, never a
  * global clock.
  */
@@ -69,6 +70,17 @@ export class CompositionEditHistory {
 		this.#past.push(entry);
 		this.#future.length = 0;
 		this.#advanceRevision(entry.label);
+	}
+
+	/**
+	 * Advance the Composition revision because another Scene became the selected
+	 * one (ADR-0068 §8). Every Scene-scoped operation acts on the selected Scene,
+	 * so an edit planned against the Scene that was open must fail as stale and
+	 * not land in this one. Selection is not an edit: nothing is added to the
+	 * undo history, and what can be redone stays redoable.
+	 */
+	recordSceneSelection(sceneId: string): void {
+		this.#advanceRevision(`Select Scene "${sceneId}"`);
 	}
 
 	undo(): boolean {

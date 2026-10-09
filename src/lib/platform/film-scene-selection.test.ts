@@ -6,6 +6,7 @@ import { compositionEditHistory } from './composition-edit-history';
 import {
 	runCompositionEditTransaction,
 	runCompositionHistoryTransaction,
+	runFilmEditTransaction,
 	type CompositionOperationOutcome,
 	type CompositionOperationReceipt
 } from './composition-edit-transaction';
@@ -140,13 +141,83 @@ describe('selecting a Scene', () => {
 		expect(filmState.isSwappingScene).toBe(false);
 	});
 
-	it('is not an edit: no history entry and the same Composition revision', async () => {
+	it('advances the Composition revision once per change of Scene, with no undo entry', async () => {
 		openTwoSceneCutFilm();
 		const revision = compositionEditHistory.revision;
 
 		await selectOpenFilmScene(LOWER_THIRD, 0);
+
+		expect(compositionEditHistory.revision).toBe(revision + 1);
+		expect(compositionEditHistory.canUndo).toBe(false);
+		expect(compositionEditHistory.editsSince(revision)).toEqual([
+			{ revision: revision + 1, label: 'Select Scene "lower-third"' }
+		]);
+
 		await selectOpenFilmScene(HERO, 0);
 
+		expect(compositionEditHistory.revision).toBe(revision + 2);
+		expect(compositionEditHistory.canUndo).toBe(false);
+	});
+
+	it('leaves the revision alone when the Scene is already selected', async () => {
+		openTwoSceneCutFilm();
+		const revision = compositionEditHistory.revision;
+
+		await selectOpenFilmScene(HERO, 0);
+		await selectOpenFilmScene(HERO, 30);
+
+		expect(compositionEditHistory.revision).toBe(revision);
+	});
+
+	it('makes an edit planned against the Scene that was open stale, so it lands nowhere', async () => {
+		openTwoSceneCutFilm();
+		const observedRevision = compositionEditHistory.revision;
+		await selectOpenFilmScene(LOWER_THIRD, 0);
+		const before = storedFilmJson();
+
+		const outcome = await addHeadlineOverlay(observedRevision);
+
+		expect(outcome.status).toBe('failed');
+		if (outcome.status === 'failed') {
+			expect(outcome.code).toBe('stale_revision');
+			expect(outcome.movedSince).toEqual(['Select Scene "lower-third"']);
+		}
+		expect(storedFilmJson()).toBe(before);
+	});
+
+	it('makes old edits stale when a Film-time seek or a playback cut crosses into another Scene', async () => {
+		const film = openTwoSceneCutFilm();
+		const [, lowerThirdOffset] = filmSceneFrameOffsets(film);
+		const revision = compositionEditHistory.revision;
+
+		await seekOpenFilmFrame(lowerThirdOffset - 1);
+		expect(compositionEditHistory.revision).toBe(revision);
+
+		await seekOpenFilmFrame(lowerThirdOffset);
+		expect(compositionEditHistory.revision).toBe(revision + 1);
+
+		await cutOpenFilmPlaybackToNextScene(true);
+		expect(filmState.selectedSceneId).toBe(HERO);
+		expect(compositionEditHistory.revision).toBe(revision + 2);
+	});
+
+	it('is the only way selection moves the revision: a Film edit that only selects is a defect', async () => {
+		openTwoSceneCutFilm();
+		const revision = compositionEditHistory.revision;
+
+		await expect(
+			runFilmEditTransaction({
+				operationId: 'composition.set-identity',
+				expectedRevision: revision,
+				undoLabel: 'Select Scene',
+				focus: { target: 'composition-root' },
+				mutate: (_draft, context) => {
+					context.selectedSceneId = LOWER_THIRD;
+				}
+			})
+		).rejects.toThrow(/changed only which Scene is selected/);
+
+		expect(filmState.selectedSceneId).toBe(HERO);
 		expect(compositionEditHistory.revision).toBe(revision);
 		expect(compositionEditHistory.canUndo).toBe(false);
 	});
@@ -205,13 +276,43 @@ describe('selecting a Scene', () => {
 	it('undoes an edit to a Scene that is no longer selected by opening that Scene again', async () => {
 		openTwoSceneCutFilm();
 		await selectOpenFilmScene(LOWER_THIRD, 0);
+		const beforeEdit = cloneJsonValue(readOpenFilmAsUserCompositionDocument());
 		const receipt = expectApplied(await addHeadlineOverlay(compositionEditHistory.revision));
 		await selectOpenFilmScene(HERO, 0);
 
-		expectApplied(runCompositionHistoryTransaction('undo', receipt.revision));
+		// The revision the edit's receipt reported is stale now: the Scene changed.
+		const stale = runCompositionHistoryTransaction('undo', receipt.revision);
+		expect(stale.status).toBe('failed');
+		if (stale.status === 'failed') expect(stale.code).toBe('stale_revision');
+		expect(filmState.selectedSceneId).toBe(HERO);
 
+		const revisionBeforeUndo = compositionEditHistory.revision;
+		const undone = expectApplied(runCompositionHistoryTransaction('undo', revisionBeforeUndo));
+
+		// Undo restores the document the edit was made in, with its Scene open.
+		// That is one advance of the revision, the undo's own.
 		expect(filmState.selectedSceneId).toBe(LOWER_THIRD);
 		expect(engineState.overlays.map((overlay) => overlay.id)).not.toContain('headline');
+		expect(readOpenFilmAsUserCompositionDocument()).toEqual(beforeEdit);
+		expect(undone.revision).toBe(revisionBeforeUndo + 1);
+		expect(compositionEditHistory.revision).toBe(revisionBeforeUndo + 1);
+	});
+
+	it('keeps what can be redone across a selection, and redo opens the Scene it belongs to', async () => {
+		openTwoSceneCutFilm();
+		await selectOpenFilmScene(LOWER_THIRD, 0);
+		expectApplied(await addHeadlineOverlay(compositionEditHistory.revision));
+		expectApplied(runCompositionHistoryTransaction('undo', compositionEditHistory.revision));
+
+		await selectOpenFilmScene(HERO, 0);
+
+		expect(compositionEditHistory.canRedo).toBe(true);
+		expectApplied(runCompositionHistoryTransaction('redo', compositionEditHistory.revision));
+		expect(filmState.selectedSceneId).toBe(LOWER_THIRD);
+		expect(engineState.overlays.map((overlay) => overlay.id)).toContain('headline');
+		expect(readOpenFilm().scenes[0].state.overlays.map((overlay) => overlay.id)).not.toContain(
+			'headline'
+		);
 	});
 
 	it('refuses a Scene the Film does not hold and a frame outside the Scene, changing nothing', async () => {
@@ -419,6 +520,27 @@ describe('the cut playback takes at the end of a Scene', () => {
 
 		await cutOpenFilmPlaybackToNextScene(true);
 		expect(filmState.selectedSceneId).toBe(HERO);
+	});
+
+	it('goes on with the Film when play is pressed at the end of a Scene', async () => {
+		// The Workspace asks for this cut as if looping: the next Scene, or the
+		// Film again from its first Scene after the last.
+		openTwoSceneCutFilm();
+		await selectOpenFilmScene(LOWER_THIRD, 0);
+		const timeline = new Timeline({
+			durationSeconds: engineState.transport.durationSeconds,
+			fps: engineState.transport.fps,
+			tick: () => undefined
+		});
+		timelineHandle.current = timeline;
+		timeline.seek(timeline.durationSeconds);
+		expect(readOpenFilmFrame()).toBe(readOpenFilmFrameCount() - 1);
+
+		await cutOpenFilmPlaybackToNextScene(true);
+
+		expect(filmState.selectedSceneId).toBe(HERO);
+		expect(timeline.time).toBe(0);
+		expect(readOpenFilmFrame()).toBe(0);
 	});
 
 	it('is nothing for a one-Scene Film', () => {
