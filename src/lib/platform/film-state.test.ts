@@ -10,6 +10,7 @@ import {
 } from './film-ingress';
 import {
 	filmState,
+	isOpenFilmShowingPosterScene,
 	readOpenFilm,
 	readOpenFilmAsSavedPreset,
 	readOpenFilmAsUserCompositionDocument,
@@ -17,7 +18,7 @@ import {
 } from './film-state.svelte';
 import { legacyPresetEnvelopeFromPreset } from './open-film-document';
 import { posterKeyForPreset } from './posters';
-import { applyFilm, applyPreset } from './preset';
+import { applyFilm, applyOpenFilmDocument, applyPreset } from './preset';
 import { presetBase } from './preset-base.svelte';
 import { getPresetBySlug } from './preset-catalog';
 import { presetToWireFormat, serializeCompositionState } from './preset-pure';
@@ -193,5 +194,65 @@ describe('opening a stored record as its Film', () => {
 			contentKey: posterKeyForPreset(preset)
 		});
 		expect(posterKeyForPreset(readOpenFilmAsSavedPreset())).toBe(posterKeyForPreset(preset));
+	});
+});
+
+// ADR-0061: a Film's poster is its first Scene, keyed by that Scene. The
+// Workspace photographs the canvas only while this is true.
+describe('whether the open Film shows the Scene its poster is', () => {
+	function openTwoSceneFilm(): void {
+		const preset = requireCataloguedPreset('lower-third');
+		const film = filmFromCorpusPreset(preset, {
+			slug: 'lower-third',
+			contentKey: posterKeyForPreset(preset)
+		});
+		applyFilm(
+			{
+				...film,
+				scenes: [
+					film.scenes[0],
+					{
+						id: 'scene-2',
+						origin: null,
+						state: cloneJsonValue(requireCataloguedPreset('chapter-card-descent').state)
+					}
+				],
+				boundaries: [{ kind: 'cut' }]
+			},
+			{ kind: 'deliverable' }
+		);
+	}
+
+	it('is true for a one-Scene Film and for a Film open on its first Scene', () => {
+		applyPreset(requireCataloguedPreset('lower-third'));
+		expect(isOpenFilmShowingPosterScene()).toBe(true);
+
+		openTwoSceneFilm();
+		expect(isOpenFilmShowingPosterScene()).toBe(true);
+	});
+
+	it('is false while another Scene is open, and true again on the first', () => {
+		openTwoSceneFilm();
+
+		applyOpenFilmDocument(readOpenFilmDocumentSelectingScene('scene-2'));
+		expect(filmState.selectedSceneId).toBe('scene-2');
+		expect(isOpenFilmShowingPosterScene()).toBe(false);
+
+		applyOpenFilmDocument(readOpenFilmDocumentSelectingScene(FILM_FIRST_SCENE_ID));
+		expect(isOpenFilmShowingPosterScene()).toBe(true);
+	});
+
+	it('is false while a Scene swap or a transition capture has engine state in transit', () => {
+		openTwoSceneFilm();
+
+		filmState.isSwappingScene = true;
+		expect(isOpenFilmShowingPosterScene()).toBe(false);
+		filmState.isSwappingScene = false;
+
+		transitionState.capturing = true;
+		expect(isOpenFilmShowingPosterScene()).toBe(false);
+		transitionState.capturing = false;
+
+		expect(isOpenFilmShowingPosterScene()).toBe(true);
 	});
 });

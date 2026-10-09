@@ -12,8 +12,7 @@
  *
  * The open Film is always `filmState` plus the live state written into the
  * selected Scene; `readOpenFilm` is that sum. Selecting another Scene parks the
- * live state and makes that Scene live (`./film-scene-selection.ts`). Nothing
- * in the Workspace shows Scenes yet.
+ * live state and makes that Scene live (`./film-scene-selection.ts`).
  *
  * The legacy Preset envelope (`LegacyPresetEnvelope`: `kind` and `transition`)
  * is live in `presetBase`, where the RootInspector edits it, and travels beside
@@ -217,6 +216,19 @@ export function readOpenFilmDocumentSelectingScene(sceneId: string): OpenFilmDoc
  */
 export function isOpenFilmEngineStateInTransit(): boolean {
 	return transitionState.capturing || filmState.isSwappingScene;
+}
+
+/**
+ * Whether the canvas may be photographed as the open Film's poster: the Film's
+ * first Scene is the one that is live, and engine state is at rest. A Film's
+ * poster is its first Scene
+ * ([ADR-0061](../../../docs/adr/0061-committed-composition-posters.md)), and its
+ * content key is that Scene's, so a frame of any other Scene stored under the
+ * key would put the wrong picture on the card. The capture waits for the author
+ * to have the first Scene open; it never opens it for them.
+ */
+export function isOpenFilmShowingPosterScene(): boolean {
+	return filmState.scenes[0]?.id === filmState.selectedSceneId && !isOpenFilmEngineStateInTransit();
 }
 
 /**

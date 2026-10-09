@@ -9,6 +9,10 @@ import {
 	isCompositionSessionStorageError,
 	type CompositionSessionStorageFailureCode
 } from './browser-user-composition-store';
+import {
+	filmDocumentFromCorpusStarters,
+	REALISTIC_FILM_SCENE_STARTER_SLUGS
+} from './film-corpus-scenes.fixture';
 import { filmFromPreset, filmToWireFormat, parseFilm } from './film-ingress';
 import { posterKeyForPreset } from './posters';
 import { parsePresetIngress } from './preset-ingress';
@@ -23,7 +27,10 @@ import {
 
 import type { Preset } from './engine-schema';
 import type { UserCompositionDocument } from './user-composition-record';
-import type { PublicCompositionSessionStorageLimits } from './public-runtime-contract';
+import {
+	PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
+	type PublicCompositionSessionStorageLimits
+} from './public-runtime-contract';
 import type { UserCompositionStore } from './user-composition-store';
 
 const STORAGE_IDENTITY = 'gfx-composition-session@1';
@@ -638,6 +645,102 @@ describe('browser-scoped composition session reading both stored record shapes',
 		);
 
 		assert.equal(await createStore().loadUserComposition('both'), null);
+	});
+});
+
+// ADR-0068 §9: a Public demo session holds Films under the limits it already
+// had. These measure what real Films weigh against them. The bytes are the
+// store's own accounting: two per UTF-16 code unit of the key and the record.
+describe('browser-scoped composition session holding Films of several Scenes', () => {
+	// Six seconds and about 20 kB a Scene. The largest Starter, `gdp-bar-race`,
+	// runs 24 seconds, so a Film of it reaches the 600-second ceiling first.
+	const DENSE_STARTER_SLUG = 'kinetic-type-field';
+
+	/** What the store charges for `document`, measured by a store with no ceiling. */
+	async function storedBytesOf(document: UserCompositionDocument): Promise<number> {
+		const measuringStorage = new FakeSessionStorage();
+		const measuringStore = createStore(
+			{ maxStorageBytes: Number.MAX_SAFE_INTEGER, maxCompositionBytes: Number.MAX_SAFE_INTEGER },
+			() => measuringStorage
+		);
+		await measuringStore.createUserComposition('launch-film', document);
+		return (await measuringStore.inspectStorage()).usedBytes ?? 0;
+	}
+
+	function denseStarterFilm(sceneCount: number): UserCompositionDocument {
+		return filmDocumentFromCorpusStarters(Array<string>(sceneCount).fill(DENSE_STARTER_SLUG));
+	}
+
+	/** How many Scenes of the dense Starter one composition holds under the ratified limit. */
+	async function denseStarterSceneCountWithinLimit(): Promise<number> {
+		const { maxCompositionBytes } = PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS;
+		let sceneCount = Math.floor(maxCompositionBytes / (await storedBytesOf(denseStarterFilm(1))));
+		while ((await storedBytesOf(denseStarterFilm(sceneCount))) > maxCompositionBytes) {
+			sceneCount -= 1;
+		}
+		while ((await storedBytesOf(denseStarterFilm(sceneCount + 1))) <= maxCompositionBytes) {
+			sceneCount += 1;
+		}
+		return sceneCount;
+	}
+
+	it('holds a Film of 1, 3, 6, and 12 real Scenes well inside one composition’s limit', async () => {
+		const twelveScenes = filmDocumentFromCorpusStarters(REALISTIC_FILM_SCENE_STARTER_SLUGS);
+		assert.equal(twelveScenes.film.scenes.length, 12);
+		assert.ok(twelveScenes.film.scenes.some((scene) => scene.state.captions !== undefined));
+		assert.ok(twelveScenes.film.scenes.some((scene) => scene.state.surface.figures !== undefined));
+
+		const measured: number[] = [];
+		for (const sceneCount of [1, 3, 6, 12]) {
+			measured.push(
+				await storedBytesOf(
+					filmDocumentFromCorpusStarters(REALISTIC_FILM_SCENE_STARTER_SLUGS.slice(0, sceneCount))
+				)
+			);
+		}
+
+		// Measured 2026-10-09: 2,440 / 44,082 / 96,568 / 146,920 bytes of 1,048,576.
+		assert.deepEqual(
+			measured,
+			[...measured].sort((a, b) => a - b)
+		);
+		// A quarter of the limit is the room this asserts, so a Preset that grows
+		// a little does not fail it and one that grows several times over does.
+		assert.ok(
+			measured[3] * 4 <= PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxCompositionBytes,
+			`A 12-Scene Film is ${measured[3]} bytes.`
+		);
+	});
+
+	it('refuses a Film over the limit when it is created, and holds nothing', async () => {
+		const sceneCount = await denseStarterSceneCountWithinLimit();
+		const store = createStore(PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS);
+
+		const cause = await store
+			.createUserComposition('launch-film', denseStarterFilm(sceneCount + 1))
+			.catch((e) => e);
+
+		// Measured 2026-10-09: 55 Scenes of this Starter fit and one more does
+		// not, so the byte limit stops a Film long before the schema's 200 Scenes.
+		assert.ok(sceneCount >= 12 && sceneCount < 200, `${sceneCount} Scenes fit.`);
+		assert.equal(storageFailureCode(cause), 'limit_exceeded');
+		assert.ok(cause instanceof Error && cause.message.includes('"launch-film" is '));
+		assert.ok(cause instanceof Error && cause.message.length < 400);
+		assert.equal(storage.length, 0);
+	});
+
+	it('refuses the save that takes a stored Film over the limit, and keeps the Film it held', async () => {
+		const sceneCount = await denseStarterSceneCountWithinLimit();
+		const store = createStore(PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS);
+		const held = denseStarterFilm(sceneCount);
+		await store.createUserComposition('launch-film', held);
+
+		const cause = await store
+			.saveUserComposition('launch-film', denseStarterFilm(sceneCount + 1))
+			.catch((e) => e);
+
+		assert.equal(storageFailureCode(cause), 'limit_exceeded');
+		assert.deepEqual((await store.loadUserComposition('launch-film'))?.film, held.film);
 	});
 });
 

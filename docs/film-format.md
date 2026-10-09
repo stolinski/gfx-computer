@@ -1,10 +1,10 @@
 # GFX Film format (`gfx-film@1`)
 
-> **Stored, opened, selected, and played with hard cuts.** This format implements [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §1–3 and §8. The schema, ingress, and frame maths exist and are tested. A User composition is a Film: both stores read and write Film records (see [Stored records](#stored-records)), standalone JSON export writes a Film, and import reads one. The document open in the Workspace is a Film, and the edit transaction core, undo, and the Composition revision work on that Film (see [The open Film](#the-open-film)). A Film of several Scenes opens with its first Scene selected, any Scene can be selected, and playback runs through all of them with a hard cut at each boundary (ADR-0068 §4). Not built yet: a Scene GUI, operations that add, remove, or reorder Scenes, and any boundary but a cut. Export renders the whole Film (see [Export](#export)). A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`.
+> **Built: phase 1 of [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md), 2026-10-09.** A User composition is a Film. Both stores read and write Film records ([Stored records](#stored-records)), the document open in the Workspace is a Film ([The open Film](#the-open-film)), a Film of several Scenes plays with a hard cut at each boundary, Scenes are added, removed, reordered, and selected, and export renders the whole Film ([Export](#export)). **Not built:** any boundary but a cut, the Score, and a two-endpoint `transition` Preset read as a two-Scene Film. A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`. What an author and an agent do with a Film is in [`user-composition-workflows.md`](user-composition-workflows.md); how the engine holds one is in [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film).
 
 A **Film** is an ordered list of **Scenes** with a **Scene boundary** between each pair of neighbours. A Scene is one Preset's complete state, owned by the Film. A one-off piece is a Film with one Scene. Terms: [`CONTEXT.md`](CONTEXT.md).
 
-A Film is one JSON document validated by `FilmSchema` (`src/lib/platform/film-schema.ts`). The machine-readable schema is `docs/film-format.schema.json`. Regenerate it with `npm run gen:schema`; a test fails when the committed file is stale.
+A Film is one JSON document validated by `FilmSchema` (`src/lib/platform/film-schema.ts`). The machine-readable schema is `docs/film-format.schema.json`. Regenerate it with `pnpm gen:schema`; a test fails when the committed file is stale.
 
 ```jsonc
 {
@@ -18,6 +18,7 @@ A Film is one JSON document validated by `FilmSchema` (`src/lib/platform/film-sc
 	"scenes": [
 		{
 			"id": "intro",
+			"name": "Lower-third",
 			"origin": { "slug": "lower-third", "contentKey": "9f2c41d07ab35e68" },
 			"state": {/* a complete Preset state */}
 		},
@@ -70,6 +71,10 @@ A Scene's `name` is its own. It is not the Film's name, and renaming the Film do
 
 No operation renames a Scene yet.
 
+### Scene ids
+
+The first Scene of a Film made from one Preset is `scene-1` (`FILM_FIRST_SCENE_ID` in `film-ingress.ts`). A Scene an operation adds is `scene-<n>`, counted from one past the number of Scenes until the id is free (`mintFilmSceneId`). An id never changes when Scenes are reordered, so an agent can keep it.
+
 ### A Scene boundary
 
 A boundary is an object with a `kind`. Today the only kind is a hard cut:
@@ -79,6 +84,8 @@ A boundary is an object with a `kind`. Today the only kind is a hard cut:
 ```
 
 Fade, the transition effects, and magic move come later as further kinds (ADR-0068 §4–5).
+
+No operation edits a boundary. `composition.add-scene-from-starter` and `composition.add-open-to-film` add a `cut` with the Scene, `composition.remove-scene` takes one away with it, and `composition.reorder-scene` leaves the list alone ([`engine-architecture.md`](engine-architecture.md#the-scene-strip-and-scene-operations)).
 
 ## The Film's transport is the truth
 
@@ -198,4 +205,20 @@ Neither store writes a record under a corpus Preset's slug. `/p/<corpus-slug>` a
 
 ### Posters
 
-A User composition's poster key is `posterKeyForPreset` of the Film's first Scene as the Preset it would be alone (`storedPresetViewOfUserComposition`). A Film opens on its first Scene, so that is the Scene its card stands for; the card's Surface type and media are read from the same Scene. A one-Scene Film whose content equals a `deliverable` Preset has that Preset's key, so posters captured before stores wrote Films stay valid. A legacy record whose Preset said `kind: "fixture"` gets a new key once, because a Film does not save `kind`.
+A User composition's poster key is `posterKeyForPreset` of the Film's first Scene as the Preset it would be alone (`storedPresetViewOfUserComposition`). A Film opens on its first Scene, so that is the Scene its card stands for; the card's Surface type and media are read from the same Scene. So the key changes when the first Scene's state changes, when another Scene becomes the first, and when the Film's `name`, `description`, `pack`, `orientation`, `fps`, or `format` changes, because those are part of that Preset. It does not change when a later Scene is edited, added, removed, or moved, or when any Scene is renamed. The Workspace captures the poster only while the first Scene is the open one (`isOpenFilmShowingPosterScene`); with another Scene open it waits. A one-Scene Film whose content equals a `deliverable` Preset has that Preset's key, so posters captured before stores wrote Films stay valid. A legacy record whose Preset said `kind: "fixture"` gets a new key once, because a Film does not save `kind`.
+
+### The browser store's limits
+
+A Public demo session keeps Films in the browser store under the limits it had before Films: 4 MiB for the session and 1 MiB for one composition (`PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS`, ADR-0068 §9). The store counts two bytes for each UTF-16 code unit of the key and the stored JSON, which is what the browser charges.
+
+Measured on 2026-10-09 with Films of corpus Starters (`browser-user-composition-store.test.ts`):
+
+| Film                                                       | Stored bytes | Share of 1 MiB |
+| ---------------------------------------------------------- | ------------ | -------------- |
+| 1 Scene (`lower-third`)                                    | 2,440        | 0.2%           |
+| 3 Scenes (adds captions and the largest Starter, a Figure) | 44,082       | 4.2%           |
+| 6 Scenes                                                   | 96,568       | 9.2%           |
+| 12 Scenes                                                  | 146,920      | 14.0%          |
+| 56 Scenes of `kinetic-type-field` (55 fit)                 | 1,067,264    | refused        |
+
+There is no ceiling on the number of Scenes other than the schema's 200. A save that would take a Film past 1 MiB is refused with `limit_exceeded`, and a save the session has no room for with `quota_exceeded`; the stored Film is left as it was. `composition.add-open-to-film` and every operation that creates a Film report that refusal as their failure. An edit to the open Film, adding a Scene included, is applied in memory first and saved by autosave, so there the refusal shows as the save error in the composition inspector.
