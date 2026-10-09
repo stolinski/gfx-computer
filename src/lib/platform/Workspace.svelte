@@ -1527,15 +1527,12 @@
 				flushDom: tick,
 				settleCompositionPaint,
 				prepareCompositionFrame: prepareVideoExportFrame,
-				renderCompositionFrame: (timestamp) => {
-					if (!host) return 'unavailable';
-					return renderCompositionFrameTo(
-						buildCompositionFrameRenderRequest(
-							host.context.getCurrentTexture().createView(),
-							timestamp
-						)
-					);
+				readCanvasOutputView: () => {
+					if (!host) throw new Error('Composition GPU host is unavailable for export.');
+					return host.context.getCurrentTexture().createView();
 				},
+				renderCompositionFrame: (outputView, timestamp) =>
+					renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
 				writeExportUiState: (next: CompositionExportUiState) => {
 					isExporting = next.isExporting;
 					progress = next.progress;

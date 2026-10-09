@@ -358,6 +358,9 @@ describe('composition export frame sequence', () => {
 	});
 });
 
+/** The canvas's current texture as the harness hands it out; only its identity is read. */
+const CANVAS_OUTPUT_VIEW = { label: 'canvas' } as GPUTextureView;
+
 interface ExportControllerHarness {
 	controller: CompositionExportController;
 	dependencies: CompositionExportControllerDependencies;
@@ -366,6 +369,7 @@ interface ExportControllerHarness {
 	downloadSignals: AbortSignal[];
 	preparedFrames: Array<{ frame: number; timestamp: number }>;
 	renderedTimestamps: number[];
+	renderedOutputViews: GPUTextureView[];
 	animationProgresses: number[];
 	audioRequests: FilmAudioMixRenderRequest[];
 	muxedAudio: (AudioBuffer | null | undefined)[];
@@ -406,6 +410,7 @@ function createHarness(options?: {
 	const downloadSignals: AbortSignal[] = [];
 	const preparedFrames: Array<{ frame: number; timestamp: number }> = [];
 	const renderedTimestamps: number[] = [];
+	const renderedOutputViews: GPUTextureView[] = [];
 	const animationProgresses: number[] = [];
 	const audioRequests: FilmAudioMixRenderRequest[] = [];
 	const muxedAudio: (AudioBuffer | null | undefined)[] = [];
@@ -495,7 +500,9 @@ function createHarness(options?: {
 		prepareCompositionFrame: async (frame, timestamp) => {
 			preparedFrames.push({ frame, timestamp });
 		},
-		renderCompositionFrame: (timestamp) => {
+		readCanvasOutputView: () => CANVAS_OUTPUT_VIEW,
+		renderCompositionFrame: (outputView, timestamp) => {
+			renderedOutputViews.push(outputView);
 			renderedTimestamps.push(timestamp);
 			sceneLog.push(`render ${timestamp}`);
 			return 'flat';
@@ -511,6 +518,7 @@ function createHarness(options?: {
 		downloadSignals,
 		preparedFrames,
 		renderedTimestamps,
+		renderedOutputViews,
 		animationProgresses,
 		audioRequests,
 		muxedAudio,
@@ -539,6 +547,7 @@ describe('composition export controller lifecycle', () => {
 			{ frame: 3, timestamp: 1.5 }
 		]);
 		assert.deepEqual(harness.renderedTimestamps, [0, 0.5, 1, 1.5]);
+		assert.ok(harness.renderedOutputViews.every((view) => view === CANVAS_OUTPUT_VIEW));
 		assert.deepEqual(harness.animationProgresses, [0, 0.25, 0.5, 0.75]);
 		assert.deepEqual(harness.downloads, ['gfx-overlay.webm', 'gfx-overlay.wav']);
 		assert.equal(harness.audioRequests.length, 1);

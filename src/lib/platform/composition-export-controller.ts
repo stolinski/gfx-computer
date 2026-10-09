@@ -15,6 +15,7 @@ import {
 import type { CompositionFrameRenderResult } from './composition-frame-renderer';
 import type { Preset } from './engine-schema';
 import { filmFrameCount, filmSceneFrameCount, filmSceneFrameOffsets } from './film-playhead';
+import { createFilmSceneFrameStepper } from './film-scene-frame-stepper';
 import type { Film } from './film-schema';
 import { filmDurationSeconds } from './film-transport';
 import { IS_HOSTED_ORIGIN } from './hosted-origin';
@@ -158,7 +159,12 @@ export interface CompositionExportControllerDependencies {
 	flushDom(): Promise<void>;
 	settleCompositionPaint(signal: AbortSignal): Promise<void>;
 	prepareCompositionFrame(frame: number, timestamp: number): Promise<void>;
-	renderCompositionFrame(timestamp: number): CompositionFrameRenderResult;
+	/** The canvas's current texture: where a finished Film frame is rendered for the encoder. */
+	readCanvasOutputView(): GPUTextureView;
+	renderCompositionFrame(
+		outputView: GPUTextureView,
+		timestamp: number
+	): CompositionFrameRenderResult;
 	writeExportUiState(state: CompositionExportUiState): void;
 }
 
@@ -372,20 +378,25 @@ export class CompositionExportController {
 		try {
 			const activeFilmBracket = dependencies.beginFilmExportBracket();
 			filmBracket = activeFilmBracket;
-			// The Scene the export's animation is built for. A cut is exact because
-			// the swap is awaited: the incoming Scene is live, its resources are in,
-			// and its animation is rebuilt before its first frame is scrubbed.
-			let preparedSceneIndex: number | null = null;
-			const prepareScene = async (sceneIndex: number): Promise<void> => {
-				await activeFilmBracket.showScene(plan.scenes[sceneIndex].sceneId);
-				signal.throwIfAborted();
-				await dependencies.waitForCompositionResources(signal);
-				signal.throwIfAborted();
-				animationManager.rebuild(dependencies.buildAnimationManifest());
-				preparedSceneIndex = sceneIndex;
-			};
+			// Every frame is rendered by the Scene frame stepper. A cut is exact
+			// because the stepper awaits the swap: the incoming Scene is live, its
+			// resources are in, and its animation is rebuilt before its first frame
+			// is scrubbed.
+			const sceneFrameStepper = createFilmSceneFrameStepper({
+				scenes: plan.scenes,
+				frameRate: plan.frameRate,
+				animation: animationManager,
+				showScene: (sceneId) => activeFilmBracket.showScene(sceneId),
+				waitForCompositionResources: dependencies.waitForCompositionResources,
+				buildAnimationManifest: dependencies.buildAnimationManifest,
+				writeGlobalProgress: dependencies.writeGlobalProgress,
+				flushDom: dependencies.flushDom,
+				settleCompositionPaint: dependencies.settleCompositionPaint,
+				prepareCompositionFrame: dependencies.prepareCompositionFrame,
+				renderCompositionFrame: dependencies.renderCompositionFrame
+			});
 
-			await prepareScene(0);
+			await sceneFrameStepper.showScene(plan.scenes[0].sceneId, signal);
 			const audio = await this.#services.renderAudio({
 				scenes: film.scenes.map((scene, sceneIndex) => ({
 					state: scene.state,
@@ -401,23 +412,12 @@ export class CompositionExportController {
 			const renderFrame: TransparentVideoExportOptions['renderFrame'] = async (frame) => {
 				signal.throwIfAborted();
 				const sceneFrame = compositionExportSceneFrameAt(plan, frame);
-				if (sceneFrame.sceneIndex !== preparedSceneIndex) {
-					await prepareScene(sceneFrame.sceneIndex);
-				}
-				// Scene time from here on: every 0..1 window, the Video track, and the
-				// renderer run on the live Scene's own clock, as they do in preview.
-				const { timestamp } = sceneFrame;
-				const sceneDurationSeconds = sceneFrame.scene.durationSeconds;
-				const fraction = sceneDurationSeconds > 0 ? timestamp / sceneDurationSeconds : 0;
-				animationManager.progress(fraction);
-				dependencies.writeGlobalProgress(fraction);
-				await dependencies.flushDom();
-				await dependencies.settleCompositionPaint(signal);
-				await dependencies.prepareCompositionFrame(sceneFrame.frame, timestamp);
-				signal.throwIfAborted();
-				if (dependencies.renderCompositionFrame(timestamp) === 'unavailable') {
-					throw new Error('Composition frame renderer is unavailable.');
-				}
+				await sceneFrameStepper.renderSceneFrame({
+					sceneId: sceneFrame.scene.sceneId,
+					sceneFrame: sceneFrame.frame,
+					readOutputView: dependencies.readCanvasOutputView,
+					signal
+				});
 			};
 
 			const exportOptions: TransparentVideoExportOptions = {
