@@ -33,13 +33,17 @@ export default defineConfig(
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		languageOptions: {
 			parserOptions: {
-				projectService: true,
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser,
 				svelteConfig
 			}
 		},
 		rules: {
+			// This rule reads type information and reports nothing without it. Lint
+			// runs untyped on purpose: `projectService` built a second TypeScript
+			// program that cost about 70-110 s and 1.75 GB on every run
+			// (docs/project-control-plane.md § Type-check memory and time).
+			'svelte/no-unused-props': 'off',
 			// Anything read through `$state` is a Proxy, and `structuredClone` throws
 			// DataCloneError on a Proxy (Sentry GFX-COMPUTER-X). `$state.snapshot`
 			// copies proxies and plain values alike.
