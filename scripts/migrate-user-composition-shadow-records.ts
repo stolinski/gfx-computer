@@ -29,13 +29,25 @@ import type {
 	UserCompositionShadowRecordMigrationRequest
 } from '../src/lib/platform/user-composition-shadow-record-migration.server';
 
-// The Pack manifests transitively import @fontsource side-effect stylesheets,
-// which Node/tsx cannot load — stub `.css` modules so Preset validation is
-// importable outside Vite (same pattern as migrate-typography-restatements).
+// Preset validation reaches modules Vite resolves and Node/tsx cannot load:
+// the Pack manifests import @fontsource side-effect stylesheets, and the
+// capture and media registries import bundled images, video, and fonts. Stub
+// `.css` as an empty module and every other static asset as its own URL — the
+// migration reads composition documents, never asset bytes.
+const STATIC_ASSET_MODULE_PATTERN =
+	/\.(png|jpe?g|webp|avif|gif|svg|mp4|webm|mov|wav|mp3|woff2?|ttf|otf|glb|stagemesh|stageglyphs)(\?.*)?$/;
+
 registerHooks({
 	load(url, context, nextLoad) {
 		if (url.endsWith('.css')) {
 			return { format: 'module', source: '', shortCircuit: true };
+		}
+		if (STATIC_ASSET_MODULE_PATTERN.test(url)) {
+			return {
+				format: 'module',
+				source: `export default ${JSON.stringify(url)};`,
+				shortCircuit: true
+			};
 		}
 		return nextLoad(url, context);
 	}
