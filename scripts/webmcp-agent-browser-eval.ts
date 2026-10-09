@@ -20,6 +20,13 @@
 // tree, so pointing it at a server running older code reports that difference as
 // a failure, which is the intent.
 //
+// The origin's store matters too: the authoring walk creates one composition and
+// deletes it, in whatever store that origin serves. An origin left on its default
+// store serves the author's real compositions, so serve the build under test
+// with its own absolute GFX_USER_COMPOSITION_STORE_DIRECTORY. Leave
+// GFX_VERIFICATION_RUN unset: a verification run has no delete authority
+// (user-composition-store-location.server.ts), and the closing delete is refused.
+//
 // Writes docs/browser-probes/webmcp-agent-eval.json and exits non-zero on the
 // first contract the live page misses.
 import { dirname, resolve } from 'node:path';

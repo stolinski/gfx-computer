@@ -45,7 +45,9 @@ function isPublishedDoc(entry: PublishedEntry): entry is PublishedDoc {
  * protocol, the identity spec, `ideas/`, and the engine blueprint with its file
  * layout and internals are development surfaces and have no URL here — links to
  * them de-link at render time. Publishing a page means adding a row; there is no
- * directory walk that could publish one by accident.
+ * directory walk that could publish one by accident. There is no `llms.txt`
+ * manifest either, by decision (ADR-0052, amended 2026-10-09): the navigation
+ * and `search.json` are what an agent reads.
  */
 const PUBLISHED: readonly PublishedEntry[] = [
 	{ file: 'README.md', title: 'Overview', section: 'Start' },
