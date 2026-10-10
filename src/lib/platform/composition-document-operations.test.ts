@@ -6,6 +6,8 @@ import transitionWipeDemoPresetJson from '$lib/presets/transition-wipe-demo.json
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import {
+	COMPOSITION_INSPECTION_BOUNDARY_CHARACTER_ALLOWANCE,
+	COMPOSITION_INSPECTION_SCENE_LIMIT,
 	runExportCompositionJsonOperation,
 	runInspectCompositionOperation,
 	runSetCompositionIdentityOperation,
@@ -16,14 +18,18 @@ import {
 } from './composition-document-operations';
 import { engineState } from './engine-state.svelte';
 import { filmState } from './film-state.svelte';
-import { parseFilmIngress } from './film-ingress';
-import { applyPreset } from './preset';
+import { filmFromPreset, parseFilmIngress } from './film-ingress';
+import { insertFilmScene } from './film-scene-membership';
+import { FilmSceneBoundarySchema } from './film-schema';
+import { resolveLegacyTransitionEndpointFromCatalog } from './legacy-transition-endpoint-catalog';
+import { applyFilm, applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 import { presetBase } from './preset-base.svelte';
 import { WEBMCP_RESULT_CHARACTER_BUDGET } from './webmcp-operation-inventory';
 
 import type { CompositionOperationFailure } from './composition-operation-preflight';
 import type { CompositionOperationOutcome } from './composition-edit-transaction';
+import type { Film, FilmSceneBoundary } from './film-schema';
 
 function expectInspected(outcome: CompositionInspectionOutcome): CompositionInspectionReceipt {
 	if (outcome.status !== 'inspected') {
@@ -102,6 +108,90 @@ describe('composition inspection', () => {
 
 		expect(receipt.outputClass).toBe('full-frame');
 		expect(receipt.backgroundFill).toBe('#101014');
+	});
+
+	it('lists each boundary by the Scene it follows, with its kind, duration, and params', () => {
+		const film = filmFromPreset(parsePresetIngress(transitionWipeDemoPresetJson), null, {
+			resolveLegacyTransitionEndpoint: resolveLegacyTransitionEndpointFromCatalog
+		});
+		insertFilmScene(film, { ...film.scenes[0], id: 'scene-3' }, 2);
+		insertFilmScene(film, { ...film.scenes[0], id: 'scene-4' }, 3);
+		film.boundaries[1] = { kind: 'fade', durationMs: 500 };
+		applyFilm(film, { kind: 'deliverable' });
+
+		const receipt = expectInspected(runInspectCompositionOperation());
+
+		expect(receipt.boundaries).toEqual({
+			entries: [
+				{ outgoingSceneId: 'scene-1', ...film.boundaries[0] },
+				{ outgoingSceneId: 'scene-2', kind: 'fade', durationMs: 500 },
+				{ outgoingSceneId: 'scene-3', kind: 'cut' }
+			],
+			total: 3,
+			truncated: false
+		});
+		expect(receipt.boundaries.entries[0].kind).toBe('mask-wipe');
+		expect(receipt.boundaries.entries[0].params).toHaveProperty('direction');
+	});
+
+	it('reports no boundary for a one-Scene Film', () => {
+		const receipt = expectInspected(runInspectCompositionOperation());
+
+		expect(receipt.boundaries).toEqual({ entries: [], total: 0, truncated: false });
+	});
+
+	it('names the boundaries that fit its character allowance and stays inside the receipt budget', () => {
+		function filmOfSceneLimit(): Film {
+			const film = filmFromPreset(parsePresetIngress(transitionWipeDemoPresetJson), null, {
+				resolveLegacyTransitionEndpoint: resolveLegacyTransitionEndpointFromCatalog
+			});
+			for (
+				let sceneNumber = 3;
+				sceneNumber <= COMPOSITION_INSPECTION_SCENE_LIMIT;
+				sceneNumber += 1
+			) {
+				insertFilmScene(
+					film,
+					{ ...film.scenes[0], id: `scene-${sceneNumber}` },
+					film.scenes.length
+				);
+			}
+			return film;
+		}
+		// The widest boundary the registry holds, on every junction of a Film that
+		// also fills the Scene list.
+		const widestBoundary = FilmSceneBoundarySchema.parse({
+			kind: 'seeded-shatter',
+			durationMs: 1234.5,
+			params: { seed: 1337, columns: 14, scatter: 0.13, rotation: 0.55, depth: 0.6, shadow: 0.35 }
+		});
+		const effectFilm = filmOfSceneLimit();
+		effectFilm.boundaries = effectFilm.boundaries.map(() => widestBoundary);
+		applyFilm(effectFilm, { kind: 'deliverable' });
+
+		const effects = expectInspected(runInspectCompositionOperation());
+
+		expect(effects.boundaries.total).toBe(COMPOSITION_INSPECTION_SCENE_LIMIT - 1);
+		expect(effects.boundaries.truncated).toBe(true);
+		expect(effects.boundaries.entries.length).toBeGreaterThanOrEqual(4);
+		// In Film order from the first, none skipped.
+		expect(effects.boundaries.entries.map((entry) => entry.outgoingSceneId)).toEqual(
+			effectFilm.scenes.slice(0, effects.boundaries.entries.length).map((scene) => scene.id)
+		);
+		expect(JSON.stringify(effects.boundaries.entries).length).toBeLessThanOrEqual(
+			COMPOSITION_INSPECTION_BOUNDARY_CHARACTER_ALLOWANCE + effects.boundaries.entries.length + 1
+		);
+		expect(JSON.stringify(effects).length).toBeLessThanOrEqual(WEBMCP_RESULT_CHARACTER_BUDGET);
+
+		// Cuts are short, so many more of them are named.
+		const cutFilm = filmOfSceneLimit();
+		cutFilm.boundaries = cutFilm.boundaries.map((): FilmSceneBoundary => ({ kind: 'cut' }));
+		applyFilm(cutFilm, { kind: 'deliverable' });
+
+		const cuts = expectInspected(runInspectCompositionOperation());
+
+		expect(cuts.boundaries.entries.length).toBeGreaterThanOrEqual(16);
+		expect(JSON.stringify(cuts).length).toBeLessThanOrEqual(WEBMCP_RESULT_CHARACTER_BUDGET);
 	});
 
 	it('refuses to inspect when no composition is open', () => {

@@ -2070,7 +2070,7 @@
 		grid-area: controls;
 	}
 
-	/* Two rows: the Scene strip of a stored Film, then the Timeline. With no
+	/* Two rows: the Scene strip of the open Film, then the Timeline. With no
 	   strip the first row is empty and the Timeline has the whole area. */
 	.workspace__timeline {
 		display: grid;

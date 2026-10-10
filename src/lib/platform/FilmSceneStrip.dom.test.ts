@@ -196,13 +196,40 @@ describe('the Scene strip', () => {
 		expect(cursor).toBeCloseTo(100, 6);
 	});
 
-	it('is not shown for an unsaved Starter', () => {
+	it('is not shown for an unsaved Starter of one Scene', () => {
+		const starter = requireStarter(SCENE_STARTERS[0]);
+		applyFilm(
+			filmFromCorpusPreset(starter, {
+				slug: SCENE_STARTERS[0],
+				contentKey: posterKeyForPreset(starter)
+			}),
+			{ kind: 'deliverable' }
+		);
 		compositionMeta.isUserComposition = false;
 
 		render(FilmSceneStrip);
 
 		expect(screen.queryByRole('toolbar', { name: 'Scenes' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Add Scene' })).toBeNull();
+	});
+
+	it('is shown for an unsaved Film of several Scenes, without `+`, and its edits stay in memory', async () => {
+		// A built-in page: the open slug is the corpus Preset's, and nothing is stored.
+		compositionMeta.isUserComposition = false;
+		compositionMeta.userCompositionSlug = 'transition-wipe-demo';
+		render(FilmSceneStrip);
+
+		expect(segmentIds()).toEqual(['scene-1', 'scene-2', 'scene-3']);
+		expect(junctionButtons()).toHaveLength(2);
+		// Adding a Scene needs a stored Film, so the picker is not offered.
+		expect(screen.queryByRole('button', { name: 'Add Scene', ...IN_POPOVER })).toBeNull();
+		expect(screen.queryByRole('searchbox', { name: 'Search Starters', ...IN_POPOVER })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Remove / }));
+
+		await waitFor(() => expect(segmentIds()).toEqual(['scene-2', 'scene-3']));
+		expect(compositionMeta.persistenceError).toBeNull();
+		expect(compositionMeta.isUserComposition).toBe(false);
 	});
 
 	it('opens the Scene under a click, at the Film frame under the pointer', async () => {

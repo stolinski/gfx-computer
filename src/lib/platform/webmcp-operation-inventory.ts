@@ -686,7 +686,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'composition',
 		toolName: 'gfx_composition_inspect',
 		summary:
-			'Return a bounded summary of the open composition: revision, identity, transport, Pack, and Layer ids, kinds, and order.',
+			'Return a bounded summary of the open composition: revision, identity, transport, Pack, Scenes, each Scene boundary (kind, duration, params), and Layer ids, kinds, and order.',
 		effect: 'read',
 		writes: [],
 		precondition: 'composition-open',

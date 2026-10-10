@@ -31,8 +31,10 @@
 	import { framesToSeconds, resolveFrameRate } from '$lib/utils/composition-timing';
 	import { clampNumber } from '$lib/utils/math';
 
-	// The Scene strip (ADR-0068 §10): the Scenes of a stored Film in order, on
-	// the Film clock, between the transport row and the Timeline. A segment is as
+	// The Scene strip (ADR-0068 §10): the Scenes of the open Film in order, on
+	// the Film clock, between the transport row and the Timeline. It is shown for
+	// a stored Film, and for any open Film of more than one Scene, stored or not
+	// (a legacy transition Preset opens as an unsaved two-Scene Film). A segment is as
 	// wide as its Scene is long and starts on its Scene's first Film frame, so two
 	// Scenes that share a boundary window overlap by that window. Clicking one opens that Scene at the Film frame
 	// under the pointer; dragging one along the strip reorders it; the open
@@ -42,7 +44,8 @@
 	// boundary's fields in the inspector; a click inside its region also parks the
 	// Film playhead on the frame under the pointer, which shows the exact frame.
 	// The Timeline below keeps showing the open Scene on its own clock. An unsaved
-	// Starter has no strip: it is not a Film yet.
+	// one-Scene Starter has no strip: it is not a Film yet. `+` adds a Scene to a
+	// stored Film only, as `composition.add-scene-from-starter` does.
 
 	/** How far a press travels before it is a drag and not a click. */
 	const SEGMENT_DRAG_THRESHOLD_PX = 4;
@@ -267,7 +270,7 @@
 	}
 </script>
 
-{#if compositionMeta.isUserComposition}
+{#if compositionMeta.isUserComposition || strip.segments.length > 1}
 	<div class="scene-strip" role="toolbar" aria-label="Scenes">
 		<div class="scene-strip__track" bind:this={trackEl}>
 			{#each strip.segments as segment, sceneIndex (segment.id)}
@@ -325,7 +328,9 @@
 				style:inset-inline-start="{(readOpenFilmFrame() / strip.frameCount) * 100}%"
 			></span>
 		</div>
-		<FilmSceneStarterPicker />
+		{#if compositionMeta.isUserComposition}
+			<FilmSceneStarterPicker />
+		{/if}
 	</div>
 {/if}
 

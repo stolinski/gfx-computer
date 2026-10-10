@@ -98,8 +98,8 @@ export type CompositionSceneSelectionOutcome =
 
 /**
  * The refusal for a Scene edit on an unsaved Starter. Its page never saves
- * (ADR-0068 §3), and the Scene strip is not shown there, so the Film it would
- * grow into does not exist yet.
+ * (ADR-0068 §3), and the Scene strip's `+` is not shown there, so the Film it
+ * would grow into does not exist yet.
  */
 function refuseUnlessStoredFilmOpen(row: WebmcpOperationRow): CompositionOperationFailure | null {
 	if (compositionMeta.isUserComposition) return null;

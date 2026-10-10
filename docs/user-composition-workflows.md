@@ -22,7 +22,7 @@ A stored Film autosaves every edit to its own slug.
 
 ### Scenes
 
-A stored Film shows a **Scene strip** above the Timeline: one segment per Scene, in order, each as wide as its share of the Film. An unsaved Starter has no strip.
+A stored Film shows a **Scene strip** above the Timeline: one segment per Scene, in order, each as wide as its share of the Film. An unsaved Film of more than one Scene shows it too, without `+`: a built-in transition fixture opens as two Scenes, and what is changed there stays in memory. An unsaved one-Scene Starter has no strip.
 
 - **Open a Scene:** click its segment. The Timeline below shows that Scene on its own clock; the transport above shows the time and frame of the whole Film.
 - **Add a Scene:** the `+` at the end of the strip opens the Starters as poster cards with a search field. Choosing one adds it as the last Scene.
@@ -31,7 +31,7 @@ A stored Film shows a **Scene strip** above the Timeline: one segment per Scene,
 
 Adding, removing, and reordering are each one undo step. Opening a Scene is not an edit.
 
-Agents use `gfx_composition_add_scene_from_starter`, `gfx_composition_remove_scene`, `gfx_composition_reorder_scene`, and `gfx_composition_select_scene`. `gfx_composition_inspect` lists the Scene ids. Every other family's tools act on the Scene that is open.
+Agents use `gfx_composition_add_scene_from_starter`, `gfx_composition_remove_scene`, `gfx_composition_reorder_scene`, and `gfx_composition_select_scene`. `gfx_composition_inspect` lists the Scene ids, and each boundary with its kind, duration, and params. Every other family's tools act on the Scene that is open.
 
 ### Scene boundaries
 

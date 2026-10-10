@@ -31,6 +31,7 @@ import {
 } from './composition-validation-findings';
 import { filmSceneFrameCount } from './film-playhead';
 import { filmSceneDisplayName } from './film-scene-display-name';
+import { isFilmTransitionEffectBoundary, type FilmSceneBoundary } from './film-schema';
 import {
 	filmState,
 	readOpenFilm,
@@ -96,6 +97,34 @@ export interface BoundedCompositionSceneEntries {
 	truncated: boolean;
 }
 
+/**
+ * How many characters of JSON an inspection spends naming Scene boundaries
+ * before it reports only the total. A cut is a few dozen characters and an
+ * effect with its params several times that, so the bound is on what the list
+ * costs the receipt, not on how many entries it has: about twenty cuts, or five
+ * of the widest effect.
+ */
+export const COMPOSITION_INSPECTION_BOUNDARY_CHARACTER_ALLOWANCE = 900;
+
+/** One Scene boundary of the open Film, named the way `motion.set-scene-boundary` targets it. */
+export interface CompositionSceneBoundaryEntry {
+	/** The Scene the boundary follows: the `outgoingSceneId` `motion.set-scene-boundary` takes. */
+	outgoingSceneId: string;
+	/** `cut`, `fade`, or the type of a registered transition effect. */
+	kind: FilmSceneBoundary['kind'];
+	/** How long the boundary lasts. A cut has none. */
+	durationMs?: number;
+	/** A transition effect's own parameters. A cut and a fade have none. */
+	params?: Readonly<Record<string, unknown>>;
+}
+
+/** The Film's boundaries in order, trimmed to the receipt budget, still reporting the true count. */
+export interface BoundedCompositionSceneBoundaryEntries {
+	entries: readonly CompositionSceneBoundaryEntry[];
+	total: number;
+	truncated: boolean;
+}
+
 /** What the composition delivers as, which is what a background fill decides. */
 export type CompositionOutputClass = 'transparent-overlay' | 'full-frame';
 
@@ -118,6 +147,11 @@ export interface CompositionInspectionReceipt {
 	backgroundFill: string | null;
 	/** The Film's Scenes in order (ADR-0068 §8). A one-off piece has one. */
 	scenes: BoundedCompositionSceneEntries;
+	/**
+	 * The boundary after each Scene but the last, in order (ADR-0068 §4): what
+	 * `motion.set-scene-boundary` would change. A one-Scene Film has none.
+	 */
+	boundaries: BoundedCompositionSceneBoundaryEntries;
 	/**
 	 * The Scene open for editing. `transport`, `outputClass`, `backgroundFill`,
 	 * `layers`, and `findings` describe this Scene.
@@ -233,8 +267,44 @@ function summarizeOpenFilmScenes(): BoundedCompositionSceneEntries {
 	};
 }
 
+function summarizeSceneBoundary(
+	outgoingSceneId: string,
+	boundary: FilmSceneBoundary
+): CompositionSceneBoundaryEntry {
+	if (boundary.kind === 'cut') return { outgoingSceneId, kind: boundary.kind };
+	if (!isFilmTransitionEffectBoundary(boundary)) {
+		return { outgoingSceneId, kind: boundary.kind, durationMs: boundary.durationMs };
+	}
+	return {
+		outgoingSceneId,
+		kind: boundary.kind,
+		durationMs: boundary.durationMs,
+		params: { ...boundary.params }
+	};
+}
+
+// The boundaries in Film order, for as long as they fit the allowance. The list
+// stops at the first one that does not fit, so what is named is always the
+// Film's first boundaries with none skipped.
+function summarizeOpenFilmBoundaries(): BoundedCompositionSceneBoundaryEntries {
+	const film = readOpenFilm();
+	const entries: CompositionSceneBoundaryEntry[] = [];
+	let characterCount = 0;
+	for (const [boundaryIndex, boundary] of film.boundaries.entries()) {
+		const entry = summarizeSceneBoundary(film.scenes[boundaryIndex].id, boundary);
+		characterCount += JSON.stringify(entry).length;
+		if (characterCount > COMPOSITION_INSPECTION_BOUNDARY_CHARACTER_ALLOWANCE) break;
+		entries.push(entry);
+	}
+	return {
+		entries,
+		total: film.boundaries.length,
+		truncated: entries.length < film.boundaries.length
+	};
+}
+
 /**
- * Report the open composition's revision, identity, transport, Pack, Scenes, and
+ * Report the open composition's revision, identity, transport, Pack, Scenes, boundaries, and
  * the open Scene's Layer tree. The cheap "what am I working on" call, which is why it never carries
  * the document body.
  */
@@ -259,6 +329,7 @@ export function runInspectCompositionOperation(): CompositionInspectionOutcome {
 		outputClass: isPresetOpaque(document) ? 'full-frame' : 'transparent-overlay',
 		backgroundFill: document.state.backgroundFill ?? null,
 		scenes: summarizeOpenFilmScenes(),
+		boundaries: summarizeOpenFilmBoundaries(),
 		sceneId: filmState.selectedSceneId,
 		layers: boundCompositionLayerEntries(
 			summarizeCompositionLayers(document),
