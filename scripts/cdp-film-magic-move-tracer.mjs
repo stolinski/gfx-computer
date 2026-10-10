@@ -46,6 +46,28 @@
 //      cross-fade of two more and has no edge a script can find without
 //      restating the shader.
 //
+// The control. Checks 1 and 2 are run a second time on the same Film without
+// its magic move (`plain-fade-control`). A frame that fails there as well
+// differs because of the boundary, the Scene, or the capture, not the magic
+// move; a frame that fails only in checks 1 and 2 differs because of the magic
+// move. Every exact comparison reports how many pixels differ, by how much, and
+// the box around them, and with frames saved it writes a picture of where.
+//
+// The summary. Every Pack and orientation is named at the end as PASSED,
+// FAILED, or DID-NOT-FINISH, in the report (`summary`) and on the console, so a
+// run that stopped early cannot read as one that passed.
+//
+// Open finding, 2026-10-10: checks 1 to 3 and the control fail now and then,
+// in any Pack and orientation, by exactly one level on 1 to 18 pixels of the
+// frame. Every such pixel is on the anti-aliased edge of the lower third's
+// title in the incoming Scene, where the Overlay is drawn at scale 1.3 or 1.1.
+// The control fails the same way, the Overlay's DOM is identical after the
+// window and in the Scene alone, and three captures of one unchanging picture
+// disagree with each other in different pixels, so it is not the magic move.
+// The checks are not loosened for it: a failure here is still a failure, and
+// what to do about it is the owner's decision
+// (`docs/engine-architecture.md`, Magic move, "Look and proof").
+//
 // What it does not hold: how the move looks. That is for a person
 // (`cdp-capture-film-magic-move-frames.mjs`).
 //
@@ -162,20 +184,80 @@ function premultipliedPixels(capture) {
 	};
 }
 
-/** How two premultiplied pictures differ: the largest channel difference and how many differ. */
+/**
+ * How two premultiplied pictures differ: the largest channel difference, how
+ * many channel values and pixels differ, and the upright box around every pixel
+ * that does, so a mismatch says where it is.
+ */
 function comparePixels(actual, expected) {
 	if (actual.width !== expected.width || actual.height !== expected.height) {
-		return { sameSize: false, maxChannelDifference: null, differingChannels: null };
+		return {
+			sameSize: false,
+			maxChannelDifference: null,
+			differingChannels: null,
+			differingPixels: null,
+			differingBox: null
+		};
 	}
 	let maxChannelDifference = 0;
 	let differingChannels = 0;
-	for (let offset = 0; offset < actual.pixels.length; offset += 1) {
-		const difference = Math.abs(actual.pixels[offset] - expected.pixels[offset]);
-		if (difference === 0) continue;
-		differingChannels += 1;
-		if (difference > maxChannelDifference) maxChannelDifference = difference;
+	let differingPixels = 0;
+	let left = actual.width;
+	let top = actual.height;
+	let right = -1;
+	let bottom = -1;
+	for (let y = 0; y < actual.height; y += 1) {
+		for (let x = 0; x < actual.width; x += 1) {
+			const offset = (y * actual.width + x) * 4;
+			let pixelDiffers = false;
+			for (let channel = 0; channel < 4; channel += 1) {
+				const difference = Math.abs(
+					actual.pixels[offset + channel] - expected.pixels[offset + channel]
+				);
+				if (difference === 0) continue;
+				pixelDiffers = true;
+				differingChannels += 1;
+				if (difference > maxChannelDifference) maxChannelDifference = difference;
+			}
+			if (!pixelDiffers) continue;
+			differingPixels += 1;
+			if (x < left) left = x;
+			if (x > right) right = x;
+			if (y < top) top = y;
+			if (y > bottom) bottom = y;
+		}
 	}
-	return { sameSize: true, maxChannelDifference, differingChannels };
+	return {
+		sameSize: true,
+		maxChannelDifference,
+		differingChannels,
+		differingPixels,
+		differingBox:
+			differingPixels === 0
+				? null
+				: { x: left, y: top, width: right - left + 1, height: bottom - top + 1 }
+	};
+}
+
+/** With frames saved: a picture of where two frames differ, white on black. */
+async function saveDifference(run, label, actual, expected) {
+	if (!SAVE_FRAMES || actual.width !== expected.width || actual.height !== expected.height) return;
+	const picture = new PNG({ width: actual.width, height: actual.height });
+	for (let offset = 0; offset < actual.pixels.length; offset += 4) {
+		let differs = false;
+		for (let channel = 0; channel < 4; channel += 1) {
+			if (actual.pixels[offset + channel] !== expected.pixels[offset + channel]) differs = true;
+		}
+		const level = differs ? 255 : 0;
+		picture.data[offset] = level;
+		picture.data[offset + 1] = level;
+		picture.data[offset + 2] = level;
+		picture.data[offset + 3] = 255;
+	}
+	await writeFile(
+		join(OUTDIR, `${run.pack}-${run.orientation}-difference-${label}.png`),
+		PNG.sync.write(picture)
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -309,10 +391,11 @@ async function traceRun(page, origin, run) {
 		console.log(`  scene-alone  ${fixtureFilm.scenes[sceneIndex].id}`);
 	}
 
-	// The same Film with the pair taken off.
+	// The same Film with the pair taken off: mid-window for check 5, and its
+	// ends and outside as the control for checks 1 and 2.
 	await open('plain-fade');
 	const plainFade = new Map();
-	for (const frame of MID_FRAMES) {
+	for (const frame of [...ENDPOINT_FRAMES, ...MID_FRAMES, ...OUTSIDE_FRAMES]) {
 		const capture = await captureFilmFramePng(page, frame.filmFrame);
 		await saveFrame(run, 'plain-fade', frame.label, capture);
 		plainFade.set(frame.label, premultipliedPixels(capture));
@@ -346,7 +429,12 @@ async function traceRun(page, origin, run) {
 				capture.magicMoveQuads.length === 0 &&
 				pixels.sameSize &&
 				pixels.maxChannelDifference === 0,
-			reason: `The Film frame at window progress ${frame.expectedProgress} is not Scene "${fixtureFilm.scenes[frame.sceneIndex].id}" frame ${sceneFrame} alone.`
+			landed: {
+				sceneId: capture.sceneId,
+				sceneFrame: capture.sceneFrame,
+				window: capture.boundaryWindow
+			},
+			reason: `The Film frame at window progress ${frame.expectedProgress} is not Scene "${fixtureFilm.scenes[frame.sceneIndex].id}" frame ${sceneFrame} alone: ${pixels.differingPixels} pixels differ, by up to ${pixels.maxChannelDifference} levels, inside ${JSON.stringify(pixels.differingBox)}.`
 		});
 	}
 
@@ -373,8 +461,40 @@ async function traceRun(page, origin, run) {
 				capture.magicMoveQuads.length === 0 &&
 				pixels.sameSize &&
 				pixels.maxChannelDifference === 0,
-			reason: `The Film frame ${frame.label.replace('-', ' the ')} is not Scene "${fixtureFilm.scenes[frame.sceneIndex].id}" frame ${frame.sceneFrame} alone.`
+			landed: {
+				sceneId: capture.sceneId,
+				sceneFrame: capture.sceneFrame,
+				window: capture.boundaryWindow
+			},
+			reason: `The Film frame ${frame.label.replace('-', ' the ')} is not Scene "${fixtureFilm.scenes[frame.sceneIndex].id}" frame ${frame.sceneFrame} alone: ${pixels.differingPixels} pixels differ, by up to ${pixels.maxChannelDifference} levels, inside ${JSON.stringify(pixels.differingBox)}.`
 		});
+	}
+
+	// The control for checks 1 and 2: the same four frames of the same Film
+	// without its magic move, against the same Scenes alone. A frame that fails
+	// here as well differs because of the boundary or the Scene, not the magic
+	// move; one that fails only above differs because of the magic move.
+	for (const frame of [...ENDPOINT_FRAMES, ...OUTSIDE_FRAMES]) {
+		const sceneFrame = sceneFrameOf(frame, frame.sceneIndex);
+		const alone = alonePixels[frame.sceneIndex].get(sceneFrame);
+		const pixels = comparePixels(plainFade.get(frame.label), alone);
+		comparisons.push({
+			label: frame.label,
+			kind: 'plain-fade-control',
+			filmFrame: frame.filmFrame,
+			sceneId: fixtureFilm.scenes[frame.sceneIndex].id,
+			sceneFrame,
+			pixels,
+			matches: pixels.sameSize && pixels.maxChannelDifference === 0,
+			reason: `Without the magic move, the Film frame ${frame.label} is not Scene "${fixtureFilm.scenes[frame.sceneIndex].id}" frame ${sceneFrame} alone either: ${pixels.differingPixels} pixels differ, by up to ${pixels.maxChannelDifference} levels, inside ${JSON.stringify(pixels.differingBox)}.`
+		});
+		const magicMovePixels = premultipliedPixels(inFilm.get(frame.label));
+		if (comparePixels(magicMovePixels, alone).maxChannelDifference !== 0) {
+			await saveDifference(run, `magic-move-${frame.label}`, magicMovePixels, alone);
+		}
+		if (pixels.maxChannelDifference !== 0) {
+			await saveDifference(run, `plain-fade-${frame.label}`, plainFade.get(frame.label), alone);
+		}
 	}
 
 	{
@@ -530,6 +650,7 @@ const report = {
 	packs: PACKS,
 	orientations: ORIENTATIONS,
 	runs: [],
+	summary: [],
 	failures: [],
 	passed: false
 };
@@ -567,11 +688,38 @@ for (const { pack, orientation, comparisons } of report.runs) {
 		});
 	}
 }
-report.passed = report.failures.length === 0 && report.runs.length === RUNS.length;
+// Every Pack and orientation is named, passed or failed, so a run that never
+// finished cannot read as one that passed.
+report.summary = RUNS.map((run) => {
+	const traced = report.runs.find(
+		(candidate) => candidate.pack === run.pack && candidate.orientation === run.orientation
+	);
+	const failures = report.failures.filter(
+		(failure) => failure.pack === run.pack && failure.orientation === run.orientation
+	);
+	return {
+		...run,
+		status: traced === undefined ? 'did-not-finish' : failures.length === 0 ? 'passed' : 'failed',
+		comparisons: traced?.comparisons.length ?? 0,
+		failures: failures.length
+	};
+});
+report.passed =
+	report.failures.length === 0 && report.summary.every((entry) => entry.status === 'passed');
 
 const reportJson = `${JSON.stringify(report, null, '\t')}\n`;
 await writeFile(join(OUTDIR, 'report.json'), reportJson);
 console.log(reportJson);
+for (const entry of report.summary) {
+	console.log(
+		`${entry.status.toUpperCase().padEnd(14)} ${entry.pack} ${entry.orientation}: ${entry.comparisons} comparisons, ${entry.failures} failure(s)`
+	);
+}
+for (const failure of report.failures) {
+	console.log(
+		`  ${failure.pack} ${failure.orientation} ${failure.label} (${failure.kind}): ${failure.reason}`
+	);
+}
 if (!report.passed) {
 	console.error(
 		`Film magic-move tracer: ${report.failures.length} failure(s). See ${join(OUTDIR, 'report.json')}.`
