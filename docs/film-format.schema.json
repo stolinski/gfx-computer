@@ -18262,6 +18262,224 @@
               "durationMs"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mask-wipe"
+              },
+              "durationMs": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "params": {
+                "type": "object",
+                "properties": {
+                  "direction": {
+                    "default": "right",
+                    "type": "string",
+                    "enum": [
+                      "right",
+                      "left",
+                      "down",
+                      "up"
+                    ]
+                  },
+                  "softness": {
+                    "default": 0.001,
+                    "type": "number",
+                    "minimum": 0.0002,
+                    "maximum": 0.05
+                  }
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "durationMs",
+              "params"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "particle-dissolve"
+              },
+              "durationMs": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "params": {
+                "type": "object",
+                "properties": {
+                  "seed": {
+                    "default": 2718,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "density": {
+                    "default": 72,
+                    "type": "number",
+                    "minimum": 12,
+                    "maximum": 160
+                  },
+                  "spread": {
+                    "default": 0.055,
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.25
+                  },
+                  "direction": {
+                    "default": -18,
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "softness": {
+                    "default": 0.08,
+                    "type": "number",
+                    "minimum": 0.01,
+                    "maximum": 0.3
+                  },
+                  "luminanceBias": {
+                    "default": 0.2,
+                    "type": "number",
+                    "minimum": -1,
+                    "maximum": 1
+                  }
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "durationMs",
+              "params"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "sheet-peel"
+              },
+              "durationMs": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "params": {
+                "type": "object",
+                "properties": {
+                  "direction": {
+                    "default": "right",
+                    "type": "string",
+                    "enum": [
+                      "right",
+                      "left",
+                      "down",
+                      "up"
+                    ]
+                  },
+                  "curl": {
+                    "default": 0.16,
+                    "type": "number",
+                    "minimum": 0.04,
+                    "maximum": 0.35
+                  },
+                  "perspective": {
+                    "default": 0.55,
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "shadow": {
+                    "default": 0.42,
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "highlight": {
+                    "default": 0.35,
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "durationMs",
+              "params"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "seeded-shatter"
+              },
+              "durationMs": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "params": {
+                "type": "object",
+                "properties": {
+                  "seed": {
+                    "default": 1337,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "columns": {
+                    "default": 14,
+                    "type": "integer",
+                    "minimum": 4,
+                    "maximum": 32
+                  },
+                  "scatter": {
+                    "default": 0.13,
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.4
+                  },
+                  "rotation": {
+                    "default": 0.55,
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "depth": {
+                    "default": 0.6,
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "shadow": {
+                    "default": 0.35,
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "durationMs",
+              "params"
+            ],
+            "additionalProperties": false
           }
         ]
       }

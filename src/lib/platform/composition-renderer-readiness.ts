@@ -17,6 +17,7 @@ import {
 	collectScenePresetRendererRequirements
 } from './pipelines/preset-renderer-requirements';
 import { compositionEditHistory } from './composition-edit-history';
+import { isFilmTransitionEffectBoundary } from './film-schema';
 import { scenePresetsOfOpenFilm, type OpenFilmDocument } from './open-film-document';
 import { getPack, UnknownPackError } from './packs/registry';
 import { getPresetBySlug } from './preset-catalog';
@@ -56,18 +57,33 @@ export async function ensureCompositionRenderersLoaded(document: Preset): Promis
 }
 
 /**
- * What every Scene of a Film needs to render, as one set of requirements: the
- * union over its Scenes, under the Film's one Pack (ADR-0068 §1). The Pack must
- * already be registered (`ensurePackLoaded`).
+ * What a Film needs to render, as one set of requirements: the union over its
+ * Scenes, under the Film's one Pack (ADR-0068 §1), and the transition effect of
+ * every boundary that names one (§4). The Pack must already be registered
+ * (`ensurePackLoaded`).
  */
 export function collectFilmRendererRequirements(
 	document: FilmRendererSubject
 ): PipelineRendererRequirements {
-	return collectScenePresetRendererRequirements(scenePresetsOfOpenFilm(document), {
-		pack: getPack(document.film.pack),
-		resolvePack: getPack,
-		resolvePreset: getPresetBySlug
-	});
+	const sceneRequirements = collectScenePresetRendererRequirements(
+		scenePresetsOfOpenFilm(document),
+		{
+			pack: getPack(document.film.pack),
+			resolvePack: getPack,
+			resolvePreset: getPresetBySlug
+		}
+	);
+	// A boundary that is a transition effect composites its window with that
+	// effect's renderer, so it is loaded with the Film too.
+	return {
+		...sceneRequirements,
+		transitions: new Set([
+			...sceneRequirements.transitions,
+			...document.film.boundaries
+				.filter(isFilmTransitionEffectBoundary)
+				.map((boundary) => boundary.kind)
+		])
+	};
 }
 
 /**

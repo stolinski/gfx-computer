@@ -11,7 +11,7 @@ import type { Film, FilmScene, FilmSceneBoundary } from './film-schema';
  * Film length is the sum of those counts less the frames boundaries overlap, so
  * an NTSC Film does not drift.
  *
- * A boundary with a duration (a fade) has a **window**: the Film frames its two
+ * A boundary with a duration (a fade or a transition effect) has a **window**: the Film frames its two
  * Scenes share. Outside a window one Scene owns each frame. Inside one, both
  * Scenes are on the frame, each at a frame of its own
  * (`resolveFilmBoundaryWindowFrame`). The maths here assumes what
@@ -44,26 +44,23 @@ export function filmSceneFrameCount(scene: FilmScene, rate: FrameRate): number {
 
 /**
  * The frames the two Scenes on either side of a boundary share. A hard cut
- * shares none. A fade overlaps the tail of the outgoing Scene and the head of
- * the incoming one for this many frames; every function below subtracts them.
+ * shares none. Every other kind overlaps the tail of the outgoing Scene and the
+ * head of the incoming one for this many frames; every function below subtracts
+ * them.
  *
  * The rounding rule: `durationMs` at the Film's exact rational rate, rounded to
  * the nearest whole frame, with half a frame rounding up
  * (`durationMs × num ÷ (1000 × den)`). This is the rule a Scene's own duration
- * follows (`filmSceneFrameCount`), so a 1000 ms fade is 30 frames at both 30
- * and 29.97. A fade that rounds to no frame at all is 0 here and is a
+ * follows (`filmSceneFrameCount`), so a 1000 ms window is 30 frames at both 30
+ * and 29.97. A window that rounds to no frame at all is 0 here and is a
  * validation finding, not a cut.
  */
 export function filmSceneBoundaryOverlapFrames(
 	boundary: FilmSceneBoundary,
 	rate: FrameRate
 ): number {
-	switch (boundary.kind) {
-		case 'cut':
-			return 0;
-		case 'fade':
-			return Math.round((boundary.durationMs * rate.num) / (1000 * rate.den));
-	}
+	if (boundary.kind === 'cut') return 0;
+	return Math.round((boundary.durationMs * rate.num) / (1000 * rate.den));
 }
 
 /**

@@ -1,10 +1,8 @@
-import type {
-	FilmBoundaryEffectKind,
-	FilmBoundaryFrameComposite,
-	FilmBoundaryFrameSurface
-} from './film-boundary-frame';
+import type { FilmBoundaryFrameComposite, FilmBoundaryFrameSurface } from './film-boundary-frame';
+import type { FilmSceneWindowBoundary } from './film-schema';
 import type { GpuHost } from './gpu-host';
 import { filmBoundaryFadeEffectRenderer } from './pipelines/film-boundary-fade';
+import { getLoadedTransitionEffectRenderer } from './pipelines/runtime-loader';
 import {
 	compileTransitionEffect,
 	type CompiledTransitionEffect
@@ -29,30 +27,21 @@ export interface FilmBoundaryFrameCompositorFactories {
 		host: GpuHost,
 		renderer: TransitionEffectRenderer<unknown>
 	): CompiledTransitionEffect;
+	/** The loaded renderer of a registered transition effect, or `null` when it is not loaded. */
+	readTransitionEffectRenderer(type: string): TransitionEffectRenderer<unknown> | null;
 }
 
 const DEFAULT_FACTORIES: FilmBoundaryFrameCompositorFactories = {
 	createSceneTargets: (options) => new TransitionSnapshots(options),
-	compileEffect: compileTransitionEffect
+	compileEffect: compileTransitionEffect,
+	readTransitionEffectRenderer: getLoadedTransitionEffectRenderer
 };
 
-/**
- * The effect each boundary kind composites its two Scenes with. Every one is
- * written to the transition pass's contract (a from-view, a to-view, a
- * `progress` uniform), so a registered transition Effect joins by one case.
- */
-function filmBoundaryEffectRenderer(
-	kind: FilmBoundaryEffectKind
-): TransitionEffectRenderer<unknown> {
-	switch (kind) {
-		case 'fade':
-			return filmBoundaryFadeEffectRenderer as TransitionEffectRenderer<unknown>;
-	}
-}
+type FilmWindowBoundaryKind = FilmSceneWindowBoundary['kind'];
 
 interface FilmBoundaryFrameCompositorResources extends FilmBoundaryFrameCompositorTarget {
 	sceneTargets: TransitionSnapshotFrameTextures;
-	effects: Map<FilmBoundaryEffectKind, CompiledTransitionEffect>;
+	effects: Map<FilmWindowBoundaryKind, CompiledTransitionEffect>;
 }
 
 /**
@@ -121,19 +110,30 @@ export class FilmBoundaryFrameCompositor implements FilmBoundaryFrameSurface {
 		return this.#prepared().sceneTargets.toTarget();
 	}
 
-	/** Composite the two Scene targets, as last rendered, into `outputView`. */
-	composite({ kind, progress, outputView }: FilmBoundaryFrameComposite): void {
+	/**
+	 * Composite the two Scene targets, as last rendered, into `outputView`.
+	 *
+	 * Every effect is a function of the two views, the window's progress, and the
+	 * boundary's own `params`. None keeps anything from one frame to the next,
+	 * so a frame is the same whichever frame was composited before it.
+	 *
+	 * Throws an `Error` when the boundary names a transition effect whose
+	 * renderer is not loaded; `ensureFilmRenderersLoaded` loads every one a
+	 * Film's boundaries name before the Film opens.
+	 */
+	composite({ boundary, progress, outputView }: FilmBoundaryFrameComposite): void {
 		const resources = this.#prepared();
-		let effect = resources.effects.get(kind);
+		let effect = resources.effects.get(boundary.kind);
 		if (!effect) {
-			effect = this.#factories.compileEffect(resources.host, filmBoundaryEffectRenderer(kind));
-			resources.effects.set(kind, effect);
+			effect = this.#factories.compileEffect(resources.host, this.#effectRenderer(boundary.kind));
+			resources.effects.set(boundary.kind, effect);
 		}
 		effect.apply({
 			fromView: resources.sceneTargets.fromTexture().createView(),
 			toView: resources.sceneTargets.toTexture().createView(),
 			outputView,
-			params: {},
+			// A fade has nothing to set; an effect's params are the boundary's own.
+			params: boundary.kind === 'fade' ? {} : boundary.params,
 			context: {
 				progress,
 				// A boundary's effect is a function of its window progress alone.
@@ -147,6 +147,22 @@ export class FilmBoundaryFrameCompositor implements FilmBoundaryFrameSurface {
 	dispose(): void {
 		this.#isDisposed = true;
 		this.#release();
+	}
+
+	/**
+	 * The effect a boundary kind composites its two Scenes with. Every one is
+	 * written to the transition pass's contract (a from-view, a to-view, a
+	 * `progress` uniform): the fade, and each registered transition effect.
+	 */
+	#effectRenderer(kind: FilmWindowBoundaryKind): TransitionEffectRenderer<unknown> {
+		if (kind === 'fade') {
+			return filmBoundaryFadeEffectRenderer as TransitionEffectRenderer<unknown>;
+		}
+		const renderer = this.#factories.readTransitionEffectRenderer(kind);
+		if (!renderer) {
+			throw new Error(`The transition effect "${kind}" of a Scene boundary is not loaded.`);
+		}
+		return renderer;
 	}
 
 	#prepared(): FilmBoundaryFrameCompositorResources {

@@ -12,7 +12,7 @@ const SeededShatterParamsSchema = z.object({
 export type SeededShatterParams = z.infer<typeof SeededShatterParamsSchema>;
 
 export const seededShatterTransitionEffectDefinition = {
-	type: 'seeded-shatter',
+	type: 'seeded-shatter' as const,
 	label: 'Seeded shatter',
 	paramsSchema: SeededShatterParamsSchema,
 	defaults: () => ({

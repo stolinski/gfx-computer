@@ -11,7 +11,7 @@ const SheetPeelParamsSchema = z.object({
 export type SheetPeelParams = z.infer<typeof SheetPeelParamsSchema>;
 
 export const sheetPeelTransitionEffectDefinition = {
-	type: 'sheet-peel',
+	type: 'sheet-peel' as const,
 	label: 'Sheet peel',
 	paramsSchema: SheetPeelParamsSchema,
 	defaults: () => ({

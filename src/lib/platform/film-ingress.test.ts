@@ -21,7 +21,13 @@ import {
 	sceneStateForPlayback,
 	validateFilmSemantics
 } from './film-ingress';
+import {
+	filmFrameCount,
+	filmSceneBoundaryOverlaps,
+	resolveFilmBoundaryWindowFrame
+} from './film-playhead';
 import { FILM_SCHEMA_ID, type Film } from './film-schema';
+import { transitionEffectDefinitions } from './pipelines/transition-definition-registry';
 import { posterKeyForPreset } from './posters';
 import { parsePresetIngress } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
@@ -613,5 +619,79 @@ describe('validateFilmSemantics', () => {
 
 			assert.deepEqual(parseFilm(filmToWireFormat(film)), film);
 		});
+
+		describe.each(transitionEffectDefinitions())(
+			'and of the $type effect, which are the same',
+			(definition) => {
+				const effect = (durationMs: number): Record<string, unknown> => ({
+					kind: definition.type,
+					durationMs,
+					params: definition.defaults().params
+				});
+
+				it('finds nothing wrong with a window its Scenes have room for', () => {
+					for (const durationMs of [1000, 2000, 33]) {
+						assert.deepEqual(
+							validateFilmSemantics(filmWithBoundaries([2, 3], [effect(durationMs)])),
+							[]
+						);
+					}
+				});
+
+				it('reports a window shorter than one frame, at its durationMs', () => {
+					assert.deepEqual(validateFilmSemantics(filmWithBoundaries([2, 3], [effect(16)])), [
+						{
+							path: ['boundaries', 0, 'durationMs'],
+							message: `The ${definition.type} between Scene "scene-1" and Scene "scene-2" lasts 16 ms, less than one frame at 30 fps. Lengthen it, or make the boundary a cut.`
+						}
+					]);
+				});
+
+				it('reports a window longer than the shorter of its two Scenes, at its durationMs', () => {
+					assert.deepEqual(validateFilmSemantics(filmWithBoundaries([2, 1], [effect(1500)])), [
+						{
+							path: ['boundaries', 0, 'durationMs'],
+							message: `The ${definition.type} between Scene "scene-1" and Scene "scene-2" lasts 45 frames, longer than the shorter of the two Scenes (30 frames). Shorten it.`
+						}
+					]);
+				});
+
+				it('reports a window that would meet a fade inside the Scene between them', () => {
+					const issues = validateFilmSemantics(
+						filmWithBoundaries([3, 2, 3], [{ kind: 'fade', durationMs: 1333.4 }, effect(1000)])
+					);
+
+					assert.deepEqual(
+						issues.map((issue) => issue.path),
+						[['boundaries', 1, 'durationMs']]
+					);
+					assert.match(issues[0].message, /overlap 40 and 30 of them/);
+					assert.deepEqual(
+						validateFilmSemantics(
+							filmWithBoundaries([3, 2, 3], [effect(1000), { kind: 'fade', durationMs: 1000 }])
+						),
+						[]
+					);
+				});
+
+				it('overlaps its Scenes by its window, as a fade of the same length does', () => {
+					const withEffect = filmWithBoundaries([2, 3], [effect(1000)]);
+					const withFade = filmWithBoundaries([2, 3], [{ kind: 'fade', durationMs: 1000 }]);
+
+					assert.deepEqual(filmSceneBoundaryOverlaps(withEffect), [30]);
+					assert.equal(filmFrameCount(withEffect), filmFrameCount(withFade));
+					assert.deepEqual(
+						resolveFilmBoundaryWindowFrame(withEffect, 45),
+						resolveFilmBoundaryWindowFrame(withFade, 45)
+					);
+				});
+
+				it('keeps its params through wire and parse again', () => {
+					const film = filmWithBoundaries([2, 3], [effect(1000)]);
+
+					assert.deepEqual(parseFilm(filmToWireFormat(film)), film);
+				});
+			}
+		);
 	});
 });

@@ -6,15 +6,13 @@
  * renders every window frame through `renderFilmBoundaryFrame`, and so does a
  * paused playhead in the Workspace, so the two are the same pixels.
  */
-import type { FilmSceneBoundary } from './film-schema';
+import type { FilmSceneWindowBoundary } from './film-schema';
 import type { FilmSceneFrameStepper } from './film-scene-frame-stepper';
-
-/** The boundary kinds that have a window, and so composite two Scenes. */
-export type FilmBoundaryEffectKind = Exclude<FilmSceneBoundary['kind'], 'cut'>;
 
 /** One composite of the two Scene targets into an output. */
 export interface FilmBoundaryFrameComposite {
-	kind: FilmBoundaryEffectKind;
+	/** The boundary whose window the frame is in: its kind picks the effect, and an effect reads its `params`. */
+	boundary: FilmSceneWindowBoundary;
 	/** The window's progress on this frame, 0..1 (`filmBoundaryWindowProgress`). */
 	progress: number;
 	outputView: GPUTextureView;
@@ -43,7 +41,7 @@ export interface FilmBoundaryFrameScene {
 export interface FilmBoundaryFrameRenderRequest {
 	stepper: FilmSceneFrameStepper;
 	surface: FilmBoundaryFrameSurface;
-	kind: FilmBoundaryEffectKind;
+	boundary: FilmSceneWindowBoundary;
 	outgoing: FilmBoundaryFrameScene;
 	incoming: FilmBoundaryFrameScene;
 	progress: number;
@@ -78,7 +76,7 @@ export async function renderFilmBoundaryFrame(
 	});
 	signal.throwIfAborted();
 	surface.composite({
-		kind: request.kind,
+		boundary: request.boundary,
 		progress: request.progress,
 		outputView: request.readOutputView()
 	});

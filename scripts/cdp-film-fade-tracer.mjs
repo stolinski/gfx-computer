@@ -1,12 +1,28 @@
-// The proof of a Film fade (ADR-0068 §4): a paused Film frame inside the
-// window is the cross-fade of its two Scenes, each live at its own frame.
+// The proof of a Film boundary with a window (ADR-0068 §4). For the fade: a
+// paused Film frame inside the window is the cross-fade of its two Scenes, each
+// live at its own frame. For the fade and every registered transition effect:
+// the window's first frame is the outgoing Scene, its last is the incoming
+// Scene, the frames just outside it are untouched, and one Film frame captured
+// twice, with a seek away between, is the same pixels.
+//
+// A transition effect's frames strictly inside its window are NOT compared
+// with an offline reference: there is none. Its shader is the only statement
+// of what a mid-window frame is, so re-deriving it here would prove this
+// script against itself. What is held for an effect is what can be held
+// honestly: its two ends, its outside, and that it is repeatable. How an
+// effect looks mid-window is for a person
+// (`cdp-capture-film-boundary-effect-frames.mjs`).
 //
 // For the two-Scene fade fixture, in both orientations, it captures:
 //
 //   - in the Film, the paused frame at window progress 0, 0.25, 0.5, 0.75, 1,
 //     and the frame just before the window and the frame just after it;
 //   - each Scene opened alone, at the Scene frame each of those Film frames
-//     puts it on.
+//     puts it on;
+//   - in the same Film with each registered transition effect in place of the
+//     fade, at that effect's default params and the fade's own duration: the
+//     paused frame at window progress 0 and 1, the frames just before and just
+//     after the window, and the frame at progress 0.5 twice.
 //
 // It then blends the two Scenes-alone captures offline, `out × (1 − p) + in × p`
 // on premultiplied 8-bit values (`src/lib/utils/premultiplied-cross-fade.ts`,
@@ -26,6 +42,11 @@
 //     than one level. Exact equality is the goal, and the report states how
 //     many channel values differed at all (`differingChannels`) so a real
 //     defect cannot hide inside the tolerance.
+//   - Every transition effect at progress 0 and 1, and its frames outside the
+//     window: exact, for the same reason (the shared compiler returns the
+//     from-texel at progress 0 and the to-texel at progress 1 before any
+//     effect's own code runs).
+//   - One Film frame captured twice: exact, for the fade and every effect.
 //
 //   node --experimental-strip-types scripts/cdp-film-fade-tracer.mjs
 //
@@ -53,12 +74,14 @@ import {
 	confirmCanvasChrome,
 	filmDocument,
 	filmSlug,
+	fixtureFadeBoundary,
 	fixtureFilm,
 	fixtureWindow,
 	openCdpPage,
 	openStoredFilm,
 	repositoryRoot,
 	startJailedDevServer,
+	transitionEffectBoundaries,
 	windowFrameNearProgress,
 	writeStoredFilm
 } from './cdp-film-fade-session.mjs';
@@ -104,6 +127,17 @@ for (const frame of OUTSIDE_FRAMES) {
 		throw new Error(`${FILM_FADE_FIXTURE_PATH} leaves no frame ${frame.label}.`);
 	}
 }
+
+/** Every registered transition effect as the fixture's boundary, with the fade's own duration. */
+const EFFECT_BOUNDARIES = await transitionEffectBoundaries(fixtureFadeBoundary.durationMs);
+
+/** The window's two ends: the outgoing Scene alone and the incoming Scene alone. */
+const ENDPOINT_FRAMES = [
+	{ ...WINDOW_FRAMES[0], sceneIndex: OUTGOING, expectedProgress: 0 },
+	{ ...WINDOW_FRAMES[WINDOW_FRAMES.length - 1], sceneIndex: INCOMING, expectedProgress: 1 }
+];
+/** The mid-window frame that is captured twice. */
+const REPEATED_FRAME = WINDOW_FRAMES.find((frame) => frame.wantedProgress === 0.5);
 
 /** A canvas PNG as premultiplied 8-bit RGBA, the values the canvas held. */
 function premultipliedPixels(capture) {
@@ -275,7 +309,138 @@ async function traceOrientation(page, origin, orientation) {
 			matches: landedOnRequestedFrame && untouched.sameSize && untouched.maxChannelDifference === 0
 		});
 	}
+	// The fade, captured again after every other seek above: the same pixels.
+	const fadeRepeat = await captureFilmFramePngAgain(page, origin, orientation, fixtureFadeBoundary);
+	comparisons.push(
+		repeatComparison(
+			fixtureFadeBoundary,
+			premultipliedPixels(inFilm.get(REPEATED_FRAME.label)),
+			fadeRepeat
+		)
+	);
+
+	for (const boundary of EFFECT_BOUNDARIES) {
+		comparisons.push(...(await traceEffectBoundary(page, origin, orientation, boundary, alone)));
+	}
 	return { orientation, comparisons };
+}
+
+/** Open the fixture under `boundary` afresh and capture the repeated mid-window frame. */
+async function captureFilmFramePngAgain(page, origin, orientation, boundary) {
+	await openStoredFilm(
+		page,
+		origin,
+		filmSlug(orientation, null, boundary),
+		filmDocument(orientation, null, boundary)
+	);
+	const capture = await captureFilmFramePng(page, REPEATED_FRAME.filmFrame);
+	await saveFrame(
+		orientation,
+		`in-film-${boundary.kind}`,
+		`${REPEATED_FRAME.label}-again`,
+		capture
+	);
+	return premultipliedPixels(capture);
+}
+
+function repeatComparison(boundary, first, second) {
+	const repeat = comparePixels(second, first);
+	return {
+		label: `${boundary.kind}-${REPEATED_FRAME.label}-twice`,
+		kind: 'repeat',
+		boundaryKind: boundary.kind,
+		filmFrame: REPEATED_FRAME.filmFrame,
+		landedOnRequestedFrame: true,
+		toleranceLevels: 0,
+		blend: repeat,
+		matches: repeat.sameSize && repeat.maxChannelDifference === 0
+	};
+}
+
+/**
+ * One transition effect in place of the fade: its two ends against each Scene
+ * alone, the frames outside its window against each Scene alone, and its
+ * mid-window frame against itself after a seek away and back.
+ */
+async function traceEffectBoundary(page, origin, orientation, boundary, alone) {
+	console.log(`  ${boundary.kind}:`);
+	await openStoredFilm(
+		page,
+		origin,
+		filmSlug(orientation, null, boundary),
+		filmDocument(orientation, null, boundary)
+	);
+	const capture = async (label, filmFrame) => {
+		const captured = await captureFilmFramePng(page, filmFrame);
+		await saveFrame(orientation, `in-film-${boundary.kind}`, label, captured);
+		console.log(`    in-film    ${label.padEnd(18)} film frame ${filmFrame}`);
+		return captured;
+	};
+
+	const comparisons = [];
+	// Mid-window first; every capture after it is a seek away.
+	const firstMidWindow = premultipliedPixels(
+		await capture(REPEATED_FRAME.label, REPEATED_FRAME.filmFrame)
+	);
+	for (const frame of ENDPOINT_FRAMES) {
+		const captured = await capture(frame.label, frame.filmFrame);
+		const landed = captured.boundaryWindow;
+		const landedOnRequestedFrame =
+			landed !== null &&
+			landed.windowFrame === frame.windowFrame &&
+			landed.progress === frame.expectedProgress &&
+			landed.outgoingSceneFrame === frame.outgoingSceneFrame &&
+			landed.incomingSceneFrame === frame.incomingSceneFrame;
+		const sceneFrame =
+			frame.sceneIndex === OUTGOING ? frame.outgoingSceneFrame : frame.incomingSceneFrame;
+		const endpoint = comparePixels(
+			premultipliedPixels(captured),
+			alone[frame.sceneIndex].get(sceneFrame)
+		);
+		comparisons.push({
+			label: `${boundary.kind}-${frame.label}`,
+			kind: 'endpoint',
+			boundaryKind: boundary.kind,
+			filmFrame: frame.filmFrame,
+			sceneId: fixtureFilm.scenes[frame.sceneIndex].id,
+			sceneFrame,
+			progress: landed?.progress ?? null,
+			landed,
+			landedOnRequestedFrame,
+			toleranceLevels: 0,
+			blend: endpoint,
+			matches: landedOnRequestedFrame && endpoint.sameSize && endpoint.maxChannelDifference === 0
+		});
+	}
+	for (const frame of OUTSIDE_FRAMES) {
+		const captured = await capture(frame.label, frame.filmFrame);
+		const landedOnRequestedFrame =
+			captured.boundaryWindow === null &&
+			captured.sceneId === fixtureFilm.scenes[frame.sceneIndex].id &&
+			captured.sceneFrame === frame.sceneFrame;
+		const untouched = comparePixels(
+			premultipliedPixels(captured),
+			alone[frame.sceneIndex].get(frame.sceneFrame)
+		);
+		comparisons.push({
+			label: `${boundary.kind}-${frame.label}`,
+			kind: 'untouched',
+			boundaryKind: boundary.kind,
+			filmFrame: frame.filmFrame,
+			sceneId: fixtureFilm.scenes[frame.sceneIndex].id,
+			sceneFrame: frame.sceneFrame,
+			landed: { sceneId: captured.sceneId, sceneFrame: captured.sceneFrame },
+			landedOnRequestedFrame,
+			toleranceLevels: 0,
+			blend: untouched,
+			matches: landedOnRequestedFrame && untouched.sameSize && untouched.maxChannelDifference === 0
+		});
+	}
+	const secondMidWindow = premultipliedPixels(
+		await capture(`${REPEATED_FRAME.label}-again`, REPEATED_FRAME.filmFrame)
+	);
+	comparisons.push(repeatComparison(boundary, firstMidWindow, secondMidWindow));
+	return comparisons;
 }
 
 // ---------------------------------------------------------------------------
@@ -296,6 +461,13 @@ for (const orientation of ORIENTATIONS) {
 			filmDocument(orientation, sceneIndex)
 		);
 	}
+	for (const boundary of EFFECT_BOUNDARIES) {
+		await writeStoredFilm(
+			jail.compositionStoreDirectory,
+			filmSlug(orientation, null, boundary),
+			filmDocument(orientation, null, boundary)
+		);
+	}
 }
 
 const report = {
@@ -303,6 +475,7 @@ const report = {
 	fps: fixtureFilm.fps,
 	window: fixtureWindow,
 	blendToleranceLevels: BLEND_TOLERANCE_LEVELS,
+	effectBoundaries: EFFECT_BOUNDARIES,
 	orientations: [],
 	failures: [],
 	passed: false
@@ -354,6 +527,8 @@ for (const { orientation, comparisons } of report.orientations) {
 				reason = 'The captures are not one size, so they cannot be compared.';
 			} else if (comparison.kind === 'blend') {
 				reason = `The Film frame differs from the blend of its two Scenes by up to ${comparison.blend.maxChannelDifference} levels on ${comparison.blend.differingChannels} of ${comparison.blend.channelCount} channel values; ${comparison.toleranceLevels} allowed.`;
+			} else if (comparison.kind === 'repeat') {
+				reason = `Film frame ${comparison.filmFrame} under the ${comparison.boundaryKind} boundary is not the same pixels the second time it is captured: up to ${comparison.blend.maxChannelDifference} levels on ${comparison.blend.differingChannels} channel values.`;
 			} else {
 				reason = `The Film frame differs from Scene "${comparison.sceneId}" frame ${comparison.sceneFrame} alone by up to ${comparison.blend.maxChannelDifference} levels on ${comparison.blend.differingChannels} channel values.`;
 			}
@@ -383,11 +558,11 @@ await writeFile(join(OUTDIR, 'report.json'), reportJson);
 console.log(reportJson);
 if (!report.passed) {
 	console.error(
-		`Film fade tracer: ${report.failures.length} failure(s). See ${join(OUTDIR, 'report.json')}.`
+		`Film boundary tracer: ${report.failures.length} failure(s). See ${join(OUTDIR, 'report.json')}.`
 	);
 	process.exit(1);
 }
 console.log(
-	'Film fade tracer: every paused window frame is the cross-fade of its two Scenes, and the frames outside the window are untouched.'
+	'Film boundary tracer: every paused fade frame is the cross-fade of its two Scenes; every transition effect starts on the outgoing Scene and ends on the incoming one; the frames outside every window are untouched; and a frame captured twice is the same pixels.'
 );
 process.exit(0);

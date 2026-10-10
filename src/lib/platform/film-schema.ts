@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { EngineStateSchema, PresetSchema, type EngineState } from './engine-schema.ts';
+import { TRANSITION_EFFECT_DEFINITION_REGISTRY } from './pipelines/transition-definition-registry.ts';
 
 /**
  * The Film wire format id (ADR-0068 §1). A Film is read and opened, not yet
@@ -75,26 +76,71 @@ export const FilmSceneSchema = z.strictObject({
 	state: EngineStateSchema
 });
 
+/** How long a boundary with a window lasts. Its bounds in frames are semantic findings. */
+function boundaryDurationMsSchema(label: string): z.ZodNumber {
+	return z.number().positive(`A ${label} lasts longer than 0 ms`);
+}
+
+/**
+ * One boundary member per registered transition effect: the effect's `type` as
+ * the `kind`, a `durationMs`, and the effect's own `params` schema. Read off
+ * the registry, so registering an effect adds its boundary and nothing here
+ * restates a name or a parameter.
+ */
+function filmTransitionEffectBoundarySchemas(): z.ZodObject[] {
+	// Each member is exact at run time. Its static type is `FilmSceneBoundary`
+	// below, which is mapped over the same registry.
+	return Object.values(TRANSITION_EFFECT_DEFINITION_REGISTRY).map((definition) =>
+		z.strictObject({
+			kind: z.literal(definition.type),
+			durationMs: boundaryDurationMsSchema(definition.type),
+			params: definition.paramsSchema
+		})
+	);
+}
+
 /**
  * What happens between two neighbouring Scenes (ADR-0068 §4), discriminated on
- * `kind`. A `cut` shares no frames. A `fade` is a cross-fade that lasts
- * `durationMs`: it overlaps the tail of the outgoing Scene and the head of the
- * incoming one, and both keep animating through it. The registered transition
- * effects and magic move each arrive as one more member of this union, so
- * adding one never changes a Film that does not use it.
+ * `kind`. A `cut` shares no frames. Every other kind lasts `durationMs`: it
+ * overlaps the tail of the outgoing Scene and the head of the incoming one, and
+ * both keep animating through it. A `fade` is a cross-fade. The rest are the
+ * registered transition effects (`./pipelines/transition-definition-registry.ts`),
+ * one member each, with that effect's `params`. Magic move arrives as a further
+ * field, so adding it never changes a Film that does not use it.
  *
- * How many frames a fade overlaps depends on the Film's rate, so its bounds are
- * not checked here. `validateFilmSemantics` (`./film-ingress.ts`) reports a
- * fade shorter than one frame or longer than its Scenes allow, with its path;
- * `filmSceneBoundaryOverlapFrames` (`./film-playhead.ts`) is the rounding rule.
+ * How many frames a window overlaps depends on the Film's rate, so its bounds
+ * are not checked here. `validateFilmSemantics` (`./film-ingress.ts`) reports
+ * a window shorter than one frame or longer than its Scenes allow, with its
+ * path; `filmSceneBoundaryOverlapFrames` (`./film-playhead.ts`) is the
+ * rounding rule.
  */
 export const FilmSceneBoundarySchema = z.discriminatedUnion('kind', [
 	z.strictObject({ kind: z.literal('cut') }),
 	z.strictObject({
 		kind: z.literal('fade'),
-		durationMs: z.number().positive('A fade lasts longer than 0 ms')
-	})
-]);
+		durationMs: boundaryDurationMsSchema('fade')
+	}),
+	...filmTransitionEffectBoundarySchemas()
+]) as unknown as z.ZodType<FilmSceneBoundary>;
+
+/** A boundary that is one registered transition effect, with that effect's parameters. */
+export type FilmTransitionEffectBoundary = {
+	[Key in keyof typeof TRANSITION_EFFECT_DEFINITION_REGISTRY]: {
+		kind: (typeof TRANSITION_EFFECT_DEFINITION_REGISTRY)[Key]['type'];
+		durationMs: number;
+		params: z.infer<(typeof TRANSITION_EFFECT_DEFINITION_REGISTRY)[Key]['paramsSchema']>;
+	};
+}[keyof typeof TRANSITION_EFFECT_DEFINITION_REGISTRY];
+
+/**
+ * Every boundary kind, in the order a picker lists them: `cut`, `fade`, then
+ * the registered transition effects in registry order.
+ */
+export const FILM_SCENE_BOUNDARY_KINDS: readonly FilmSceneBoundary['kind'][] = [
+	'cut',
+	'fade',
+	...Object.values(TRANSITION_EFFECT_DEFINITION_REGISTRY).map((definition) => definition.type)
+];
 
 /** One structural defect in a Film, in the shape Preset validation reports. */
 export interface FilmStructureIssue {
@@ -164,7 +210,20 @@ export const FilmSchema = z
 	});
 
 export type FilmSceneOrigin = z.infer<typeof FilmSceneOriginSchema>;
-export type FilmSceneBoundary = z.infer<typeof FilmSceneBoundarySchema>;
+// Named member by member rather than inferred: the effect members are built
+// from the registry at run time, so the schema's own inferred type cannot tie a
+// `kind` to its `params`.
+export type FilmSceneBoundary =
+	{ kind: 'cut' } | { kind: 'fade'; durationMs: number } | FilmTransitionEffectBoundary;
+/** True for a boundary that is a registered transition effect, and so carries `params`. */
+export function isFilmTransitionEffectBoundary(
+	boundary: FilmSceneBoundary
+): boundary is FilmTransitionEffectBoundary {
+	return boundary.kind !== 'cut' && boundary.kind !== 'fade';
+}
+
+/** A boundary with a window: every kind but the cut. */
+export type FilmSceneWindowBoundary = Exclude<FilmSceneBoundary, { kind: 'cut' }>;
 // `state` is named as `EngineState` rather than left as the inferred shape, the
 // same way `Preset` names it, so a Scene state is assignable wherever an engine
 // state is expected.

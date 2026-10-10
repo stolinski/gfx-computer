@@ -71,12 +71,9 @@
 		settleSwappedCompositionState,
 		type CompositionStateSwapSettleDependencies
 	} from './composition-state-swap-settle';
-	import {
-		renderFilmBoundaryFrame,
-		type FilmBoundaryEffectKind,
-		type FilmBoundaryFrameSurface
-	} from './film-boundary-frame';
+	import { renderFilmBoundaryFrame, type FilmBoundaryFrameSurface } from './film-boundary-frame';
 	import { FilmBoundaryFrameCompositor } from './film-boundary-frame-compositor';
+	import type { FilmSceneWindowBoundary } from './film-schema';
 	import {
 		filmSceneFrameCount,
 		resolveFilmBoundaryWindowFrame,
@@ -186,7 +183,7 @@
 	// takes the targets; the canvas then shows the open Scene alone.
 	let heldFilmBoundaryFrame = $state.raw<{
 		filmFrame: number;
-		kind: FilmBoundaryEffectKind;
+		boundary: FilmSceneWindowBoundary;
 		progress: number;
 	} | null>(null);
 	// True while the two Scenes of a paused window frame are being stepped. The
@@ -812,7 +809,7 @@
 			return false;
 		}
 		filmBoundaryFrameCompositor.composite({
-			kind: held.kind,
+			boundary: held.boundary,
 			progress: held.progress,
 			outputView: localHost.context.getCurrentTexture().createView()
 		});
@@ -834,8 +831,8 @@
 		// author's and the playhead is where it rests.
 		const film = readOpenFilm();
 		const filmFrame = readOpenFilmFrame();
-		const boundaryKind = film.boundaries[windowFrame.boundaryIndex].kind;
-		if (boundaryKind === 'cut') {
+		const boundary = film.boundaries[windowFrame.boundaryIndex];
+		if (boundary.kind === 'cut') {
 			throw new Error('A hard cut has no window frame to present.');
 		}
 		const frameRate = resolveFrameRate(film.fps);
@@ -868,7 +865,7 @@
 							renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp))
 					}),
 					surface,
-					kind: boundaryKind,
+					boundary,
 					outgoing: {
 						sceneId: windowFrame.outgoing.sceneId,
 						sceneFrame: windowFrame.outgoing.localFrame
@@ -890,7 +887,7 @@
 		} finally {
 			isSteppingFilmBoundaryFrame = false;
 		}
-		heldFilmBoundaryFrame = { filmFrame, kind: boundaryKind, progress: windowFrame.progress };
+		heldFilmBoundaryFrame = { filmFrame, boundary, progress: windowFrame.progress };
 		presentHeldFilmBoundaryFrame();
 	}
 

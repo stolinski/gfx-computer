@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it, vi } from 'vitest';
 
-import type { FilmAudioMixRenderRequest } from './audio-mix';
+import type { FilmAudioMixRenderRequest, FilmAudioMixScene } from './audio-mix';
 import { createDefaultEngineState, type EngineState, type Preset } from './engine-schema';
 import type { TransparentVideoExportOptions, VideoExportDownload } from './export-video';
 import {
@@ -14,7 +14,7 @@ import {
 	type CompositionExportControllerServices,
 	type CompositionExportUiState
 } from './composition-export-controller';
-import { FILM_SCHEMA_ID, type Film } from './film-schema';
+import { FILM_SCHEMA_ID, type Film, type FilmSceneWindowBoundary } from './film-schema';
 
 function makePreset(name: string, opaque: boolean): Preset {
 	const state = createDefaultEngineState();
@@ -82,6 +82,16 @@ function filmOf(...states: EngineState[]): Film {
 			state
 		})),
 		boundaries: states.slice(1).map(() => ({ kind: 'cut' }))
+	};
+}
+
+/** Where the mix was told to place one Scene, without the Scene's state. */
+function audioMixScenePlacement(scene: FilmAudioMixScene): Omit<FilmAudioMixScene, 'state'> {
+	return {
+		startFrame: scene.startFrame,
+		frameCount: scene.frameCount,
+		leadingWindowFrameCount: scene.leadingWindowFrameCount,
+		trailingWindowFrameCount: scene.trailingWindowFrameCount
 	};
 }
 
@@ -375,7 +385,12 @@ describe('composition export plan of a Film with a fade', () => {
 			{ sceneId: 'scene-2', startFrame: 30, frameCount: 90, durationSeconds: 3 }
 		]);
 		assert.deepEqual(plan.boundaryWindows, [
-			{ kind: 'fade', outgoingSceneIndex: 0, startFrame: 30, frameCount: 30 }
+			{
+				boundary: { kind: 'fade', durationMs: 1000 },
+				outgoingSceneIndex: 0,
+				startFrame: 30,
+				frameCount: 30
+			}
 		]);
 	});
 
@@ -476,6 +491,8 @@ interface ExportControllerHarness {
 	shownSceneIds: string[];
 	/** What the export did to its animation and its bracket, in order. */
 	sceneLog: string[];
+	/** The boundary each window frame's composite was handed, in order. */
+	compositedBoundaries: FilmSceneWindowBoundary[];
 	getBoundaryFrameSurfaceCount(): number;
 	getBracketOpenCount(): number;
 	getBracketCloseCount(): number;
@@ -500,6 +517,7 @@ function createHarness(options?: {
 	const film = options?.film ?? filmOf(options?.state ?? makeState({ durationSeconds: 2, fps: 2 }));
 	const shownSceneIds: string[] = [];
 	const sceneLog: string[] = [];
+	const compositedBoundaries: FilmSceneWindowBoundary[] = [];
 	let bracketOpenCount = 0;
 	let bracketCloseCount = 0;
 	let boundaryFrameSurfaceCount = 0;
@@ -603,9 +621,10 @@ function createHarness(options?: {
 			return {
 				readOutgoingTarget: () => OUTGOING_TARGET_VIEW,
 				readIncomingTarget: () => INCOMING_TARGET_VIEW,
-				composite: ({ kind, progress, outputView }) => {
+				composite: ({ boundary, progress, outputView }) => {
 					renderedOutputViews.push(outputView);
-					sceneLog.push(`composite ${kind} ${progress}`);
+					sceneLog.push(`composite ${boundary.kind} ${progress}`);
+					compositedBoundaries.push(boundary);
 				}
 			};
 		},
@@ -635,6 +654,7 @@ function createHarness(options?: {
 		encodedTimestamps,
 		shownSceneIds,
 		sceneLog,
+		compositedBoundaries,
 		getBoundaryFrameSurfaceCount: () => boundaryFrameSurfaceCount,
 		getBracketOpenCount: () => bracketOpenCount,
 		getBracketCloseCount: () => bracketCloseCount,
@@ -1208,22 +1228,32 @@ describe('composition export of a Film with a fade', () => {
 		assert.ok(harness.renderedOutputViews.every((view) => view === CANVAS_OUTPUT_VIEW));
 	});
 
-	it('mixes both Scenes over the window: the incoming Scene starts on its first frame', async () => {
+	it('mixes both Scenes over the window, and tells the mix which frames each fades across', async () => {
 		const harness = createHarness({ film: fadeFilm() });
 
 		await harness.controller.export(harness.dependencies);
 
 		assert.equal(harness.audioRequests[0].frameCount, 6);
-		assert.deepEqual(
-			harness.audioRequests[0].scenes.map(({ startFrame, frameCount }) => ({
-				startFrame,
-				frameCount
-			})),
-			[
-				{ startFrame: 0, frameCount: 4 },
-				{ startFrame: 2, frameCount: 4 }
-			]
-		);
+		assert.deepEqual(harness.audioRequests[0].scenes.map(audioMixScenePlacement), [
+			{ startFrame: 0, frameCount: 4, leadingWindowFrameCount: 0, trailingWindowFrameCount: 2 },
+			{ startFrame: 2, frameCount: 4, leadingWindowFrameCount: 2, trailingWindowFrameCount: 0 }
+		]);
+	});
+
+	it('tells the mix of no window in a Film of hard cuts', async () => {
+		const harness = createHarness({
+			film: filmOf(
+				makeState({ durationSeconds: 1, fps: 2 }),
+				makeState({ durationSeconds: 1, fps: 2 })
+			)
+		});
+
+		await harness.controller.export(harness.dependencies);
+
+		assert.deepEqual(harness.audioRequests[0].scenes.map(audioMixScenePlacement), [
+			{ startFrame: 0, frameCount: 2, leadingWindowFrameCount: 0, trailingWindowFrameCount: 0 },
+			{ startFrame: 2, frameCount: 2, leadingWindowFrameCount: 0, trailingWindowFrameCount: 0 }
+		]);
 	});
 
 	it('closes the bracket when a window frame fails between its two Scenes', async () => {
@@ -1239,6 +1269,103 @@ describe('composition export of a Film with a fade', () => {
 		assert.equal(outcome.status, 'failed');
 		assert.ok(!harness.sceneLog.some((entry) => entry.startsWith('composite')));
 		assert.equal(harness.getBracketCloseCount(), 1);
+	});
+});
+
+describe('composition export of a Film with a transition effect at a boundary', () => {
+	const SHATTER: FilmSceneWindowBoundary = {
+		kind: 'seeded-shatter',
+		durationMs: 1000,
+		params: { seed: 7, columns: 12, scatter: 0.1, rotation: 0.5, depth: 0.5, shadow: 0.3 }
+	};
+
+	// 4 frames, a 2-frame shatter, 4 frames, a 2-frame fade, 4 frames at 2 fps.
+	function effectFilm(): Film {
+		const film = filmOf(
+			makeState({ durationSeconds: 2, fps: 2 }),
+			makeState({ durationSeconds: 2, fps: 2 }),
+			makeState({ durationSeconds: 2, fps: 2 })
+		);
+		return { ...film, boundaries: [SHATTER, { kind: 'fade', durationMs: 1000 }] };
+	}
+
+	it('plans each window with the boundary it belongs to', () => {
+		const plan = buildCompositionExportPlan({ film: effectFilm(), transition: null });
+
+		assert.equal(plan.frameCount, 8);
+		assert.deepEqual(plan.boundaryWindows, [
+			{ boundary: SHATTER, outgoingSceneIndex: 0, startFrame: 2, frameCount: 2 },
+			{
+				boundary: { kind: 'fade', durationMs: 1000 },
+				outgoingSceneIndex: 1,
+				startFrame: 4,
+				frameCount: 2
+			}
+		]);
+	});
+
+	it('renders both Scenes live on every window frame and runs the effect over them, as the fade does', async () => {
+		const harness = createHarness({ film: effectFilm() });
+
+		const outcome = await harness.controller.export(harness.dependencies);
+
+		assert.equal(outcome.status, 'delivered');
+		assert.deepEqual(harness.sceneLog, [
+			'show scene-1',
+			'rebuild',
+			'render 0',
+			'render 0.5',
+			// The shatter's window: the outgoing Scene, the incoming Scene, the effect.
+			'render 1',
+			'show scene-2',
+			'rebuild',
+			'render 0',
+			'composite seeded-shatter 0',
+			'show scene-1',
+			'rebuild',
+			'render 1.5',
+			'show scene-2',
+			'rebuild',
+			'render 0.5',
+			'composite seeded-shatter 1',
+			// The fade's window, on the same Scene's tail.
+			'render 1',
+			'show scene-3',
+			'rebuild',
+			'render 0',
+			'composite fade 0',
+			'show scene-2',
+			'rebuild',
+			'render 1.5',
+			'show scene-3',
+			'rebuild',
+			'render 0.5',
+			'composite fade 1',
+			'render 1',
+			'render 1.5',
+			'dispose',
+			'close'
+		]);
+		// Every composite is handed the Film's own boundary, params included.
+		assert.deepEqual(harness.compositedBoundaries, [
+			SHATTER,
+			SHATTER,
+			{ kind: 'fade', durationMs: 1000 },
+			{ kind: 'fade', durationMs: 1000 }
+		]);
+		assert.equal(harness.getBoundaryFrameSurfaceCount(), 1);
+	});
+
+	it('fades the sound of the Scene between two windows in and then out', async () => {
+		const harness = createHarness({ film: effectFilm() });
+
+		await harness.controller.export(harness.dependencies);
+
+		assert.deepEqual(harness.audioRequests[0].scenes.map(audioMixScenePlacement), [
+			{ startFrame: 0, frameCount: 4, leadingWindowFrameCount: 0, trailingWindowFrameCount: 2 },
+			{ startFrame: 2, frameCount: 4, leadingWindowFrameCount: 2, trailingWindowFrameCount: 2 },
+			{ startFrame: 4, frameCount: 4, leadingWindowFrameCount: 2, trailingWindowFrameCount: 0 }
+		]);
 	});
 });
 

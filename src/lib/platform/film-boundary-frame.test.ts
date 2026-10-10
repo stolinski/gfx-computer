@@ -32,8 +32,8 @@ function createBoundaryFrameHarness(options: { failOn?: string; abortOn?: string
 		surface: {
 			readOutgoingTarget: () => OUTGOING_TARGET,
 			readIncomingTarget: () => INCOMING_TARGET,
-			composite: ({ kind, progress, outputView }) => {
-				log.push(`composite ${kind} ${progress} into ${outputView.label}`);
+			composite: ({ boundary, progress, outputView }) => {
+				log.push(`composite ${boundary.kind} ${progress} into ${outputView.label}`);
 			}
 		}
 	};
@@ -46,7 +46,7 @@ describe('one boundary window frame', () => {
 		await renderFilmBoundaryFrame({
 			stepper: harness.stepper,
 			surface: harness.surface,
-			kind: 'fade',
+			boundary: { kind: 'fade', durationMs: 1000 },
 			outgoing: { sceneId: 'hero', sceneFrame: 165 },
 			incoming: { sceneId: 'lower-third', sceneFrame: 15 },
 			progress: 15 / 29,
@@ -65,6 +65,40 @@ describe('one boundary window frame', () => {
 		]);
 	});
 
+	it('runs a transition effect in the same order, and hands the composite the boundary with its params', async () => {
+		const harness = createBoundaryFrameHarness();
+		const composited: unknown[] = [];
+		const boundary = {
+			kind: 'seeded-shatter',
+			durationMs: 800,
+			params: { seed: 7, columns: 12, scatter: 0.1, rotation: 0.5, depth: 0.5, shadow: 0.3 }
+		} as const;
+
+		await renderFilmBoundaryFrame({
+			stepper: harness.stepper,
+			surface: {
+				...harness.surface,
+				composite: (request) => {
+					harness.log.push(`composite ${request.boundary.kind} ${request.progress}`);
+					composited.push(request.boundary);
+				}
+			},
+			boundary,
+			outgoing: { sceneId: 'hero', sceneFrame: 170 },
+			incoming: { sceneId: 'lower-third', sceneFrame: 20 },
+			progress: 0.5,
+			readOutputView: () => CANVAS,
+			signal: harness.abortController.signal
+		});
+
+		expect(harness.log).toEqual([
+			'step hero 170 into outgoing',
+			'step lower-third 20 into incoming',
+			'composite seeded-shatter 0.5'
+		]);
+		expect(composited).toEqual([boundary]);
+	});
+
 	it('composites nothing when the incoming Scene fails', async () => {
 		const harness = createBoundaryFrameHarness({ failOn: 'lower-third' });
 
@@ -72,7 +106,7 @@ describe('one boundary window frame', () => {
 			renderFilmBoundaryFrame({
 				stepper: harness.stepper,
 				surface: harness.surface,
-				kind: 'fade',
+				boundary: { kind: 'fade', durationMs: 1000 },
 				outgoing: { sceneId: 'hero', sceneFrame: 150 },
 				incoming: { sceneId: 'lower-third', sceneFrame: 0 },
 				progress: 0,
@@ -91,7 +125,7 @@ describe('one boundary window frame', () => {
 			renderFilmBoundaryFrame({
 				stepper: harness.stepper,
 				surface: harness.surface,
-				kind: 'fade',
+				boundary: { kind: 'fade', durationMs: 1000 },
 				outgoing: { sceneId: 'hero', sceneFrame: 150 },
 				incoming: { sceneId: 'lower-third', sceneFrame: 0 },
 				progress: 0,

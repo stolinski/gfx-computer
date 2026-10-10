@@ -8,13 +8,19 @@ import blankPresetJson from '$lib/presets/blank.json';
 import { MotionBeatIdSchema } from './engine-schema';
 import {
 	FILM_DURATION_CEILING_SECONDS,
+	FILM_SCENE_BOUNDARY_KINDS,
 	FILM_SCENE_LIMIT,
 	FILM_SCHEMA_ID,
 	FilmSceneIdSchema,
 	FilmSchema,
 	createFilmFormatJsonSchema,
+	isFilmTransitionEffectBoundary,
 	listFilmStructureIssues
 } from './film-schema';
+import {
+	transitionEffectDefinitions,
+	transitionEffectTypes
+} from './pipelines/transition-definition-registry';
 
 function sceneDocument(id: string): Record<string, unknown> {
 	return { id, origin: null, state: blankPresetJson.state };
@@ -188,9 +194,122 @@ describe('FilmSchema', () => {
 	});
 
 	it('refuses a boundary kind that is not registered', () => {
-		const document = { ...filmDocument(['intro', 'outro']), boundaries: [{ kind: 'fade' }] };
+		const document = {
+			...filmDocument(['intro', 'outro']),
+			boundaries: [{ kind: 'star-wipe', durationMs: 500, params: {} }]
+		};
 
 		assert.equal(FilmSchema.safeParse(document).success, false);
+	});
+
+	describe('a registered transition effect as a boundary', () => {
+		const withBoundary = (boundary: unknown): Record<string, unknown> => ({
+			...filmDocument(['intro', 'outro']),
+			boundaries: [boundary]
+		});
+
+		it('lists cut, fade, and then every registered effect as the boundary kinds', () => {
+			assert.deepEqual(FILM_SCENE_BOUNDARY_KINDS, ['cut', 'fade', ...transitionEffectTypes()]);
+			assert.ok(transitionEffectTypes().length > 0);
+		});
+
+		it.each(transitionEffectDefinitions())(
+			'accepts $type with a duration and its default params',
+			(definition) => {
+				const boundary = {
+					kind: definition.type,
+					durationMs: 800,
+					params: definition.defaults().params
+				};
+
+				const film = FilmSchema.parse(withBoundary(boundary));
+
+				assert.deepEqual(film.boundaries, [boundary]);
+				assert.equal(isFilmTransitionEffectBoundary(film.boundaries[0]), true);
+			}
+		);
+
+		it.each(transitionEffectDefinitions())(
+			'fills $type params a writer left out from the effect own defaults',
+			(definition) => {
+				const film = FilmSchema.parse(
+					withBoundary({ kind: definition.type, durationMs: 800, params: {} })
+				);
+
+				assert.deepEqual(film.boundaries, [
+					{ kind: definition.type, durationMs: 800, params: definition.defaults().params }
+				]);
+			}
+		);
+
+		it.each(transitionEffectDefinitions())(
+			'refuses $type without a duration, without params, with a duration of 0, or with an unknown key',
+			(definition) => {
+				const params = definition.defaults().params;
+
+				assert.equal(
+					FilmSchema.safeParse(withBoundary({ kind: definition.type, params })).success,
+					false
+				);
+				assert.equal(
+					FilmSchema.safeParse(withBoundary({ kind: definition.type, durationMs: 800 })).success,
+					false
+				);
+				assert.deepEqual(
+					issueMessagesAt(
+						withBoundary({ kind: definition.type, durationMs: 0, params }),
+						'boundaries/0/durationMs'
+					),
+					[`A ${definition.type} lasts longer than 0 ms`]
+				);
+				assert.equal(
+					FilmSchema.safeParse(
+						withBoundary({ kind: definition.type, durationMs: 800, params, ease: 'none' })
+					).success,
+					false
+				);
+			}
+		);
+
+		it.each(transitionEffectDefinitions())(
+			'holds $type params to the effect own schema, with the path of the param',
+			(definition) => {
+				// Every registered effect has numeric params; a string is never one.
+				const [firstNumericParam] = Object.entries(
+					definition.defaults().params as Record<string, unknown>
+				).find(([, value]) => typeof value === 'number') ?? [null];
+				assert.ok(firstNumericParam, `${definition.type} has a numeric param`);
+				const boundary = {
+					kind: definition.type,
+					durationMs: 800,
+					params: { ...(definition.defaults().params as object), [firstNumericParam]: 'wide' }
+				};
+
+				const result = FilmSchema.safeParse(withBoundary(boundary));
+
+				assert.equal(result.success, false);
+				assert.equal(definition.paramsSchema.safeParse(boundary.params).success, false);
+				assert.ok(
+					!result.success &&
+						result.error.issues.some(
+							(issue) => issue.path.join('/') === `boundaries/0/params/${firstNumericParam}`
+						)
+				);
+			}
+		);
+
+		it('does not take one effect params for another', () => {
+			const result = FilmSchema.safeParse(
+				withBoundary({ kind: 'mask-wipe', durationMs: 800, params: { direction: 'sideways' } })
+			);
+
+			assert.equal(result.success, false);
+		});
+
+		it('says a fade and a cut are not transition effects', () => {
+			assert.equal(isFilmTransitionEffectBoundary({ kind: 'cut' }), false);
+			assert.equal(isFilmTransitionEffectBoundary({ kind: 'fade', durationMs: 500 }), false);
+		});
 	});
 
 	it('refuses a Film with no Scenes, a missing origin, or another schema id', () => {

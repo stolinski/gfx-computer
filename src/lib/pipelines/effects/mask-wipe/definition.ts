@@ -8,7 +8,7 @@ const MaskWipeParamsSchema = z.object({
 export type MaskWipeParams = z.infer<typeof MaskWipeParamsSchema>;
 
 export const maskWipeTransitionEffectDefinition = {
-	type: 'mask-wipe',
+	type: 'mask-wipe' as const,
 	label: 'Mask wipe',
 	paramsSchema: MaskWipeParamsSchema,
 	defaults: () => ({ params: { direction: 'right', softness: 0.001 } })

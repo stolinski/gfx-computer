@@ -12,7 +12,7 @@ const ParticleDissolveParamsSchema = z.object({
 export type ParticleDissolveParams = z.infer<typeof ParticleDissolveParamsSchema>;
 
 export const particleDissolveTransitionEffectDefinition = {
-	type: 'particle-dissolve',
+	type: 'particle-dissolve' as const,
 	label: 'Particle dissolve',
 	paramsSchema: ParticleDissolveParamsSchema,
 	defaults: () => ({

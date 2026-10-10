@@ -10,6 +10,7 @@ import { parseFilm, presetFromFilmScene } from './film-ingress';
 import { getPack, UnknownPackError } from './packs/registry';
 import { collectPresetRendererRequirements } from './pipelines/preset-renderer-requirements';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+import { TRANSITION_EFFECT_DEFINITION_REGISTRY } from './pipelines/transition-definition-registry';
 import { getPresetBySlug } from './preset-catalog';
 import { cloneJsonValue } from '../utils/json-clone';
 
@@ -81,6 +82,26 @@ describe('what a Film needs to render', () => {
 		const alone = sceneRequirements(oneSceneFilm, oneSceneFilm.scenes[0].id);
 		for (const kind of REQUIREMENT_KINDS) {
 			expect([...requirements[kind]].sort()).toEqual([...alone[kind]].sort());
+		}
+	});
+
+	it('adds the transition effect of every boundary that names one, and nothing for a cut or a fade', () => {
+		const film = twoSceneCutFilm();
+		const requirementsWith = (boundary: Film['boundaries'][number]): PipelineRendererRequirements =>
+			collectFilmRendererRequirements({
+				film: { ...film, boundaries: [boundary] },
+				legacyPresetEnvelope: { kind: 'deliverable' }
+			});
+
+		expect([...requirementsWith({ kind: 'cut' }).transitions]).toEqual([]);
+		expect([...requirementsWith({ kind: 'fade', durationMs: 500 }).transitions]).toEqual([]);
+		for (const definition of Object.values(TRANSITION_EFFECT_DEFINITION_REGISTRY)) {
+			const boundary = {
+				kind: definition.type,
+				durationMs: 500,
+				params: definition.defaults().params
+			} as Film['boundaries'][number];
+			expect([...requirementsWith(boundary).transitions]).toEqual([definition.type]);
 		}
 	});
 });

@@ -11,9 +11,10 @@
  * [ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §6):
  * every Scene's own schedule, placed at the sample its Scene starts on and cut
  * at the sample its Scene ends on, summed Scene by Scene into one buffer. Two
- * Scenes that share a boundary window overlap in the buffer by that window: the
- * outgoing Scene sounds through it to its own end, the incoming Scene sounds
- * from the window's first frame, and both are summed at full level.
+ * Scenes that share a boundary window overlap in the buffer by that window, and
+ * sound fades with the picture there: the outgoing Scene fades out across the
+ * window and the incoming Scene fades in, on an equal-power curve
+ * (`filmAudioMixSceneWindowGain`).
  */
 import type { FrameRate } from '$lib/utils/composition-timing';
 import { isEngineStateOpaque } from '$lib/utils/output-classification';
@@ -122,6 +123,18 @@ export interface FilmAudioMixScene {
 	startFrame: number;
 	/** How many Film frames the Scene fills. */
 	frameCount: number;
+	/**
+	 * Frames of the boundary window the Scene opens in: its first frames, shared
+	 * with the Scene before it. The Scene's sound fades in across them. 0 or
+	 * absent after a cut and for the first Scene.
+	 */
+	leadingWindowFrameCount?: number;
+	/**
+	 * Frames of the boundary window the Scene closes in: its last frames, shared
+	 * with the Scene after it. The Scene's sound fades out across them. 0 or
+	 * absent before a cut and for the last Scene.
+	 */
+	trailingWindowFrameCount?: number;
 }
 
 /** The whole Film's mix: every Scene in Film order, over the Film's frame count. */
@@ -211,11 +224,66 @@ function scaleMixChannels(channels: MixChannels, gain: number): void {
  * first frame starts on to the sample its last frame ends on. Nothing a Scene
  * schedules is written outside this span, so a hard cut is hard for sound too.
  * The spans of two Scenes that share a boundary window overlap by the window,
- * and there both Scenes are summed.
+ * and there both Scenes are summed, each under its window gain.
  */
 interface FilmAudioMixSceneSpan {
 	startSample: number;
 	sampleCount: number;
+	/** The Scene's fades, or `null` when it sits between two cuts. */
+	windows: FilmAudioMixSceneWindows | null;
+}
+
+/**
+ * The two boundary windows of one Scene, in samples counted from the Scene's
+ * start sample. A side with no window has a count of 0.
+ */
+export interface FilmAudioMixSceneWindows {
+	/** Samples of the leading window: `0` to this, the Scene fades in. */
+	fadeInSampleCount: number;
+	/** The first sample of the trailing window. */
+	fadeOutStartSample: number;
+	/** Samples of the trailing window: from `fadeOutStartSample`, the Scene fades out. */
+	fadeOutSampleCount: number;
+}
+
+/**
+ * The gain a Scene's sound takes at one of its samples because of its boundary
+ * windows: 1 outside both, an equal-power fade-in across the leading window,
+ * and an equal-power fade-out across the trailing one.
+ *
+ * With `t` the sample's position in its window, from 0 on the window's first
+ * sample towards 1 at its end, the incoming Scene is multiplied by
+ * `sin(t × π/2)` and the outgoing Scene by `cos(t × π/2)`. Both Scenes count
+ * `t` on the same samples, so the two gains squared always sum to 1.
+ *
+ * Equal-power rather than linear: two Scenes' sounds are unrelated signals, so
+ * their powers add, not their amplitudes. Linear gains of 0.5 and 0.5 at
+ * mid-window carry half the power of either Scene alone, a dip of 3 dB that is
+ * heard as the sound sagging through every boundary. The sine and cosine pair
+ * holds the summed power level across the whole window.
+ */
+export function filmAudioMixSceneWindowGain(
+	windows: FilmAudioMixSceneWindows,
+	sceneSample: number
+): number {
+	let gain = 1;
+	if (sceneSample < windows.fadeInSampleCount) {
+		gain *= Math.sin((sceneSample / windows.fadeInSampleCount) * (Math.PI / 2));
+	}
+	if (windows.fadeOutSampleCount > 0 && sceneSample >= windows.fadeOutStartSample) {
+		gain *= Math.cos(
+			((sceneSample - windows.fadeOutStartSample) / windows.fadeOutSampleCount) * (Math.PI / 2)
+		);
+	}
+	return gain;
+}
+
+function assertWindowFrameCount(frameCount: number, sceneFrameCount: number): void {
+	if (!Number.isInteger(frameCount) || frameCount < 0 || frameCount > sceneFrameCount) {
+		throw new TypeError(
+			'An audio mix Scene window is a whole number of frames, no longer than its Scene.'
+		);
+	}
 }
 
 function filmAudioMixSceneSpan(
@@ -231,22 +299,58 @@ function filmAudioMixSceneSpan(
 	if (endSample > outputSampleCount) {
 		throw new RangeError('An audio mix Scene extends beyond the Film the mix was asked for.');
 	}
-	return { startSample, sampleCount: endSample - startSample };
+	const leadingWindowFrameCount = scene.leadingWindowFrameCount ?? 0;
+	const trailingWindowFrameCount = scene.trailingWindowFrameCount ?? 0;
+	assertWindowFrameCount(leadingWindowFrameCount, scene.frameCount);
+	assertWindowFrameCount(trailingWindowFrameCount, scene.frameCount);
+	if (leadingWindowFrameCount === 0 && trailingWindowFrameCount === 0) {
+		return { startSample, sampleCount: endSample - startSample, windows: null };
+	}
+	// Window ends are Film frames turned into samples, the same way for both
+	// Scenes of a window, so the two fades cover exactly the same samples.
+	const fadeOutStartSample =
+		audioMixSampleAtFrame(
+			scene.startFrame + scene.frameCount - trailingWindowFrameCount,
+			frameRate
+		) - startSample;
+	return {
+		startSample,
+		sampleCount: endSample - startSample,
+		windows: {
+			fadeInSampleCount:
+				audioMixSampleAtFrame(scene.startFrame + leadingWindowFrameCount, frameRate) - startSample,
+			fadeOutStartSample,
+			fadeOutSampleCount: endSample - startSample - fadeOutStartSample
+		}
+	};
 }
 
-/** Sum the first `sampleCount` samples of `pcm` at `destinationStartSample`. */
+/**
+ * Sum the first `sampleCount` samples of `pcm` at `destinationStartSample`.
+ * `sceneStartSample` is where `pcm` starts inside its Scene, which is what the
+ * Scene's window gain is read at.
+ */
 function sumPcmIntoMix(
 	channels: MixChannels,
 	pcm: VideoAssetAudioPcm,
 	destinationStartSample: number,
 	sampleCount: number,
-	gain: number
+	gain: number,
+	windows: FilmAudioMixSceneWindows | null,
+	sceneStartSample: number
 ): void {
 	for (let channel = 0; channel < AUDIO_MIX_CHANNELS; channel += 1) {
 		const output = channels[channel];
 		const input = pcm.channels[channel];
+		if (windows === null) {
+			for (let sample = 0; sample < sampleCount; sample += 1) {
+				output[destinationStartSample + sample] += input[sample] * gain;
+			}
+			continue;
+		}
 		for (let sample = 0; sample < sampleCount; sample += 1) {
-			output[destinationStartSample + sample] += input[sample] * gain;
+			output[destinationStartSample + sample] +=
+				input[sample] * gain * filmAudioMixSceneWindowGain(windows, sceneStartSample + sample);
 		}
 	}
 }
@@ -299,7 +403,10 @@ async function mixSceneVideoClipAudio(
 
 		const destinationStartSample = span.startSample + sceneStartSample;
 		const canAdoptClipBuffer =
-			channels === null && destinationStartSample === 0 && clipSampleCount === outputSampleCount;
+			channels === null &&
+			span.windows === null &&
+			destinationStartSample === 0 &&
+			clipSampleCount === outputSampleCount;
 		if (canAdoptClipBuffer) {
 			channels = [clipPcm.channels[0], clipPcm.channels[1]];
 			if (clip.audio.gain !== 1) {
@@ -314,7 +421,9 @@ async function mixSceneVideoClipAudio(
 			clipPcm,
 			destinationStartSample,
 			Math.min(clipSampleCount, span.sampleCount - sceneStartSample),
-			clip.audio.gain
+			clip.audio.gain,
+			span.windows,
+			sceneStartSample
 		);
 	}
 
@@ -356,25 +465,41 @@ function sumCueIntoMix(
 	channels: MixChannels,
 	buffer: AudioBuffer,
 	entry: ScheduledSound,
-	startFrame: number,
+	span: FilmAudioMixSceneSpan,
+	sceneStartSample: number,
 	playFrames: number,
 	rampStart: number
 ): void {
+	const startFrame = span.startSample + sceneStartSample;
+	const { windows } = span;
 	for (let channel = 0; channel < AUDIO_MIX_CHANNELS; channel += 1) {
 		const out = channels[channel];
 		// Mono samples feed both output channels; stereo maps per channel.
 		const src = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
+		if (windows === null) {
+			for (let i = 0; i < playFrames; i += 1) {
+				const release = i >= rampStart ? 1 - (i - rampStart) / (playFrames - rampStart) : 1;
+				out[startFrame + i] += src[i] * entry.gain * MASTER_GAIN * release;
+			}
+			continue;
+		}
 		for (let i = 0; i < playFrames; i += 1) {
 			const release = i >= rampStart ? 1 - (i - rampStart) / (playFrames - rampStart) : 1;
-			out[startFrame + i] += src[i] * entry.gain * MASTER_GAIN * release;
+			out[startFrame + i] +=
+				src[i] *
+				entry.gain *
+				MASTER_GAIN *
+				release *
+				filmAudioMixSceneWindowGain(windows, sceneStartSample + i);
 		}
 	}
 }
 
 /**
- * Sum one Scene's scheduled cues at their exact sample positions, in fixed plan
- * order. Positions are counted from the Scene's start sample, and a cue that
- * would run past the Scene's span is cut there.
+ * Sum one Scene's scheduled cues (derived cues, manual cues, and beds alike) at
+ * their exact sample positions, in fixed plan order. Positions are counted from
+ * the Scene's start sample, a cue that would run past the Scene's span is cut
+ * there, and every sample takes the Scene's window gain.
  */
 function mixScheduledSounds(
 	channels: MixChannels,
@@ -405,7 +530,7 @@ function mixScheduledSounds(
 		const cutEarly = entry.windowSeconds !== null && buffer.length > windowFrames;
 		const rampStart = cutEarly ? Math.max(0, playFrames - releaseFrames) : playFrames;
 
-		sumCueIntoMix(channels, buffer, entry, span.startSample + startFrame, playFrames, rampStart);
+		sumCueIntoMix(channels, buffer, entry, span, startFrame, playFrames, rampStart);
 	}
 }
 
@@ -431,9 +556,13 @@ function applyPeakCeiling(channels: MixChannels): void {
  * its Scene starts on. The sum runs in one fixed order: Scene by Scene in Film
  * order, and inside a Scene its Video clips and then its cues, as a lone
  * composition always summed. Inside a boundary window that order puts the
- * outgoing Scene's sounds before the incoming Scene's; neither is faded. The
- * peak ceiling is applied once, to the whole Film, so the balance between
- * Scenes is the authored one.
+ * outgoing Scene's sounds before the incoming Scene's, the outgoing ones
+ * fading out and the incoming ones fading in (`filmAudioMixSceneWindowGain`);
+ * cues, beds, and Video-clip audio all take the same gain. A Scene between two
+ * cuts takes none: its samples are summed by the same arithmetic as before
+ * windows could fade, so a Film of cuts mixes to the same bytes. The peak
+ * ceiling is applied once, to the whole Film, so the balance between Scenes is
+ * the authored one.
  *
  * Throws a `RangeError` when a Scene runs past `frameCount`.
  */

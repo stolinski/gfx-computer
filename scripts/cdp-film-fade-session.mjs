@@ -1,6 +1,7 @@
-// The shared session of the two Film fade scripts (ADR-0068 §4):
-// `cdp-capture-film-fade-frames.mjs` (the look) and `cdp-film-fade-tracer.mjs`
-// (the proof). Not a script to run on its own.
+// The shared session of the Film boundary scripts (ADR-0068 §4):
+// `cdp-capture-film-fade-frames.mjs` and
+// `cdp-capture-film-boundary-effect-frames.mjs` (the look), and
+// `cdp-film-fade-tracer.mjs` (the proof). Not a script to run on its own.
 //
 // It owns what both do the same way, following `cdp-film-cut-frames.mjs`: the
 // fixture and the stored records made from it, a jailed dev server on a port of
@@ -19,6 +20,7 @@ import {
 	filmSceneBoundaryOverlaps,
 	filmSceneFrameOffsets
 } from '../src/lib/platform/film-playhead.ts';
+import { registerGfxRuntimeModuleHooks } from './gfx-runtime-module-hooks.ts';
 import { assertVerificationOriginAllowed } from './verification-server-jail.ts';
 
 export const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -58,48 +60,75 @@ if (fixtureFilm.scenes[0].state.surface.type === fixtureFilm.scenes[1].state.sur
 	throw new Error(`${FILM_FADE_FIXTURE_PATH} must hold two Scenes with different Surface types.`);
 }
 
-// Frame positions are worked out by the engine's own Film playhead, so the
-// scripts and the Workspace cannot disagree about where the window is.
-const [, incomingSceneOffset] = filmSceneFrameOffsets(fixtureFilm);
-const [windowFrameCount] = filmSceneBoundaryOverlaps(fixtureFilm);
-const totalFrameCount = filmFrameCount(fixtureFilm);
-
-/** The fixture's one boundary window, in Film frames and in each Scene's own frames. */
-export const fixtureWindow = {
-	/** The first Film frame both Scenes are on. */
-	startFilmFrame: incomingSceneOffset,
-	frameCount: windowFrameCount,
-	outgoingSceneFrameCount: incomingSceneOffset + windowFrameCount,
-	incomingSceneFrameCount: totalFrameCount - incomingSceneOffset,
-	filmFrameCount: totalFrameCount
-};
-if (fixtureWindow.frameCount < 2) {
-	throw new Error(`${FILM_FADE_FIXTURE_PATH} needs a fade of at least two frames.`);
+/**
+ * The one boundary window of a two-Scene Film, in Film frames and in each
+ * Scene's own frames. Frame positions are worked out by the engine's own Film
+ * playhead, so the scripts and the Workspace cannot disagree about where the
+ * window is. The window depends on the boundary's `durationMs` alone, so it is
+ * the same for a fade and for any transition effect of that length.
+ */
+export function boundaryWindowOfTwoSceneFilm(film) {
+	const [, incomingSceneOffset] = filmSceneFrameOffsets(film);
+	const [windowFrameCount] = filmSceneBoundaryOverlaps(film);
+	const totalFrameCount = filmFrameCount(film);
+	return {
+		/** The first Film frame both Scenes are on. */
+		startFilmFrame: incomingSceneOffset,
+		frameCount: windowFrameCount,
+		outgoingSceneFrameCount: incomingSceneOffset + windowFrameCount,
+		incomingSceneFrameCount: totalFrameCount - incomingSceneOffset,
+		filmFrameCount: totalFrameCount
+	};
 }
 
 /**
- * The window frame nearest a wanted progress, with the Film frame it is and the
- * frame of each Scene on it. Progress runs 0 on the window's first frame to 1
- * on its last, so a wanted 0.25 lands on the nearest whole frame; the progress
- * the engine reports for that frame is what a capture is labelled and blended
- * with.
+ * The frame of `window` nearest a wanted progress, with the Film frame it is
+ * and the frame of each Scene on it. Progress runs 0 on the window's first
+ * frame to 1 on its last, so a wanted 0.25 lands on the nearest whole frame;
+ * the progress the engine reports for that frame is what a capture is labelled
+ * and blended with.
  */
-export function windowFrameNearProgress(wantedProgress) {
-	const windowFrame = Math.round(wantedProgress * (fixtureWindow.frameCount - 1));
+export function boundaryWindowFrameNearProgress(window, wantedProgress) {
+	const windowFrame = Math.round(wantedProgress * (window.frameCount - 1));
 	return {
 		wantedProgress,
 		windowFrame,
-		filmFrame: fixtureWindow.startFilmFrame + windowFrame,
-		outgoingSceneFrame:
-			fixtureWindow.outgoingSceneFrameCount - fixtureWindow.frameCount + windowFrame,
+		filmFrame: window.startFilmFrame + windowFrame,
+		outgoingSceneFrame: window.outgoingSceneFrameCount - window.frameCount + windowFrame,
 		incomingSceneFrame: windowFrame
 	};
 }
 
-/** The fixture under one orientation, whole or cut down to one of its Scenes. */
-export function filmDocument(orientation, sceneIndex = null) {
+/** The fixture's one boundary window. */
+export const fixtureWindow = boundaryWindowOfTwoSceneFilm(fixtureFilm);
+if (fixtureWindow.frameCount < 2) {
+	throw new Error(`${FILM_FADE_FIXTURE_PATH} needs a fade of at least two frames.`);
+}
+
+/** `boundaryWindowFrameNearProgress` on the fixture's window. */
+export function windowFrameNearProgress(wantedProgress) {
+	return boundaryWindowFrameNearProgress(fixtureWindow, wantedProgress);
+}
+
+/**
+ * The fixture's fade, as the boundary a script may put another kind in place
+ * of. Every kind is given the fade's own `durationMs`, so the window does not
+ * move.
+ */
+export const fixtureFadeBoundary = fixtureFilm.boundaries[0];
+
+/**
+ * The fixture under one orientation: whole, cut down to one of its Scenes, or
+ * whole with `boundary` in place of its fade.
+ */
+export function filmDocument(orientation, sceneIndex = null, boundary = fixtureFadeBoundary) {
 	if (sceneIndex === null) {
-		return { ...fixtureFilm, name: `Film fade ${orientation}`, orientation };
+		return {
+			...fixtureFilm,
+			name: `Film ${boundary.kind} ${orientation}`,
+			orientation,
+			boundaries: [boundary]
+		};
 	}
 	const scene = fixtureFilm.scenes[sceneIndex];
 	return {
@@ -111,10 +140,26 @@ export function filmDocument(orientation, sceneIndex = null) {
 	};
 }
 
-export function filmSlug(orientation, sceneIndex = null) {
+export function filmSlug(orientation, sceneIndex = null, boundary = fixtureFadeBoundary) {
 	return sceneIndex === null
-		? `film-fade-${orientation}`
+		? `film-${boundary.kind}-${orientation}`
 		: `film-fade-${orientation}-scene-${sceneIndex + 1}`;
+}
+
+/**
+ * One boundary per registered transition effect, at that effect's own default
+ * params, lasting `durationMs`. Read from the live registry, so a newly
+ * registered effect is captured and traced without a change here.
+ */
+export async function transitionEffectBoundaries(durationMs) {
+	registerGfxRuntimeModuleHooks(repositoryRoot);
+	const { transitionEffectDefinitions } =
+		await import('../src/lib/platform/pipelines/transition-definition-registry.ts');
+	return transitionEffectDefinitions().map((definition) => ({
+		kind: definition.type,
+		durationMs,
+		params: definition.defaults().params
+	}));
 }
 
 /** Store one Film as the `{ meta, film }` record the disk store reads. */

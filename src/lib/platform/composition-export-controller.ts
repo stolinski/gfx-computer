@@ -6,7 +6,11 @@ import { isEngineStateOpaque, isTransitionOpaque } from '$lib/utils/output-class
 import { getVideoFrameSize, type VideoFrameSize } from '$lib/utils/video-frame';
 
 import { AnimationManager, type AnimationManifest } from './animation-manager';
-import { renderFilmAudioMix, type FilmAudioMixRenderRequest } from './audio-mix';
+import {
+	renderFilmAudioMix,
+	type FilmAudioMixRenderRequest,
+	type FilmAudioMixScene
+} from './audio-mix';
 import { exportWebMInBrowser } from './browser-webm-export';
 import {
 	isCompositionExportFormatAvailable,
@@ -14,11 +18,7 @@ import {
 } from './composition-export-formats';
 import type { CompositionFrameRenderResult } from './composition-frame-renderer';
 import type { Preset } from './engine-schema';
-import {
-	renderFilmBoundaryFrame,
-	type FilmBoundaryEffectKind,
-	type FilmBoundaryFrameSurface
-} from './film-boundary-frame';
+import { renderFilmBoundaryFrame, type FilmBoundaryFrameSurface } from './film-boundary-frame';
 import {
 	filmBoundaryWindowProgress,
 	filmFrameCount,
@@ -27,7 +27,7 @@ import {
 	filmSceneFrameOffsets
 } from './film-playhead';
 import { createFilmSceneFrameStepper } from './film-scene-frame-stepper';
-import type { Film } from './film-schema';
+import type { Film, FilmSceneWindowBoundary } from './film-schema';
 import { filmDurationSeconds } from './film-transport';
 import { IS_HOSTED_ORIGIN } from './hosted-origin';
 import {
@@ -78,7 +78,8 @@ export interface CompositionExportSceneFrame {
  * share, and the effect that composites them there.
  */
 export interface CompositionExportBoundaryWindow {
-	kind: FilmBoundaryEffectKind;
+	/** The Film's own boundary: a fade, or a transition effect with its params. */
+	boundary: FilmSceneWindowBoundary;
 	/** Index into `plan.scenes` of the outgoing Scene; the incoming one is the next. */
 	outgoingSceneIndex: number;
 	/** The first Film frame both Scenes are on: the incoming Scene's first frame. */
@@ -294,7 +295,7 @@ export function buildCompositionExportPlan(options: {
 		const boundary = film.boundaries[boundaryIndex];
 		if (boundary.kind === 'cut' || overlapFrames === 0) continue;
 		boundaryWindows.push({
-			kind: boundary.kind,
+			boundary,
 			outgoingSceneIndex: boundaryIndex,
 			startFrame: sceneStartFrames[boundaryIndex + 1],
 			frameCount: overlapFrames
@@ -401,6 +402,27 @@ export function compositionExportBoundaryFrameAt(
 }
 
 /**
+ * Every Scene of the Film as the one mix places it: where it starts, how long
+ * it runs, and the frames of the boundary windows it opens and closes in, which
+ * its sound fades across with the picture.
+ */
+export function compositionExportAudioMixScenes(
+	film: Film,
+	plan: Pick<CompositionExportPlan, 'scenes' | 'boundaryWindows'>
+): FilmAudioMixScene[] {
+	const windowFrameCountAfterScene = (sceneIndex: number): number =>
+		plan.boundaryWindows.find((window) => window.outgoingSceneIndex === sceneIndex)?.frameCount ??
+		0;
+	return film.scenes.map((scene, sceneIndex) => ({
+		state: scene.state,
+		startFrame: plan.scenes[sceneIndex].startFrame,
+		frameCount: plan.scenes[sceneIndex].frameCount,
+		leadingWindowFrameCount: sceneIndex > 0 ? windowFrameCountAfterScene(sceneIndex - 1) : 0,
+		trailingWindowFrameCount: windowFrameCountAfterScene(sceneIndex)
+	}));
+}
+
+/**
  * Owns one export operation at a time. Workspace remains the composition root:
  * it supplies live Svelte/DOM/GPU callbacks, while this controller owns media
  * planning, deterministic stepping, audio/video handoff, state, and cleanup.
@@ -487,11 +509,7 @@ export class CompositionExportController {
 
 			await sceneFrameStepper.showScene(plan.scenes[0].sceneId, signal);
 			const audio = await this.#services.renderAudio({
-				scenes: film.scenes.map((scene, sceneIndex) => ({
-					state: scene.state,
-					startFrame: plan.scenes[sceneIndex].startFrame,
-					frameCount: plan.scenes[sceneIndex].frameCount
-				})),
+				scenes: compositionExportAudioMixScenes(film, plan),
 				frameCount: plan.frameCount,
 				frameRate: plan.frameRate,
 				signal
@@ -521,7 +539,7 @@ export class CompositionExportController {
 				await renderFilmBoundaryFrame({
 					stepper: sceneFrameStepper,
 					surface: boundaryFrameSurface,
-					kind: boundaryFrame.window.kind,
+					boundary: boundaryFrame.window.boundary,
 					outgoing: {
 						sceneId: boundaryFrame.outgoing.scene.sceneId,
 						sceneFrame: boundaryFrame.outgoing.frame
