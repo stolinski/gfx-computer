@@ -150,6 +150,7 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'composition-unsaved': false,
 	'film-stored': false,
 	'film-multi-scene': false,
+	'film-window-boundary': false,
 	'undo-available': false,
 	'redo-available': false,
 	'overlay-present': false,

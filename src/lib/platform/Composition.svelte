@@ -5,6 +5,7 @@
 	import FigureMount from './FigureMount.svelte';
 	import KineticTypeFieldMount from './KineticTypeFieldMount.svelte';
 	import { engineState } from './engine-state.svelte';
+	import { filmMagicMoveSoloState } from './film-magic-move-solo.svelte';
 	import OverlayMount from './OverlayMount.svelte';
 	import SurfaceMount from './SurfaceMount.svelte';
 	import { partitionStageOverlays } from './pipelines/depth-stage-planes';
@@ -31,6 +32,13 @@
 		 * Overlay id; an entry is null once its root unmounts.
 		 */
 		posedOverlayRootElements?: Record<string, HTMLElement | null>;
+		/**
+		 * An Overlay a magic move is carrying on the frame being rendered
+		 * (ADR-0068 §5) is captured alone, so it gets its own frame-sized direct
+		 * canvas child, exactly as a posed Overlay does. Keyed by Overlay id; an
+		 * entry is null once its root unmounts.
+		 */
+		soloOverlayRootElements?: Record<string, HTMLElement | null>;
 	}
 
 	let {
@@ -38,7 +46,8 @@
 		surfaceElement = $bindable<HTMLElement | null>(null),
 		splitPlanes = false,
 		overlayRootElement = $bindable<HTMLElement | null>(null),
-		posedOverlayRootElements = $bindable<Record<string, HTMLElement | null>>({})
+		posedOverlayRootElements = $bindable<Record<string, HTMLElement | null>>({}),
+		soloOverlayRootElements = $bindable<Record<string, HTMLElement | null>>({})
 	}: Props = $props();
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
@@ -51,11 +60,21 @@
 	const posedOverlayIds = $derived(
 		stagePartition ? stagePartition.posed.map((overlay) => overlay.id) : []
 	);
-	const sharedRootExcludedIds = $derived(
-		stagePartition
-			? [...stagePartition.posed, ...stagePartition.bodies].map((overlay) => overlay.id)
-			: []
+	// The Overlays of this Scene a magic move is carrying on the frame being
+	// rendered. Each leaves the Scene's own roots for a root of its own below, so
+	// it is mounted once, alone. An id the live Scene does not hold (the other
+	// Scene's, for the instant of a swap) names nothing here.
+	const soloOverlayIds = $derived(
+		filmMagicMoveSoloState.overlayIds.filter((overlayId) =>
+			engineState.overlays.some((overlay) => overlay.id === overlayId)
+		)
 	);
+	const sharedRootExcludedIds = $derived([
+		...(stagePartition
+			? [...stagePartition.posed, ...stagePartition.bodies].map((overlay) => overlay.id)
+			: []),
+		...soloOverlayIds
+	]);
 </script>
 
 <div
@@ -78,7 +97,7 @@
 	<!-- Figures (ADR-0067) share the Surface plane with charts and diagrams. -->
 	<FigureMount />
 	{#if !splitPlanes}
-		<OverlayMount />
+		<OverlayMount excludeIds={soloOverlayIds} />
 		<!-- Captions ride TOPMOST wherever the overlays live — broadcast
 		     captions sit above everything. -->
 		<CaptionsMount />
@@ -112,6 +131,21 @@
 		</div>
 	{/each}
 {/if}
+<!-- One root per Overlay a magic move is carrying (ADR-0068 §5): the posed
+     root's construction again, a frame-sized sibling with `.composition`'s
+     container context, so the Overlay lays out exactly as it does in its Scene.
+     Captured on its own; no Scene root holds the Overlay while this one does. -->
+{#each soloOverlayIds as overlayId (overlayId)}
+	<div
+		bind:this={soloOverlayRootElements[overlayId]}
+		class="composition overlay-root"
+		data-magic-move-overlay-root={overlayId}
+		style:block-size={`${frame.height}px`}
+		style:inline-size={`${frame.width}px`}
+	>
+		<OverlayMount onlyIds={[overlayId]} />
+	</div>
+{/each}
 
 <style>
 	.composition {

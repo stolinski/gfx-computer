@@ -240,6 +240,7 @@ describe('WebMCP operation inventory', () => {
 			'composition-unsaved',
 			'film-stored',
 			'film-multi-scene',
+			'film-window-boundary',
 			'open-addable-to-film',
 			'session-composition-present',
 			'user-pack-store-served',

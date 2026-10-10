@@ -25,7 +25,10 @@ import {
 	filmSceneFrameCount,
 	filmSceneFrameOffsets
 } from './film-playhead';
-import { createFilmSceneFrameStepper } from './film-scene-frame-stepper';
+import {
+	createFilmSceneFrameStepper,
+	type FilmSceneFrameStepperDependencies
+} from './film-scene-frame-stepper';
 import type { Film, FilmSceneWindowBoundary } from './film-schema';
 import { filmDurationSeconds } from './film-transport';
 import { IS_HOSTED_ORIGIN } from './hosted-origin';
@@ -201,6 +204,10 @@ export interface CompositionExportControllerDependencies {
 		outputView: GPUTextureView,
 		timestamp: number
 	): CompositionFrameRenderResult;
+	/** The stepper's `setSoloOverlayIds`: the Overlays a magic move captures alone (ADR-0068 §5). */
+	setSoloOverlayIds: FilmSceneFrameStepperDependencies['setSoloOverlayIds'];
+	/** The stepper's `captureSoloOverlay`. */
+	captureSoloOverlay: FilmSceneFrameStepperDependencies['captureSoloOverlay'];
 	writeExportUiState(state: CompositionExportUiState): void;
 }
 
@@ -488,7 +495,9 @@ export class CompositionExportController {
 				flushDom: dependencies.flushDom,
 				settleCompositionPaint: dependencies.settleCompositionPaint,
 				prepareCompositionFrame: dependencies.prepareCompositionFrame,
-				renderCompositionFrame: dependencies.renderCompositionFrame
+				renderCompositionFrame: dependencies.renderCompositionFrame,
+				setSoloOverlayIds: dependencies.setSoloOverlayIds,
+				captureSoloOverlay: dependencies.captureSoloOverlay
 			});
 
 			await sceneFrameStepper.showScene(plan.scenes[0].sceneId, signal);

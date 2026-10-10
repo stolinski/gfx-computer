@@ -60,7 +60,8 @@ export function getEaseGsap(ease: Ease): string {
 }
 
 const FontFamilySchema = z.enum(['serif', 'sans', 'mono', 'condensed']);
-const EaseSchema = z.enum(NAMED_EASE_CURVES);
+/** The engine's named ease curves (ADR-0035): the one ease vocabulary every authored motion takes. */
+export const EaseSchema = z.enum(NAMED_EASE_CURVES);
 const ExportFormatSchema = z.enum(['webm', 'prores']);
 const VideoOrientationSchema = z.enum(['horizontal', 'vertical']);
 

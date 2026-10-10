@@ -1,7 +1,15 @@
-import type { FilmBoundaryFrameComposite, FilmBoundaryFrameSurface } from './film-boundary-frame';
+import type {
+	FilmBoundaryFrameComposite,
+	FilmBoundaryFrameSide,
+	FilmBoundaryFrameSurface
+} from './film-boundary-frame';
 import type { FilmSceneWindowBoundary } from './film-schema';
 import type { GpuHost } from './gpu-host';
 import { filmBoundaryFadeEffectRenderer } from './pipelines/film-boundary-fade';
+import {
+	compileFilmMagicMoveQuadPass,
+	type CompiledFilmMagicMoveQuadPass
+} from './pipelines/film-magic-move-quad-pass';
 import { getLoadedTransitionEffectRenderer } from './pipelines/runtime-loader';
 import {
 	compileTransitionEffect,
@@ -29,12 +37,30 @@ export interface FilmBoundaryFrameCompositorFactories {
 	): CompiledTransitionEffect;
 	/** The loaded renderer of a registered transition effect, or `null` when it is not loaded. */
 	readTransitionEffectRenderer(type: string): TransitionEffectRenderer<unknown> | null;
+	/** A frame-sized texture one magic-move element is captured into, straight-alpha. */
+	createMagicMoveElementTexture(target: FilmBoundaryFrameCompositorTarget): GPUTexture;
+	compileMagicMoveQuadPass(host: GpuHost): CompiledFilmMagicMoveQuadPass;
 }
+
+const TEXTURE_USAGE_COPY_DST = 0x02;
+const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
+const TEXTURE_USAGE_RENDER_ATTACHMENT = 0x10;
+// What both DOM capture lanes need of their destination, as the Overlay planes
+// declare it (`./pipelines/composition-planes.ts`).
+const MAGIC_MOVE_ELEMENT_TEXTURE_USAGE =
+	TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_RENDER_ATTACHMENT;
 
 const DEFAULT_FACTORIES: FilmBoundaryFrameCompositorFactories = {
 	createSceneTargets: (options) => new TransitionSnapshots(options),
 	compileEffect: compileTransitionEffect,
-	readTransitionEffectRenderer: getLoadedTransitionEffectRenderer
+	readTransitionEffectRenderer: getLoadedTransitionEffectRenderer,
+	createMagicMoveElementTexture: ({ host, width, height }) =>
+		host.device.createTexture({
+			size: [width, height, 1],
+			format: 'rgba8unorm',
+			usage: MAGIC_MOVE_ELEMENT_TEXTURE_USAGE
+		}),
+	compileMagicMoveQuadPass: compileFilmMagicMoveQuadPass
 };
 
 type FilmWindowBoundaryKind = FilmSceneWindowBoundary['kind'];
@@ -42,6 +68,10 @@ type FilmWindowBoundaryKind = FilmSceneWindowBoundary['kind'];
 interface FilmBoundaryFrameCompositorResources extends FilmBoundaryFrameCompositorTarget {
 	sceneTargets: TransitionSnapshotFrameTextures;
 	effects: Map<FilmWindowBoundaryKind, CompiledTransitionEffect>;
+	/** Each magic-move pair's two element captures, by pair index. Made when first asked for. */
+	magicMoveElements: Map<number, Record<FilmBoundaryFrameSide, GPUTexture>>;
+	/** Compiled on the first frame that draws a quad. */
+	magicMoveQuadPass: CompiledFilmMagicMoveQuadPass | null;
 }
 
 /**
@@ -54,6 +84,12 @@ interface FilmBoundaryFrameCompositorResources extends FilmBoundaryFrameComposit
  * (`./pipelines/transition-snapshots.ts`), allocated on first use and kept: one
  * boundary frame overwrites the last, and nothing is cached per frame. The
  * Workspace supplies the host and size; a new host or size replaces them.
+ *
+ * A boundary that carries a magic move (ADR-0068 §5) also gets two capture
+ * textures per pair, one for the element in each Scene, and the quad pass that
+ * draws them over the composited frame. They are made when a frame first asks
+ * for them and released by the first composite that draws fewer pairs, so only
+ * a window that is carrying elements holds them.
  */
 export class FilmBoundaryFrameCompositor implements FilmBoundaryFrameSurface {
 	readonly #factories: FilmBoundaryFrameCompositorFactories;
@@ -87,7 +123,9 @@ export class FilmBoundaryFrameCompositor implements FilmBoundaryFrameSurface {
 		this.#resources = {
 			...target,
 			sceneTargets: this.#factories.createSceneTargets(target),
-			effects: new Map()
+			effects: new Map(),
+			magicMoveElements: new Map(),
+			magicMoveQuadPass: null
 		};
 	}
 
@@ -110,8 +148,23 @@ export class FilmBoundaryFrameCompositor implements FilmBoundaryFrameSurface {
 		return this.#prepared().sceneTargets.toTarget();
 	}
 
+	readMagicMoveElementTexture(pairIndex: number, side: FilmBoundaryFrameSide): GPUTexture {
+		const resources = this.#prepared();
+		let textures = resources.magicMoveElements.get(pairIndex);
+		if (!textures) {
+			textures = {
+				outgoing: this.#factories.createMagicMoveElementTexture(resources),
+				incoming: this.#factories.createMagicMoveElementTexture(resources)
+			};
+			resources.magicMoveElements.set(pairIndex, textures);
+		}
+		return textures[side];
+	}
+
 	/**
-	 * Composite the two Scene targets, as last rendered, into `outputView`.
+	 * Composite the two Scene targets, as last rendered, into `outputView`, then
+	 * draw each magic-move quad over it, in the order given, from that pair's two
+	 * element captures as last captured.
 	 *
 	 * Every effect is a function of the two views, the window's progress, and the
 	 * boundary's own `params`. None keeps anything from one frame to the next,
@@ -119,9 +172,10 @@ export class FilmBoundaryFrameCompositor implements FilmBoundaryFrameSurface {
 	 *
 	 * Throws an `Error` when the boundary names a transition effect whose
 	 * renderer is not loaded; `ensureFilmRenderersLoaded` loads every one a
-	 * Film's boundaries name before the Film opens.
+	 * Film's boundaries name before the Film opens. Throws an `Error` for a quad
+	 * whose pair was never captured.
 	 */
-	composite({ boundary, progress, outputView }: FilmBoundaryFrameComposite): void {
+	composite({ boundary, progress, magicMoveQuads, outputView }: FilmBoundaryFrameComposite): void {
 		const resources = this.#prepared();
 		let effect = resources.effects.get(boundary.kind);
 		if (!effect) {
@@ -142,6 +196,32 @@ export class FilmBoundaryFrameCompositor implements FilmBoundaryFrameSurface {
 				canvasHeight: resources.height
 			}
 		});
+
+		for (const [pairIndex, quad] of magicMoveQuads.entries()) {
+			const textures = resources.magicMoveElements.get(pairIndex);
+			if (!textures) {
+				throw new Error(
+					`Magic-move pair ${pairIndex} has no captures: both Scenes are captured before the composite.`
+				);
+			}
+			resources.magicMoveQuadPass ??= this.#factories.compileMagicMoveQuadPass(resources.host);
+			resources.magicMoveQuadPass.draw({
+				pairIndex,
+				fromTexture: textures.outgoing,
+				toTexture: textures.incoming,
+				quad,
+				outputView,
+				canvasWidth: resources.width,
+				canvasHeight: resources.height
+			});
+		}
+		// A frame that carries fewer elements than the last lets the rest go.
+		for (const [pairIndex, textures] of resources.magicMoveElements) {
+			if (pairIndex < magicMoveQuads.length) continue;
+			textures.outgoing.destroy();
+			textures.incoming.destroy();
+			resources.magicMoveElements.delete(pairIndex);
+		}
 	}
 
 	dispose(): void {
@@ -177,6 +257,10 @@ export class FilmBoundaryFrameCompositor implements FilmBoundaryFrameSurface {
 		this.#resources = null;
 		if (!resources) return;
 		for (const effect of resources.effects.values()) effect.dispose?.();
+		for (const textures of resources.magicMoveElements.values()) {
+			textures.outgoing.destroy();
+			textures.incoming.destroy();
+		}
 		resources.sceneTargets.dispose();
 	}
 }

@@ -1,6 +1,6 @@
 # GFX Film format (`gfx-film@1`)
 
-> **Built: phase 1 of [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md), 2026-10-09.** A User composition is a Film. Both stores read and write Film records ([Stored records](#stored-records)), the document open in the Workspace is a Film ([The open Film](#the-open-film)), a Film of several Scenes plays with a hard cut at each boundary, Scenes are added, removed, reordered, and selected, and export renders the whole Film ([Export](#export)). Boundaries with a duration, the **fade** and the four **transition effects**, are built in the format, the frame maths, export, and the paused Workspace frame, and sound fades across them (phase 2, 2026-10-09; [A Scene boundary](#a-scene-boundary)); a boundary is set with one operation, from the Scene strip or by an agent. A Preset that states the legacy two-endpoint `transition` is read as a two-Scene Film, and the frozen-endpoint lane that used to draw it is gone ([From a Preset](#from-a-preset)). **Not built:** magic move and the Score. A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`. What an author and an agent do with a Film is in [`user-composition-workflows.md`](user-composition-workflows.md); how the engine holds one is in [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film).
+> **Built: phase 1 of [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md), 2026-10-09.** A User composition is a Film. Both stores read and write Film records ([Stored records](#stored-records)), the document open in the Workspace is a Film ([The open Film](#the-open-film)), a Film of several Scenes plays with a hard cut at each boundary, Scenes are added, removed, reordered, and selected, and export renders the whole Film ([Export](#export)). Boundaries with a duration, the **fade** and the four **transition effects**, are built in the format, the frame maths, export, and the paused Workspace frame, and sound fades across them (phase 2, 2026-10-09; [A Scene boundary](#a-scene-boundary)); a boundary is set with one operation, from the Scene strip or by an agent. A Preset that states the legacy two-endpoint `transition` is read as a two-Scene Film, and the frozen-endpoint lane that used to draw it is gone ([From a Preset](#from-a-preset)). A boundary with a duration can carry a **magic move** of Overlays (phase 3, 2026-10-10; [Magic move](#magic-move)). **Not built:** magic move for anything but Overlays, and the Score. A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`. What an author and an agent do with a Film is in [`user-composition-workflows.md`](user-composition-workflows.md); how the engine holds one is in [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film).
 
 A **Film** is an ordered list of **Scenes** with a **Scene boundary** between each pair of neighbours. A Scene is one Preset's complete state, owned by the Film. A one-off piece is a Film with one Scene. Terms: [`CONTEXT.md`](CONTEXT.md).
 
@@ -84,13 +84,14 @@ A boundary is an object with a `kind`: `cut`, `fade`, or the name of a registere
 { "kind": "fade", "durationMs": 1000 }
 { "kind": "mask-wipe", "durationMs": 1200, "params": { "direction": "right", "softness": 0.001 } }
 { "kind": "seeded-shatter", "durationMs": 1900, "params": { "seed": 1337, "columns": 14, "scatter": 0.13, "rotation": 0.55, "depth": 0.6, "shadow": 0.35 } }
+{ "kind": "fade", "durationMs": 1000, "magicMove": { "pairs": [{ "from": { "kind": "overlay", "id": "lower-third" }, "to": { "kind": "overlay", "id": "lower-third" } }], "ease": "smooth" } }
 ```
 
 - **`cut`** shares no frames. The frame after the outgoing Scene's last is the incoming Scene's first.
 - **`fade`** is a cross-fade that lasts `durationMs`. On each window frame the picture is `outgoing × (1 − p) + incoming × p` in premultiplied alpha, where `p` is the window's progress.
 - **A transition effect** lasts `durationMs` and carries that effect's `params`. The kinds are the effects in the transition registry (`src/lib/platform/pipelines/transition-definition-registry.ts`): today `mask-wipe`, `particle-dissolve`, `sheet-peel`, and `seeded-shatter`. The union is built from the registry, so registering an effect adds its boundary kind, and `docs/film-format.schema.json` lists each kind with its parameters and their bounds. `params` is required; a parameter left out of it takes the effect's own default. `FILM_SCENE_BOUNDARY_KINDS` in `film-schema.ts` is every kind in picker order.
 
-Every kind but the cut has a **window**: the last frames of the outgoing Scene and the first frames of the incoming Scene are the same Film frames, and both Scenes keep animating through them. The effect runs over the two live pictures on every window frame. There is no ease yet: the window's progress rises in equal steps, for a fade and for an effect alike.
+Every kind but the cut has a **window**: the last frames of the outgoing Scene and the first frames of the incoming Scene are the same Film frames, and both Scenes keep animating through them. The effect runs over the two live pictures on every window frame. The fade and the effects have no ease: the window's progress rises in equal steps, for a fade and for an effect alike. Only a magic move is eased ([Magic move](#magic-move)).
 
 A window's length in frames is `durationMs` at the Film's exact rate, rounded to the nearest whole frame, with half a frame rounding up. A 1000 ms window is 30 frames at both 30 and 29.97 fps, 24 at 24, and 60 at 59.94 and 60. Progress is `windowFrame ÷ (windowFrames − 1)`: 0 on the window's first frame, which is the outgoing Scene alone, and 1 on its last, which is the incoming Scene alone. That holds for every kind. A window of one frame is at progress 0.5.
 
@@ -100,9 +101,38 @@ Three rules bound a window, whatever its kind. Each is a validation finding at `
 2. It is no longer than the shorter of its two Scenes.
 3. The windows on either side of one Scene do not meet, so at most two Scenes are ever on one frame.
 
-Magic move comes later as a further field of a boundary (ADR-0068 §5).
+`motion.set-scene-boundary` sets one boundary: its kind, its duration, and an effect's params ([`engine-architecture.md`](engine-architecture.md#setting-a-scene-boundary)). It keeps the `magicMove` of a boundary that keeps a duration, and making a boundary a cut removes it. `composition.add-scene-from-starter` and `composition.add-open-to-film` add a `cut` with the Scene, `composition.remove-scene` takes one away with it, and `composition.reorder-scene` leaves the list alone ([`engine-architecture.md`](engine-architecture.md#the-scene-strip-and-scene-operations)).
 
-`motion.set-scene-boundary` sets one boundary: its kind, its duration, and an effect's params ([`engine-architecture.md`](engine-architecture.md#setting-a-scene-boundary)). `composition.add-scene-from-starter` and `composition.add-open-to-film` add a `cut` with the Scene, `composition.remove-scene` takes one away with it, and `composition.reorder-scene` leaves the list alone ([`engine-architecture.md`](engine-architecture.md#the-scene-strip-and-scene-operations)).
+### Magic move
+
+A boundary with a duration, a fade or an effect, may carry a `magicMove` (ADR-0068 §5, built for Overlays 2026-10-10). A cut may not: the key is refused on it.
+
+```jsonc
+"magicMove": {
+	"pairs": [
+		{ "from": { "kind": "overlay", "id": "lower-third" }, "to": { "kind": "overlay", "id": "lower-third" } }
+	],
+	"ease": "smooth"
+}
+```
+
+| Field   | Meaning                                                                                                                                                                                                                                  |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pairs` | 1 to 4 pairs (`FILM_MAGIC_MOVE_PAIR_LIMIT`), drawn in this order. `from` names an element of the outgoing Scene and `to` its partner in the incoming Scene, each by `kind` and `id`. A boundary that carries nothing has no `magicMove`. |
+| `kind`  | `overlay`, the one kind built (`FILM_MAGIC_MOVE_ELEMENT_KINDS`). Diagram `node`, `label`, and `stat-callout` primitives and Kinetic Words are designed and will be further kinds.                                                        |
+| `ease?` | One of the engine's named eases (`smooth`, `settled`, `sharp`, `bouncy`). Absent means `smooth` (`FILM_MAGIC_MOVE_DEFAULT_EASE`). The shared ease list holds no ease-in-out curve.                                                       |
+
+Each paired element travels from where it sits in the outgoing Scene to where its partner sits in the incoming Scene, while the rest of the frame runs the boundary's fade or effect. On each window frame the eased progress `e = ease(p)` places one quad: its centre and size are a straight line from the outgoing box to the incoming box at `e`, and its rotation turns the shorter way round. The quad shows the two Scenes' own pictures of the element, cross-faded `outgoing × (1 − e) + incoming × e` in premultiplied alpha, with `e` held to 0 to 1 for the cross-fade. `settled` and `bouncy` rise past 1, so the box overshoots its place and comes back.
+
+Three things follow from how a frame is made ([`engine-architecture.md`](engine-architecture.md#magic-move)):
+
+- **Nothing about the move is stored.** Both boxes are measured on every frame, in the orientation the Film is in, at each Scene's own frame. The element's own entrance, exit, and keyframes keep playing under the move.
+- **The window's first and last frame carry nothing.** At progress 0 the frame is the outgoing Scene's own frame and at progress 1 the incoming Scene's, exactly, as for every boundary.
+- **An element that is not showing fades from or to nothing.** An Overlay has a box before its entrance and after its exit, so the quad always travels between two measured boxes. What it shows on each side is that Scene's own picture of the element at that frame, which is nothing while the element is not showing.
+
+`validateFilmSemantics` refuses a pair the Film cannot carry ([Validation](#validation)).
+
+`motion.set-scene-boundary-magic-move` replaces a boundary's whole pair list, and `motion.inspect-scene-boundary-magic-move` reads it with the pairs the boundary suggests ([`engine-architecture.md`](engine-architecture.md#setting-a-magic-move)).
 
 ## The Film's transport is the truth
 
@@ -157,6 +187,12 @@ Validation has two ordered layers, the same as a Preset:
    - Each Scene goes through `validatePresetSemantics`, as the Preset it would be alone. Findings are reported under `scenes/<index>/state/...`.
    - The Pack is checked once, at `pack`.
    - Every window fits its Scenes, whether it is a fade's or an effect's: at least one frame, no longer than the shorter of its two Scenes, and not meeting the window on the other side of a Scene. Findings are reported at `boundaries/<index>/durationMs`. An effect's `params` are checked by the schema, against the effect's own parameter schema.
+   - Every magic-move pair can be carried (`listFilmMagicMoveIssues` in `film-magic-move.ts`). Each finding is under `boundaries/<index>/magicMove/pairs/<pair>`:
+     - an id its Scene has no Overlay for, at `from/id` or `to/id`;
+     - an element already in an earlier pair of the same boundary, at that end's `id`;
+     - two Overlays of different Overlay types, at the pair;
+     - an Overlay drawn by its own shader pass (`shader-fill`), at that end's `id`: a capture of it alone holds none of its pixels;
+     - any Overlay of a Scene with a depth stage, at that end's `id`: the stage camera places it, so its box in the page is not its place in the frame.
    - The whole Film must fit in 600 seconds, counted in frames at the Film's rate. This is the ceiling one composition already has (ADR-0068 §9).
 
 ## From a Preset

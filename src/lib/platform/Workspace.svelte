@@ -46,6 +46,7 @@
 	import {
 		CanvasPaintGenerationTracker,
 		clearCanvasPaintHandler,
+		getDomFrameCaptureQueue,
 		requestCanvasPaint,
 		setCanvasPaintHandler
 	} from './html-in-canvas';
@@ -72,6 +73,10 @@
 	} from './composition-state-swap-settle';
 	import { renderFilmBoundaryFrame, type FilmBoundaryFrameSurface } from './film-boundary-frame';
 	import { FilmBoundaryFrameCompositor } from './film-boundary-frame-compositor';
+	import { captureFilmMagicMoveOverlay } from './film-magic-move-capture';
+	import type { FilmMagicMoveQuad } from './film-magic-move-quad';
+	import type { OrientedRectPx } from '$lib/utils/oriented-rect';
+	import { filmMagicMoveSoloState } from './film-magic-move-solo.svelte';
 	import type { FilmSceneWindowBoundary } from './film-schema';
 	import {
 		filmSceneFrameCount,
@@ -153,6 +158,9 @@
 		}
 		return roots;
 	}
+	// The capture roots of the Overlays a magic move is carrying on the frame
+	// being rendered (ADR-0068 §5), keyed by Overlay id, bound the same way.
+	let soloOverlayRootElements = $state<Record<string, HTMLElement | null>>({});
 	let canvas = $state.raw<HTMLCanvasElement | null>(null);
 	let host = $state.raw<GpuHost | null>(null);
 	let renderResourceSet = $state.raw<CompositionRenderResourceSet | null>(null);
@@ -178,6 +186,9 @@
 		filmFrame: number;
 		boundary: FilmSceneWindowBoundary;
 		progress: number;
+		// The magic move's quads as the frame drew them; the element captures they
+		// read are held by the compositor beside the two Scene targets.
+		magicMoveQuads: readonly FilmMagicMoveQuad[];
 	} | null>(null);
 	// True while the two Scenes of a paused window frame are being stepped. The
 	// canvas then belongs to that pass, exactly as it belongs to an export:
@@ -801,9 +812,33 @@
 		filmBoundaryFrameCompositor.composite({
 			boundary: held.boundary,
 			progress: held.progress,
+			magicMoveQuads: held.magicMoveQuads,
 			outputView: localHost.context.getCurrentTexture().createView()
 		});
 		return true;
+	}
+
+	function setSoloOverlayIds(overlayIds: readonly string[]): void {
+		filmMagicMoveSoloState.overlayIds = [...overlayIds];
+	}
+
+	// One Overlay a magic move is carrying, captured alone and measured, from the
+	// paint the live Scene was just rendered from (ADR-0068 §5).
+	function captureSoloOverlay(overlayId: string, texture: GPUTexture): OrientedRectPx {
+		if (!host || !canvas) {
+			throw new Error('Composition canvas and GPU host are unavailable for a magic move.');
+		}
+		const root = soloOverlayRootElements[overlayId] ?? null;
+		return captureFilmMagicMoveOverlay({
+			overlayId,
+			root,
+			paintGeneration: canvasPaintGenerationTracker.generationFor(root),
+			captureQueue: getDomFrameCaptureQueue(host.device.queue),
+			canvasSize: { width: canvas.width, height: canvas.height },
+			texture,
+			state: engineState,
+			overlayChannels: animState.overlayChannels
+		});
 	}
 
 	// The Workspace's half of a paused boundary window frame
@@ -835,9 +870,10 @@
 		const stepAnimationManager = new AnimationManager();
 		heldFilmBoundaryFrame = null;
 		isSteppingFilmBoundaryFrame = true;
+		let magicMoveQuads: readonly FilmMagicMoveQuad[];
 		try {
 			try {
-				await renderFilmBoundaryFrame({
+				({ magicMoveQuads } = await renderFilmBoundaryFrame({
 					stepper: createFilmSceneFrameStepper({
 						scenes: stepperScenes,
 						frameRate,
@@ -852,7 +888,9 @@
 						settleCompositionPaint,
 						prepareCompositionFrame: prepareVideoExportFrame,
 						renderCompositionFrame: (outputView, timestamp) =>
-							renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp))
+							renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
+						setSoloOverlayIds,
+						captureSoloOverlay
 					}),
 					surface,
 					boundary,
@@ -867,7 +905,7 @@
 					progress: windowFrame.progress,
 					readOutputView: readCanvasOutputView,
 					signal: new AbortController().signal
-				});
+				}));
 			} finally {
 				// The pass's own animation goes first, so the Scene that is put back
 				// is driven by the Workspace's alone, as after an export.
@@ -877,7 +915,12 @@
 		} finally {
 			isSteppingFilmBoundaryFrame = false;
 		}
-		heldFilmBoundaryFrame = { filmFrame, boundary, progress: windowFrame.progress };
+		heldFilmBoundaryFrame = {
+			filmFrame,
+			boundary,
+			progress: windowFrame.progress,
+			magicMoveQuads
+		};
 		presentHeldFilmBoundaryFrame();
 	}
 
@@ -1268,12 +1311,13 @@
 				await host?.device.queue.onSubmittedWorkDone();
 				await nextFrame();
 				await nextFrame();
-				if (heldFilmBoundaryFrame?.filmFrame !== filmFrame) {
+				const held = heldFilmBoundaryFrame;
+				if (held?.filmFrame !== filmFrame) {
 					throw new Error(
 						`The canvas does not hold the boundary window frame of Film frame ${filmFrame}.`
 					);
 				}
-				return { ...position, boundaryWindow };
+				return { ...position, boundaryWindow, magicMoveQuads: held.magicMoveQuads };
 			}
 			const settle = window.__settleGfxDeterministicCompositionFrame;
 			if (!settle) throw new Error('The Workspace was destroyed while Film time was settling.');
@@ -1282,7 +1326,7 @@
 				address: deterministicFrameAddressFor(position.localFrame, frameRate),
 				frameRate: { num: frameRate.num, den: frameRate.den }
 			});
-			return { ...position, boundaryWindow };
+			return { ...position, boundaryWindow, magicMoveQuads: [] };
 		};
 
 		function deterministicFrameRequestFor(frame: number): DeterministicFrameRequest {
@@ -1562,6 +1606,8 @@
 				readCanvasOutputView,
 				renderCompositionFrame: (outputView, timestamp) =>
 					renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
+				setSoloOverlayIds,
+				captureSoloOverlay,
 				writeExportUiState: (next: CompositionExportUiState) => {
 					// An export renders its own boundary frames into the Scene targets.
 					if (next.isExporting) heldFilmBoundaryFrame = null;
@@ -1700,6 +1746,7 @@
 				splitPlanes={planeSplitActive}
 				bind:overlayRootElement
 				bind:posedOverlayRootElements
+				bind:soloOverlayRootElements
 			/>
 		</VideoFrame>
 		{#if !deterministicRenderAuditMode}

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { describe, it } from 'vitest';
 
-import { PIPELINE_DEFINITION_REGISTRY } from './definition-registry';
+import { getOverlayDefinition, PIPELINE_DEFINITION_REGISTRY } from './definition-registry';
 import { transitionEffectDefinitions } from './transition-definition-registry';
 import {
 	PIPELINE_RUNTIME_LOADERS,
@@ -267,6 +267,18 @@ describe('PipelineRendererController', () => {
 });
 
 describe('production Pipeline renderer loaders', () => {
+	it.each(Object.entries(PIPELINE_RUNTIME_LOADERS.overlays))(
+		'declares on the %s Overlay definition whether its renderer runs its own shader pass',
+		async (type, loader) => {
+			const renderer = await loader();
+			assert.equal(
+				getOverlayDefinition(type)?.ownShaderPass === true,
+				renderer.shaderPass !== undefined,
+				`Overlay "${type}": the definition's ownShaderPass must be true exactly when the renderer has a shaderPass.`
+			);
+		}
+	);
+
 	it.each(productionLoaderCases)(
 		'loads $layer renderer $identity with its registered identity',
 		async ({ identity, loader }) => {

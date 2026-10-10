@@ -10,6 +10,30 @@ export function resolveOverlayPlacement(
 	return position.orientationOverrides?.[orientation] ?? position;
 }
 
+/** The uniform scale and the rotation an Overlay is drawn with, about its anchor point. */
+export interface OverlayTransform {
+	scale: number;
+	rotationDegrees: number;
+}
+
+/**
+ * The scale and rotation the Overlay mount applies: the composition-owned
+ * channel values when the composition holds the pen (ADR-0035), the static
+ * placement fields they seed from otherwise. The mount writes these as the CSS
+ * `scale` and `rotate` longhands, and a reader that needs the Overlay's own
+ * unrotated box (`measureOverlayOrientedBoundsPx`) takes the same values, so
+ * the two cannot disagree.
+ */
+export function resolveOverlayTransform(
+	placement: OverlayPlacement,
+	channels: { scale: number; rotation: number } | null
+): OverlayTransform {
+	return {
+		scale: channels ? channels.scale : (placement.scale ?? 1),
+		rotationDegrees: channels ? channels.rotation : (placement.rotation ?? 0)
+	};
+}
+
 /** Clone only placement geometry, never an OverlayPosition's nested overrides. */
 export function cloneOverlayPlacement(placement: OverlayPlacement): OverlayPlacement {
 	return {

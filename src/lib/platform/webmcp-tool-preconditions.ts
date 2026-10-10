@@ -113,6 +113,7 @@ function closedCompositionPreconditions(): WebmcpCompositionPreconditions {
 		'composition-unsaved': false,
 		'film-stored': false,
 		'film-multi-scene': false,
+		'film-window-boundary': false,
 		'undo-available': false,
 		'redo-available': false,
 		'overlay-present': false,
@@ -164,6 +165,9 @@ export function readWebmcpCompositionPreconditions(): WebmcpCompositionPrecondit
 		'film-stored': editable && compositionMeta.isUserComposition,
 		// Removing, reordering, and selecting need a second Scene to act on.
 		'film-multi-scene': editable && filmState.scenes.length > 1,
+		// A magic move needs a window to move through: a fade or an effect.
+		'film-window-boundary':
+			editable && filmState.boundaries.some((boundary) => boundary.kind !== 'cut'),
 		'undo-available': editable && compositionEditHistory.canUndo,
 		'redo-available': editable && compositionEditHistory.canRedo,
 		'overlay-present': editable && state.overlays.length > 0,

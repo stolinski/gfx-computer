@@ -776,6 +776,111 @@ describe('WebMCP authoring without an interface', () => {
 		expect(sessionStore.createUserComposition).toHaveBeenCalledTimes(1);
 	});
 
+	it('gives two Scenes that share a lower third a fade, and makes the lower third a magic move, through tools alone', async () => {
+		expect(typeof document).toBe('undefined');
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/');
+		const inspectRow = rowFor('motion.inspect-scene-boundary-magic-move');
+		const setRow = rowFor('motion.set-scene-boundary-magic-move');
+		const offered = (): string[] => [...host.getTools()].map((tool) => tool.name);
+		const call = async (
+			operationId: string,
+			args: Record<string, unknown> = {}
+		): Promise<Record<string, unknown>> => {
+			const row = rowFor(operationId);
+			const payload = readPayload(
+				await host.call(row.toolName, {
+					...(row.requiresExpectedRevision
+						? { expectedRevision: compositionEditHistory.revision }
+						: {}),
+					...args
+				})
+			);
+			await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+			return payload;
+		};
+
+		// Two Scenes from the one Starter: each holds the lower third `main`.
+		await call('composition.create-from-starter', { starterSlug: 'lower-third' });
+		await call('composition.add-scene-from-starter', { starterSlug: 'lower-third' });
+		const inspection = await call('composition.inspect');
+		const [first, second] = (inspection.scenes as { entries: { id: string }[] }).entries.map(
+			(scene) => scene.id
+		);
+		// The boundary is read before it is changed: it is a cut.
+		expect(inspection.boundaries).toEqual({
+			entries: [{ outgoingSceneId: first, kind: 'cut' }],
+			total: 1,
+			truncated: false
+		});
+
+		// A cut has no window, so neither magic-move tool is offered yet.
+		await prepareAuthoringFamily(host, 'motion');
+		expect(offered()).not.toContain(inspectRow.toolName);
+		expect(offered()).not.toContain(setRow.toolName);
+
+		// A one-second fade brings both.
+		expect(
+			await call('motion.set-scene-boundary', {
+				outgoingSceneId: first,
+				kind: 'fade',
+				durationMs: 1000
+			})
+		).toMatchObject({ status: 'applied' });
+		await prepareAuthoringFamily(host, 'motion');
+		expect(offered()).toContain(inspectRow.toolName);
+		expect(offered()).toContain(setRow.toolName);
+
+		// The boundary suggests the lower third, and carries nothing yet.
+		const lowerThirdPair = {
+			from: { kind: 'overlay', id: 'main' },
+			to: { kind: 'overlay', id: 'main' }
+		};
+		const read = await call('motion.inspect-scene-boundary-magic-move', {
+			outgoingSceneId: first
+		});
+		expect(read).toMatchObject({
+			status: 'inspected',
+			outgoingSceneId: first,
+			incomingSceneId: second,
+			kind: 'fade',
+			pairs: [],
+			suggestedPairs: [lowerThirdPair]
+		});
+
+		// The suggestion, confirmed.
+		const carried = await call('motion.set-scene-boundary-magic-move', {
+			outgoingSceneId: first,
+			pairs: read.suggestedPairs
+		});
+		expect(carried).toMatchObject({
+			status: 'applied',
+			focus: { target: 'scene-boundary', boundaryIndex: 0 }
+		});
+		expect(carried).not.toHaveProperty('sceneId');
+		expect(readOpenFilm().boundaries).toEqual([
+			{ kind: 'fade', durationMs: 1000, magicMove: { pairs: [lowerThirdPair] } }
+		]);
+		expect(
+			await call('motion.inspect-scene-boundary-magic-move', { outgoingSceneId: first })
+		).toMatchObject({ pairs: [lowerThirdPair], ease: 'smooth' });
+
+		// A pair the Film cannot carry is refused with its finding, and nothing changes.
+		const refused = await call('motion.set-scene-boundary-magic-move', {
+			outgoingSceneId: first,
+			pairs: [{ from: { kind: 'overlay', id: 'main' }, to: { kind: 'overlay', id: 'missing' } }]
+		});
+		expect(refused).toMatchObject({ status: 'failed', code: 'semantic_invalid' });
+		expect(readOpenFilm().boundaries[0]).toHaveProperty('magicMove.pairs', [lowerThirdPair]);
+
+		// An empty list takes the magic move off; undo puts it back.
+		await call('motion.set-scene-boundary-magic-move', { outgoingSceneId: first, pairs: [] });
+		expect(readOpenFilm().boundaries).toEqual([{ kind: 'fade', durationMs: 1000 }]);
+		await call('composition.undo');
+		expect(readOpenFilm().boundaries[0]).toHaveProperty('magicMove.pairs', [lowerThirdPair]);
+	});
+
 	it('adds a second Scene, sets the boundary to a one-second fade, then to a shatter with a seed, through tools alone', async () => {
 		expect(typeof document).toBe('undefined');
 		const host = new FakeModelContext();

@@ -1,0 +1,276 @@
+{
+	"schema": "gfx-film@1",
+	"name": "Film magic move fixture",
+	"description": "Two full-frame opaque Scenes that share one lower-third Overlay, small at the bottom left of the first and larger at the top of the second, and a one-second fade that carries it as a magic move, for scripts/cdp-capture-film-magic-move-frames.mjs and scripts/cdp-film-magic-move-tracer.mjs. Not a deliverable.",
+	"pack": "syntax",
+	"orientation": "horizontal",
+	"fps": 30,
+	"format": "webm",
+	"scenes": [
+		{
+			"id": "outro",
+			"name": "Outro",
+			"origin": {
+				"slug": "outro-watch-next",
+				"contentKey": null
+			},
+			"state": {
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 8,
+					"fps": 30,
+					"format": "webm"
+				},
+				"backgroundFill": "pack",
+				"typography": {
+					"fontFamily": "sans"
+				},
+				"marks": {
+					"defaults": {},
+					"timings": []
+				},
+				"surface": {
+					"type": "type-hero",
+					"variant": "single",
+					"content": {
+						"title": "THANKS",
+						"author": "WATCH NEXT → SIGNAL & NOISE",
+						"body": ""
+					},
+					"enter": {
+						"start": 0,
+						"duration": 0.05,
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
+					}
+				},
+				"textAnimations": [
+					{
+						"id": "closing-title",
+						"target": {
+							"kind": "surface",
+							"slot": "title"
+						},
+						"effect": "micro-scale-fade",
+						"enter": {
+							"start": 0.04,
+							"duration": 0.045,
+							"ease": "settled",
+							"sound": {
+								"event": "impact"
+							}
+						}
+					},
+					{
+						"id": "next-action",
+						"target": {
+							"kind": "surface",
+							"slot": "author"
+						},
+						"effect": "fade-through",
+						"enter": {
+							"start": 0.13,
+							"duration": 0.04,
+							"ease": "settled",
+							"sound": {
+								"event": "tick"
+							}
+						}
+					}
+				],
+				"overlays": [
+					{
+						"type": "lower-third",
+						"id": "lower-third",
+						"content": {
+							"variant": "standard",
+							"kicker": "CHAPTER 01",
+							"title": "Origins",
+							"subtitle": "How it began"
+						},
+						"position": {
+							"anchor": "bottom-left",
+							"offset": {
+								"x": 0.0625,
+								"y": 0.12
+							},
+							"scale": 0.7,
+							"orientationOverrides": {
+								"vertical": {
+									"anchor": "bottom-left",
+									"offset": {
+										"x": 0.06,
+										"y": 0.1
+									},
+									"scale": 0.75
+								}
+							}
+						},
+						"enter": {
+							"start": 0.1,
+							"duration": 0.1,
+							"ease": "settled",
+							"sound": {
+								"mute": true
+							}
+						}
+					}
+				],
+				"effects": [],
+				"audioCues": []
+			}
+		},
+		{
+			"id": "brand-mark",
+			"name": "Brand mark",
+			"origin": {
+				"slug": "title-card-brand-mark",
+				"contentKey": null
+			},
+			"state": {
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 5,
+					"fps": 30,
+					"format": "webm"
+				},
+				"typography": {
+					"fontFamily": "sans"
+				},
+				"marks": {
+					"defaults": {},
+					"timings": []
+				},
+				"surface": {
+					"type": "brand-mark",
+					"content": {
+						"body": ""
+					},
+					"variant": "syntax-fm",
+					"enter": {
+						"start": 0.05,
+						"duration": 0.08,
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
+					},
+					"exit": {
+						"start": 0.9,
+						"duration": 0.05,
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
+					},
+					"animation": {
+						"channels": {
+							"opacity": [
+								{
+									"atMs": 0,
+									"value": 0
+								},
+								{
+									"atMs": 250,
+									"value": 0
+								},
+								{
+									"atMs": 650,
+									"value": 1,
+									"ease": "smooth"
+								},
+								{
+									"atMs": 4500,
+									"value": 1
+								},
+								{
+									"atMs": 4750,
+									"value": 0,
+									"ease": "smooth"
+								}
+							]
+						}
+					}
+				},
+				"textAnimations": [],
+				"overlays": [
+					{
+						"type": "lower-third",
+						"id": "lower-third",
+						"content": {
+							"variant": "standard",
+							"kicker": "CHAPTER 01",
+							"title": "Origins",
+							"subtitle": "How it began"
+						},
+						"position": {
+							"anchor": "top-right",
+							"offset": {
+								"x": 0.06,
+								"y": 0.1
+							},
+							"scale": 1.3,
+							"orientationOverrides": {
+								"vertical": {
+									"anchor": "top-left",
+									"offset": {
+										"x": 0.06,
+										"y": 0.14
+									},
+									"scale": 1.1
+								}
+							}
+						},
+						"enter": {
+							"start": 0,
+							"duration": 0.01,
+							"ease": "smooth",
+							"sound": {
+								"mute": true
+							}
+						},
+						"exit": {
+							"start": 0.9,
+							"duration": 0.08,
+							"ease": "smooth",
+							"sound": {
+								"mute": true
+							}
+						}
+					}
+				],
+				"effects": [],
+				"audioCues": [],
+				"media": {
+					"assets": [],
+					"videoTrack": {
+						"clips": []
+					}
+				},
+				"backgroundFill": "pack"
+			}
+		}
+	],
+	"boundaries": [
+		{
+			"kind": "fade",
+			"durationMs": 1000,
+			"magicMove": {
+				"pairs": [
+					{
+						"from": {
+							"kind": "overlay",
+							"id": "lower-third"
+						},
+						"to": {
+							"kind": "overlay",
+							"id": "lower-third"
+						}
+					}
+				]
+			}
+		}
+	]
+}

@@ -1,6 +1,7 @@
 import type { Overlay, OverlayPlacement } from '$lib/platform/engine-schema';
 
-import { resolveOverlayPlacement } from './overlay-placement';
+import type { OrientedRectPx } from './oriented-rect';
+import { resolveOverlayPlacement, type OverlayTransform } from './overlay-placement';
 import type { VideoOrientation } from './video-frame';
 
 export interface OverlayBoundsPx {
@@ -65,6 +66,48 @@ export function measureOverlayBoundsPx(
 		resolveOverlayPlacement(overlay.position, orientation),
 		compositionSize
 	);
+}
+
+/**
+ * Measure an Overlay's own box in canvas pixels, as the rectangle it is before
+ * its rotation, with that rotation beside it: where its centre is, how wide and
+ * tall it is, and how far it is turned. `measureOverlayBoundsPx` gives the
+ * upright rectangle around a turned Overlay; this gives the Overlay.
+ *
+ * The centre is the centre of the element's client rect, which a rotation about
+ * any point leaves at the box's own centre. The size is the element's layout
+ * size times `transform.scale`, and the rotation is `transform.rotationDegrees`:
+ * the values the Overlay mount drew it with (`resolveOverlayTransform`). The
+ * mount's entry slide is a translation, so the client rect already holds it.
+ *
+ * `root` is the frame-sized capture root that hosts the Overlay. Returns `null`
+ * when the root holds no element for `overlayId`: there is no estimate.
+ */
+export function measureOverlayOrientedBoundsPx(
+	overlayId: string,
+	root: HTMLElement,
+	compositionSize: { width: number; height: number },
+	transform: OverlayTransform
+): OrientedRectPx | null {
+	const overlayElement = root.querySelector<HTMLElement>(
+		`[data-overlay-id="${CSS.escape(overlayId)}"]`
+	);
+	if (!overlayElement) return null;
+	const overlayRect = overlayElement.getBoundingClientRect();
+	const rootRect = root.getBoundingClientRect();
+	// Client pixels to canvas pixels, as `measureOverlayBoundsPx` maps them.
+	const clientScaleX = compositionSize.width / (rootRect.width || compositionSize.width);
+	const clientScaleY = compositionSize.height / (rootRect.height || compositionSize.height);
+	// Layout pixels to canvas pixels: the root is laid out frame-sized.
+	const layoutScaleX = compositionSize.width / (root.offsetWidth || compositionSize.width);
+	const layoutScaleY = compositionSize.height / (root.offsetHeight || compositionSize.height);
+	return {
+		centerX: (overlayRect.left + overlayRect.width / 2 - rootRect.left) * clientScaleX,
+		centerY: (overlayRect.top + overlayRect.height / 2 - rootRect.top) * clientScaleY,
+		width: overlayElement.offsetWidth * layoutScaleX * transform.scale,
+		height: overlayElement.offsetHeight * layoutScaleY * transform.scale,
+		rotationDegrees: transform.rotationDegrees
+	};
 }
 
 function estimateOverlayBoundsPx(

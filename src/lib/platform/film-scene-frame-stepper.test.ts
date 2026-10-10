@@ -90,6 +90,15 @@ function createStepperHarness(
 			rendered.push({ outputView, timestamp });
 			return 'flat';
 		},
+		// Logged only when an Overlay is named: a Scene that renders whole keeps
+		// the order every test above the magic-move ones holds.
+		setSoloOverlayIds: (overlayIds) => {
+			if (overlayIds.length > 0) calls.push(`solo ${overlayIds.join(',')}`);
+		},
+		captureSoloOverlay: (overlayId, texture) => {
+			calls.push(`capture ${overlayId} into ${texture.label}`);
+			return { centerX: 0, centerY: 0, width: 0, height: 0, rotationDegrees: 0 };
+		},
 		...overrides
 	};
 	return { stepper: createFilmSceneFrameStepper(dependencies), dependencies, calls, rendered };
@@ -108,7 +117,7 @@ describe('one Scene frame step', () => {
 	it('shows the Scene, scrubs it, waits for a paint, and renders into the target, in that order', async () => {
 		const harness = createStepperHarness();
 
-		const branch = await harness.stepper.renderSceneFrame(
+		const { branch } = await harness.stepper.renderSceneFrame(
 			stepRequest('scene-2', 1, INCOMING_TARGET)
 		);
 
@@ -258,6 +267,105 @@ describe('one Scene frame step', () => {
 	});
 });
 
+describe('a Scene frame step that solos Overlays for a magic move', () => {
+	const ELEMENT_TEXTURE = { label: 'element' } as GPUTexture;
+
+	function soloRequest(
+		sceneId: string,
+		sceneFrame: number,
+		overlayIds: readonly string[]
+	): Parameters<FilmSceneFrameStepper['renderSceneFrame']>[0] {
+		return {
+			...stepRequest(sceneId, sceneFrame, OUTGOING_TARGET),
+			soloOverlays: overlayIds.map((overlayId) => ({
+				overlayId,
+				readCaptureTexture: () => ELEMENT_TEXTURE
+			}))
+		};
+	}
+
+	it('names the Overlays before the Scene mounts, renders the Scene, then captures each alone', async () => {
+		const box = { centerX: 10, centerY: 20, width: 30, height: 40, rotationDegrees: 5 };
+		const harness = createStepperHarness({
+			captureSoloOverlay: () => box
+		});
+		const calls = harness.calls;
+		harness.dependencies.captureSoloOverlay = (overlayId, texture) => {
+			calls.push(`capture ${overlayId} into ${texture.label}`);
+			return box;
+		};
+		const stepper = createFilmSceneFrameStepper(harness.dependencies);
+
+		const result = await stepper.renderSceneFrame(soloRequest('scene-1', 1, ['card', 'bug']));
+
+		expect(calls).toEqual([
+			'solo card,bug',
+			'show scene-1',
+			'resources',
+			'manifest',
+			'rebuild',
+			'progress 0.5',
+			'global 0.5',
+			'flush',
+			'paint',
+			'prepare 1@0.5',
+			'render 0.5',
+			'capture card into element',
+			'capture bug into element'
+		]);
+		expect(result).toEqual({ branch: 'flat', soloOverlayBounds: [box, box] });
+	});
+
+	it('remounts and rebuilds a live Scene when the Overlays it solos change, without showing it again', async () => {
+		const harness = createStepperHarness();
+
+		await harness.stepper.renderSceneFrame(stepRequest('scene-1', 0, OUTGOING_TARGET));
+		harness.calls.length = 0;
+		await harness.stepper.renderSceneFrame(soloRequest('scene-1', 1, ['card']));
+
+		expect(harness.calls.slice(0, 5)).toEqual([
+			'solo card',
+			'flush',
+			'resources',
+			'manifest',
+			'rebuild'
+		]);
+		expect(harness.calls.filter((call) => call.startsWith('show'))).toEqual([]);
+
+		// The same Overlays on the next frame: nothing is prepared again.
+		harness.calls.length = 0;
+		await harness.stepper.renderSceneFrame(soloRequest('scene-1', 1, ['card']));
+		expect(harness.calls[0]).toBe('progress 0.5');
+	});
+
+	it('puts every Overlay back in its Scene for a frame that solos none', async () => {
+		const soloed: (readonly string[])[] = [];
+		const harness = createStepperHarness({
+			setSoloOverlayIds: (overlayIds) => soloed.push(overlayIds)
+		});
+
+		await harness.stepper.renderSceneFrame(soloRequest('scene-1', 1, ['card']));
+		await harness.stepper.renderSceneFrame(soloRequest('scene-2', 0, ['card']));
+		await harness.stepper.renderSceneFrame(stepRequest('scene-2', 1, INCOMING_TARGET));
+
+		expect(soloed).toEqual([['card'], ['card'], []]);
+		// The last step kept Scene 2 live and only moved its Overlay back.
+		expect(harness.calls.filter((call) => call.startsWith('show'))).toEqual([
+			'show scene-1',
+			'show scene-2'
+		]);
+	});
+
+	it('captures nothing when the frame renderer is unavailable', async () => {
+		const harness = createStepperHarness({ renderCompositionFrame: () => 'unavailable' });
+
+		await expect(
+			harness.stepper.renderSceneFrame(soloRequest('scene-1', 0, ['card']))
+		).rejects.toThrow('Composition frame renderer is unavailable.');
+		expect(harness.calls.filter((call) => call.startsWith('capture'))).toEqual([]);
+	});
+});
+
 describe('the Scene frame stepper over the open Film', () => {
 	const HERO = 'hero';
 	const LOWER_THIRD = 'lower-third';
@@ -298,6 +406,10 @@ describe('the Scene frame stepper over the open Film', () => {
 					timestamp
 				});
 				return 'flat';
+			},
+			setSoloOverlayIds: () => undefined,
+			captureSoloOverlay: () => {
+				throw new Error('This Film carries no magic move.');
 			}
 		});
 	}

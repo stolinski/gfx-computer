@@ -53,6 +53,11 @@ import {
 	runSetCompositionKineticWordPositionKeyframeOperation
 } from './composition-kinetic-type-operations';
 import { runSetCompositionSceneBoundaryOperation } from './composition-scene-boundary-operations';
+import { FILM_MAGIC_MOVE_PAIR_LIMIT } from './film-schema';
+import {
+	runInspectCompositionSceneBoundaryMagicMoveOperation,
+	runSetCompositionSceneBoundaryMagicMoveOperation
+} from './composition-scene-magic-move-operations';
 import {
 	runAddCompositionMotionBeatOperation,
 	runLandCompositionKineticWordOnBeatOperation,
@@ -326,6 +331,20 @@ function readKeyframes(args: unknown): readonly KeyframeChannelInput[] {
 		}
 		return input;
 	});
+}
+
+/** One end of a magic-move pair: an element of one Scene, by its kind and id. */
+function magicMoveElementProperty(description: string): WebmcpSchemaProperty {
+	return {
+		type: 'object',
+		description,
+		properties: {
+			kind: webmcpDerivedEnumProperty('magic-move-element-kind', 'What kind of element it is.'),
+			id: webmcpEntityIdProperty("The element's id in its Scene.")
+		},
+		required: ['kind', 'id'],
+		additionalProperties: false
+	};
 }
 
 function motionBeatTimeProperty(subject: string): WebmcpSchemaProperty {
@@ -987,6 +1006,66 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 						kind: readWebmcpStringArgument(args, 'kind'),
 						durationMs: readWebmcpOptionalNumberArgument(args, 'durationMs'),
 						params: readWebmcpOptionalRuntimeJsonArgument(args, 'params')
+					})
+				)
+		},
+		{
+			operationId: 'motion.inspect-scene-boundary-magic-move',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					outgoingSceneId: webmcpEntityIdProperty(
+						'The id of the Scene the boundary follows, as gfx_composition_inspect lists it. The boundary must be a fade or an effect.'
+					)
+				},
+				required: ['outgoingSceneId'],
+				additionalProperties: false
+			},
+			run: async (args) =>
+				runInspectCompositionSceneBoundaryMagicMoveOperation({
+					outgoingSceneId: readWebmcpStringArgument(args, 'outgoingSceneId')
+				})
+		},
+		{
+			operationId: 'motion.set-scene-boundary-magic-move',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					outgoingSceneId: webmcpEntityIdProperty(
+						'The id of the Scene the boundary follows, as gfx_composition_inspect lists it. The boundary must be a fade or an effect.'
+					),
+					pairs: {
+						type: 'array',
+						description:
+							'The whole list the boundary carries afterwards, drawn in this order. Each pair names one element of the outgoing Scene and its partner in the incoming Scene: the same Overlay type, each in one pair at most. An empty list removes the magic move.',
+						maxItems: FILM_MAGIC_MOVE_PAIR_LIMIT,
+						items: {
+							type: 'object',
+							description: 'One pair: an element of the outgoing Scene and its partner.',
+							properties: {
+								from: magicMoveElementProperty('The element in the outgoing Scene.'),
+								to: magicMoveElementProperty('The element in the incoming Scene.')
+							},
+							required: ['from', 'to'],
+							additionalProperties: false
+						}
+					},
+					ease: webmcpDerivedEnumProperty(
+						'motion-ease',
+						'How the move runs across the window. Omit it to keep the ease the boundary has.'
+					)
+				},
+				required: ['expectedRevision', 'outgoingSceneId', 'pairs'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.set-scene-boundary-magic-move', () =>
+					runSetCompositionSceneBoundaryMagicMoveOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						outgoingSceneId: readWebmcpStringArgument(args, 'outgoingSceneId'),
+						pairs: readWebmcpRecordArrayArgument(args, 'pairs'),
+						ease: readWebmcpOptionalStringArgument(args, 'ease')
 					})
 				)
 		}

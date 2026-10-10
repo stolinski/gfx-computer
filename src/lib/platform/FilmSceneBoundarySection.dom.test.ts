@@ -2,19 +2,29 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import twoSceneMagicMoveFilmJson from '../../../scripts/fixtures/film-magic-move/two-scene-magic-move.film.json';
+
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
-import { filmFromCorpusPreset } from './film-ingress';
+import { filmFromCorpusPreset, parseFilm } from './film-ingress';
 import { insertFilmScene } from './film-scene-membership';
 import { filmSceneBoundaryKindLabel } from './film-scene-boundary-kind-label';
-import { FILM_SCENE_BOUNDARY_KINDS, type Film, type FilmSceneBoundary } from './film-schema';
+import {
+	FILM_SCENE_BOUNDARY_KINDS,
+	type Film,
+	type FilmMagicMovePair,
+	type FilmSceneBoundary
+} from './film-schema';
 import { filmState, readOpenFilm } from './film-state.svelte';
 import FilmSceneBoundarySection from './FilmSceneBoundarySection.svelte';
+import { getOverlayDefinition } from './pipelines/definition-registry';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 import { posterKeyForPreset } from './posters';
 import { applyFilm } from './preset';
 import { getPresetBySlug } from './preset-catalog';
 import { deselectLayer, sceneBoundarySelection, selectSceneBoundary } from './selection.svelte';
+
+import { cloneJsonValue } from '../utils/json-clone';
 
 import type { Preset } from './engine-schema';
 
@@ -213,5 +223,114 @@ describe('the Scene boundary section', () => {
 		await waitFor(() =>
 			expect(screen.getByRole<HTMLInputElement>('spinbutton').value).toBe('1000')
 		);
+	});
+
+	describe('magic move', () => {
+		const LOWER_THIRD_PAIR: FilmMagicMovePair = {
+			from: { kind: 'overlay', id: 'lower-third' },
+			to: { kind: 'overlay', id: 'lower-third' }
+		};
+		const SPEAKER_PAIR: FilmMagicMovePair = {
+			from: { kind: 'overlay', id: 'speaker' },
+			to: { kind: 'overlay', id: 'speaker' }
+		};
+		const lowerThirdLabel = getOverlayDefinition('lower-third')?.label;
+
+		/** The magic-move fixture: two Scenes sharing `lower-third`, and here `speaker` too. */
+		function openSharedOverlayFilm(boundary: FilmSceneBoundary): void {
+			const film = parseFilm(cloneJsonValue(twoSceneMagicMoveFilmJson));
+			for (const scene of film.scenes) {
+				scene.state.overlays.push({ ...cloneJsonValue(scene.state.overlays[0]), id: 'speaker' });
+			}
+			applyFilm({ ...film, boundaries: [boundary] }, { kind: 'deliverable' });
+			selectSceneBoundary(0);
+		}
+
+		it('lists one switch per suggested pair, named for its Overlay, off until it is carried', () => {
+			openSharedOverlayFilm({ kind: 'fade', durationMs: 1000 });
+			render(FilmSceneBoundarySection);
+
+			const switches = screen.getAllByRole('switch');
+
+			expect(switches.map((toggle) => toggle.getAttribute('aria-label'))).toEqual([
+				`Magic move ${lowerThirdLabel} · lower-third`,
+				`Magic move ${lowerThirdLabel} · speaker`
+			]);
+			expect(switches.map((toggle) => toggle.getAttribute('aria-checked'))).toEqual([
+				'false',
+				'false'
+			]);
+			expect(screen.getByText(`${lowerThirdLabel} · speaker`)).not.toBeNull();
+		});
+
+		it('shows a carried pair as on', () => {
+			openSharedOverlayFilm({
+				kind: 'fade',
+				durationMs: 1000,
+				magicMove: { pairs: [SPEAKER_PAIR] }
+			});
+			render(FilmSceneBoundarySection);
+
+			expect(
+				screen
+					.getByRole('switch', { name: `Magic move ${lowerThirdLabel} · speaker` })
+					.getAttribute('aria-checked')
+			).toBe('true');
+			expect(
+				screen
+					.getByRole('switch', { name: `Magic move ${lowerThirdLabel} · lower-third` })
+					.getAttribute('aria-checked')
+			).toBe('false');
+		});
+
+		it('adds a pair when its switch is turned on, and removes it when turned off, each as one undoable edit', async () => {
+			openSharedOverlayFilm({ kind: 'fade', durationMs: 1000 });
+			render(FilmSceneBoundarySection);
+			const revision = compositionEditHistory.revision;
+
+			await fireEvent.click(
+				screen.getByRole('switch', { name: `Magic move ${lowerThirdLabel} · lower-third` })
+			);
+			await waitFor(() =>
+				expect(boundaries()[0]).toEqual({
+					kind: 'fade',
+					durationMs: 1000,
+					magicMove: { pairs: [LOWER_THIRD_PAIR] }
+				})
+			);
+			expect(compositionEditHistory.revision).toBe(revision + 1);
+
+			await fireEvent.click(
+				screen.getByRole('switch', { name: `Magic move ${lowerThirdLabel} · speaker` })
+			);
+			await waitFor(() =>
+				expect(boundaries()[0]).toHaveProperty('magicMove.pairs', [LOWER_THIRD_PAIR, SPEAKER_PAIR])
+			);
+
+			await fireEvent.click(
+				screen.getByRole('switch', { name: `Magic move ${lowerThirdLabel} · lower-third` })
+			);
+			await waitFor(() =>
+				expect(boundaries()[0]).toHaveProperty('magicMove.pairs', [SPEAKER_PAIR])
+			);
+
+			await fireEvent.click(
+				screen.getByRole('switch', { name: `Magic move ${lowerThirdLabel} · speaker` })
+			);
+			await waitFor(() => expect(boundaries()[0]).toEqual({ kind: 'fade', durationMs: 1000 }));
+			expect(compositionMeta.persistenceError).toBeNull();
+		});
+
+		it('offers no switch for a cut, or for Scenes that share no Overlay', () => {
+			openSharedOverlayFilm({ kind: 'cut' });
+			const { unmount } = render(FilmSceneBoundarySection);
+			expect(screen.queryByRole('switch')).toBeNull();
+			unmount();
+
+			openThreeSceneFilm([{ kind: 'fade', durationMs: 1000 }, SHATTER]);
+			selectSceneBoundary(0);
+			render(FilmSceneBoundarySection);
+			expect(screen.queryByRole('switch')).toBeNull();
+		});
 	});
 });

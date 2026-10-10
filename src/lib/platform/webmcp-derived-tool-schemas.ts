@@ -59,7 +59,7 @@ import {
 	TEXT_ANIMATION_TARGET_KINDS,
 	WEB_DOCUMENT_SITES
 } from './engine-schema';
-import { FILM_SCENE_BOUNDARY_KINDS } from './film-schema';
+import { FILM_MAGIC_MOVE_ELEMENT_KINDS, FILM_SCENE_BOUNDARY_KINDS } from './film-schema';
 import { listPresets } from './preset-catalog';
 import { listSubstrateAssets } from './substrate-textures';
 import { listEffectKeyframeChannels } from './effect-keyframe-channels';
@@ -131,6 +131,7 @@ export type WebmcpDerivedEnumName =
 	| 'pack-slug'
 	| 'starter-slug'
 	| 'scene-boundary-kind'
+	| 'magic-move-element-kind'
 	| 'sound-event'
 	| 'sound-asset'
 	| 'caption-style'
@@ -268,6 +269,8 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'starter-slug': listPresets().map((entry) => entry.slug),
 		// `cut`, `fade`, and every registered transition effect (ADR-0068 §4).
 		'scene-boundary-kind': FILM_SCENE_BOUNDARY_KINDS,
+		// What a magic move can carry (ADR-0068 §5).
+		'magic-move-element-kind': FILM_MAGIC_MOVE_ELEMENT_KINDS,
 		'sound-event': SOUND_EVENTS,
 		'sound-asset': listSoundAssets(),
 		'caption-style': CAPTION_STYLES,

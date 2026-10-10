@@ -1,7 +1,9 @@
-// The shared session of the Film boundary scripts (ADR-0068 §4):
-// `cdp-capture-film-fade-frames.mjs` and
-// `cdp-capture-film-boundary-effect-frames.mjs` (the look), and
-// `cdp-film-fade-tracer.mjs` (the proof). Not a script to run on its own.
+// The shared session of the Film boundary scripts (ADR-0068 §4, §5):
+// `cdp-capture-film-fade-frames.mjs`,
+// `cdp-capture-film-boundary-effect-frames.mjs`, and
+// `cdp-capture-film-magic-move-frames.mjs` (the look), and
+// `cdp-film-fade-tracer.mjs` and `cdp-film-magic-move-tracer.mjs` (the proof).
+// Not a script to run on its own.
 //
 // It owns what both do the same way, following `cdp-film-cut-frames.mjs`: the
 // fixture and the stored records made from it, a jailed dev server on a port of
@@ -39,7 +41,7 @@ const POLL_INTERVAL_MS = 250;
 // The COMPOSITION canvas is the largest-backing one. The editor chrome renders
 // small canvases too (timeline sound-clip waveforms), so document order is not
 // a stable way to find it.
-const COMPOSITION_CANVAS = `[...document.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0]`;
+export const COMPOSITION_CANVAS = `[...document.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0]`;
 
 const sleep = (milliseconds) => new Promise((settle) => setTimeout(settle, milliseconds));
 
@@ -331,7 +333,8 @@ export async function openStoredFilm(page, origin, slug, film) {
 /**
  * Land Film time on one frame, paused, and read the canvas back as a PNG: where
  * the frame landed, the boundary window it is in (both Scenes' frames and the
- * progress, or `null` outside a window), and the PNG's bytes.
+ * progress, or `null` outside a window), each magic-move pair's quad as the
+ * frame drew it (empty when it drew none), and the PNG's bytes.
  */
 export async function captureFilmFramePng(page, filmFrame) {
 	const capture = await page.evaluate(`(() => {
@@ -358,6 +361,7 @@ export async function captureFilmFramePng(page, filmFrame) {
 					windowFrameCount: window_.windowFrameCount,
 					progress: window_.progress
 				},
+				magicMoveQuads: position.magicMoveQuads,
 				width: canvas.width,
 				height: canvas.height,
 				pngBase64: btoa(binary)

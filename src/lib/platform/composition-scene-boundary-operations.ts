@@ -114,13 +114,20 @@ function readRequestedSceneBoundary(
 			)
 		};
 	}
+	// A boundary that keeps a duration keeps what it carries: the magic move is
+	// set by `motion.set-scene-boundary-magic-move`, never here. A cut above has
+	// no window, so making a boundary a cut drops it.
+	const keptMagicMove =
+		current.kind !== 'cut' && current.magicMove !== undefined
+			? { magicMove: current.magicMove }
+			: {};
 	if (kind === 'fade') {
 		if (request.params !== undefined) {
 			return {
 				refusal: refuseBoundaryArgument(row, 'A fade has no params to set.', 'params')
 			};
 		}
-		return { candidate: { kind, durationMs } };
+		return { candidate: { kind, durationMs, ...keptMagicMove } };
 	}
 
 	if (request.params !== undefined && !isRecord(request.params)) {
@@ -135,7 +142,12 @@ function readRequestedSceneBoundary(
 	const keptParams =
 		isFilmTransitionEffectBoundary(current) && current.kind === kind ? current.params : {};
 	return {
-		candidate: { kind, durationMs, params: { ...keptParams, ...(request.params ?? {}) } }
+		candidate: {
+			kind,
+			durationMs,
+			params: { ...keptParams, ...(request.params ?? {}) },
+			...keptMagicMove
+		}
 	};
 }
 
@@ -148,6 +160,9 @@ function readRequestedSceneBoundary(
  * boundary on the other side of a Scene is refused as `semantic_invalid` with
  * its finding at `/boundaries/<index>/durationMs`, and a parameter the effect
  * does not accept as `schema_invalid` at `/boundaries/<index>/params/...`.
+ *
+ * A boundary that keeps a duration keeps its magic move (ADR-0068 §5); making
+ * it a cut removes the magic move with the window.
  *
  * When the playhead rests inside the boundary's window, the canvas shows the
  * exact frame again once the edit has applied (ADR-0068 §4).

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { PRESET_SCHEMA_ID, type EngineState, type Preset } from './engine-schema';
+import { listFilmMagicMoveIssues } from './film-magic-move';
 import { filmFrameCount, filmSceneBoundaryOverlaps, filmSceneFrameCount } from './film-playhead';
 import {
 	FILM_DURATION_CEILING_SECONDS,
@@ -392,8 +393,9 @@ function listFilmBoundaryWindowIssues(film: Film): PresetSemanticIssue[] {
  *
  * On top of that: Scene ids are unique, there is one boundary per pair of
  * neighbours, every boundary with a duration fits its Scenes
- * (`listFilmBoundaryWindowIssues`), and the whole Film fits the duration
- * ceiling, counted in frames.
+ * (`listFilmBoundaryWindowIssues`), every magic-move pair can be carried
+ * (`listFilmMagicMoveIssues` in `./film-magic-move.ts`), and the whole Film
+ * fits the duration ceiling, counted in frames.
  */
 export function validateFilmSemantics(
 	film: Film,
@@ -427,6 +429,7 @@ export function validateFilmSemantics(
 	// Film length needs a well-formed Scene and boundary list to be counted.
 	if (structureIssues.length === 0 && film.scenes.length > 0) {
 		issues.push(...listFilmBoundaryWindowIssues(film));
+		issues.push(...listFilmMagicMoveIssues(film));
 		const ceilingFrameCount = secondsToFrames(
 			FILM_DURATION_CEILING_SECONDS,
 			resolveFrameRate(film.fps)

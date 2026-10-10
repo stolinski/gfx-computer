@@ -9,6 +9,7 @@ import { particleDissolveTransitionEffectRenderer } from '$lib/pipelines/effects
 import { seededShatterTransitionEffectRenderer } from '$lib/pipelines/effects/seeded-shatter';
 import { sheetPeelTransitionEffectRenderer } from '$lib/pipelines/effects/sheet-peel';
 
+import type { FilmMagicMoveQuad } from './film-magic-move-quad';
 import type { FilmTransitionEffectBoundary } from './film-schema';
 import type { GpuHost } from './gpu-host';
 import { transitionEffectTypes } from './pipelines/transition-definition-registry';
@@ -37,6 +38,7 @@ function createCompositorHarness(
 	const log: string[] = [];
 	const applied: TransitionEffectApplyOptions[] = [];
 	let targetSetCount = 0;
+	let elementTextureCount = 0;
 	const factories: FilmBoundaryFrameCompositorFactories = {
 		createSceneTargets: ({ width, height }) => {
 			targetSetCount += 1;
@@ -67,7 +69,28 @@ function createCompositorHarness(
 			};
 		},
 		readTransitionEffectRenderer: (type) =>
-			loadedTransitionEffects.find((renderer) => renderer.type === type) ?? null
+			loadedTransitionEffects.find((renderer) => renderer.type === type) ?? null,
+		createMagicMoveElementTexture: ({ width, height }) => {
+			elementTextureCount += 1;
+			const label = `element ${elementTextureCount}`;
+			log.push(`${label} ${width}x${height}`);
+			return {
+				label,
+				destroy: () => {
+					log.push(`destroy ${label}`);
+				}
+			} as unknown as GPUTexture;
+		},
+		compileMagicMoveQuadPass: () => {
+			log.push('compile quad pass');
+			return {
+				draw: ({ pairIndex, fromTexture, toTexture, quad, outputView }) => {
+					log.push(
+						`quad ${pairIndex} ${fromTexture.label} > ${toTexture.label} mix ${quad.mix} into ${outputView.label}`
+					);
+				}
+			};
+		}
 	};
 	return { compositor: new FilmBoundaryFrameCompositor(factories), log, applied };
 }
@@ -95,7 +118,12 @@ describe('the Film boundary frame compositor', () => {
 		const { compositor, applied, log } = createCompositorHarness();
 		compositor.prepare({ host: HOST, width: 3840, height: 2160 });
 
-		compositor.composite({ boundary: FADE, progress: 0.25, outputView: CANVAS });
+		compositor.composite({
+			boundary: FADE,
+			progress: 0.25,
+			magicMoveQuads: [],
+			outputView: CANVAS
+		});
 
 		expect(log).toEqual(['targets 1 3840x2160', 'compile fade']);
 		expect(applied).toHaveLength(1);
@@ -116,19 +144,97 @@ describe('the Film boundary frame compositor', () => {
 		const target = { host: HOST, width: 3840, height: 2160 };
 
 		compositor.prepare(target);
-		compositor.composite({ boundary: FADE, progress: 0, outputView: CANVAS });
+		compositor.composite({ boundary: FADE, progress: 0, magicMoveQuads: [], outputView: CANVAS });
 		compositor.prepare(target);
-		compositor.composite({ boundary: FADE, progress: 1, outputView: CANVAS });
+		compositor.composite({ boundary: FADE, progress: 1, magicMoveQuads: [], outputView: CANVAS });
 
 		expect(log).toEqual(['targets 1 3840x2160', 'compile fade']);
 		expect(applied.map((options) => options.context.progress)).toEqual([0, 1]);
 		expect(compositor.isPreparedFor(target)).toBe(true);
 	});
 
+	it("draws each magic-move quad over the composited Scenes, in order, from that pair's two captures", () => {
+		const { compositor, log, applied } = createCompositorHarness();
+		compositor.prepare({ host: HOST, width: 3840, height: 2160 });
+		const box = { centerX: 0, centerY: 0, width: 10, height: 10, rotationDegrees: 0 };
+		const quad = (mix: number): FilmMagicMoveQuad => ({ from: box, to: box, rect: box, mix });
+
+		for (const pairIndex of [0, 1]) {
+			compositor.readMagicMoveElementTexture(pairIndex, 'outgoing');
+			compositor.readMagicMoveElementTexture(pairIndex, 'incoming');
+		}
+		// Asked for again: the same texture, not another.
+		expect(compositor.readMagicMoveElementTexture(0, 'incoming').label).toBe('element 2');
+		log.length = 0;
+		compositor.composite({
+			boundary: FADE,
+			progress: 0.5,
+			magicMoveQuads: [quad(0.25), quad(0.75)],
+			outputView: CANVAS
+		});
+
+		expect(applied).toHaveLength(1);
+		expect(log).toEqual([
+			'compile fade',
+			'compile quad pass',
+			'quad 0 element 1 > element 2 mix 0.25 into canvas',
+			'quad 1 element 3 > element 4 mix 0.75 into canvas'
+		]);
+	});
+
+	it('lets go of the captures a frame no longer draws, and keeps the ones it does', () => {
+		const { compositor, log } = createCompositorHarness();
+		compositor.prepare({ host: HOST, width: 3840, height: 2160 });
+		const box = { centerX: 0, centerY: 0, width: 10, height: 10, rotationDegrees: 0 };
+		const quad: FilmMagicMoveQuad = { from: box, to: box, rect: box, mix: 0.5 };
+		for (const pairIndex of [0, 1]) {
+			compositor.readMagicMoveElementTexture(pairIndex, 'outgoing');
+			compositor.readMagicMoveElementTexture(pairIndex, 'incoming');
+		}
+		compositor.composite({
+			boundary: FADE,
+			progress: 0.5,
+			magicMoveQuads: [quad, quad],
+			outputView: CANVAS
+		});
+		log.length = 0;
+
+		compositor.composite({
+			boundary: FADE,
+			progress: 0.6,
+			magicMoveQuads: [quad],
+			outputView: CANVAS
+		});
+		expect(log).toEqual([
+			'quad 0 element 1 > element 2 mix 0.5 into canvas',
+			'destroy element 3',
+			'destroy element 4'
+		]);
+
+		log.length = 0;
+		compositor.composite({ boundary: FADE, progress: 1, magicMoveQuads: [], outputView: CANVAS });
+		expect(log).toEqual(['destroy element 1', 'destroy element 2']);
+	});
+
+	it('refuses a quad whose pair was never captured', () => {
+		const { compositor } = createCompositorHarness();
+		compositor.prepare({ host: HOST, width: 3840, height: 2160 });
+		const box = { centerX: 0, centerY: 0, width: 10, height: 10, rotationDegrees: 0 };
+
+		expect(() =>
+			compositor.composite({
+				boundary: FADE,
+				progress: 0.5,
+				magicMoveQuads: [{ from: box, to: box, rect: box, mix: 0.5 }],
+				outputView: CANVAS
+			})
+		).toThrow('Magic-move pair 0 has no captures');
+	});
+
 	it('replaces its targets for another size, and frees the old ones', () => {
 		const { compositor, log } = createCompositorHarness();
 		compositor.prepare({ host: HOST, width: 3840, height: 2160 });
-		compositor.composite({ boundary: FADE, progress: 0.5, outputView: CANVAS });
+		compositor.composite({ boundary: FADE, progress: 0.5, magicMoveQuads: [], outputView: CANVAS });
 
 		compositor.prepare({ host: HOST, width: 2160, height: 3840 });
 
@@ -152,9 +258,9 @@ describe('the Film boundary frame compositor', () => {
 		compositor.dispose();
 
 		expect(log).toEqual(['targets 1 3840x2160', 'dispose targets 1']);
-		expect(() => compositor.composite({ boundary: FADE, progress: 0, outputView: CANVAS })).toThrow(
-			'call prepare first'
-		);
+		expect(() =>
+			compositor.composite({ boundary: FADE, progress: 0, magicMoveQuads: [], outputView: CANVAS })
+		).toThrow('call prepare first');
 		expect(() => compositor.prepare({ host: HOST, width: 3840, height: 2160 })).toThrow('disposed');
 	});
 
@@ -167,9 +273,9 @@ describe('the Film boundary frame compositor', () => {
 			params: { seed: 7, columns: 12, scatter: 0.1, rotation: 0.5, depth: 0.5, shadow: 0.3 }
 		};
 
-		compositor.composite({ boundary, progress: 0.4, outputView: CANVAS });
-		compositor.composite({ boundary: FADE, progress: 0.4, outputView: CANVAS });
-		compositor.composite({ boundary, progress: 0.6, outputView: CANVAS });
+		compositor.composite({ boundary, progress: 0.4, magicMoveQuads: [], outputView: CANVAS });
+		compositor.composite({ boundary: FADE, progress: 0.4, magicMoveQuads: [], outputView: CANVAS });
+		compositor.composite({ boundary, progress: 0.6, magicMoveQuads: [], outputView: CANVAS });
 
 		// One compiled effect per kind, kept between frames.
 		expect(log).toEqual(['targets 1 3840x2160', 'compile seeded-shatter', 'compile fade']);
@@ -195,6 +301,7 @@ describe('the Film boundary frame compositor', () => {
 					params: { direction: 'right', softness: 0.001 }
 				},
 				progress: 0.5,
+				magicMoveQuads: [],
 				outputView: CANVAS
 			})
 		).toThrow('The transition effect "mask-wipe" of a Scene boundary is not loaded.');

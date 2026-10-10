@@ -521,6 +521,8 @@ export interface OverlayRenderer<TContent = unknown> {
 	stageBody?: OverlayStageBodyRenderer<TContent>;
 	/** Declared on the definition; carried through so the renderer agrees. */
 	stageBodyDeclared?: true;
+	/** The definition's `ownShaderPass`, carried through: true exactly when `shaderPass` is set. */
+	ownShaderPass?: true;
 }
 
 /** What a body Overlay hands the Stage each frame (ADR-0062). */

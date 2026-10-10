@@ -18255,6 +18255,79 @@
               "durationMs": {
                 "type": "number",
                 "exclusiveMinimum": 0
+              },
+              "magicMove": {
+                "type": "object",
+                "properties": {
+                  "pairs": {
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "to": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  }
+                },
+                "required": [
+                  "pairs"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -18294,6 +18367,79 @@
                     "maximum": 0.05
                   }
                 }
+              },
+              "magicMove": {
+                "type": "object",
+                "properties": {
+                  "pairs": {
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "to": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  }
+                },
+                "required": [
+                  "pairs"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -18354,6 +18500,79 @@
                     "maximum": 1
                   }
                 }
+              },
+              "magicMove": {
+                "type": "object",
+                "properties": {
+                  "pairs": {
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "to": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  }
+                },
+                "required": [
+                  "pairs"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -18412,6 +18631,79 @@
                     "maximum": 1
                   }
                 }
+              },
+              "magicMove": {
+                "type": "object",
+                "properties": {
+                  "pairs": {
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "to": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  }
+                },
+                "required": [
+                  "pairs"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -18472,6 +18764,79 @@
                     "maximum": 1
                   }
                 }
+              },
+              "magicMove": {
+                "type": "object",
+                "properties": {
+                  "pairs": {
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "to": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "overlay"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  }
+                },
+                "required": [
+                  "pairs"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [

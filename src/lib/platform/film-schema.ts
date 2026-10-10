@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { EngineStateSchema, PresetSchema, type EngineState } from './engine-schema.ts';
+import { EaseSchema, EngineStateSchema, PresetSchema, type EngineState } from './engine-schema.ts';
 import { TRANSITION_EFFECT_DEFINITION_REGISTRY } from './pipelines/transition-definition-registry.ts';
 
 /**
@@ -82,6 +82,65 @@ function boundaryDurationMsSchema(label: string): z.ZodNumber {
 }
 
 /**
+ * The kinds of element a magic move can carry
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §5).
+ * Overlays are built. Diagram `node`, `label`, and `stat-callout` primitives and
+ * Kinetic Words are designed; each arrives as one more entry here, with its own
+ * capture and measurement.
+ */
+export const FILM_MAGIC_MOVE_ELEMENT_KINDS = ['overlay'] as const;
+
+/**
+ * The most pairs one boundary carries. Every pair holds two frame-sized capture
+ * textures while its window renders (33 MB each at 3840×2160), so the bound is
+ * on GPU memory: the same count as the posed Overlay planes of the depth stage
+ * (`STAGE_POSED_OVERLAY_LIMIT`).
+ */
+export const FILM_MAGIC_MOVE_PAIR_LIMIT = 4;
+
+/** One end of a pair: an element of one Scene, by its kind and its id in that Scene. */
+const FilmMagicMoveElementSchema = z.strictObject({
+	kind: z.enum(FILM_MAGIC_MOVE_ELEMENT_KINDS),
+	id: z.string().min(1, 'A magic-move element is named by its id')
+});
+
+const FilmMagicMovePairSchema = z.strictObject({
+	/** The element in the outgoing Scene. */
+	from: FilmMagicMoveElementSchema,
+	/** The element in the incoming Scene. */
+	to: FilmMagicMoveElementSchema
+});
+
+/**
+ * A boundary's magic move (ADR-0068 §5): the elements it carries from where
+ * each sits in the outgoing Scene to where its partner sits in the incoming
+ * one, while the rest of the frame runs the boundary's fade or effect. Only a
+ * boundary with a duration may carry one.
+ *
+ * `ease` shapes the move across the window; absent, it is
+ * `FILM_MAGIC_MOVE_DEFAULT_EASE`. A boundary without a magic move leaves the
+ * whole field out: `pairs` is never empty.
+ *
+ * Whether a pair can be carried (both ids exist, the two elements are the same
+ * type, neither is refused) depends on the Scenes, so `validateFilmSemantics`
+ * (`./film-ingress.ts`) reports it, with its path.
+ */
+export const FilmMagicMoveSchema = z.strictObject({
+	pairs: z
+		.array(FilmMagicMovePairSchema)
+		.min(1, 'A magic move carries at least one pair; leave magicMove out to carry none')
+		.max(FILM_MAGIC_MOVE_PAIR_LIMIT),
+	ease: EaseSchema.optional()
+});
+
+/**
+ * The ease a magic move takes when it states none: `smooth` (`power3.out`), the
+ * default every other authored ease in the engine has. The shared vocabulary
+ * (`NAMED_EASE_CURVES`) holds no ease-in-out curve.
+ */
+export const FILM_MAGIC_MOVE_DEFAULT_EASE: z.infer<typeof EaseSchema> = 'smooth';
+
+/**
  * One boundary member per registered transition effect: the effect's `type` as
  * the `kind`, a `durationMs`, and the effect's own `params` schema. Read off
  * the registry, so registering an effect adds its boundary and nothing here
@@ -94,7 +153,8 @@ function filmTransitionEffectBoundarySchemas(): z.ZodObject[] {
 		z.strictObject({
 			kind: z.literal(definition.type),
 			durationMs: boundaryDurationMsSchema(definition.type),
-			params: definition.paramsSchema
+			params: definition.paramsSchema,
+			magicMove: FilmMagicMoveSchema.optional()
 		})
 	);
 }
@@ -105,8 +165,9 @@ function filmTransitionEffectBoundarySchemas(): z.ZodObject[] {
  * overlaps the tail of the outgoing Scene and the head of the incoming one, and
  * both keep animating through it. A `fade` is a cross-fade. The rest are the
  * registered transition effects (`./pipelines/transition-definition-registry.ts`),
- * one member each, with that effect's `params`. Magic move arrives as a further
- * field, so adding it never changes a Film that does not use it.
+ * one member each, with that effect's `params`. A boundary with a duration may
+ * also carry a `magicMove` (`FilmMagicMoveSchema`); a cut may not, because it
+ * has no window to move through.
  *
  * How many frames a window overlaps depends on the Film's rate, so its bounds
  * are not checked here. `validateFilmSemantics` (`./film-ingress.ts`) reports
@@ -118,10 +179,16 @@ export const FilmSceneBoundarySchema = z.discriminatedUnion('kind', [
 	z.strictObject({ kind: z.literal('cut') }),
 	z.strictObject({
 		kind: z.literal('fade'),
-		durationMs: boundaryDurationMsSchema('fade')
+		durationMs: boundaryDurationMsSchema('fade'),
+		magicMove: FilmMagicMoveSchema.optional()
 	}),
 	...filmTransitionEffectBoundarySchemas()
 ]) as unknown as z.ZodType<FilmSceneBoundary>;
+
+export type FilmMagicMove = z.infer<typeof FilmMagicMoveSchema>;
+export type FilmMagicMovePair = FilmMagicMove['pairs'][number];
+export type FilmMagicMoveElement = FilmMagicMovePair['from'];
+export type FilmMagicMoveElementKind = (typeof FILM_MAGIC_MOVE_ELEMENT_KINDS)[number];
 
 /** A boundary that is one registered transition effect, with that effect's parameters. */
 export type FilmTransitionEffectBoundary = {
@@ -129,6 +196,7 @@ export type FilmTransitionEffectBoundary = {
 		kind: (typeof TRANSITION_EFFECT_DEFINITION_REGISTRY)[Key]['type'];
 		durationMs: number;
 		params: z.infer<(typeof TRANSITION_EFFECT_DEFINITION_REGISTRY)[Key]['paramsSchema']>;
+		magicMove?: FilmMagicMove;
 	};
 }[keyof typeof TRANSITION_EFFECT_DEFINITION_REGISTRY];
 
@@ -214,7 +282,9 @@ export type FilmSceneOrigin = z.infer<typeof FilmSceneOriginSchema>;
 // from the registry at run time, so the schema's own inferred type cannot tie a
 // `kind` to its `params`.
 export type FilmSceneBoundary =
-	{ kind: 'cut' } | { kind: 'fade'; durationMs: number } | FilmTransitionEffectBoundary;
+	| { kind: 'cut' }
+	| { kind: 'fade'; durationMs: number; magicMove?: FilmMagicMove }
+	| FilmTransitionEffectBoundary;
 /** True for a boundary that is a registered transition effect, and so carries `params`. */
 export function isFilmTransitionEffectBoundary(
 	boundary: FilmSceneBoundary

@@ -11,13 +11,19 @@
 	import { filterPackAppearanceVarsForImmunity } from './pipelines/identity-registry';
 	import type { Overlay, OverlayPlacement } from './engine-schema';
 	import type { OverlayRenderer } from './pipelines/types';
-	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
+	import { resolveOverlayPlacement, resolveOverlayTransform } from '$lib/utils/overlay-placement';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	interface Props {
-		/** Host only these Overlays (a posed Overlay's own capture root, ADR-0057). */
+		/**
+		 * Host only these Overlays: a posed Overlay's own capture root (ADR-0057),
+		 * or the root an Overlay is captured alone in for a magic move (ADR-0068 §5).
+		 */
 		onlyIds?: readonly string[];
-		/** Leave these Overlays to their own roots (the shared root on the depth stage). */
+		/**
+		 * Leave these Overlays to their own roots: the posed and body Overlays of
+		 * the depth stage, and the Overlays a magic move is carrying.
+		 */
 		excludeIds?: readonly string[];
 	}
 
@@ -57,8 +63,7 @@
 		const dy = (channels?.y ?? 0) * 100;
 		// Scale / rotation: absolute channel values when the composition owns the
 		// motion; the static position fields (their seeds) otherwise.
-		const scale = channels ? channels.scale : (placement.scale ?? 1);
-		const rotation = channels ? channels.rotation : (placement.rotation ?? 0);
+		const { scale, rotationDegrees: rotation } = resolveOverlayTransform(placement, channels);
 
 		const parts: string[] = [];
 

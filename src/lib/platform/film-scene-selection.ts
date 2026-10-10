@@ -35,6 +35,8 @@ import {
 	resolveFilmBoundaryWindowFrame,
 	type FilmBoundaryWindowFrame
 } from './film-playhead';
+import type { FilmMagicMoveQuad } from './film-magic-move-quad';
+import { filmMagicMoveSoloState } from './film-magic-move-solo.svelte';
 import { filmState, readOpenFilm, readOpenFilmDocumentSelectingScene } from './film-state.svelte';
 import {
 	filmFrameAtSceneTime,
@@ -256,6 +258,9 @@ function holdOpenFilmForSceneRender(): OpenFilmSceneRenderHold {
 
 	async function release(): Promise<void> {
 		try {
+			// A render of a magic move leaves its Overlays mounted alone (ADR-0068
+			// §5). They go back into their Scene before the author's Scene does.
+			filmMagicMoveSoloState.overlayIds = [];
 			if (hasShownAnotherScene) {
 				await swapOpenFilmToScene(authorSceneId, authorSceneFrame, 'scene-render');
 			}
@@ -471,12 +476,17 @@ declare global {
 		 * in when it is not the live one, then settle that Scene's frame the way
 		 * `__settleGfxDeterministicCompositionFrame` does. Inside a boundary window
 		 * the canvas holds the blended frame of both Scenes, and `boundaryWindow`
-		 * names them. Resolves with where the frame landed. Read by
-		 * `scripts/cdp-film-cut-frames.mjs` and the `scripts/cdp-film-fade-*`
-		 * scripts; never a UI path.
+		 * names them; `magicMoveQuads` is then each magic-move pair's quad as that
+		 * frame drew it, with the two boxes it was measured from, and is empty
+		 * everywhere else. Resolves with where the frame landed. Read by
+		 * `scripts/cdp-film-cut-frames.mjs`, the `scripts/cdp-film-fade-*` scripts,
+		 * and `scripts/cdp-film-magic-move-tracer.mjs`; never a UI path.
 		 */
-		__settleGfxFilmFrame?: (
-			filmFrame: number
-		) => Promise<FilmTransportPosition & { boundaryWindow: FilmBoundaryWindowFrame | null }>;
+		__settleGfxFilmFrame?: (filmFrame: number) => Promise<
+			FilmTransportPosition & {
+				boundaryWindow: FilmBoundaryWindowFrame | null;
+				magicMoveQuads: readonly FilmMagicMoveQuad[];
+			}
+		>;
 	}
 }

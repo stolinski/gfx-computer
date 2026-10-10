@@ -127,8 +127,13 @@ describe('WebMCP preconditions with a composition open', () => {
 			{ kind: 'deliverable' }
 		);
 		expect(readWebmcpCompositionPreconditions()['film-multi-scene']).toBe(true);
+		// A cut has no window: the magic-move tools wait for a fade or an effect.
+		expect(readWebmcpCompositionPreconditions()['film-window-boundary']).toBe(false);
+		filmState.boundaries = [{ kind: 'fade', durationMs: 500 }];
+		expect(readWebmcpCompositionPreconditions()['film-window-boundary']).toBe(true);
 
 		filmState.isSwappingScene = true;
+		expect(readWebmcpCompositionPreconditions()['film-window-boundary']).toBe(false);
 		expect(readWebmcpCompositionPreconditions()['film-stored']).toBe(false);
 		expect(readWebmcpCompositionPreconditions()['film-multi-scene']).toBe(false);
 		filmState.isSwappingScene = false;

@@ -112,6 +112,7 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'composition-unsaved': false,
 	'film-stored': false,
 	'film-multi-scene': false,
+	'film-window-boundary': false,
 	'undo-available': false,
 	'redo-available': false,
 	'overlay-present': false,
@@ -395,6 +396,16 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 	{
 		prompt: 'Make the boundary between these two Scenes a seeded shatter transition effect.',
 		toolName: 'gfx_motion_set_scene_boundary'
+	},
+	{
+		prompt:
+			'Read the magic move of this boundary: the pairs it carries and the suggested Overlay pairs.',
+		toolName: 'gfx_motion_inspect_boundary_magic_move'
+	},
+	{
+		prompt:
+			'Make the lower third a magic move: carry that Overlay from the outgoing Scene to its partner in the incoming Scene.',
+		toolName: 'gfx_motion_set_boundary_magic_move'
 	},
 	{
 		prompt: 'Add the open Starter, edits included, to a Film this session already holds.',

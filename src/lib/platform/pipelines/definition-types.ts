@@ -78,6 +78,15 @@ export interface OverlayPipelineDefinition<TContent = unknown> {
 	 * see it without loading the renderer.
 	 */
 	stageBody?: true;
+	/**
+	 * This Overlay's renderer runs its own `shaderPass` over the composition
+	 * (ADR-0005): its pixels are made on the GPU from its measured bounds, not
+	 * captured from its DOM. A capture of the Overlay alone therefore holds
+	 * nothing of it, which is why a magic move refuses one (ADR-0068 §5).
+	 * Declared here, renderer-free, so validation can see it without loading
+	 * the renderer; `runtime-loader.test.ts` holds it to every loaded renderer.
+	 */
+	ownShaderPass?: true;
 }
 
 export interface EffectPipelineDefinition<TParams = unknown> {

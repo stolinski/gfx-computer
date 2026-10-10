@@ -588,6 +588,8 @@ function createHarness(options?: {
 			return {
 				readOutgoingTarget: () => OUTGOING_TARGET_VIEW,
 				readIncomingTarget: () => INCOMING_TARGET_VIEW,
+				readMagicMoveElementTexture: (pairIndex, side) =>
+					({ label: `element ${pairIndex} ${side}` }) as GPUTexture,
 				composite: ({ boundary, progress, outputView }) => {
 					renderedOutputViews.push(outputView);
 					sceneLog.push(`composite ${boundary.kind} ${progress}`);
@@ -601,6 +603,13 @@ function createHarness(options?: {
 			renderedTimestamps.push(timestamp);
 			sceneLog.push(`render ${timestamp}`);
 			return 'flat';
+		},
+		setSoloOverlayIds: (overlayIds) => {
+			if (overlayIds.length > 0) sceneLog.push(`solo ${overlayIds.join(',')}`);
+		},
+		captureSoloOverlay: (overlayId, texture) => {
+			sceneLog.push(`capture ${overlayId} into ${texture.label}`);
+			return { centerX: 100, centerY: 50, width: 40, height: 20, rotationDegrees: 0 };
 		},
 		writeExportUiState: (next) => uiStates.push(next)
 	};

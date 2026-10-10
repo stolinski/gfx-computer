@@ -59,6 +59,7 @@ export type WebmcpOperationPrecondition =
 	| 'composition-unsaved'
 	| 'film-stored'
 	| 'film-multi-scene'
+	| 'film-window-boundary'
 	| 'open-addable-to-film'
 	| 'session-composition-present'
 	| 'user-pack-store-served'
@@ -2183,6 +2184,38 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		effect: 'write',
 		writes: ['/boundaries/*'],
 		precondition: 'film-multi-scene',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['scene-boundary'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FilmSceneBoundarySection.svelte'
+	},
+	{
+		id: 'motion.inspect-scene-boundary-magic-move',
+		family: 'motion',
+		toolName: 'gfx_motion_inspect_boundary_magic_move',
+		summary:
+			'Read the magic move of one Scene boundary that has a duration: the pairs it carries, its ease, and the suggested pairs, every Overlay with the same id and Overlay type in both Scenes.',
+		effect: 'read',
+		writes: [],
+		precondition: 'film-window-boundary',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: [],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FilmSceneBoundarySection.svelte'
+	},
+	{
+		id: 'motion.set-scene-boundary-magic-move',
+		family: 'motion',
+		toolName: 'gfx_motion_set_boundary_magic_move',
+		summary:
+			'Replace the whole list of pairs a Scene boundary with a duration carries as a magic move: each Overlay travels from its place in the outgoing Scene to its partner in the incoming one. An empty list removes the magic move.',
+		effect: 'write',
+		writes: ['/boundaries/*'],
+		precondition: 'film-window-boundary',
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,

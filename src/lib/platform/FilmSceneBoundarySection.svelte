@@ -6,30 +6,57 @@
 		runSetCompositionSceneBoundaryOperation,
 		type SetCompositionSceneBoundaryRequest
 	} from './composition-scene-boundary-operations';
+	import {
+		runSetCompositionSceneBoundaryMagicMoveOperation,
+		type SetCompositionSceneBoundaryMagicMoveRequest
+	} from './composition-scene-magic-move-operations';
+	import {
+		isSameFilmMagicMovePair,
+		listFilmMagicMovePairChoices,
+		type FilmMagicMovePairChoice
+	} from './film-magic-move';
 	import { filmSceneBoundaryKindLabel } from './film-scene-boundary-kind-label';
 	import { FILM_SCENE_BOUNDARY_KINDS, isFilmTransitionEffectBoundary } from './film-schema';
-	import { filmState } from './film-state.svelte';
+	import { filmState, readOpenFilm } from './film-state.svelte';
 	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { sceneBoundarySelection } from './selection.svelte';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
 	import { cloneJsonValue } from '$lib/utils/json-clone';
 
 	// The Scene boundary selected on the Scene strip (ADR-0068 §4, §10): its
 	// kind, its duration, and a transition effect's own editor. Every change runs
-	// `motion.set-scene-boundary`, the operation an agent's tool runs.
+	// `motion.set-scene-boundary`, the operation an agent's tool runs. A boundary
+	// with a duration also lists the pairs a magic move can carry across it
+	// (ADR-0068 §5), one toggle each; a toggle runs
+	// `motion.set-scene-boundary-magic-move` with the list as it then stands.
 
 	/** How long a cut lasts when it is first made a fade or an effect. */
 	const NEW_WINDOW_DURATION_MS = 1000;
 
-	type SceneBoundaryEdit = Omit<SetCompositionSceneBoundaryRequest, 'expectedRevision'>;
+	type SceneBoundaryEdit =
+		| { set: 'boundary'; request: Omit<SetCompositionSceneBoundaryRequest, 'expectedRevision'> }
+		| {
+				set: 'magic-move';
+				request: Omit<SetCompositionSceneBoundaryMagicMoveRequest, 'expectedRevision'>;
+		  };
 
 	const selected = $derived.by(() => {
 		const { boundaryIndex } = sceneBoundarySelection;
 		if (boundaryIndex === null) return null;
 		const boundary = filmState.boundaries[boundaryIndex];
 		const outgoingScene = filmState.scenes[boundaryIndex];
-		return boundary && outgoingScene ? { boundary, outgoingSceneId: outgoingScene.id } : null;
+		return boundary && outgoingScene
+			? { boundary, boundaryIndex, outgoingSceneId: outgoingScene.id }
+			: null;
+	});
+
+	// The pairs the boundary carries and the ones it suggests. A cut has no
+	// window to move through, so it offers none.
+	const magicMovePairChoices = $derived.by(() => {
+		void refusedEditCount;
+		return selected ? listFilmMagicMovePairChoices(readOpenFilm(), selected.boundaryIndex) : [];
 	});
 
 	// Raised when an edit is refused, so every field is made again from the
@@ -65,10 +92,14 @@
 			while (waitingEdit !== null) {
 				const next = waitingEdit;
 				waitingEdit = null;
-				const outcome = await runSetCompositionSceneBoundaryOperation({
-					expectedRevision: compositionEditHistory.revision,
-					...next
-				});
+				const expectedRevision = compositionEditHistory.revision;
+				const outcome =
+					next.set === 'boundary'
+						? await runSetCompositionSceneBoundaryOperation({ expectedRevision, ...next.request })
+						: await runSetCompositionSceneBoundaryMagicMoveOperation({
+								expectedRevision,
+								...next.request
+							});
 				if (outcome.status === 'failed') {
 					compositionMeta.persistenceError = describeCompositionOperationFailure(outcome);
 					refusedEditCount += 1;
@@ -87,29 +118,55 @@
 		if (!selected) return;
 		const kind = (event.currentTarget as HTMLSelectElement).value;
 		applyEdit({
-			outgoingSceneId: selected.outgoingSceneId,
-			kind,
-			...(selected.boundary.kind === 'cut' && kind !== 'cut'
-				? { durationMs: NEW_WINDOW_DURATION_MS }
-				: {})
+			set: 'boundary',
+			request: {
+				outgoingSceneId: selected.outgoingSceneId,
+				kind,
+				...(selected.boundary.kind === 'cut' && kind !== 'cut'
+					? { durationMs: NEW_WINDOW_DURATION_MS }
+					: {})
+			}
 		}).catch(reportUnexpectedFailure);
 	}
 
 	function setDuration(event: Event): void {
 		if (!selected) return;
 		applyEdit({
-			outgoingSceneId: selected.outgoingSceneId,
-			kind: selected.boundary.kind,
-			durationMs: Number((event.currentTarget as HTMLInputElement).value)
+			set: 'boundary',
+			request: {
+				outgoingSceneId: selected.outgoingSceneId,
+				kind: selected.boundary.kind,
+				durationMs: Number((event.currentTarget as HTMLInputElement).value)
+			}
 		}).catch(reportUnexpectedFailure);
 	}
 
 	function setEffectParams(): void {
 		if (!selected || effectParams === null) return;
 		applyEdit({
-			outgoingSceneId: selected.outgoingSceneId,
-			kind: selected.boundary.kind,
-			params: cloneJsonValue(effectParams)
+			set: 'boundary',
+			request: {
+				outgoingSceneId: selected.outgoingSceneId,
+				kind: selected.boundary.kind,
+				params: cloneJsonValue(effectParams)
+			}
+		}).catch(reportUnexpectedFailure);
+	}
+
+	// The list as it stands with this one pair carried or not: a pair switched on
+	// is drawn last, over the ones already carried.
+	function setPairCarried(choice: FilmMagicMovePairChoice, isCarried: boolean): void {
+		if (!selected) return;
+		const carried = magicMovePairChoices
+			.filter((candidate) => candidate.isCarried)
+			.map((candidate) => candidate.pair)
+			.filter((pair) => !isSameFilmMagicMovePair(pair, choice.pair));
+		applyEdit({
+			set: 'magic-move',
+			request: {
+				outgoingSceneId: selected.outgoingSceneId,
+				pairs: isCarried ? [...carried, choice.pair] : carried
+			}
 		}).catch(reportUnexpectedFailure);
 	}
 </script>
@@ -139,6 +196,15 @@
 			{#if EffectEditor && effectParams !== null}
 				<EffectEditor params={effectParams} onchange={setEffectParams} />
 			{/if}
+			{#each magicMovePairChoices as choice (`${choice.pair.from.id}>${choice.pair.to.id}`)}
+				<Field label={choice.label}>
+					<InspectorToggle
+						checked={choice.isCarried}
+						label="Magic move {choice.label}"
+						onchange={(isCarried) => setPairCarried(choice, isCarried)}
+					/>
+				</Field>
+			{/each}
 		{/key}
 	</InspectorSection>
 {/if}

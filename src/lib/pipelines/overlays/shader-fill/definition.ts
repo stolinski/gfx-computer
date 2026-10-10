@@ -58,5 +58,6 @@ export const shaderFillOverlayDefinition = {
 	label: 'Shader fill',
 	schema: ShaderFillContentSchema,
 	defaults,
-	readableText: () => []
+	readableText: () => [],
+	ownShaderPass: true
 } satisfies OverlayPipelineDefinition<ShaderFillContent>;
