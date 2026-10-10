@@ -12,7 +12,7 @@ import {
 	type CompositionPlayheadSeekReceipt
 } from './composition-playhead-operations';
 import { compositionEditHistory } from './composition-edit-history';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { parseFilm } from './film-ingress';
 import { filmFrameCount, filmSceneFrameOffsets } from './film-playhead';
 import {
@@ -75,7 +75,6 @@ function expectFailed(
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	filmState.isSwappingScene = false;
 	openFilmSceneSettlerHandle.current = null;
 	applyPreset(parsePresetIngress(blankPresetJson));
@@ -349,15 +348,5 @@ describe('the playhead of a Film of several Scenes', () => {
 		await bracket.close();
 
 		expectMoved(await runSeekCompositionPlayheadOperation({ frame: cutFrame }));
-	});
-
-	it('refuses a seek into another Scene mid transition capture', async () => {
-		const { cutFrame } = openTwoSceneCutFilm();
-		transitionState.capturing = true;
-
-		const failure = expectFailed(await runSeekCompositionPlayheadOperation({ frame: cutFrame }));
-
-		expect(failure.code).toBe('precondition_unmet');
-		expect(filmState.selectedSceneId).toBe(HERO);
 	});
 });

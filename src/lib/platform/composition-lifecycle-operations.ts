@@ -56,6 +56,7 @@ import {
 import { insertFilmScene, mintFilmSceneId } from './film-scene-membership';
 import { FILM_SCHEMA_ID, type Film } from './film-schema';
 import { filmState, readOpenFilmAsUserCompositionDocument } from './film-state.svelte';
+import { resolveLegacyTransitionEndpointFromCatalog } from './legacy-transition-endpoint-catalog';
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
 import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
 import { moveToOpenCompositionAddress } from './open-composition-address';
@@ -224,20 +225,24 @@ export async function storeUserCompositionUnderNewSlug(
 
 /**
  * The document a Preset opens as: a one-Scene Film seeded from `starterSlug`,
- * its Scene named for that Starter, or from nothing.
+ * its Scene named for that Starter, or from nothing. A Preset that states the
+ * legacy `transition` opens as the two-Scene Film of its two corpus endpoints
+ * (ADR-0068 §3).
  */
 export function userCompositionDocumentFromPreset(
 	preset: Preset,
 	starterSlug: string | null
 ): UserCompositionDocument {
+	const options = { resolveLegacyTransitionEndpoint: resolveLegacyTransitionEndpointFromCatalog };
 	return {
 		film:
 			starterSlug === null
-				? filmFromPreset(preset, null)
-				: filmFromCorpusPreset(preset, {
-						slug: starterSlug,
-						contentKey: posterKeyForPreset(preset)
-					}),
+				? filmFromPreset(preset, null, options)
+				: filmFromCorpusPreset(
+						preset,
+						{ slug: starterSlug, contentKey: posterKeyForPreset(preset) },
+						options
+					),
 		legacyPresetEnvelope: legacyPresetEnvelopeFromPreset(preset)
 	};
 }
@@ -452,17 +457,6 @@ export async function runAddOpenCompositionToFilmOperation(
 			{ rejected: request.filmSlug, alternatives: sessionSlugs }
 		);
 	}
-	// ADR-0068 §3: a document that still carries a two-endpoint transition is
-	// stored as one legacy Preset, which cannot hold a second Scene.
-	if (targetFilm.legacyPresetEnvelope.transition !== undefined) {
-		return refuseCompositionOperation(
-			row,
-			compositionEditHistory.revision,
-			'precondition_unmet',
-			`"${request.filmSlug}" is a legacy transition composition, which holds exactly one Scene.`,
-			{ rejected: request.filmSlug }
-		);
-	}
 
 	const openDocument = readOpenFilmAsUserCompositionDocument();
 	const openScene = openDocument.film.scenes.find(
@@ -641,7 +635,8 @@ function describeUnloadableCompositionCause(
  * Import a standalone composition JSON document as a new session composition.
  *
  * A `gfx-film@1` document imports as the Film it is. A Preset document is
- * lifted to a one-Scene Film. A Legacy Supers Preset imports as itself
+ * lifted to a one-Scene Film, or to a two-Scene Film when it states the legacy
+ * two-endpoint `transition`. A Legacy Supers Preset imports as itself
  * (ADR-0053) — the ingress boundary folds its schema id, which is a spelling
  * normalization, not a migration, and upgrades a legacy Source video into the
  * canonical Media library. The receipt reports which of those upgrades the
@@ -711,9 +706,19 @@ export async function runImportCompositionJsonOperation(
 		);
 	}
 
-	return createFilmInSession(
-		row,
-		userCompositionDocumentFromPreset(parsed.data, null),
-		legacyUpgrades
-	);
+	const importedDocument = userCompositionDocumentFromPreset(parsed.data, null);
+	// A legacy transition Preset imports as a two-Scene Film, whose boundary has
+	// to fit its two endpoints; a one-Scene Film has nothing more to check.
+	const liftedFilmFindings =
+		parsed.data.transition === undefined ? [] : collectFilmSemanticFindings(importedDocument.film);
+	if (liftedFilmFindings.length > 0) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'semantic_invalid',
+			describeUnloadableCompositionCause(liftedFilmFindings),
+			{ findings: liftedFilmFindings }
+		);
+	}
+	return createFilmInSession(row, importedDocument, legacyUpgrades);
 }

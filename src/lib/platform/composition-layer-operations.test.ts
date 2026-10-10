@@ -19,7 +19,7 @@ import {
 	runReorderCompositionOverlayOperation,
 	runSetCompositionSurfaceOperation
 } from './composition-layer-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { parseAnnotationBodyText } from '$lib/annotations/annotation-body-text';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
@@ -68,7 +68,6 @@ async function addOverlay(expectedRevision: number, overlayType = 'lower-third')
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

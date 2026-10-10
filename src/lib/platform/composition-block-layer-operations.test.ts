@@ -11,7 +11,7 @@ import {
 } from './composition-block-layer-operations';
 import { createChartSequenceMotion } from './chart-authoring';
 import { runSetCompositionSurfaceOperation } from './composition-layer-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 
@@ -39,7 +39,6 @@ function expectFailed(outcome: CompositionOperationOutcome): CompositionOperatio
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';
@@ -81,7 +80,11 @@ describe('diagram primitives', () => {
 		);
 
 		const edge = engineState.surface.diagram?.[2];
-		expect(edge).toMatchObject({ type: 'edge-arrow', from: { node: 'node-1' }, to: { node: 'node-2' } });
+		expect(edge).toMatchObject({
+			type: 'edge-arrow',
+			from: { node: 'node-1' },
+			to: { node: 'node-2' }
+		});
 	});
 
 	it('refuses a primitive the registry does not hold', async () => {
@@ -138,7 +141,10 @@ describe('diagram primitives', () => {
 		);
 
 		expectApplied(
-			await runRemoveCompositionDiagramPrimitiveOperation({ expectedRevision: 1, blockId: 'label-1' })
+			await runRemoveCompositionDiagramPrimitiveOperation({
+				expectedRevision: 1,
+				blockId: 'label-1'
+			})
 		);
 
 		expect(engineState.surface.diagram).toBeUndefined();
@@ -146,7 +152,10 @@ describe('diagram primitives', () => {
 
 	it('refuses a Block id the Surface does not carry', async () => {
 		const failure = expectFailed(
-			await runRemoveCompositionDiagramPrimitiveOperation({ expectedRevision: 0, blockId: 'node-1' })
+			await runRemoveCompositionDiagramPrimitiveOperation({
+				expectedRevision: 0,
+				blockId: 'node-1'
+			})
 		);
 
 		expect(failure.code).toBe('unknown_target');

@@ -9,6 +9,7 @@ import lowerThirdPresetJson from '$lib/presets/lower-third.json';
 import transitionWipeDemoPresetJson from '$lib/presets/transition-wipe-demo.json';
 
 import { filmFromPreset, filmToWireFormat } from './film-ingress';
+import { getPresetBySlug } from './preset-catalog';
 import { parsePresetIngress } from './preset-ingress';
 import {
 	migrateUserCompositionShadowRecords,
@@ -73,6 +74,7 @@ describe('migrateUserCompositionShadowRecords', () => {
 		const report = await migrateUserCompositionShadowRecords({
 			storeDirectory,
 			corpusSlugs: CORPUS_SLUGS,
+			resolveCorpusPreset: getPresetBySlug,
 			dryRun: true,
 			now: NOW
 		});
@@ -85,7 +87,6 @@ describe('migrateUserCompositionShadowRecords', () => {
 				{
 					fromSlug: 'lower-third',
 					toSlug: 'lower-third-2',
-					recordShape: 'film',
 					fromPath: join(storeDirectory, 'lower-third.json'),
 					toPath: join(storeDirectory, 'lower-third-2.json')
 				}
@@ -103,14 +104,15 @@ describe('migrateUserCompositionShadowRecords', () => {
 		const report = await migrateUserCompositionShadowRecords({
 			storeDirectory,
 			corpusSlugs: CORPUS_SLUGS,
+			resolveCorpusPreset: getPresetBySlug,
 			dryRun: false,
 			now: NOW
 		});
 
 		assert.equal(report.dryRun, false);
 		assert.deepEqual(
-			report.moves.map((move) => [move.fromSlug, move.toSlug, move.recordShape]),
-			[['lower-third', 'lower-third-2', 'film']]
+			report.moves.map((move) => [move.fromSlug, move.toSlug]),
+			[['lower-third', 'lower-third-2']]
 		);
 		assert.deepEqual((await readdir(storeDirectory)).sort(), [
 			'lower-third-2.json',
@@ -142,6 +144,7 @@ describe('migrateUserCompositionShadowRecords', () => {
 		await migrateUserCompositionShadowRecords({
 			storeDirectory,
 			corpusSlugs: CORPUS_SLUGS,
+			resolveCorpusPreset: getPresetBySlug,
 			dryRun: false,
 			now: NOW
 		});
@@ -151,6 +154,7 @@ describe('migrateUserCompositionShadowRecords', () => {
 		const report = await migrateUserCompositionShadowRecords({
 			storeDirectory,
 			corpusSlugs: CORPUS_SLUGS,
+			resolveCorpusPreset: getPresetBySlug,
 			dryRun: false,
 			now: NOW
 		});
@@ -191,27 +195,41 @@ describe('migrateUserCompositionShadowRecords', () => {
 		assert.deepEqual(film.scenes[0].origin, { slug: 'blank', contentKey: null });
 	});
 
-	it('re-keys a transition record and keeps it in the legacy Preset shape', async () => {
+	it('re-keys a legacy transition record as the two-Scene Film of its two endpoints', async () => {
 		const meta = { forkedFrom: 'transition-wipe-demo', savedAt: SAVED_AT };
 		await writeRecord('transition-wipe-demo', { meta, preset: transitionWipeDemoPresetJson });
 
 		const report = await migrateUserCompositionShadowRecords({
 			storeDirectory,
 			corpusSlugs: CORPUS_SLUGS,
+			resolveCorpusPreset: getPresetBySlug,
 			dryRun: false,
 			now: NOW
 		});
 
 		assert.deepEqual(
-			report.moves.map((move) => [move.fromSlug, move.toSlug, move.recordShape]),
-			[['transition-wipe-demo', 'transition-wipe-demo-2', 'preset']]
+			report.moves.map((move) => [move.fromSlug, move.toSlug]),
+			[['transition-wipe-demo', 'transition-wipe-demo-2']]
 		);
+		assert.deepEqual(report.skipped, []);
 		const record = await readRecord('transition-wipe-demo-2');
-		assert.deepEqual(Object.keys(record), ['meta', 'preset']);
+		assert.deepEqual(Object.keys(record), ['meta', 'film']);
 		assert.deepEqual(record['meta'], meta);
+		const film = record['film'] as {
+			scenes: { origin: unknown }[];
+			boundaries: { kind: string }[];
+		};
+		// Each Scene names its own endpoint, not the slug the record shadowed.
 		assert.deepEqual(
-			parsePresetIngress(record['preset']),
-			parsePresetIngress(transitionWipeDemoPresetJson)
+			film.scenes.map((scene) => scene.origin),
+			[
+				{ slug: transitionWipeDemoPresetJson.transition.from, contentKey: null },
+				{ slug: transitionWipeDemoPresetJson.transition.to, contentKey: null }
+			]
+		);
+		assert.deepEqual(
+			film.boundaries.map((boundary) => boundary.kind),
+			[transitionWipeDemoPresetJson.transition.effect]
 		);
 	});
 
@@ -223,6 +241,7 @@ describe('migrateUserCompositionShadowRecords', () => {
 		await migrateUserCompositionShadowRecords({
 			storeDirectory,
 			corpusSlugs: CORPUS_SLUGS,
+			resolveCorpusPreset: getPresetBySlug,
 			dryRun: false,
 			now: NOW
 		});
@@ -244,6 +263,7 @@ describe('migrateUserCompositionShadowRecords', () => {
 		const report = await migrateUserCompositionShadowRecords({
 			storeDirectory,
 			corpusSlugs: CORPUS_SLUGS,
+			resolveCorpusPreset: getPresetBySlug,
 			dryRun: false,
 			now: NOW
 		});
@@ -255,7 +275,12 @@ describe('migrateUserCompositionShadowRecords', () => {
 	});
 
 	it('refuses a directory that does not look like a User composition store', async () => {
-		const request = { corpusSlugs: CORPUS_SLUGS, dryRun: false, now: NOW };
+		const request = {
+			corpusSlugs: CORPUS_SLUGS,
+			resolveCorpusPreset: getPresetBySlug,
+			dryRun: false,
+			now: NOW
+		};
 
 		await assert.rejects(
 			migrateUserCompositionShadowRecords({ ...request, storeDirectory: join(root, 'absent') }),

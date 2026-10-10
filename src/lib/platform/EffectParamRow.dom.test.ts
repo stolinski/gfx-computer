@@ -8,14 +8,13 @@ import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import EffectParamRow from './EffectParamRow.svelte';
 import type { Effect } from './engine-schema';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 import { timelineHandle } from './timeline-handle.svelte';
 import type { Timeline } from './timeline.svelte';
 
 function openWithEffects(effects: Effect[]): void {
-	transitionState.capturing = false;
 	applyPreset(
 		parsePresetIngress({ ...blankPresetJson, state: { ...blankPresetJson.state, effects } })
 	);

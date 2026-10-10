@@ -5,7 +5,6 @@ import { beforeAll, describe, it } from 'vitest';
 
 const COMPONENT_FILES = {
 	rootInspector: 'RootInspector.svelte',
-	transitionRecipeSection: 'TransitionRecipeSection.svelte',
 	depthStageSection: 'DepthStageSection.svelte',
 	videoClipInspector: 'VideoClipInspector.svelte',
 	inspector: 'Inspector.svelte',
@@ -57,10 +56,9 @@ describe('media right rail source contract', () => {
 		);
 		// The incompatible-with-Video-clips controls each carry the canonical
 		// guard in the section component that owns them: Background fill in
-		// RootInspector, the Transition recipe and Depth stage in their sections.
+		// RootInspector, and the Depth stage in its section.
 		for (const [key, label] of [
 			['rootInspector', 'Background fill'],
-			['transitionRecipeSection', 'Transition recipe'],
 			['depthStageSection', 'Depth stage']
 		] as const) {
 			assertIncludes(
@@ -171,7 +169,7 @@ describe('media right rail source contract', () => {
 		}
 		assertIncludes(
 			source.mediaInspector,
-			"Array.from(event.dataTransfer?.files ?? [])",
+			'Array.from(event.dataTransfer?.files ?? [])',
 			'Media drop import must retain every dropped file'
 		);
 		for (const formatLabel of ['MP4', 'MOV', 'WEBM']) {

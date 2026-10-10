@@ -16,6 +16,7 @@ import {
 } from './film-corpus-scenes.fixture';
 import { filmFromPreset, filmToWireFormat, parseFilm } from './film-ingress';
 import { posterKeyForPreset } from './posters';
+import { getPresetBySlug } from './preset-catalog';
 import { parsePresetIngress } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
 import transitionWipeDemoPresetJson from '../presets/transition-wipe-demo.json';
@@ -87,7 +88,8 @@ function createStore(
 		resolveStorage,
 		storageIdentity: STORAGE_IDENTITY,
 		limits,
-		isStarterSlug: (slug) => STARTER_SLUGS.has(slug)
+		isStarterSlug: (slug) => STARTER_SLUGS.has(slug),
+		resolveStarterPreset: getPresetBySlug
 	});
 }
 
@@ -622,7 +624,7 @@ describe('browser-scoped composition session reading both stored record shapes',
 		);
 	});
 
-	it('keeps a legacy transition record in the Preset shape when it is saved (ADR-0068 §3)', async () => {
+	it('opens a legacy transition record as a two-Scene Film and saves it as a Film (ADR-0068 §3)', async () => {
 		const key = `${STORAGE_IDENTITY}:my-transition`;
 		storage.entries.set(
 			key,
@@ -636,15 +638,19 @@ describe('browser-scoped composition session reading both stored record shapes',
 
 		const loaded = await store.loadUserComposition('my-transition');
 		assert.ok(loaded);
-		assert.notEqual(loaded.legacyPresetEnvelope.transition, undefined);
+		assert.deepEqual(
+			loaded.film.scenes.map((scene) => scene.origin?.slug),
+			[transitionWipeDemoPresetJson.transition.from, transitionWipeDemoPresetJson.transition.to]
+		);
+		assert.deepEqual(
+			loaded.film.boundaries.map((boundary) => boundary.kind),
+			[transitionWipeDemoPresetJson.transition.effect]
+		);
 		await store.saveUserComposition('my-transition', loaded);
 
 		const written = JSON.parse(storage.entries.get(key) ?? 'null') as Record<string, unknown>;
-		assert.equal('film' in written, false);
-		assert.deepEqual(
-			parsePresetIngress(written['preset']),
-			parsePresetIngress(transitionWipeDemoPresetJson)
-		);
+		assert.equal('preset' in written, false);
+		assert.deepEqual(parseFilm(written['film']), loaded.film);
 	});
 
 	it('drops an envelope that holds both a Preset and a Film', async () => {

@@ -47,7 +47,7 @@ vi.mock('./user-pack-store', () => ({
 
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
-import { engineState, packState, transitionState } from './engine-state.svelte';
+import { engineState, packState } from './engine-state.svelte';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 import {
 	runAddCompositionEffectOperation,
@@ -94,7 +94,6 @@ function chromeEffectTypes(slug: string): string[] {
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';
@@ -475,7 +474,11 @@ describe('composition stage camera and focus (ADR-0060 §5)', () => {
 		const changed = expectApplied(
 			await runSetCompositionStageFocusOperation({
 				expectedRevision: 1,
-				focus: { aperture: 0.35, band: 0.05, pull: { from: 0, to: 1, start: { seconds: 0.6 }, duration: { frames: 18 } } }
+				focus: {
+					aperture: 0.35,
+					band: 0.05,
+					pull: { from: 0, to: 1, start: { seconds: 0.6 }, duration: { frames: 18 } }
+				}
 			})
 		);
 		expect(changed.some((pointer) => pointer.startsWith('/state/stage/focus'))).toBe(true);

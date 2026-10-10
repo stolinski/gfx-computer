@@ -6,7 +6,8 @@ import {
 	collectFilmRendererRequirements,
 	ensureFilmRenderersLoaded
 } from './composition-renderer-readiness';
-import { parseFilm, presetFromFilmScene } from './film-ingress';
+import { filmFromPreset, parseFilm, presetFromFilmScene } from './film-ingress';
+import { resolveLegacyTransitionEndpointFromCatalog } from './legacy-transition-endpoint-catalog';
 import { getPack, UnknownPackError } from './packs/registry';
 import { collectPresetRendererRequirements } from './pipelines/preset-renderer-requirements';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
@@ -36,9 +37,7 @@ function twoSceneCutFilm(): Film {
 /** What one Scene would need opened alone, as the Preset it is. */
 function sceneRequirements(film: Film, sceneId: string): PipelineRendererRequirements {
 	return collectPresetRendererRequirements(presetFromFilmScene(film, sceneId), {
-		pack: getPack(film.pack),
-		resolvePack: getPack,
-		resolvePreset: getPresetBySlug
+		pack: getPack(film.pack)
 	});
 }
 
@@ -83,6 +82,27 @@ describe('what a Film needs to render', () => {
 		for (const kind of REQUIREMENT_KINDS) {
 			expect([...requirements[kind]].sort()).toEqual([...alone[kind]].sort());
 		}
+	});
+
+	it('needs both endpoints and the effect of a legacy transition Preset opened as a Film', () => {
+		const transitionPreset = getPresetBySlug('transition-wipe-demo');
+		if (!transitionPreset?.transition)
+			throw new Error('transition-wipe-demo states no transition.');
+		const film = filmFromPreset(transitionPreset, null, {
+			resolveLegacyTransitionEndpoint: resolveLegacyTransitionEndpointFromCatalog
+		});
+
+		const requirements = collectFilmRendererRequirements({
+			film,
+			legacyPresetEnvelope: { kind: transitionPreset.kind }
+		});
+
+		expect([...requirements.transitions]).toEqual([transitionPreset.transition.effect]);
+		expect([...requirements.surfaces].sort()).toEqual(
+			[transitionPreset.transition.from, transitionPreset.transition.to]
+				.map((slug) => getPresetBySlug(slug)?.state.surface.type)
+				.sort()
+		);
 	});
 
 	it('adds the transition effect of every boundary that names one, and nothing for a cut or a fade', () => {

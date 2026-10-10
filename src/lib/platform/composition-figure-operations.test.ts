@@ -17,7 +17,7 @@ import {
 } from './composition-figure-operations';
 import { compositionMeta } from './composition-meta.svelte';
 import type { CompositionOperationFailure } from './composition-operation-preflight';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { FIGURE_KINDS } from './engine-schema';
 import { FIGURE_TARGET_DECLARATIONS } from './figure-target-declarations.fixture';
 import { applyPreset } from './preset';
@@ -40,7 +40,6 @@ function expectFailed(outcome: CompositionOperationOutcome): CompositionOperatio
 const revision = (): number => compositionEditHistory.revision;
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

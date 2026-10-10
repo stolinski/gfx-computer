@@ -18,7 +18,8 @@ import {
 } from '$lib/platform/user-composition-record';
 import {
 	readUserCompositionWriteRequest,
-	refuseUserCompositionWriteAtStarterSlug
+	refuseUserCompositionWriteAtStarterSlug,
+	STORED_DOCUMENT_READ_OPTIONS
 } from '$lib/platform/user-composition-write.server';
 import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 import { COMPOSITION_SESSION_SLUG_PATTERN } from '$lib/utils/composition-session-slug';
@@ -65,9 +66,10 @@ export const GET: RequestHandler = async (event) => {
 			// Either record shape reads as a Film (ADR-0068 §3). A record this
 			// build cannot open throws here and is skipped with the unreadable
 			// ones below. A Film of several Scenes is listed by its first Scene.
-			const reading = readStoredUserCompositionRecord(storedUserComposition, {
-				packScope: 'stored'
-			});
+			const reading = readStoredUserCompositionRecord(
+				storedUserComposition,
+				STORED_DOCUMENT_READ_OPTIONS
+			);
 			const preset = storedPresetViewOfUserComposition(userCompositionDocumentFromReading(reading));
 			const [firstScene] = reading.film.scenes;
 			const cardMetadata = {

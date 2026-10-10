@@ -23,7 +23,7 @@ import {
 	runSetCompositionKeyframeChannelOperation
 } from './composition-keyframe-cascade-operations';
 import { runCompositionHistoryTransaction } from './composition-edit-transaction';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 
@@ -50,7 +50,6 @@ function expectFailed(outcome: CompositionOperationOutcome): CompositionOperatio
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

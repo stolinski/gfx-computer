@@ -1,6 +1,6 @@
 # GFX Film format (`gfx-film@1`)
 
-> **Built: phase 1 of [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md), 2026-10-09.** A User composition is a Film. Both stores read and write Film records ([Stored records](#stored-records)), the document open in the Workspace is a Film ([The open Film](#the-open-film)), a Film of several Scenes plays with a hard cut at each boundary, Scenes are added, removed, reordered, and selected, and export renders the whole Film ([Export](#export)). Boundaries with a duration, the **fade** and the four **transition effects**, are built in the format, the frame maths, export, and the paused Workspace frame, and sound fades across them (phase 2, 2026-10-09; [A Scene boundary](#a-scene-boundary)); nothing edits a boundary yet. **Not built:** magic move, any operation or control that edits a boundary, the Score, and a two-endpoint `transition` Preset read as a two-Scene Film. A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`. What an author and an agent do with a Film is in [`user-composition-workflows.md`](user-composition-workflows.md); how the engine holds one is in [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film).
+> **Built: phase 1 of [ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md), 2026-10-09.** A User composition is a Film. Both stores read and write Film records ([Stored records](#stored-records)), the document open in the Workspace is a Film ([The open Film](#the-open-film)), a Film of several Scenes plays with a hard cut at each boundary, Scenes are added, removed, reordered, and selected, and export renders the whole Film ([Export](#export)). Boundaries with a duration, the **fade** and the four **transition effects**, are built in the format, the frame maths, export, and the paused Workspace frame, and sound fades across them (phase 2, 2026-10-09; [A Scene boundary](#a-scene-boundary)); nothing edits a boundary yet. A Preset that states the legacy two-endpoint `transition` is read as a two-Scene Film, and the frozen-endpoint lane that used to draw it is gone ([From a Preset](#from-a-preset)). **Not built:** magic move, any operation or control that edits a boundary, and the Score. A corpus Preset is still a Preset; [`preset-format.md`](preset-format.md) describes it and each Scene's `state`. What an author and an agent do with a Film is in [`user-composition-workflows.md`](user-composition-workflows.md); how the engine holds one is in [`engine-architecture.md`](engine-architecture.md#the-open-document-is-a-film).
 
 A **Film** is an ordered list of **Scenes** with a **Scene boundary** between each pair of neighbours. A Scene is one Preset's complete state, owned by the Film. A one-off piece is a Film with one Scene. Terms: [`CONTEXT.md`](CONTEXT.md).
 
@@ -163,12 +163,32 @@ Validation has two ordered layers, the same as a Preset:
 
 `filmFromPreset(preset, origin)` makes a one-Scene Film. The Film takes the Preset's `name`, `description`, and `pack`, and its `orientation`, `fps`, and `format` from the Preset's transport. The Scene gets its own copy of the state.
 
-Two Preset fields are not carried:
+`kind` is not carried. It classifies a catalogue entry, and a Film is not one.
 
-- `kind`. It classifies a catalogue entry, and a Film is not one.
-- `transition`. A transition Preset becomes a two-Scene Film in a later phase (ADR-0068 §3).
+`presetFromFilmScene(film, sceneId)` goes the other way for one Scene. The Preset takes the Film's `name`, `description`, and `pack`, a copy of the Scene's state under the Film's transport, and `kind: "deliverable"`.
 
-`presetFromFilmScene(film, sceneId)` goes the other way for one Scene. The Preset takes the Film's `name`, `description`, and `pack`, a copy of the Scene's state under the Film's transport, and `kind: "deliverable"`. `presetFromSingleSceneFilm(film)` is the same for a Film of exactly one Scene, and throws for any other number: it serves the one legacy record shape that can hold only one Preset (see [Writing](#writing)).
+### A legacy transition Preset
+
+A Preset may state the legacy top-level `transition { from, to, effect, durationMs, params }` ([`preset-format.md`](preset-format.md)). It is read as a two-Scene Film with one boundary (ADR-0068 §3). This is a reader only ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md): accept-old); nothing writes the form.
+
+| The Film's                     | Comes from                                                                                                     |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `name`, `description`, `pack`  | The transition Preset.                                                                                         |
+| `orientation`, `fps`, `format` | The transition Preset's transport.                                                                             |
+| Scene `scene-1`                | An owned copy of the `from` Preset's state, named for that Preset, with `origin` `{ slug: from, contentKey }`. |
+| Scene `scene-2`                | The same for the `to` Preset.                                                                                  |
+| The one boundary               | `{ kind: effect, durationMs, params }`, with the effect's defaults filled into `params`.                       |
+
+Four things differ from how the frozen-endpoint lane drew the same Preset:
+
+- **Both Scenes play whole.** Each Scene keeps its own duration, and the transition is the window they share. The Film runs both Scenes' frames less the window. The transition Preset's own `durationSeconds`, and the rest of its own `state`, are not used; the old lane never drew that state once its endpoints were captured.
+- **Both Scenes move through the transition.** The old lane wiped between two stills, each taken at the middle of its endpoint.
+- **One Pack.** A Film has one Pack (ADR-0068 §1), the transition Preset's. The old lane drew each endpoint under the endpoint's own Pack.
+- **Footage is allowed.** The old lane refused an endpoint with Video clips; a boundary renders each Scene live.
+
+`filmFromPreset` needs a way to look the two endpoints up, `options.resolveLegacyTransitionEndpoint`, because it does not import the catalogue. `resolveLegacyTransitionEndpointFromCatalog` (`legacy-transition-endpoint-catalog.ts`) is the corpus lookup the preset route, `applyPreset`, and the lifecycle operations pass. An endpoint that is not in the catalogue, or an effect that is not registered, is refused.
+
+The four corpus fixtures `transition-*-demo.json` stay Preset files and open through this reader.
 
 ## The open Film
 
@@ -178,7 +198,7 @@ The document open in the Workspace is a Film of one or more Scenes (ADR-0068 §4
 - A stored composition opens as the Film its record holds, with each Scene's real `origin`. A legacy Preset record is lifted to a one-Scene Film first; its Scene's `origin` is `{ slug: meta.forkedFrom, contentKey: null }`.
 - An opened corpus Preset is never saved from its own page. `composition.create-film-from-open` (New Film, in the Add to Film menu) stores the open document, edits included, as a new Film under a new slug, and `composition.add-open-to-film` adds it to a stored Film as that Film's last Scene. Nothing is ever stored under the corpus Preset's own slug.
 - The selected Scene's state is live in engine state. The Film keeps the Scene list, each `name` and `origin`, the state of every other Scene, and the boundaries beside it. A Film opens with its first Scene selected. Selecting another Scene, Film time, and the hard cut are described in [`engine-architecture.md`](engine-architecture.md#scenes-the-two-clocks-and-the-cut).
-- `kind` and `transition` are not Film fields. They travel beside the open Film as the legacy Preset envelope. `kind` stays because the open document is also how a corpus Preset is shown, and a stored Film opens as a `deliverable`. `transition` goes when a transition Preset is read as a two-Scene Film.
+- `kind` is not a Film field. It travels beside the open Film as the legacy Preset envelope. It stays because the open document is also how a corpus Preset is shown, and a stored Film opens as a `deliverable`.
 - What is saved is the Film with every Scene (`readOpenFilmAsUserCompositionDocument`). `readOpenFilmAsSavedPreset` is the selected Scene as one Preset, for inspection and verification.
 
 Every existing operation still edits a Preset-shaped draft of the selected Scene and reports the Scene's own pointers, such as `/state/overlays`. Its receipt names the Scene in `sceneId`. An edit to `name`, `description`, `pack`, or the transport's `orientation`, `fps`, or `format` lands on the Film's own field, because a Film has one of each.
@@ -196,7 +216,7 @@ Both User composition stores keep one record per composition: its metadata besid
 // Film. Every write saves this shape.
 { "meta": { "savedAt": "2026-10-08T12:00:00.000Z" }, "film": {/* gfx-film@1 */} }
 
-// Legacy. Read, and written only for a transition (below).
+// Legacy. Read, never written.
 { "meta": { "forkedFrom": "lower-third", "savedAt": "2026-10-01T12:00:00.000Z" }, "preset": {/* gfx@1 */} }
 ```
 
@@ -210,8 +230,9 @@ A Film record's `meta` holds `savedAt` only. Where a Scene came from is the Scen
 
 - A `film` record is parsed with `parseFilm`.
 - A `preset` record is parsed as a Preset, so a document with the Legacy Supers schema id still loads ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). It is then lifted with `filmFromPreset`. The Scene's `origin` is `{ slug: meta.forkedFrom, contentKey: null }`, or `null` when the record was not forked.
+- A `preset` record whose Preset states a `transition` is lifted to the two-Scene Film [above](#a-legacy-transition-preset). Its endpoints are looked up through `options.resolvePreset`, which every store passes, and each Scene's `origin` has a `null` content key. The lifted Film is then checked as a Film. A record whose endpoint is gone, or whose transition is longer than an endpoint, is refused with the finding.
 
-`userCompositionDocumentFromReading` turns that into what both stores hand back, a `UserCompositionDocument`: `{ film, legacyPresetEnvelope }`. A Film record's envelope is `{ kind: "deliverable" }`. A legacy record's envelope holds the `kind` and `transition` its Preset stated.
+`userCompositionDocumentFromReading` turns that into what both stores hand back, a `UserCompositionDocument`: `{ film, legacyPresetEnvelope }`. A Film record's envelope is `{ kind: "deliverable" }`. A legacy record's envelope holds the `kind` its Preset stated.
 
 A Film of several Scenes reads and opens whole, in both stores. A write is checked the same way: the disk store proves the media of every Scene servable before it accepts the document.
 
@@ -219,10 +240,7 @@ Reading never rewrites a record. One older rule remains in the browser store: a 
 
 ### Writing
 
-`userCompositionWriteShape(document)` chooses the shape, in one place, for both stores, the client transport, and JSON export:
-
-- **A Film**, in every case but one. The first save of a legacy `{ meta, preset }` record therefore replaces it with `{ meta, film }`. `kind` is not saved: a user Film has none.
-- **The legacy Preset**, while the document's envelope carries a `transition` (ADR-0068 §3). A Film cannot hold a two-endpoint transition until the live Scene boundaries change reads a transition Preset as a two-Scene Film. Until then such a record keeps `{ meta, preset }`, with its `kind`, so the recipe is not lost.
+Every writer emits a Film: both stores, the client transport, and JSON export (`userCompositionDocumentWireBody`). The first save of a legacy `{ meta, preset }` record therefore replaces it with `{ meta, film }`, and that includes a legacy transition record, which is saved as its two-Scene Film. `kind` is not saved: a user Film has none.
 
 Neither store writes a record under a corpus Preset's slug. `/p/<corpus-slug>` always shows the pristine Starter, so both refuse with `UserCompositionStarterSlugError` (409 from the disk store).
 

@@ -14,7 +14,7 @@ import {
 	type CompositionMediaInspectionOutcome,
 	type CompositionMediaInspectionReceipt
 } from './composition-media-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 
@@ -103,7 +103,6 @@ async function addReadableLibraryEntry(expectedRevision = 0): Promise<void> {
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

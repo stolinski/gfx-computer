@@ -17,7 +17,7 @@ import {
 	runSetCompositionOverlayPoseOperation,
 	runSetCompositionSurfacePageAnchorOperation
 } from './composition-placement-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 import { applyPreset } from './preset';
@@ -47,7 +47,6 @@ async function addOverlay(expectedRevision: number): Promise<void> {
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

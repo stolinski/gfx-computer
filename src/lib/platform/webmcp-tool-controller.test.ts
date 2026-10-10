@@ -169,7 +169,6 @@ const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	'orientation-override-present': false,
 	'keyframe-channel-present': false,
 	'cascade-anchor-present': false,
-	'transition-present': false,
 	'audio-cue-present': false,
 	'media-permitted': false,
 	'media-entry-present': false,

@@ -14,12 +14,12 @@
  * selected Scene; `readOpenFilm` is that sum. Selecting another Scene parks the
  * live state and makes that Scene live (`./film-scene-selection.ts`).
  *
- * The legacy Preset envelope (`LegacyPresetEnvelope`: `kind` and `transition`)
- * is live in `presetBase`, where the RootInspector edits it, and travels beside
- * the Film in every `OpenFilmDocument`. `./open-film-document.ts` says what
- * still needs each field.
+ * The legacy Preset envelope (`LegacyPresetEnvelope`: `kind`) is live in
+ * `presetBase`, where the RootInspector edits it, and travels beside the Film
+ * in every `OpenFilmDocument`. `./open-film-document.ts` says what still needs
+ * the field.
  */
-import { engineState, packState, transitionState } from './engine-state.svelte';
+import { engineState, packState } from './engine-state.svelte';
 import { FILM_FIRST_SCENE_ID } from './film-ingress';
 import { FILM_SCHEMA_ID } from './film-schema';
 import {
@@ -65,8 +65,7 @@ class OpenFilmState {
 	 * Workspace has settled it (`./film-scene-selection.ts`). Engine state is a
 	 * real Scene throughout, but the DOM, the animation manifest, and the canvas
 	 * are still the previous Scene's. Autosave, edit operations, and tool
-	 * registration stay off for that window, as they do for
-	 * `transitionState.capturing`.
+	 * registration stay off for that window.
 	 *
 	 * An export of a Film of several Scenes holds it true for the whole export,
 	 * until it has put the author's Scene back (`beginOpenFilmExportBracket`):
@@ -79,14 +78,7 @@ export const filmState = new OpenFilmState();
 
 /** The legacy Preset envelope as it stands in `presetBase`, detached. */
 export function readOpenFilmLegacyPresetEnvelope(): LegacyPresetEnvelope {
-	const envelope: LegacyPresetEnvelope = { kind: presetBase.kind };
-	if (presetBase.transition !== undefined) {
-		envelope.transition = {
-			...presetBase.transition,
-			params: cloneJsonValue(presetBase.transition.params)
-		};
-	}
-	return envelope;
+	return { kind: presetBase.kind };
 }
 
 function requireParkedSceneState(scene: OpenFilmScene): EngineState {
@@ -209,13 +201,13 @@ export function readOpenFilmDocumentSelectingScene(sceneId: string): OpenFilmDoc
 }
 
 /**
- * Whether engine state is, right now, not the open document at rest: the
- * transition snapshot path holds a scratch composition in it, or a Scene swap
- * has not settled. Persistence and tool registration read nothing while this is
+ * Whether engine state is, right now, not the open document at rest: a Scene
+ * swap has not settled, or an export or a boundary window frame holds another
+ * Scene in it. Persistence and tool registration read nothing while this is
  * true.
  */
 export function isOpenFilmEngineStateInTransit(): boolean {
-	return transitionState.capturing || filmState.isSwappingScene;
+	return filmState.isSwappingScene;
 }
 
 /**

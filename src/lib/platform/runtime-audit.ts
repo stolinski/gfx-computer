@@ -562,21 +562,12 @@ export function exposeVisualAudit(state: EngineState, name = '(current)'): void 
 	};
 }
 
-export interface DeterministicTransitionEndpointManifest {
-	endpoint: 'from' | 'to';
-	presetSlug: string;
-	manifest: DeterministicRenderRegionManifest;
-}
-
 export interface DeterministicRenderCaptureAuthority {
 	compositionRoot: HTMLElement;
 	overlayRoot: HTMLElement | null;
 	/** The posed Overlays' own roots on the depth stage (ADR-0057); readable text lives there too. */
 	posedOverlayRoots?: readonly HTMLElement[];
 	seekExactFrame(request: DeterministicFrameRequest): Promise<DeterministicSettledFrame>;
-	captureTransitionEndpointManifests?(
-		settled: DeterministicSettledFrame
-	): Promise<readonly DeterministicTransitionEndpointManifest[]>;
 	captureReadableCompositedMasks?(
 		address: DeterministicSettledFrame,
 		targets: readonly DeterministicReadableCaptureTarget[]
@@ -601,11 +592,7 @@ export function exposeDeterministicRenderAudit(
 		) {
 			throw new RangeError('Timeline did not settle at the requested frame and active frame rate.');
 		}
-		const transitionEndpoints =
-			includePixelMasks && authority.captureTransitionEndpointManifests
-				? await authority.captureTransitionEndpointManifests(settled)
-				: [];
-		const manifest = await captureDeterministicRenderRegionManifest(state, settled, {
+		return captureDeterministicRenderRegionManifest(state, settled, {
 			compositionRoot: authority.compositionRoot,
 			overlayRoot: authority.overlayRoot,
 			posedOverlayRoots: authority.posedOverlayRoots,
@@ -613,7 +600,6 @@ export function exposeDeterministicRenderAudit(
 				? authority.captureReadableCompositedMasks
 				: undefined
 		});
-		return { ...manifest, transitionEndpoints };
 	};
 
 	window.__captureGfxDeterministicRenderRegionManifest = (request) =>
@@ -650,7 +636,6 @@ export interface DeterministicRenderRegionManifest {
 	readableIdentityEvidence: readonly DeterministicReadableIdentityEvidence[];
 	readingPlan: ReturnType<typeof deriveDeterministicReadingPlan>;
 	readingPlanDigest: string | null;
-	transitionEndpoints?: readonly DeterministicTransitionEndpointManifest[];
 	readableCoverage: {
 		authority: 'schema-renderer' | 'unavailable';
 		expectedReadableIdentities: readonly string[];

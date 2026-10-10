@@ -881,7 +881,7 @@ describe('user composition handlers reading both stored record shapes', () => {
 		);
 	});
 
-	it('keeps a legacy transition record in the Preset shape when it is saved (ADR-0068 §3)', async () => {
+	it('reads a legacy transition record as a two-Scene Film and saves it as a Film record (ADR-0068 §3)', async () => {
 		fsMocks.readFile.mockResolvedValue(
 			JSON.stringify({
 				meta: { forkedFrom: null, savedAt: '2026-10-01T12:00:00.000Z' },
@@ -890,21 +890,30 @@ describe('user composition handlers reading both stored record shapes', () => {
 		);
 
 		const loaded = await slugHandlers.GET(slugEvent('my-transition'));
-		const standalonePreset: unknown = await loaded.json();
+		const standaloneFilm = (await loaded.json()) as {
+			schema: string;
+			scenes: { origin: unknown }[];
+			boundaries: { kind: string }[];
+		};
+		assert.equal(standaloneFilm.schema, 'gfx-film@1');
 		assert.deepEqual(
-			parsePresetIngress(standalonePreset),
-			parsePresetIngress(transitionWipeDemoPreset)
+			standaloneFilm.scenes.map((scene) => scene.origin),
+			[
+				{ slug: transitionWipeDemoPreset.transition.from, contentKey: null },
+				{ slug: transitionWipeDemoPreset.transition.to, contentKey: null }
+			]
 		);
-		await slugHandlers.PUT(putEvent('my-transition', standalonePreset));
+		assert.deepEqual(
+			standaloneFilm.boundaries.map((boundary) => boundary.kind),
+			[transitionWipeDemoPreset.transition.effect]
+		);
+		await slugHandlers.PUT(putEvent('my-transition', standaloneFilm));
 
 		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
-			preset: unknown;
+			film: { scenes: unknown[] };
 		};
-		assert.deepEqual(Object.keys(written), ['meta', 'preset']);
-		assert.deepEqual(
-			parsePresetIngress(written.preset),
-			parsePresetIngress(transitionWipeDemoPreset)
-		);
+		assert.deepEqual(Object.keys(written), ['meta', 'film']);
+		assert.equal(written.film.scenes.length, 2);
 	});
 
 	it('saves over a stored Film as a Film record, keeping its metadata and its Scene origin', async () => {

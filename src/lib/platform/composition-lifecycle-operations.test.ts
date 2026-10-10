@@ -10,7 +10,7 @@ import {
 import { runSetCompositionIdentityOperation } from './composition-document-operations';
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
-import { engineState, packState, transitionState } from './engine-state.svelte';
+import { engineState, packState } from './engine-state.svelte';
 import { filmDocumentFromCorpusStarters } from './film-corpus-scenes.fixture';
 import { PRESET_SCHEMA_ID } from './engine-schema';
 import {
@@ -110,7 +110,6 @@ beforeEach(() => {
 	sessionStore.saveUserComposition.mockResolvedValue(undefined);
 	sessionStore.deleteUserComposition.mockResolvedValue(undefined);
 
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = false;
 	compositionMeta.userCompositionSlug = null;
@@ -201,12 +200,13 @@ describe('creating a composition', () => {
 		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 	});
 
-	it('refuses to create anything while the transition snapshot path owns engine state', async () => {
-		transitionState.capturing = true;
+	it('refuses to create anything while a Scene swap has engine state in transit', async () => {
+		filmState.isSwappingScene = true;
 
-		expect(expectFailed(await runCreateBlankCompositionOperation()).code).toBe(
-			'precondition_unmet'
-		);
+		const failure = expectFailed(await runCreateBlankCompositionOperation());
+		filmState.isSwappingScene = false;
+
+		expect(failure.code).toBe('precondition_unmet');
 		expect(sessionStore.createUserComposition).not.toHaveBeenCalled();
 	});
 
@@ -760,23 +760,6 @@ describe('adding the open Starter to a stored Film', () => {
 		expect(sessionStore.saveUserComposition).not.toHaveBeenCalled();
 	});
 
-	it('refuses a legacy transition composition, which holds exactly one Scene', async () => {
-		const transitionPreset = getPresetBySlug('transition-wipe-demo');
-		if (!transitionPreset?.transition) throw new Error('Expected a transition Preset fixture.');
-		holdStoredFilm({
-			film: filmFromPreset(transitionPreset, null),
-			legacyPresetEnvelope: { kind: 'fixture', transition: transitionPreset.transition }
-		});
-		await openStarter();
-
-		const failure = expectFailed(
-			await runAddOpenCompositionToFilmOperation({ filmSlug: FILM_SLUG })
-		);
-
-		expect(failure.code).toBe('precondition_unmet');
-		expect(sessionStore.saveUserComposition).not.toHaveBeenCalled();
-	});
-
 	it('reports a store that would not save and leaves the Starter open and unsaved', async () => {
 		holdStoredFilm();
 		const starter = await openStarter();
@@ -815,7 +798,8 @@ describe('adding the open Starter to a stored Film', () => {
 			}),
 			storageIdentity: 'gfx-composition-session@1',
 			limits: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
-			isStarterSlug: (slug) => getPresetBySlug(slug) !== null
+			isStarterSlug: (slug) => getPresetBySlug(slug) !== null,
+			resolveStarterPreset: getPresetBySlug
 		});
 		// The longest Film of this Starter the store accepts.
 		let sceneCount = 80;

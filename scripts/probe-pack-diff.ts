@@ -14,9 +14,8 @@
  *      as scripts/cdp-capture.mjs): loads /p/<slug>, pauses the Timeline,
  *      pins a deterministic mid-piece frame via window.__gfxTimeline, then
  *      FOR EVERY CATALOG PACK swaps packState.slug in-page (through the
- *      app's versioned engine-state module URL, with
- *      transitionState.capturing=true bracketing the swap so the autosave
- *      fork never observes the scratch pack), measures each covered
+ *      app's versioned engine-state module URL; a corpus Preset's page never
+ *      saves, so the scratch pack is never stored), measures each covered
  *      Pipeline's DOM region (projected through the canvas client rect into
  *      capture space), and captures the SAME frame. The Preset's authored
  *      typography.paperColor/inkColor overrides are LIFTED for all captures
@@ -315,7 +314,9 @@ const materialPacks = new Set(
  */
 function surfaceDisablesPackMaterial(surfaceType: string): boolean {
 	const indexPath = resolve(repoRoot, 'src/lib/pipelines/surfaces', surfaceType, 'index.ts');
-	return existsSync(indexPath) && /disablePackMaterial:\s*true/.test(readFileSync(indexPath, 'utf8'));
+	return (
+		existsSync(indexPath) && /disablePackMaterial:\s*true/.test(readFileSync(indexPath, 'utf8'))
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -709,7 +710,9 @@ function loadExistingReport(): PackDiffReport | null {
 // ---------------------------------------------------------------------------
 
 if (cli.plan) {
-	console.log(`Catalog packs: ${catalogPacks.join(', ')} (chrome: ${[...chromePacks].join(', ') || 'none'})`);
+	console.log(
+		`Catalog packs: ${catalogPacks.join(', ')} (chrome: ${[...chromePacks].join(', ') || 'none'})`
+	);
 	console.log('');
 	for (const entry of coverage) {
 		console.log(
@@ -764,7 +767,9 @@ if (cli.check) {
 	for (const pipelineKey of registeredPipelineKeys) {
 		const row = rowByPipeline.get(pipelineKey);
 		if (!row) {
-			problems.push(`registered pipeline "${pipelineKey}" has no row in the report (stale registry)`);
+			problems.push(
+				`registered pipeline "${pipelineKey}" has no row in the report (stale registry)`
+			);
 			continue;
 		}
 		if (row.status !== 'PASS' && row.status !== 'IMMUNE-PASS' && row.status !== 'IMMUNE-GAP') {
@@ -913,9 +918,7 @@ async function waitReady(session: CdpSession, slug: string): Promise<void> {
 		}
 		await sleep(500);
 	}
-	throw new Error(
-		`App did not become ready on /p/${slug} (route + canvas + window.__gfxTimeline)`
-	);
+	throw new Error(`App did not become ready on /p/${slug} (route + canvas + window.__gfxTimeline)`);
 }
 
 /** Pause + seek deterministically; confirm the playhead landed (cdp-capture's loop). */
@@ -976,9 +979,9 @@ async function captureCanvas(
 /**
  * Import engine-state through the URL the app itself loaded (Vite versions
  * invalidated modules with ?t=; a bare dynamic import can resolve to a
- * SECOND module instance whose writes the app never sees). Bracket the whole
- * swap window with transitionState.capturing=true so the /p/[slug] autosave
- * effect never observes the scratch pack as a user edit.
+ * SECOND module instance whose writes the app never sees). The swap needs no
+ * autosave bracket: this probe runs on a corpus Preset's own page, which never
+ * saves (ADR-0068 §3).
  *
  * The window also LIFTS the Preset's authored `typography.paperColor` /
  * `inkColor`. Under ADR-0038 an authored colour is an explicit override that
@@ -1030,7 +1033,6 @@ async function beginPackSwap(session: CdpSession): Promise<string> {
 				}
 			}
 			window.__packDiff = { mod, originalSlug: mod.packState.slug, saved };
-			mod.transitionState.capturing = true;
 			return { ownSlug: mod.packState.slug, moduleUrl: url };
 		})()`
 	);
@@ -1102,7 +1104,6 @@ async function endPackSwap(session: CdpSession): Promise<void> {
 			}
 			pd.mod.packState.slug = pd.originalSlug;
 			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-			pd.mod.transitionState.capturing = false;
 			delete window.__packDiff;
 			return true;
 		})()`
@@ -1319,7 +1320,12 @@ interface MaskedDiffStats {
 	meanAbsDiff: number;
 }
 
-function maskedDiff(a: PNG, b: PNG, mask: Uint8Array | null, channelDelta: number): MaskedDiffStats {
+function maskedDiff(
+	a: PNG,
+	b: PNG,
+	mask: Uint8Array | null,
+	channelDelta: number
+): MaskedDiffStats {
 	const totalPx = a.width * a.height;
 	let considered = 0;
 	let changed = 0;
@@ -1692,7 +1698,8 @@ const rows: CoverageRow[] = coverage.map((entry) => {
 			status: 'ERROR',
 			maskPctOfFrame: '—',
 			worstPair: '—',
-			detail: 'no region stats recorded for this pipeline (retained entry from a different coverage map?)'
+			detail:
+				'no region stats recorded for this pipeline (retained entry from a different coverage map?)'
 		};
 	}
 	const measuredPairs = Object.entries(pipeline.pairs);

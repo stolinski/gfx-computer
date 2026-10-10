@@ -53,15 +53,14 @@
 	import { waitForCompositionResourceReadiness } from './composition-resource-readiness';
 	import { Timeline } from './timeline.svelte';
 	import { timelineHandle } from './timeline-handle.svelte';
-	import { engineState, packState, readMarkColor, transitionState } from './engine-state.svelte';
-	import { applyCompositionState, applyPreset } from './preset';
+	import { engineState, packState, readMarkColor } from './engine-state.svelte';
+	import { applyPreset } from './preset';
 	import { getPresetBySlug } from './preset-catalog';
 	import { presetBase } from './preset-base.svelte';
-	import { serializeCompositionState } from './preset-pure';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getAuthoringPackOption } from './packs/catalog';
 	import { getPack } from './packs/registry';
-	import { isPresetOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
+	import { isPresetOpaque } from '$lib/utils/output-classification';
 	import { readRuntimeRenderRegistryIdentity } from './deterministic-render-registry-identity';
 	import { resolveSurfaceTypographyColors } from './pipelines/definition-registry';
 	import { collectPresetRendererRequirements } from './pipelines/preset-renderer-requirements';
@@ -93,7 +92,6 @@
 		type OpenFilmBoundaryFrameScenes
 	} from './film-scene-selection';
 	import { isOpenFilmShowingPosterScene, readOpenFilm } from './film-state.svelte';
-	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import {
 		COMPOSITION_EXPORT_FORMAT_LABELS,
 		COMPOSITION_EXPORT_FORMATS,
@@ -107,11 +105,9 @@
 		captureDeterministicRenderRegionManifest,
 		exposeDeterministicRenderAudit,
 		exposeVisualAudit,
-		type DeterministicRenderCaptureAuthority,
-		type DeterministicTransitionEndpointManifest
+		type DeterministicRenderCaptureAuthority
 	} from './runtime-audit';
 	import { seekDeterministicTimelineFrame } from './deterministic-render-capture-authority';
-	import { deriveDeterministicTransitionReadableContracts } from './deterministic-readable-contract';
 	import { DeterministicRenderCaptureController } from './deterministic-render-capture-controller';
 	import { readBlobAsBase64 } from '$lib/utils/blob-encoding';
 	import { capturePosterFrame, readCanvasFramePixels } from '$lib/utils/canvas-capture';
@@ -165,12 +161,9 @@
 	const animationManager = new AnimationManager();
 	const audioPreview = new AudioPreview();
 	const textAnimationManager = new TextAnimationManager();
-	const transitionSnapshotController = new TransitionSnapshotController();
 	const deterministicRenderCaptureController = new DeterministicRenderCaptureController();
 	let readableProbeMode: CompositionReadableProbeMode = 'normal';
 	let forceReadableAuditDomCapture = false;
-	let suppressCachedTransitionForAudit = false;
-	let transitionSnapshotPreparation: Promise<void> | null = null;
 	const compositionExportController = new CompositionExportController();
 	// A Scene boundary's window frame (ADR-0068 §4): the two Scene targets and
 	// the pass that composites them. Export renders every window frame through
@@ -710,9 +703,6 @@
 				force: isExporting || isSteppingFilmBoundaryFrame || forceReadableAuditDomCapture
 			},
 			resources: currentFrameRenderResources(),
-			cachedTransition: suppressCachedTransitionForAudit
-				? null
-				: transitionSnapshotController.cachedFrame(),
 			buildSurfaceInputs: buildRenderInputs
 		};
 	}
@@ -928,8 +918,8 @@
 		await nextFrame();
 	}
 
-	// How a whole state written into engine state is settled, for both callers
-	// that swap one in: the transition snapshot bracket and Scene selection.
+	// How a whole Scene written into engine state is settled (Scene selection, an
+	// export, and a boundary window frame all swap one in).
 	const compositionStateSwapSettleDependencies: CompositionStateSwapSettleDependencies = {
 		flushDom: tick,
 		waitForFonts: fontsReady,
@@ -955,50 +945,6 @@
 			durationSeconds > 0 ? sceneSeconds / durationSeconds : 0
 		);
 	}
-
-	$effect(() => {
-		const active = transitionState.active;
-		if (!active) {
-			transitionSnapshotController.invalidate();
-			return;
-		}
-		if (!host || !canvas || !renderResourceSet) {
-			return;
-		}
-
-		const localHost = host;
-		const localCanvas = canvas;
-		untrack(() => {
-			const preparation = transitionSnapshotController.update(active, {
-				host: localHost,
-				width: localCanvas.width,
-				height: localCanvas.height,
-				captureCompositionState: () =>
-					serializeCompositionState(presetBase, $state.snapshot(engineState), packState.slug),
-				applyCompositionState,
-				readCapturing: () => transitionState.capturing,
-				writeCapturing: (value) => {
-					transitionState.capturing = value;
-				},
-				...compositionStateSwapSettleDependencies,
-				renderFrame: (outputView, timestamp) =>
-					renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
-				isActiveTransition: (candidate) => transitionState.active === candidate,
-				seekTimeline: (timestamp) => timeline?.seek(timestamp)
-			});
-			transitionSnapshotPreparation = preparation;
-			const clearPreparation = (): void => {
-				if (transitionSnapshotPreparation === preparation) {
-					transitionSnapshotPreparation = null;
-				}
-			};
-			void preparation.then(clearPreparation, (error) => {
-				console.error('Transition snapshot preparation failed.', error);
-				status = error instanceof Error ? error.message : 'Transition snapshot preparation failed.';
-				clearPreparation();
-			});
-		});
-	});
 
 	$effect(() => {
 		if (!canvas || host) {
@@ -1221,7 +1167,7 @@
 			await tick();
 		}
 
-		const baseAuthority: DeterministicRenderCaptureAuthority = {
+		const authority: DeterministicRenderCaptureAuthority = {
 			compositionRoot: localCompositionRoot,
 			overlayRoot: localOverlayRoot,
 			posedOverlayRoots: livePosedOverlayRoots().map((root) => root.element),
@@ -1261,96 +1207,6 @@
 			}
 		};
 
-		const authority: DeterministicRenderCaptureAuthority = {
-			...baseAuthority,
-			captureTransitionEndpointManifests: async (settled) => {
-				const active = transitionState.active;
-				if (!active) return [];
-				await transitionSnapshotPreparation;
-				const sourceComposition = serializeCompositionState(
-					presetBase,
-					$state.snapshot(engineState),
-					packState.slug
-				);
-				const wasCapturing = transitionState.capturing;
-				const endpointManifests: DeterministicTransitionEndpointManifest[] = [];
-				const endpointContracts = deriveDeterministicTransitionReadableContracts(active);
-				try {
-					transitionState.capturing = true;
-					suppressCachedTransitionForAudit = true;
-					for (const endpoint of ['from', 'to'] as const) {
-						const preset = cloneJsonValue(active[endpoint]);
-						preset.state.transport.orientation = sourceComposition.state.transport.orientation;
-						applyCompositionState(preset);
-						await tick();
-						await fontsReady();
-						await nextFrame();
-						await nextFrame();
-						const frameRate = resolveFrameRate(preset.state.transport.fps);
-						const frameIndex = Math.round(
-							preset.state.transport.durationSeconds * 0.5 * (frameRate.num / frameRate.den)
-						);
-						const endpointRequest = {
-							address: deterministicFrameAddressFor(frameIndex, frameRate),
-							frameRate: { num: frameRate.num, den: frameRate.den }
-						};
-						const endpointSettled = await seekDeterministicTimelineFrame(endpointRequest, {
-							timeline: localTimeline,
-							fps: preset.state.transport.fps,
-							settleNextPaint: () => settleCompositionPaint(new AbortController().signal),
-							flushDom: tick
-						});
-						const contract = endpointContracts.find(
-							(entry) => entry.endpoint === endpoint
-						)?.contract;
-						if (!contract || contract.status === 'unavailable') {
-							throw new Error(`Transition ${endpoint} readable contract was unavailable.`);
-						}
-						const manifest = await captureDeterministicRenderRegionManifest(
-							engineState,
-							endpointSettled,
-							baseAuthority
-						);
-						const expectedIds = contract.expected.map((entry) => entry.id);
-						if (
-							expectedIds.length !== manifest.readableCoverage.expectedReadableIdentities.length ||
-							expectedIds.some(
-								(id) => !manifest.readableCoverage.expectedReadableIdentities.includes(id)
-							)
-						) {
-							throw new Error(`Transition ${endpoint} endpoint identity authority diverged.`);
-						}
-						endpointManifests.push({
-							endpoint,
-							presetSlug: endpoint === 'from' ? active.fromSlug : active.toSlug,
-							manifest
-						});
-					}
-				} finally {
-					applyCompositionState(sourceComposition);
-					await tick();
-					await nextFrame();
-					await nextFrame();
-					transitionState.capturing = wasCapturing;
-					suppressCachedTransitionForAudit = false;
-					const requestedProgress =
-						settled.address.timestampMicroseconds /
-						(sourceComposition.state.transport.durationSeconds * 1_000_000);
-					rebuildAnimationAtProgress(requestedProgress);
-					await seekDeterministicTimelineFrame(
-						{ address: settled.address, frameRate: settled.activeFrameRate },
-						{
-							timeline: localTimeline,
-							fps: sourceComposition.state.transport.fps,
-							settleNextPaint: () => settleCompositionPaint(new AbortController().signal),
-							flushDom: tick
-						}
-					);
-				}
-				return endpointManifests;
-			}
-		};
-
 		window.__captureGfxDeterministicReadablePngArtifacts = (readableId) =>
 			deterministicRenderCaptureController.artifactDataUrls(readableId);
 		window.__readGfxRuntimeRenderRegistryIdentity = readRuntimeRenderRegistryIdentity;
@@ -1373,7 +1229,7 @@
 			let settled: DeterministicSettledFrame | null = null;
 			for (let attempt = 0; attempt < DETERMINISTIC_SETTLE_ATTEMPTS; attempt += 1) {
 				const composited = videoUnderlayRuntimeController.readRenderedPreviewGeneration();
-				settled = await baseAuthority.seekExactFrame(request);
+				settled = await authority.seekExactFrame(request);
 				if (videoUnderlayRuntimeController.readRenderedPreviewGeneration() > composited) break;
 				settled = null;
 			}
@@ -1459,9 +1315,9 @@
 				);
 				signal.throwIfAborted();
 				return captureDeterministicRenderRegionManifest(engineState, settled, {
-					compositionRoot: baseAuthority.compositionRoot,
-					overlayRoot: baseAuthority.overlayRoot,
-					captureReadableCompositedMasks: baseAuthority.captureReadableCompositedMasks
+					compositionRoot: authority.compositionRoot,
+					overlayRoot: authority.overlayRoot,
+					captureReadableCompositedMasks: authority.captureReadableCompositedMasks
 				});
 			}
 		};
@@ -1544,21 +1400,10 @@
 			configuredPreset.state.transport.orientation = input.orientation;
 			pipelineRendererController.activate(
 				await pipelineRendererController.resolve(
-					collectPresetRendererRequirements(configuredPreset, {
-						pack: configuredPack,
-						resolvePack: getPack,
-						resolvePreset: getPresetBySlug
-					})
+					collectPresetRendererRequirements(configuredPreset, { pack: configuredPack })
 				)
 			);
 			applyPreset(configuredPreset);
-			if (transitionState.active) {
-				transitionState.active = {
-					...transitionState.active,
-					from: { ...cloneJsonValue(transitionState.active.from), pack: input.packId },
-					to: { ...cloneJsonValue(transitionState.active.to), pack: input.packId }
-				};
-			}
 			await tick();
 			await fontsReady();
 			await waitForActiveCompositionResources();
@@ -1566,7 +1411,6 @@
 			await nextFrame();
 			if (!canvas) throw new Error('Composition canvas is unavailable.');
 			const frameRate = resolveFrameRate(configuredPreset.state.transport.fps);
-			const transition = transitionState.active;
 			return {
 				presetSlug: input.presetSlug,
 				packId: packState.slug,
@@ -1574,13 +1418,7 @@
 				width: canvas.width,
 				height: canvas.height,
 				frameRate: { num: frameRate.num, den: frameRate.den },
-				expectedOutputClass: (
-					transition
-						? isTransitionOpaque({ from: transition.from, to: transition.to })
-						: isPresetOpaque(configuredPreset)
-				)
-					? 'opaque'
-					: 'transparent'
+				expectedOutputClass: isPresetOpaque(configuredPreset) ? 'opaque' : 'transparent'
 			};
 		};
 		exposeDeterministicRenderAudit(engineState, authority);
@@ -1679,7 +1517,6 @@
 		openFilmBoundaryFramePresenterHandle.current = null;
 		compositionExportHandle.current = null;
 		audioPreview.dispose();
-		transitionSnapshotController.dispose();
 		compositionExportController.dispose();
 		if (typeof window !== 'undefined' && window.__gfxTimeline) {
 			window.__gfxTimeline = undefined;
@@ -1703,13 +1540,11 @@
 		signal?: AbortSignal
 	): Promise<CompositionExportOutcome> {
 		await tick();
-		await transitionSnapshotPreparation;
 		const outcome = await compositionExportController.export(
 			{
 				// Detached: the export makes each Scene live in turn, so the Film it
 				// plans and mixes from must not follow engine state.
 				readFilm: () => cloneJsonValue(readOpenFilm()),
-				readTransition: () => transitionState.active,
 				beginFilmExportBracket: beginOpenFilmExportBracket,
 				readCanvas: () => canvas,
 				isFrameRendererReady: () => canvas !== null && renderResourceSet !== null,

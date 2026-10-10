@@ -1,6 +1,6 @@
 /**
  * The open document as one detached value: the Film, which of its Scenes is
- * open for editing, and the two Preset fields a Film does not carry yet
+ * open for editing, and the one Preset field a Film does not carry
  * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §1, §3, §8).
  *
  * The edit transaction core captures, applies, and keeps in undo history values
@@ -13,15 +13,16 @@
 import { FILM_SCHEMA_ID, type Film } from './film-schema';
 import { presetFromFilmScene, sceneStateForPlayback } from './film-ingress';
 import { serializeCompositionState } from './preset-pure';
-import { cloneJsonValue } from '../utils/json-clone';
 import { hashObject } from '../utils/object';
 
-import type { CompositionTransition, Preset } from './engine-schema';
+import type { Preset } from './engine-schema';
 
 /**
- * The two fields of the Preset envelope that `filmFromPreset` drops and that
- * the Workspace still needs (ADR-0068 §3). They travel beside the Film, never
- * inside it, so `gfx-film@1` does not grow a field it does not own.
+ * The one field of the Preset envelope that `filmFromPreset` drops and that
+ * the Workspace still needs (ADR-0068 §3). It travels beside the Film, never
+ * inside it, so `gfx-film@1` does not grow a field it does not own. The
+ * legacy `transition` recipe is not here: a transition Preset is read as a
+ * two-Scene Film (`filmFromPreset`).
  */
 export interface LegacyPresetEnvelope {
 	/**
@@ -31,18 +32,9 @@ export interface LegacyPresetEnvelope {
 	 * chip and the RootInspector read it from `presetBase`, `composition.inspect`
 	 * reports it, `composition.set-identity` writes `/kind`, and the Preset-shaped
 	 * Scene view every operation drafts (`selectedScenePresetOfOpenFilm`) is a
-	 * `Preset`, which requires one. It is saved only inside the legacy record
-	 * shape `userCompositionWriteShape` keeps for a transition.
+	 * `Preset`, which requires one. It is never saved: a stored Film has none.
 	 */
 	kind: Preset['kind'];
-	/**
-	 * The top-level two-endpoint transition recipe (ADR-0026) that
-	 * `transitionState` renders. ADR-0068 §3: a Film cannot hold it until the
-	 * live Scene boundaries change reads a transition Preset as a two-Scene Film
-	 * with one boundary, and this field retires with that change. Until then a
-	 * document that carries one is stored in the legacy record shape.
-	 */
-	transition?: CompositionTransition;
 }
 
 /** The open document: one Film, its selected Scene, and the legacy Preset envelope. */
@@ -53,17 +45,9 @@ export interface OpenFilmDocument {
 	legacyPresetEnvelope: LegacyPresetEnvelope;
 }
 
-function cloneCompositionTransition(transition: CompositionTransition): CompositionTransition {
-	return { ...transition, params: cloneJsonValue(transition.params) };
-}
-
 /** The legacy envelope a Preset carries, detached from the Preset. */
 export function legacyPresetEnvelopeFromPreset(preset: Preset): LegacyPresetEnvelope {
-	const envelope: LegacyPresetEnvelope = { kind: preset.kind };
-	if (preset.transition !== undefined) {
-		envelope.transition = cloneCompositionTransition(preset.transition);
-	}
-	return envelope;
+	return { kind: preset.kind };
 }
 
 /**
@@ -96,8 +80,7 @@ export function selectedScenePresetOfOpenFilm(document: OpenFilmDocument): Prese
 		{
 			name: document.film.name,
 			description: document.film.description,
-			kind: document.legacyPresetEnvelope.kind,
-			transition: document.legacyPresetEnvelope.transition
+			kind: document.legacyPresetEnvelope.kind
 		},
 		sceneStateForPlayback(document.film, document.selectedSceneId),
 		document.film.pack
@@ -112,7 +95,7 @@ export function selectedScenePresetOfOpenFilm(document: OpenFilmDocument): Prese
  * (ADR-0068 §1), so those fields of the Scene's Preset-shaped view are the
  * Film's own: a Scene-scoped edit to `name`, `description`, `pack`, or
  * `state.transport.orientation` / `fps` / `format` is written through to the
- * Film. `kind` and `transition` are written through to the legacy envelope.
+ * Film. `kind` is written through to the legacy envelope.
  * Every other Scene and every boundary is carried unchanged.
  */
 export function openFilmWithSelectedScenePreset(
@@ -160,7 +143,7 @@ export function scenePresetsOfOpenFilm(
 /**
  * The selected Scene of the open Film as a saved Preset, detached: the Film's
  * name, description, and Pack around a copy of the Scene's state, with the
- * legacy envelope's live `kind` and transition put back, in the key order
+ * legacy envelope's live `kind` put back, in the key order
  * `serializeCompositionState` has always written. A one-Scene Film is exactly
  * this Preset. `composition.inspect` and the Interchange verification pass
  * read this: like every Scene-scoped operation, they report the Scene that is
@@ -173,8 +156,7 @@ export function savedPresetFromOpenFilm(document: OpenFilmDocument): Preset {
 		{
 			name: scenePreset.name,
 			description: scenePreset.description,
-			kind: document.legacyPresetEnvelope.kind,
-			transition: document.legacyPresetEnvelope.transition
+			kind: document.legacyPresetEnvelope.kind
 		},
 		scenePreset.state,
 		scenePreset.pack

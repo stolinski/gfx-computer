@@ -5,6 +5,7 @@ import { filmFrameCount, filmSceneBoundaryOverlaps, filmSceneFrameCount } from '
 import {
 	FILM_DURATION_CEILING_SECONDS,
 	FILM_SCHEMA_ID,
+	FilmSceneBoundarySchema,
 	FilmSchema,
 	listFilmStructureIssues,
 	type Film,
@@ -118,22 +119,128 @@ export function sceneStateForPlayback(film: Film, sceneId: string): EngineState 
 	return sceneStateUnderFilmTransport(film, scene);
 }
 
+/** One endpoint of a legacy two-endpoint transition, as the catalogue holds it. */
+export interface LegacyTransitionEndpoint {
+	preset: Preset;
+	/** The content key the endpoint's poster uses, or `null` when the reader does not know it. */
+	contentKey: string | null;
+}
+
+/** Finds the catalogue Preset a legacy `transition.from` or `transition.to` names. */
+export type LegacyTransitionEndpointResolver = (slug: string) => LegacyTransitionEndpoint | null;
+
+export interface FilmFromPresetOptions {
+	/**
+	 * How a legacy transition Preset's two endpoints are found. Needed only by a
+	 * Preset that states a top-level `transition`; this module does not import
+	 * the catalogue, so a caller that can read one supplies it.
+	 */
+	resolveLegacyTransitionEndpoint?: LegacyTransitionEndpointResolver;
+}
+
 /**
- * A one-Scene Film made from a Preset (ADR-0068 §1: a one-off piece is a Film
- * with one Scene). The Film takes the Preset's name, description, and Pack, and
- * its orientation, fps, and format from the Preset's transport. The Scene owns
- * a copy of the Preset's state, so later edits to either never reach the other.
+ * The reader of the legacy top-level `transition { from, to, effect,
+ * durationMs, params }` Preset form
+ * ([ADR-0068](../../../docs/adr/0068-films-scenes-and-live-scene-boundaries.md) §3;
+ * accept-old under [ADR-0053](../../../docs/adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)):
+ * a two-Scene Film with one boundary. No writer emits the form.
+ *
+ * Scene 1 owns a copy of the `from` Preset's state and Scene 2 a copy of the
+ * `to` Preset's, each named for its Preset and each with its `origin`
+ * recorded. The boundary is the transition's effect, with its `durationMs` and
+ * `params`. The Film takes its name, description, and Pack from the transition
+ * Preset, and its orientation, fps, and format from the transition Preset's
+ * transport. Each Scene keeps its own duration.
+ *
+ * What is not carried: the transition Preset's own `state`, which the legacy
+ * lane never drew once its two endpoints were captured, and each endpoint's
+ * own Pack, because a Film has one (ADR-0068 §1).
+ *
+ * Throws a `TypeError` when no resolver was supplied, and a `RangeError` when
+ * an endpoint is not in the catalogue or the effect with these params is not a
+ * boundary the Film format accepts.
+ */
+function filmFromLegacyTransitionPreset(
+	preset: Preset,
+	transition: NonNullable<Preset['transition']>,
+	resolveEndpoint: LegacyTransitionEndpointResolver | undefined
+): Film {
+	if (!resolveEndpoint) {
+		throw new TypeError(
+			`The Preset "${preset.name}" states a legacy transition, and its endpoints cannot be read here: no endpoint resolver was supplied.`
+		);
+	}
+	const boundary = FilmSceneBoundarySchema.safeParse({
+		kind: transition.effect,
+		durationMs: transition.durationMs,
+		params: transition.params
+	});
+	if (!boundary.success) {
+		throw new RangeError(
+			`The legacy transition of "${preset.name}" is not a Scene boundary: ${boundary.error.issues
+				.map((issue) => `${['transition', ...issue.path].join('.')}: ${issue.message}`)
+				.join('; ')}`
+		);
+	}
+	const scenes = (['from', 'to'] as const).map((endpointKey, sceneIndex): FilmScene => {
+		const slug = transition[endpointKey];
+		const endpoint = resolveEndpoint(slug);
+		if (!endpoint) {
+			throw new RangeError(
+				`transition.${endpointKey} of "${preset.name}" names the Preset "${slug}", which is not in the catalogue.`
+			);
+		}
+		return {
+			id: `scene-${sceneIndex + 1}`,
+			name: endpoint.preset.name,
+			origin: { slug, contentKey: endpoint.contentKey },
+			state: cloneJsonValue(endpoint.preset.state)
+		};
+	});
+	const film: Film = {
+		schema: FILM_SCHEMA_ID,
+		name: preset.name,
+		pack: preset.pack,
+		orientation: preset.state.transport.orientation,
+		fps: preset.state.transport.fps,
+		format: preset.state.transport.format,
+		scenes,
+		boundaries: [boundary.data]
+	};
+	if (preset.description !== undefined) film.description = preset.description;
+	return film;
+}
+
+/**
+ * A Film made from a Preset (ADR-0068 §1: a one-off piece is a Film with one
+ * Scene). The Film takes the Preset's name, description, and Pack, and its
+ * orientation, fps, and format from the Preset's transport. The Scene owns a
+ * copy of the Preset's state, so later edits to either never reach the other.
  *
  * `origin` records the source: `{ slug, contentKey }` with the content key the
  * Preset's poster uses (`posterKeyForPreset`), or `null` for a Scene that did
  * not come from a catalogue Preset.
  *
- * Two Preset fields are not carried. `kind` classifies a catalogue entry and a
- * Film is not one. The legacy top-level `transition` recipe is dropped: a
- * transition Preset becomes a two-Scene Film in a later task (ADR-0068 §3),
- * which needs boundaries that are more than a hard cut.
+ * `kind` is not carried: it classifies a catalogue entry and a Film is not
+ * one.
+ *
+ * A Preset that states the legacy top-level `transition` is read as a
+ * two-Scene Film instead (`filmFromLegacyTransitionPreset`, ADR-0068 §3). Its
+ * Scenes' origins are its two endpoints, so `origin` is not used, and it needs
+ * `options.resolveLegacyTransitionEndpoint`.
  */
-export function filmFromPreset(preset: Preset, origin: FilmSceneOrigin | null): Film {
+export function filmFromPreset(
+	preset: Preset,
+	origin: FilmSceneOrigin | null,
+	options: FilmFromPresetOptions = {}
+): Film {
+	if (preset.transition !== undefined) {
+		return filmFromLegacyTransitionPreset(
+			preset,
+			preset.transition,
+			options.resolveLegacyTransitionEndpoint
+		);
+	}
 	const film: Film = {
 		schema: FILM_SCHEMA_ID,
 		name: preset.name,
@@ -161,9 +268,17 @@ export function filmFromPreset(preset: Preset, origin: FilmSceneOrigin | null): 
  *
  * A legacy stored record is lifted with `filmFromPreset` itself and gains no
  * Scene name: reading a record never rewrites it.
+ *
+ * A corpus Preset that states the legacy `transition` opens as the two-Scene
+ * Film `filmFromPreset` reads it as, each Scene already named for its endpoint.
  */
-export function filmFromCorpusPreset(preset: Preset, origin: FilmSceneOrigin): Film {
-	const film = filmFromPreset(preset, origin);
+export function filmFromCorpusPreset(
+	preset: Preset,
+	origin: FilmSceneOrigin,
+	options: FilmFromPresetOptions = {}
+): Film {
+	const film = filmFromPreset(preset, origin, options);
+	if (preset.transition !== undefined) return film;
 	return {
 		...film,
 		scenes: film.scenes.map((scene) => ({
@@ -181,9 +296,9 @@ export function filmFromCorpusPreset(preset: Preset, origin: FilmSceneOrigin): F
  * transport. The inverse of `filmFromPreset` for that Scene.
  *
  * `kind` is `deliverable`. A Film does not carry the field, and `deliverable`
- * is the kind of user work (`PresetSchema` defaults to it). A Film holds no
- * `transition` recipe either, so the Preset has none. The Scene's `origin` is
- * not part of a Preset; a caller that needs it reads it off the Film.
+ * is the kind of user work (`PresetSchema` defaults to it). The Scene's
+ * `origin` is not part of a Preset; a caller that needs it reads it off the
+ * Film.
  *
  * Throws a `RangeError` when the Film has no Scene with that id.
  */
@@ -196,24 +311,6 @@ export function presetFromFilmScene(film: Film, sceneId: string): Preset {
 		kind: 'deliverable',
 		state: cloneJsonValue(sceneStateForPlayback(film, sceneId))
 	};
-}
-
-/**
- * The Preset a one-Scene Film is (`presetFromFilmScene` of its only Scene), for
- * the one caller that can still write only one Preset: the legacy record shape
- * `userCompositionWriteShape` keeps for a two-endpoint transition.
- *
- * Throws a `RangeError` for any other number of Scenes: a longer Film is not
- * one Preset, and writing one Scene of it would drop the rest.
- */
-export function presetFromSingleSceneFilm(film: Film): Preset {
-	const [scene] = film.scenes;
-	if (scene === undefined || film.scenes.length !== 1) {
-		throw new RangeError(
-			`The Film "${film.name}" has ${film.scenes.length} Scenes, so it is not one Preset.`
-		);
-	}
-	return presetFromFilmScene(film, scene.id);
 }
 
 /**

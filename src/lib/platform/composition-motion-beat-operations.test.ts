@@ -14,7 +14,7 @@ import {
 	runSetCompositionMotionBeatOperation
 } from './composition-motion-beat-operations';
 import type { CompositionOperationFailure } from './composition-operation-preflight';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 import { deriveSoundCues } from './sound-cues';
@@ -44,7 +44,6 @@ function moveWeight(): { atMs: number; atBeat?: string; offsetMs?: number }[] {
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(staticFixtureJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

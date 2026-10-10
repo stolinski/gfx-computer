@@ -34,8 +34,7 @@ registerHooks({
 		if (url.endsWith('/engine-state.svelte.ts')) {
 			return {
 				format: 'module',
-				source:
-					"export const engineState = {}; export const packState = { slug: 'syntax' }; export const transitionState = {};",
+				source: "export const engineState = {}; export const packState = { slug: 'syntax' };",
 				shortCircuit: true
 			};
 		}

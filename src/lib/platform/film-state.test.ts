@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { compositionEditHistory } from './composition-edit-history';
-import { engineState, packState, transitionState } from './engine-state.svelte';
+import { engineState, packState } from './engine-state.svelte';
 import {
 	FILM_FIRST_SCENE_ID,
 	filmFromCorpusPreset,
@@ -22,7 +22,10 @@ import { applyFilm, applyOpenFilmDocument, applyPreset } from './preset';
 import { presetBase } from './preset-base.svelte';
 import { getPresetBySlug } from './preset-catalog';
 import { presetToWireFormat, serializeCompositionState } from './preset-pure';
-import { readStoredUserCompositionRecord } from './user-composition-record';
+import {
+	readStoredUserCompositionRecord,
+	storedUserCompositionRecordFromDocument
+} from './user-composition-record';
 import { cloneJsonValue } from '../utils/json-clone';
 
 import type { Preset } from './engine-schema';
@@ -31,8 +34,7 @@ import type { Preset } from './engine-schema';
 const ROUND_TRIP_PRESETS = [
 	{ label: 'a transparent Preset', slug: 'lower-third' },
 	{ label: 'a backgroundFill Preset', slug: 'chapter-card-descent' },
-	{ label: 'a kind: fixture Preset', slug: 'captions-pack-style-demo' },
-	{ label: 'a legacy transition Preset', slug: 'transition-wipe-demo' }
+	{ label: 'a kind: fixture Preset', slug: 'captions-pack-style-demo' }
 ] as const;
 
 function requireCataloguedPreset(slug: string): Preset {
@@ -51,7 +53,7 @@ function wireJson(preset: Preset): string {
 }
 
 describe('the fixtures this file opens are the kinds it names', () => {
-	it('holds a transparent, a filled, a fixture, and a transition Preset', () => {
+	it('holds a transparent, a filled, a fixture, and a legacy transition Preset', () => {
 		const transparent = requireCataloguedPreset('lower-third');
 		expect(transparent.state.backgroundFill).toBeUndefined();
 		expect(transparent.kind).toBe('deliverable');
@@ -75,7 +77,6 @@ describe('opening a Preset as a one-Scene Film', () => {
 		// catalogue document is compared by content key, not by key order.
 		expect(posterKeyForPreset(saved)).toBe(posterKeyForPreset(preset));
 		expect(saved.kind).toBe(preset.kind);
-		expect(saved.transition).toEqual(preset.transition);
 	});
 
 	it.each(ROUND_TRIP_PRESETS)('holds $label as a Film of one selected Scene', ({ slug }) => {
@@ -94,22 +95,38 @@ describe('opening a Preset as a one-Scene Film', () => {
 		expect(film.orientation).toBe(preset.state.transport.orientation);
 		expect(film.fps).toBe(preset.state.transport.fps);
 		expect(film.format).toBe(preset.state.transport.format);
-		// A Film carries neither legacy field; both travel beside it.
+		// A Film carries no `kind`; it travels beside it.
 		expect(film).not.toHaveProperty('kind');
 		expect(film).not.toHaveProperty('transition');
 		expect(() => parseFilmIngress(cloneJsonValue(filmToWireFormat(film)))).not.toThrow();
 	});
 
-	it('resolves a legacy transition recipe for the Workspace, as a Preset load always did', () => {
-		applyPreset(requireCataloguedPreset('transition-wipe-demo'));
+	it('opens a legacy transition Preset as a two-Scene Film on its first Scene', () => {
+		const transitionPreset = requireCataloguedPreset('transition-wipe-demo');
+		const transition = transitionPreset.transition;
+		if (!transition) throw new Error('transition-wipe-demo states no transition.');
 
-		expect(transitionState.active?.effect).toBe(
-			requireCataloguedPreset('transition-wipe-demo').transition?.effect
+		applyPreset(transitionPreset);
+
+		const film = readOpenFilm();
+		expect(film.name).toBe(transitionPreset.name);
+		expect(film.scenes.map((scene) => scene.origin?.slug)).toEqual([
+			transition.from,
+			transition.to
+		]);
+		expect(film.boundaries).toHaveLength(1);
+		expect(film.boundaries[0].kind).toBe(transition.effect);
+		expect(filmState.selectedSceneId).toBe(film.scenes[0].id);
+		// The first Scene is live: the `from` Preset's own Surface, not the
+		// transition Preset's.
+		expect(engineState.surface.type).toBe(
+			requireCataloguedPreset(transition.from).state.surface.type
 		);
 
 		applyPreset(requireCataloguedPreset('lower-third'));
 
-		expect(transitionState.active).toBeNull();
+		expect(readOpenFilm().scenes).toHaveLength(1);
+		expect(readOpenFilm().boundaries).toEqual([]);
 	});
 
 	it('restarts the Composition revision, because a revision belongs to one open Film', () => {
@@ -139,6 +156,36 @@ describe('opening a stored record as its Film', () => {
 		const saved = readOpenFilmAsSavedPreset();
 		expect(wireJson(saved)).toBe(wireJson(serializeLiveStateAsPreset()));
 		expect(posterKeyForPreset(saved)).toBe(posterKeyForPreset(preset));
+	});
+
+	it('opens a stored legacy transition record as a two-Scene Film, and saves it as a Film', () => {
+		const transitionPreset = requireCataloguedPreset('transition-wipe-demo');
+		const transition = transitionPreset.transition;
+		if (!transition) throw new Error('transition-wipe-demo states no transition.');
+		const meta = { forkedFrom: null, savedAt: '2026-10-08T00:00:00.000Z' };
+		const reading = readStoredUserCompositionRecord(
+			{ meta, preset: cloneJsonValue(presetToWireFormat(transitionPreset)) },
+			{ resolvePreset: getPresetBySlug }
+		);
+		if (reading.recordShape !== 'preset') throw new Error('Expected a legacy record reading.');
+
+		applyFilm(reading.film, legacyPresetEnvelopeFromPreset(reading.preset));
+
+		expect(readOpenFilm().scenes.map((scene) => scene.origin)).toEqual([
+			{ slug: transition.from, contentKey: null },
+			{ slug: transition.to, contentKey: null }
+		]);
+		expect(readOpenFilm().boundaries.map((boundary) => boundary.kind)).toEqual([transition.effect]);
+		// The next save writes the Film, not the legacy Preset.
+		const saved = JSON.parse(
+			JSON.stringify(
+				storedUserCompositionRecordFromDocument(meta, readOpenFilmAsUserCompositionDocument())
+			)
+		) as Record<string, unknown>;
+		expect(Object.keys(saved)).toEqual(['meta', 'film']);
+		const reopened = readStoredUserCompositionRecord(saved);
+		expect(reopened.recordShape).toBe('film');
+		expect(reopened.film).toEqual(reading.film);
 	});
 
 	it('holds each Scene name through selection, and leaves an unnamed Scene unnamed', () => {
@@ -242,16 +289,12 @@ describe('whether the open Film shows the Scene its poster is', () => {
 		expect(isOpenFilmShowingPosterScene()).toBe(true);
 	});
 
-	it('is false while a Scene swap or a transition capture has engine state in transit', () => {
+	it('is false while a Scene swap has engine state in transit', () => {
 		openTwoSceneFilm();
 
 		filmState.isSwappingScene = true;
 		expect(isOpenFilmShowingPosterScene()).toBe(false);
 		filmState.isSwappingScene = false;
-
-		transitionState.capturing = true;
-		expect(isOpenFilmShowingPosterScene()).toBe(false);
-		transitionState.capturing = false;
 
 		expect(isOpenFilmShowingPosterScene()).toBe(true);
 	});

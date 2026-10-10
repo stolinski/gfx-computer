@@ -28,7 +28,7 @@
  * Scene and the Timeline's Scene time.
  */
 import { compositionEditHistory } from './composition-edit-history';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import {
 	filmFrameCount,
 	filmFrameForSceneFrame,
@@ -134,11 +134,6 @@ async function swapOpenFilmToScene(
 	sceneFrame: number,
 	purpose: OpenFilmSceneSwapPurpose
 ): Promise<void> {
-	if (transitionState.capturing) {
-		throw new Error(
-			'A Scene cannot be selected mid transition capture: engine state holds a scratch composition, not the selected Scene.'
-		);
-	}
 	// Read before the swap, so an unknown Scene or a frame outside it is refused
 	// with nothing changed.
 	const film = readOpenFilm();
@@ -192,9 +187,9 @@ async function swapOpenFilmToScene(
  *
  * Rejects with a `RangeError` when the open Film has no Scene with that id or
  * `sceneFrame` is outside it, a `TypeError` when `sceneFrame` is not a whole
- * number, and an `Error` during a transition capture or when another Scene is
- * asked for while the Film's Scenes are being rendered (an export, or a paused
- * boundary window frame). In each case nothing was changed.
+ * number, and an `Error` when another Scene is asked for while the Film's
+ * Scenes are being rendered (an export, or a paused boundary window frame). In
+ * each case nothing was changed.
  */
 export function selectOpenFilmScene(sceneId: string, sceneFrame: number): Promise<void> {
 	return queueOpenFilmSceneSwap(() => swapOpenFilmToScene(sceneId, sceneFrame, 'selection'));
@@ -216,7 +211,7 @@ export interface OpenFilmExportBracket {
 	 * export scrubs it from where it stands, as it always did for one Scene.
 	 *
 	 * Rejects with a `RangeError` for a Scene the open Film does not hold, and an
-	 * `Error` during a transition capture or once the bracket has closed.
+	 * `Error` once the bracket has closed.
 	 */
 	showScene(sceneId: string): Promise<void>;
 	/**
@@ -329,7 +324,6 @@ async function presentOpenFilmBoundaryFrameAtRest(request: number): Promise<void
 	if (
 		presenter === null ||
 		timelineHandle.current?.isPlaying === true ||
-		transitionState.capturing ||
 		isOpenFilmSceneRenderHoldOpen
 	) {
 		return;

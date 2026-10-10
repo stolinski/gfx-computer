@@ -31,6 +31,7 @@ import {
 } from './user-composition-record';
 import { moveUserCompositionToTrash } from './user-composition-trash.server';
 
+import type { Preset } from './engine-schema';
 import type { UserCompositionStoreLocation } from './user-composition-store-location.server';
 
 /** One shadow record and where it goes. */
@@ -39,8 +40,6 @@ export interface UserCompositionShadowRecordMove {
 	fromSlug: string;
 	/** The free slug it is re-keyed to. */
 	toSlug: string;
-	/** The record shape written: a Film, or the legacy Preset shape a transition keeps. */
-	recordShape: 'film' | 'preset';
 	fromPath: string;
 	toPath: string;
 }
@@ -65,6 +64,12 @@ export interface UserCompositionShadowRecordMigrationRequest {
 	storeDirectory: string;
 	/** Every corpus Preset slug, deliverables and fixtures alike. */
 	corpusSlugs: readonly string[];
+	/**
+	 * The corpus Preset with this slug, or `null`. A shadow record that states
+	 * a legacy two-endpoint `transition` is re-keyed as the two-Scene Film of the
+	 * two corpus Presets it names (ADR-0068 §3).
+	 */
+	resolveCorpusPreset: (slug: string) => Preset | null;
 	dryRun: boolean;
 	/** The moment stamped into trashed file names. */
 	now?: Date;
@@ -136,12 +141,23 @@ function firstFreeNumberedSlug(slug: string, takenSlugs: ReadonlySet<string>): s
 /**
  * The document a shadow record is re-keyed as: what it reads to, with its
  * Scene's origin naming the corpus Preset it shadowed when the record did not
- * already say where the Scene came from.
+ * already say where the Scene came from. A legacy transition record reads as
+ * two Scenes that each already name their endpoint.
  */
-function readShadowRecordDocument(value: unknown, shadowedSlug: string): UserCompositionDocument {
-	const reading = readStoredUserCompositionRecord(value, { packScope: 'stored' });
+function readShadowRecordDocument(
+	value: unknown,
+	shadowedSlug: string,
+	resolveCorpusPreset: (slug: string) => Preset | null
+): UserCompositionDocument {
+	const reading = readStoredUserCompositionRecord(value, {
+		packScope: 'stored',
+		resolvePreset: resolveCorpusPreset
+	});
 	const document = userCompositionDocumentFromReading(reading);
-	const keepsOrigin = reading.recordShape === 'film' && document.film.scenes[0].origin !== null;
+	const keepsOrigin =
+		reading.recordShape === 'film'
+			? document.film.scenes[0].origin !== null
+			: reading.preset.transition !== undefined;
 	if (keepsOrigin) return document;
 	return {
 		...document,
@@ -159,11 +175,11 @@ function readShadowRecordDocument(value: unknown, shadowedSlug: string): UserCom
  * Re-key every record stored under a corpus slug, or plan it under `dryRun`.
  *
  * Each record keeps its metadata, `forkedFrom` and `savedAt` included: a
- * migration is not an edit. It is written as `{ meta, film }`, or kept in the
- * legacy `{ meta, preset }` shape when it carries a transition
- * (`userCompositionWriteShape`). The new file is written before the old one
- * moves to trash, so an interrupted run loses nothing and the next run
- * finishes it. A record this engine cannot read is skipped and left in place.
+ * migration is not an edit. It is written as `{ meta, film }`. The new file is
+ * written before the old one moves to trash, so an interrupted run loses
+ * nothing and the next run finishes it. A legacy transition record is written
+ * as the two-Scene Film it reads as. A record this engine cannot read is
+ * skipped and left in place.
  *
  * Throws `NotAUserCompositionStoreDirectoryError`.
  */
@@ -198,7 +214,7 @@ export async function migrateUserCompositionShadowRecords(
 			const value: unknown = JSON.parse(await readFile(fromPath, 'utf-8'));
 			const meta = readStoredUserCompositionMeta(value);
 			if (meta === null) throw new Error('The file is not a stored record.');
-			document = readShadowRecordDocument(value, fromSlug);
+			document = readShadowRecordDocument(value, fromSlug, request.resolveCorpusPreset);
 			record = storedUserCompositionRecordFromDocument(meta, document);
 		} catch (cause) {
 			report.skipped.push({
@@ -212,13 +228,7 @@ export async function migrateUserCompositionShadowRecords(
 		const toSlug = firstFreeNumberedSlug(fromSlug, takenSlugs);
 		takenSlugs.add(toSlug);
 		const toPath = join(storeDirectory, `${toSlug}${RECORD_FILE_SUFFIX}`);
-		report.moves.push({
-			fromSlug,
-			toSlug,
-			recordShape: 'film' in record ? 'film' : 'preset',
-			fromPath,
-			toPath
-		});
+		report.moves.push({ fromSlug, toSlug, fromPath, toPath });
 		if (dryRun) continue;
 
 		await writeUserCompositionFileAtomically(toPath, JSON.stringify(record, null, '\t'));

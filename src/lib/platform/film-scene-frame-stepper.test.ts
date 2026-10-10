@@ -4,7 +4,7 @@ import twoSceneCutFilmJson from '../../../scripts/fixtures/film-cut-frames/two-s
 
 import { compositionEditHistory } from './composition-edit-history';
 import type { CompositionFrameRenderResult } from './composition-frame-renderer';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { parseFilm } from './film-ingress';
 import { filmSceneFrameCount } from './film-playhead';
 import {
@@ -307,7 +307,6 @@ describe('the Scene frame stepper over the open Film', () => {
 	}
 
 	beforeEach(() => {
-		transitionState.capturing = false;
 		filmState.isSwappingScene = false;
 		timelineHandle.current = null;
 		openFilmSceneSettlerHandle.current = null;

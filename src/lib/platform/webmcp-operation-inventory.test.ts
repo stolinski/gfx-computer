@@ -261,7 +261,6 @@ describe('WebMCP operation inventory', () => {
 			'orientation-override-present',
 			'keyframe-channel-present',
 			'cascade-anchor-present',
-			'transition-present',
 			'audio-cue-present',
 			'media-permitted',
 			'media-entry-present',

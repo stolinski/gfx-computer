@@ -16,7 +16,7 @@ import {
 } from './composition-kinetic-type-operations';
 import { compositionMeta } from './composition-meta.svelte';
 import type { CompositionOperationFailure } from './composition-operation-preflight';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { StageSchema } from './engine-schema';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
@@ -36,7 +36,6 @@ function expectFailed(outcome: CompositionOperationOutcome): CompositionOperatio
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

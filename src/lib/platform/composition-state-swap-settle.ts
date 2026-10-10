@@ -2,12 +2,12 @@
  * What has to happen after a whole composition state is written into engine
  * state before the canvas shows it at one moment of its own time.
  *
- * Two callers swap a whole state in: the transition snapshot controller, which
- * borrows engine state for each endpoint and gives it back
- * (`./transition-snapshot-controller.ts`), and Scene selection, which makes
- * another Scene of the open Film live and leaves it there
- * (`./film-scene-selection.ts`). Both settle through this one sequence, so a
- * swapped-in state is ready by the same rule whoever swapped it.
+ * Every swap of a whole Scene goes through `./film-scene-selection.ts`: a
+ * Scene selection, which makes another Scene of the open Film live and leaves
+ * it there, and the hold an export or a boundary window frame opens, which
+ * shows a Scene to render it and gives the author's Scene back. All of them
+ * settle through this one sequence, so a swapped-in state is ready by the same
+ * rule whoever swapped it.
  */
 export interface CompositionStateSwapSettleDependencies {
 	flushDom(): Promise<void>;

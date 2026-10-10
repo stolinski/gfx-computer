@@ -164,9 +164,11 @@ function parseUserCompositionMetaList(value: unknown): UserCompositionMeta[] {
 function parseUserComposition(value: unknown, slug: string): UserCompositionDocument | null {
 	if (value === null) return null;
 	try {
-		// The origin answers with the standalone document: the Film, or the one
-		// legacy Preset shape a transition keeps.
-		return readStandaloneUserCompositionDocument(value, { packScope: 'stored' });
+		// The origin answers with the standalone document, the Film.
+		return readStandaloneUserCompositionDocument(value, {
+			packScope: 'stored',
+			resolvePreset: getPresetBySlug
+		});
 	} catch (cause) {
 		throw new TypeError(`Failed to load User composition "${slug}": invalid response`, { cause });
 	}
@@ -284,6 +286,7 @@ export const userCompositionStore: UserCompositionStore =
 				resolveStorage: resolveBrowserSessionStorage,
 				storageIdentity: compositionSessionStoreConfig.storageIdentity,
 				limits: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
-				isStarterSlug: (slug) => getPresetBySlug(slug) !== null
+				isStarterSlug: (slug) => getPresetBySlug(slug) !== null,
+				resolveStarterPreset: getPresetBySlug
 			})
 		: originUserCompositionStore;

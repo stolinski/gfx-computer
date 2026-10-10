@@ -20,6 +20,8 @@ import {
 } from './user-composition-record';
 import { UserCompositionStarterSlugError } from './user-composition-store-errors';
 
+import type { PresetSemanticValidationOptions } from './preset-validation';
+
 /**
  * Refuse a write under a corpus Preset's slug with 409. `/p/<corpus-slug>`
  * always shows the pristine Starter, so a record there could never be opened.
@@ -27,6 +29,16 @@ import { UserCompositionStarterSlugError } from './user-composition-store-errors
 export function refuseUserCompositionWriteAtStarterSlug(slug: string): void {
 	if (getPresetBySlug(slug) !== null) error(409, new UserCompositionStarterSlugError(slug).message);
 }
+
+/**
+ * How every disk-store route reads a composition document: Packs resolved as
+ * stored documents resolve them, and a legacy transition Preset's two
+ * endpoints looked up in the corpus.
+ */
+export const STORED_DOCUMENT_READ_OPTIONS: PresetSemanticValidationOptions = {
+	packScope: 'stored',
+	resolvePreset: getPresetBySlug
+};
 
 /** How a write request carries its composition document. */
 export type UserCompositionWriteRequestBody =
@@ -37,9 +49,9 @@ export type UserCompositionWriteRequestBody =
 
 /**
  * The document a write request stores. A Film is stored as it is. A Preset is
- * lifted to a one-Scene Film, except in the one legacy shape
- * `userCompositionWriteShape` still writes. Answers 400 for a document this
- * engine does not accept and 422 for media the origin cannot serve.
+ * lifted to a Film: one Scene, or two for a legacy transition Preset
+ * (ADR-0068 §3). Answers 400 for a document this engine does not accept and
+ * 422 for media the origin cannot serve.
  */
 export async function readUserCompositionWriteRequest(
 	body: unknown,
@@ -49,8 +61,8 @@ export async function readUserCompositionWriteRequest(
 	try {
 		document =
 			bodyShape === 'standalone-document'
-				? readStandaloneUserCompositionDocument(body, { packScope: 'stored' })
-				: readUserCompositionDocumentWireBody(body, { packScope: 'stored' });
+				? readStandaloneUserCompositionDocument(body, STORED_DOCUMENT_READ_OPTIONS)
+				: readUserCompositionDocumentWireBody(body, STORED_DOCUMENT_READ_OPTIONS);
 	} catch (cause) {
 		if (isStoredUserCompositionRecordError(cause)) {
 			error(400, `Invalid composition: ${cause.message}`);

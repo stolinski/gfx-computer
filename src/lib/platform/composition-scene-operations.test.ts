@@ -18,7 +18,7 @@ import {
 	runSelectCompositionSceneOperation,
 	type CompositionSceneSelectionOutcome
 } from './composition-scene-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { FILM_FIRST_SCENE_ID, filmToWireFormat } from './film-ingress';
 import { filmSceneFrameCount } from './film-playhead';
 import { filmState, readOpenFilm } from './film-state.svelte';
@@ -103,7 +103,6 @@ beforeEach(async () => {
 	sessionStore.listUserCompositions.mockResolvedValue([]);
 	sessionStore.loadUserComposition.mockResolvedValue(null);
 	sessionStore.createUserComposition.mockResolvedValue(undefined);
-	transitionState.capturing = false;
 	filmState.isSwappingScene = false;
 	compositionMeta.persistenceError = null;
 

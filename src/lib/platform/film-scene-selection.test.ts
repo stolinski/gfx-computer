@@ -11,7 +11,7 @@ import {
 	type CompositionOperationOutcome,
 	type CompositionOperationReceipt
 } from './composition-edit-transaction';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { parseFilm } from './film-ingress';
 import {
 	filmFrameCount,
@@ -95,7 +95,6 @@ function storedFilmJson(): string {
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	filmState.isSwappingScene = false;
 	timelineHandle.current = null;
 	openFilmSceneSettlerHandle.current = null;
@@ -341,15 +340,6 @@ describe('selecting a Scene', () => {
 
 		expect(filmState.selectedSceneId).toBe(HERO);
 		expect(storedFilmJson()).toBe(before);
-	});
-
-	it('refuses mid transition capture, when engine state is not the selected Scene', async () => {
-		openTwoSceneCutFilm();
-		transitionState.capturing = true;
-
-		await expect(selectOpenFilmScene(LOWER_THIRD, 0)).rejects.toThrow('mid transition capture');
-
-		expect(filmState.selectedSceneId).toBe(HERO);
 	});
 });
 

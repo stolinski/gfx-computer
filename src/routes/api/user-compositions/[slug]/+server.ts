@@ -26,7 +26,8 @@ import {
 import { moveUserCompositionToTrash } from '$lib/platform/user-composition-trash.server';
 import {
 	readUserCompositionWriteRequest,
-	refuseUserCompositionWriteAtStarterSlug
+	refuseUserCompositionWriteAtStarterSlug,
+	STORED_DOCUMENT_READ_OPTIONS
 } from '$lib/platform/user-composition-write.server';
 
 function userCompositionPathForSlug(storeDirectory: string, slug: string): string {
@@ -83,7 +84,7 @@ async function readUserCompositionStandaloneDocument(
 	try {
 		standaloneDocument = standaloneUserCompositionDocument(
 			userCompositionDocumentFromReading(
-				readStoredUserCompositionRecord(storedUserComposition, { packScope: 'stored' })
+				readStoredUserCompositionRecord(storedUserComposition, STORED_DOCUMENT_READ_OPTIONS)
 			)
 		);
 	} catch (cause) {
@@ -91,9 +92,9 @@ async function readUserCompositionStandaloneDocument(
 		error(409, `Stored composition "${slug}" is not one this engine accepts:\n${cause.message}`);
 	}
 	// The API is an interchange boundary: GET returns the standalone document
-	// PUT accepts, which is the Film — or the legacy Preset for the one exception
-	// `userCompositionWriteShape` makes. A legacy record's `forkedFrom` is the
-	// lifted Scene's origin. Nothing is written here; a legacy file stays as it
+	// PUT accepts, which is the Film. A legacy record's `forkedFrom` is the
+	// lifted Scene's origin, and a legacy transition record reads as a two-Scene
+	// Film of its two endpoints. Nothing is written here; a legacy file stays as it
 	// is until it is saved. Stored compositions remain readable when immutable
 	// media goes missing so the GUI can surface the decoder error and let the
 	// author replace or remove a referenced asset. New writes below still reject

@@ -49,8 +49,6 @@ import {
 } from './pipelines/depth-stage-camera';
 import { EffectChain } from './pipelines/effect-chain';
 import { ShaderPassDispatcher, type ShaderPassDispatchList } from './pipelines/shader-pass-runner';
-import type { CompiledTransitionEffect } from './pipelines/transition-pass';
-import type { TransitionSnapshotFrameTextures } from './pipelines/transition-snapshots';
 import type { ShaderPass, SurfaceRenderInputs, SurfaceRenderInstance } from './pipelines/types';
 import type { PreparedVideoUnderlayTexture } from './video-underlay-frame-texture';
 
@@ -124,15 +122,6 @@ export interface CompositionFrameRenderResources {
 	depthStage: DepthStage | null;
 }
 
-export interface CachedTransitionFrame {
-	snapshots: TransitionSnapshotFrameTextures;
-	effect: CompiledTransitionEffect;
-	params: unknown;
-	durationMs: number;
-	width: number;
-	height: number;
-}
-
 export interface CompositionDomCaptureGenerations {
 	surface: number;
 	overlay: number;
@@ -178,7 +167,6 @@ export interface CompositionFrameRenderRequest {
 	readableProbeMode?: CompositionReadableProbeMode;
 	domCapture?: CompositionDomCaptureGenerations;
 	resources: CompositionFrameRenderResources;
-	cachedTransition: CachedTransitionFrame | null;
 	buildSurfaceInputs(timestamp: number): SurfaceRenderInputs;
 }
 
@@ -273,7 +261,7 @@ function uploadDomIfPainted(upload: () => void): boolean {
 	}
 }
 
-export type CompositionFrameRenderBranch = 'transition' | 'stage' | 'dof' | 'flat';
+export type CompositionFrameRenderBranch = 'stage' | 'dof' | 'flat';
 export type CompositionFrameRenderResult = CompositionFrameRenderBranch | 'unavailable';
 
 /** A non-self-fading surface with an authored opacity channel needs a separate
@@ -293,15 +281,11 @@ export function shouldSplitCompositionPlanes(state: EngineState): boolean {
 	return hasDof || hasCompositionOwnedSurfaceOpacity(state) || hasStageOverlay;
 }
 
-/** Ordered branch policy for one frame. Stage has first live precedence, then
- * multiplane DOF, then flat. A prepared transition excludes every live branch. */
+/** Ordered branch policy for one frame. Stage has first precedence, then
+ * multiplane DOF, then flat. */
 export function resolveCompositionFrameBranchOrder(
-	state: EngineState,
-	hasCachedTransition: boolean
+	state: EngineState
 ): readonly CompositionFrameRenderBranch[] {
-	if (hasCachedTransition) {
-		return ['transition'];
-	}
 	const branches: CompositionFrameRenderBranch[] = [];
 	if (state.stage?.type === 'depth') {
 		branches.push('stage');
@@ -851,35 +835,12 @@ function renderFlatFrame(
 	return true;
 }
 
-/** Render one deterministic composition frame. Preview, transition snapshots,
+/** Render one deterministic composition frame. Preview, the Scene frame stepper,
  * and export all call this exact seam with an explicit output view + timestamp. */
 export function renderCompositionFrameTo(
 	request: CompositionFrameRenderRequest
 ): CompositionFrameRenderResult {
-	const branches = resolveCompositionFrameBranchOrder(
-		request.state,
-		request.cachedTransition !== null
-	);
-	if (branches[0] === 'transition' && request.cachedTransition) {
-		const progress = clampNumber(
-			(request.timestamp * 1000) / request.cachedTransition.durationMs,
-			0,
-			1
-		);
-		request.cachedTransition.effect.apply({
-			fromView: request.cachedTransition.snapshots.fromTexture().createView(),
-			toView: request.cachedTransition.snapshots.toTexture().createView(),
-			outputView: request.outputView,
-			params: request.cachedTransition.params,
-			context: {
-				progress,
-				timestamp: request.timestamp,
-				canvasWidth: request.cachedTransition.width,
-				canvasHeight: request.cachedTransition.height
-			}
-		});
-		return 'transition';
-	}
+	const branches = resolveCompositionFrameBranchOrder(request.state);
 
 	const { pipeline, host, effectChain, shaderPassDispatcher } = request.resources;
 	if (!pipeline || !host || !effectChain || !shaderPassDispatcher) {

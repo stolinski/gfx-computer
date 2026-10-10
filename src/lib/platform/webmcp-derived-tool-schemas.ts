@@ -59,7 +59,7 @@ import {
 	TEXT_ANIMATION_TARGET_KINDS,
 	WEB_DOCUMENT_SITES
 } from './engine-schema';
-import { listFixtures, listPresets } from './preset-catalog';
+import { listPresets } from './preset-catalog';
 import { listSubstrateAssets } from './substrate-textures';
 import { listEffectKeyframeChannels } from './effect-keyframe-channels';
 import { PACK_REGISTRY_SLUGS } from './packs/registry';
@@ -71,7 +71,6 @@ import {
 	REGISTERED_SURFACE_TYPES
 } from './pipelines/definition-registry';
 import { STAGE_REGISTRY } from './pipelines/stage-registry';
-import { transitionEffectTypes } from './pipelines/transition-definition-registry';
 import {
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
 	WEBMCP_CORE_REGISTERED_CEILING,
@@ -105,7 +104,6 @@ export type WebmcpDerivedEnumName =
 	| 'overlay-type'
 	| 'overlay-anchor'
 	| 'effect-type'
-	| 'transition-effect'
 	| 'text-effect'
 	| 'text-animation-target-kind'
 	| 'text-animation-surface-slot'
@@ -131,7 +129,6 @@ export type WebmcpDerivedEnumName =
 	| 'stage-backdrop-asset'
 	| 'pack-slug'
 	| 'starter-slug'
-	| 'transition-endpoint-slug'
 	| 'sound-event'
 	| 'sound-asset'
 	| 'caption-style'
@@ -242,7 +239,6 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'overlay-type': REGISTERED_OVERLAY_TYPES,
 		'overlay-anchor': OVERLAY_PLACEMENT_ANCHORS,
 		'effect-type': REGISTERED_EFFECT_TYPES,
-		'transition-effect': transitionEffectTypes(),
 		'text-effect': TEXT_EFFECT_IDS,
 		'text-animation-target-kind': TEXT_ANIMATION_TARGET_KINDS,
 		'text-animation-surface-slot': TEXT_ANIMATION_SURFACE_SLOTS,
@@ -268,9 +264,6 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'stage-backdrop-asset': listSubstrateAssets(),
 		'pack-slug': PACK_REGISTRY_SLUGS,
 		'starter-slug': listPresets().map((entry) => entry.slug),
-		// A transition wipes between any two catalogued compositions, fixtures
-		// included, which is a wider set than the Starters a caller forks from.
-		'transition-endpoint-slug': [...listPresets(), ...listFixtures()].map((entry) => entry.slug),
 		'sound-event': SOUND_EVENTS,
 		'sound-asset': listSoundAssets(),
 		'caption-style': CAPTION_STYLES,

@@ -29,9 +29,8 @@
  *
  * A record holds a Film; one an older release left may hold a Preset
  * (ADR-0068 §3). Both read through `readStoredUserCompositionRecord`, the reader
- * the disk store shares, and both open as a Film. Every write stores what
- * `userCompositionWriteShape` chooses, which is a Film but for one exception,
- * so the first save of a legacy record replaces it with a Film.
+ * the disk store shares, and both open as a Film. Every write stores a Film, so
+ * the first save of a legacy record replaces it with one.
  *
  * Two tabs are the one concurrency this store has. They share the storage area
  * and neither knows the other exists, so every write is stamped and a save that
@@ -163,6 +162,12 @@ export interface BrowserUserCompositionStoreOptions {
 	 * the whole corpus in.
 	 */
 	isStarterSlug: (slug: string) => boolean;
+	/**
+	 * The corpus Preset with this slug, or `null`. A legacy record whose Preset
+	 * states a two-endpoint `transition` is read as a two-Scene Film of the two
+	 * Presets it names (ADR-0068 §3). Injected for the same reason.
+	 */
+	resolveStarterPreset: (slug: string) => Preset | null;
 }
 
 /** One composition parsed out of storage. */
@@ -263,7 +268,8 @@ export function createBrowserUserCompositionStore(
 		let legacyPreset: Preset | null = null;
 		try {
 			const reading = readStoredUserCompositionRecord(
-				'film' in stored ? { meta, film: stored.film } : { meta, preset: stored.preset }
+				'film' in stored ? { meta, film: stored.film } : { meta, preset: stored.preset },
+				{ resolvePreset: options.resolveStarterPreset }
 			);
 			document = userCompositionDocumentFromReading(reading);
 			if (reading.recordShape === 'preset') legacyPreset = reading.preset;

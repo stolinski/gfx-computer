@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
-import { transitionState } from './engine-state.svelte';
 import { filmFromCorpusPreset } from './film-ingress';
 import {
 	filmFrameCount,
@@ -96,7 +95,6 @@ async function openStarterPicker(): Promise<HTMLElement> {
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	filmState.isSwappingScene = false;
 	// jsdom has no popover API; the picker only ever closes itself through it.
 	HTMLElement.prototype.hidePopover = vi.fn();

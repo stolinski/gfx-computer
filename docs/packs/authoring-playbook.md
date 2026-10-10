@@ -77,7 +77,7 @@ No human-ratified current bundle → the Pack remains renderable for authoring b
 - **Shader masks must be luminance-compensated** (`maskRGB / maskMean`) or they silently regress G5 on dim text.
 - **Sub-pitch hairlines null under a raster.** Any hairline form dress must span ≥ 1 raster pitch of the pack's chrome or it reads as broken dashes.
 - **Silent roles must stay byte-identical.** Form dress wraps `var(--suffix, <exact current value>)` in the pipeline — a pack with no claim must not move a pixel (the pixel-diff lock's inverse, checked by byte-compare on syntax).
-- **In-page pack flips fork compositions.** Swapping `packState` from the console requires the app's `?t=`-versioned module URL AND a `transitionState.capturing = true` bracket, or `/p/[slug]` autosave forks the composition into `user-compositions/`.
+- **In-page pack flips need the app's own module.** Swapping `packState` from the console requires the app's `?t=`-versioned module URL. On a corpus Preset's page nothing is saved ([ADR-0068](../adr/0068-films-scenes-and-live-scene-boundaries.md) §3). On a stored Film's page the swap is an edit and autosaves, so do it on a corpus Preset. _Until 2026-10-09 this needed a `transitionState.capturing = true` bracket; that flag went with the frozen-endpoint transition lane._
 - **Defensive values for ruled-out capabilities** (§ 2.7) — an aesthetic-doc prohibition is not a runtime guarantee.
 
 ## 7 — Promotion lane (User Pack → catalog)

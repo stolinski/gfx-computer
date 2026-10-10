@@ -17,7 +17,7 @@ import {
 } from './composition-edit-transaction';
 import type { CompositionOperationFailure } from './composition-operation-preflight';
 import { ACCEPTED_COMPOSITION_SCHEMA_IDS } from '../utils/legacy-supers-compatibility';
-import { engineState, packState, transitionState } from './engine-state.svelte';
+import { engineState, packState } from './engine-state.svelte';
 import { FILM_FIRST_SCENE_ID, filmToWireFormat } from './film-ingress';
 import { filmState, readOpenFilm, readOpenFilmAsSavedPreset } from './film-state.svelte';
 import { hashStringToUnitInterval } from '../utils/seeded';
@@ -91,7 +91,6 @@ function orientationRequest(
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 });
 
@@ -271,10 +270,11 @@ describe('composition edit transaction refusals', () => {
 		expect(packState.slug).toBe('syntax');
 	});
 
-	it('refuses every transaction while the transition snapshot path owns engine state', async () => {
-		transitionState.capturing = true;
+	it('refuses every transaction while a Scene swap has engine state in transit', async () => {
+		filmState.isSwappingScene = true;
 
 		const failure = expectFailed(await runCompositionEditTransaction(renameRequest('Renamed')));
+		filmState.isSwappingScene = false;
 
 		expect(failure.code).toBe('precondition_unmet');
 		expect(presetBase.name).toBe('Blank');

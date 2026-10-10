@@ -19,11 +19,13 @@
  * Both print the report as JSON: `moves` (planned under `--dry-run`, done
  * otherwise) and `skipped` (records left in place, each with its reason).
  */
+import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import type { Preset } from '../src/lib/platform/engine-schema';
 import type {
 	UserCompositionShadowRecordMigrationReport,
 	UserCompositionShadowRecordMigrationRequest
@@ -60,6 +62,7 @@ const migrationModulePath = resolve(
 	repoRoot,
 	'src/lib/platform/user-composition-shadow-record-migration.server.ts'
 );
+const presetIngressModulePath = resolve(repoRoot, 'src/lib/platform/preset-ingress.ts');
 
 const DRY_RUN_FLAG = '--dry-run';
 const commandArguments = process.argv.slice(2);
@@ -89,10 +92,26 @@ const { migrateUserCompositionShadowRecords } = (await import(
 	) => Promise<UserCompositionShadowRecordMigrationReport>;
 };
 
+const { PresetIngressSchema } = (await import(pathToFileURL(presetIngressModulePath).href)) as {
+	PresetIngressSchema: {
+		safeParse(value: unknown): { success: true; data: Preset } | { success: false };
+	};
+};
+
+/** The corpus Preset a legacy transition record names as an endpoint, read off disk. */
+function resolveCorpusPreset(slug: string): Preset | null {
+	if (!corpusSlugs.includes(slug)) return null;
+	const parsed = PresetIngressSchema.safeParse(
+		JSON.parse(readFileSync(resolve(corpusPresetDirectory, `${slug}.json`), 'utf-8'))
+	);
+	return parsed.success ? parsed.data : null;
+}
+
 try {
 	const report = await migrateUserCompositionShadowRecords({
 		storeDirectory: resolve(positionalArguments[0]),
 		corpusSlugs,
+		resolveCorpusPreset,
 		dryRun
 	});
 	console.log(JSON.stringify(report, null, 2));

@@ -94,7 +94,7 @@ import { compositionEditHistory } from './composition-edit-history';
 import { compositionExportHandle } from './composition-export-handle.svelte';
 import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { compositionMeta } from './composition-meta.svelte';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { readOpenFilm } from './film-state.svelte';
 import { listWebmcpToolDefinitions } from './webmcp-tool-definitions';
 import { parsePresetIngress } from './preset-ingress';
@@ -243,7 +243,6 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	sessionStore.listUserCompositions.mockResolvedValue([]);
 	sessionStore.createUserComposition.mockResolvedValue(undefined);
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = false;
 	compositionMeta.userCompositionSlug = null;
@@ -564,7 +563,7 @@ describe('WebMCP authoring without an interface', () => {
 		compositionExportHandle.current = () =>
 			Promise.resolve({
 				status: 'delivered',
-				plan: buildCompositionExportPlan({ film: readOpenFilm(), transition: null }),
+				plan: buildCompositionExportPlan({ film: readOpenFilm() }),
 				videoByteLength: 4096,
 				wavFilename: null
 			});
@@ -812,7 +811,7 @@ describe('WebMCP authoring without an interface', () => {
 		// The playhead reports the whole Film, and which Scene it is in.
 		const playhead = await call('playhead.inspect');
 		const film = readOpenFilm();
-		const plan = buildCompositionExportPlan({ film, transition: null });
+		const plan = buildCompositionExportPlan({ film });
 		expect(playhead).toMatchObject({
 			status: 'inspected',
 			frame: 0,

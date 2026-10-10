@@ -6,6 +6,7 @@ import blankPresetJson from '$lib/presets/blank.json';
 import chapterCardDescentPresetJson from '$lib/presets/chapter-card-descent.json';
 import lowerThirdPresetJson from '$lib/presets/lower-third.json';
 
+import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { isEngineStateOpaque } from '../utils/output-classification';
 import { EngineStateSchema, type Preset } from './engine-schema';
 import {
@@ -17,7 +18,6 @@ import {
 	parseFilm,
 	parseFilmIngress,
 	presetFromFilmScene,
-	presetFromSingleSceneFilm,
 	sceneStateForPlayback,
 	validateFilmSemantics
 } from './film-ingress';
@@ -28,7 +28,9 @@ import {
 } from './film-playhead';
 import { FILM_SCHEMA_ID, type Film } from './film-schema';
 import { transitionEffectDefinitions } from './pipelines/transition-definition-registry';
+import { resolveLegacyTransitionEndpointFromCatalog } from './legacy-transition-endpoint-catalog';
 import { posterKeyForPreset } from './posters';
+import { getPresetBySlug, listFixtures } from './preset-catalog';
 import { parsePresetIngress } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
 import { validatePresetSemantics } from './preset-validation';
@@ -324,36 +326,151 @@ describe('parseFilm', () => {
 	});
 });
 
-describe('presetFromSingleSceneFilm', () => {
-	it('is the inverse of filmFromPreset for a deliverable Preset', () => {
-		const preset = parsePresetIngress(lowerThirdPresetJson);
-		const film = filmFromPreset(preset, null);
+// ADR-0068 §3: the legacy top-level `transition` is read as a two-Scene Film.
+describe('filmFromPreset of a legacy transition Preset', () => {
+	const options = { resolveLegacyTransitionEndpoint: resolveLegacyTransitionEndpointFromCatalog };
+	const transitionFixtures = listFixtures().filter(
+		(entry) => entry.preset.transition !== undefined
+	);
 
-		const restored = presetFromSingleSceneFilm(film);
+	function requireEndpoint(slug: string): Preset {
+		const endpoint = getPresetBySlug(slug);
+		assert.ok(endpoint, `The corpus holds no Preset "${slug}".`);
+		return endpoint;
+	}
 
-		assert.deepEqual(restored, preset);
-		assert.notEqual(restored.state, film.scenes[0].state);
+	it('reads the four corpus transition fixtures, one per registered effect', () => {
+		assert.deepEqual(
+			transitionFixtures.map((entry) => entry.preset.transition?.effect).sort(),
+			transitionEffectDefinitions()
+				.map((definition) => definition.type)
+				.sort()
+		);
 	});
 
-	it("stamps the Film's transport and names user work a deliverable", () => {
-		const film = filmFromPreset(parsePresetIngress(blankPresetJson), null);
-		film.orientation = 'vertical';
+	describe.each(transitionFixtures)('$slug', ({ preset }) => {
+		const transition = preset.transition;
+		assert.ok(transition);
+		const film = filmFromPreset(preset, null, options);
+		const from = requireEndpoint(transition.from);
+		const to = requireEndpoint(transition.to);
 
-		const restored = presetFromSingleSceneFilm(film);
+		it('is two Scenes, each an owned and named copy of its endpoint with its origin recorded', () => {
+			assert.deepEqual(
+				film.scenes.map((scene) => scene.id),
+				['scene-1', 'scene-2']
+			);
+			assert.deepEqual(
+				film.scenes.map((scene) => scene.name),
+				[from.name, to.name]
+			);
+			assert.deepEqual(
+				film.scenes.map((scene) => scene.origin),
+				[
+					{ slug: transition.from, contentKey: posterKeyForPreset(from) },
+					{ slug: transition.to, contentKey: posterKeyForPreset(to) }
+				]
+			);
+			assert.deepEqual(film.scenes[0].state, from.state);
+			assert.deepEqual(film.scenes[1].state, to.state);
+			assert.notEqual(film.scenes[0].state, from.state);
+			assert.notEqual(film.scenes[1].state, to.state);
+		});
 
-		assert.equal(restored.kind, 'deliverable');
-		assert.equal(restored.state.transport.orientation, 'vertical');
-		assert.equal('description' in restored, false);
+		it('has one boundary: the effect, its duration, and its params', () => {
+			const definition = transitionEffectDefinitions().find(
+				(candidate) => candidate.type === transition.effect
+			);
+			assert.ok(definition);
+			const params = definition.paramsSchema.safeParse(transition.params);
+			assert.ok(params.success);
+
+			assert.deepEqual(film.boundaries, [
+				{ kind: transition.effect, durationMs: transition.durationMs, params: params.data }
+			]);
+		});
+
+		it('takes its name, description, Pack, and transport from the transition Preset', () => {
+			assert.equal(film.name, preset.name);
+			assert.equal(film.description, preset.description);
+			assert.equal(film.pack, preset.pack);
+			assert.equal(film.orientation, preset.state.transport.orientation);
+			assert.equal(film.fps, preset.state.transport.fps);
+			assert.equal(film.format, preset.state.transport.format);
+			assert.equal('kind' in film, false);
+			assert.equal('transition' in film, false);
+		});
+
+		it('runs both Scenes whole, less the window they share', () => {
+			const rate = resolveFrameRate(film.fps);
+			const window = Math.round((transition.durationMs * rate.num) / (1000 * rate.den));
+
+			assert.deepEqual(filmSceneBoundaryOverlaps(film), [window]);
+			assert.equal(
+				filmFrameCount(film),
+				secondsToFrames(from.state.transport.durationSeconds, rate) +
+					secondsToFrames(to.state.transport.durationSeconds, rate) -
+					window
+			);
+		});
+
+		it('is a valid Film that round-trips through its wire form', () => {
+			assert.deepEqual(validateFilmSemantics(film), []);
+
+			const reparsed = parseFilm(JSON.parse(JSON.stringify(filmToWireFormat(film))));
+
+			assert.deepEqual(reparsed, film);
+			assert.deepEqual(JSON.parse(JSON.stringify(filmToWireFormat(reparsed))), {
+				...JSON.parse(JSON.stringify(filmToWireFormat(film)))
+			});
+		});
+
+		it('opens the same way as a corpus Preset, each Scene already named for its endpoint', () => {
+			assert.deepEqual(
+				filmFromCorpusPreset(preset, { slug: 'unused', contentKey: 'unused' }, options),
+				film
+			);
+		});
 	});
 
-	it('refuses a Film of more than one Scene, which is not one Preset', () => {
-		const film = parseFilmIngress(filmDocument([sceneDocument('intro'), sceneDocument('outro')]));
+	it('refuses without a way to look the endpoints up', () => {
+		const [fixture] = transitionFixtures;
+
+		assert.throws(() => filmFromPreset(fixture.preset, null), TypeError);
+	});
+
+	it('refuses an endpoint the catalogue does not hold, naming it', () => {
+		const [fixture] = transitionFixtures;
+		const transition = fixture.preset.transition;
+		assert.ok(transition);
 
 		assert.throws(
-			() => presetFromSingleSceneFilm(film),
+			() =>
+				filmFromPreset(
+					{ ...fixture.preset, transition: { ...transition, to: 'no-such-preset' } },
+					null,
+					options
+				),
 			(cause) =>
-				cause instanceof RangeError && /has 2 Scenes, so it is not one Preset/.test(cause.message)
+				cause instanceof RangeError &&
+				/transition\.to .* names the Preset "no-such-preset"/.test(cause.message)
 		);
+	});
+
+	it('refuses an effect that is not registered, or params the effect does not accept', () => {
+		const [fixture] = transitionFixtures;
+		const transition = fixture.preset.transition;
+		assert.ok(transition);
+
+		for (const broken of [
+			{ ...transition, effect: 'star-wipe' },
+			{ ...transition, effect: 'mask-wipe', params: { direction: 'sideways' } }
+		]) {
+			assert.throws(
+				() => filmFromPreset({ ...fixture.preset, transition: broken }, null, options),
+				(cause) => cause instanceof RangeError && /is not a Scene boundary/.test(cause.message)
+			);
+		}
 	});
 });
 

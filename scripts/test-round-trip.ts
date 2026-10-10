@@ -17,8 +17,7 @@ const ingressPath = resolve(repoRoot, 'src/lib/platform/preset-ingress.ts');
 const purePath = resolve(repoRoot, 'src/lib/platform/preset-pure.ts');
 
 type StructuralParseResult =
-	| { success: true; data: unknown }
-	| { success: false; error: { message: string } };
+	{ success: true; data: unknown } | { success: false; error: { message: string } };
 
 const { PresetIngressSchema } = (await import(pathToFileURL(ingressPath).href)) as {
 	PresetIngressSchema: { safeParse(value: unknown): StructuralParseResult };
@@ -112,33 +111,29 @@ for (const file of files) {
 	}
 }
 
-// Edited-metadata round-trip: the GUI edits name / description / kind /
-// transition through presetBase, so serialization must carry a base whose
-// metadata DIFFERS from the loaded preset. Structural check only — Preset ingress
-// does not resolve transition slugs (preset.ts does), so placeholder refs are
-// fine here.
+// Edited-metadata round-trip: the GUI edits name / description / kind through
+// presetBase, so serialization must carry a base whose metadata DIFFERS from
+// the loaded preset.
 if (firstValid) {
 	const editedBase = {
 		name: 'Edited name',
 		description: 'Edited description',
-		kind: 'fixture',
-		transition: { from: 'slug-a', to: 'slug-b', effect: 'mask-wipe', durationMs: 900, params: {} }
-	};
+		kind: 'fixture'
+	} as const;
 	const wire = presetToWireFormat(
 		serializeCompositionState(editedBase, firstValid['state'], firstValid['pack'] as string)
 	);
 	const reparsed = PresetIngressSchema.safeParse(wire);
 	const fields = reparsed.success
-		? (reparsed.data as { name: string; description?: string; kind: string; transition?: unknown })
+		? (reparsed.data as { name: string; description?: string; kind: string })
 		: null;
 	if (
 		fields &&
 		fields.name === editedBase.name &&
 		fields.description === editedBase.description &&
-		fields.kind === editedBase.kind &&
-		deepEqual(fields.transition, editedBase.transition)
+		fields.kind === editedBase.kind
 	) {
-		console.log('PASS: edited metadata (name/description/kind/transition)');
+		console.log('PASS: edited metadata (name/description/kind)');
 		passed += 1;
 	} else {
 		console.error('FAIL: edited metadata did not round-trip', fields);
@@ -154,8 +149,8 @@ if (firstValid) {
 			firstValid['pack'] as string
 		)
 	) as Record<string, unknown>;
-	if (!('description' in clearedWire) && !('transition' in clearedWire)) {
-		console.log('PASS: cleared description/transition serialize as absent keys');
+	if (!('description' in clearedWire)) {
+		console.log('PASS: cleared description serializes as an absent key');
 		passed += 1;
 	} else {
 		console.error('FAIL: cleared optional metadata leaked into the wire format');

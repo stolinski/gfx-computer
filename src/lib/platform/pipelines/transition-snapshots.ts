@@ -1,12 +1,13 @@
 import type { GpuHost } from '$lib/platform/gpu-host';
 
 /**
- * Owns the two cached colour textures a multi-state transition wipes between
- * (ADR-0026). Each holds the finished composite of one state (`from` / `to`),
- * captured once via the normal render path with the present pass pointed at the
- * snapshot's view instead of the canvas. The transition Effect then samples both
- * every frame and animates its mask over them — no per-frame re-render of either
- * state, no two live compositions.
+ * Owns the two colour textures a Scene boundary's effect composites
+ * (ADR-0068 §4): `from` holds the finished frame of the outgoing Scene and
+ * `to` the finished frame of the incoming one. The Scene frame stepper renders
+ * each Scene into its target on every window frame, with the present pass
+ * pointed at the target's view instead of the canvas, and the boundary's effect
+ * then samples both (`../film-boundary-frame-compositor.ts`). The names are
+ * the transition pass's: a from-view and a to-view.
  *
  * Textures are the host's canvas format (the present pass's output format) with
  * RENDER_ATTACHMENT (capture target) + TEXTURE_BINDING (sampled by the wipe).
@@ -46,22 +47,22 @@ export class TransitionSnapshots implements TransitionSnapshotFrameTextures {
 		this.#toTexture = host.device.createTexture(descriptor);
 	}
 
-	/** Render-attachment view to capture the `from` state's finished frame into. */
+	/** Render-attachment view the outgoing Scene's finished frame is rendered into. */
 	fromTarget(): GPUTextureView {
 		return this.#fromTexture.createView();
 	}
 
-	/** Render-attachment view to capture the `to` state's finished frame into. */
+	/** Render-attachment view the incoming Scene's finished frame is rendered into. */
 	toTarget(): GPUTextureView {
 		return this.#toTexture.createView();
 	}
 
-	/** Sampled view of the captured `from` snapshot, bound by the transition Effect. */
+	/** The outgoing Scene's frame as last rendered, sampled by the boundary's effect. */
 	fromTexture(): GPUTexture {
 		return this.#fromTexture;
 	}
 
-	/** Sampled view of the captured `to` snapshot, bound by the transition Effect. */
+	/** The incoming Scene's frame as last rendered, sampled by the boundary's effect. */
 	toTexture(): GPUTexture {
 		return this.#toTexture;
 	}

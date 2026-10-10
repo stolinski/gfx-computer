@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
 
-import { addOverlay, removeOverlay, transitionState } from './engine-state.svelte';
+import { addOverlay, removeOverlay } from './engine-state.svelte';
 import { applyFilm, applyPreset } from './preset';
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMediaGrants } from './composition-media-grants.svelte';
@@ -10,7 +10,6 @@ import { compositionMeta } from './composition-meta.svelte';
 import { filmFromPreset } from './film-ingress';
 import { filmState } from './film-state.svelte';
 import { parsePresetIngress } from './preset-ingress';
-import { presetBase } from './preset-base.svelte';
 import {
 	completeWebmcpRegistrationState,
 	readWebmcpCompositionPreconditions,
@@ -18,7 +17,6 @@ import {
 } from './webmcp-tool-preconditions.ts';
 import { userCompositionStore } from './user-composition-store';
 
-import type { CompositionTransition } from './engine-schema';
 import type { UserCompositionMeta } from './user-composition-store';
 import type { UserVideoAssetDescriptor } from './user-video-asset';
 
@@ -60,14 +58,6 @@ const GRANTED_ASSET: UserVideoAssetDescriptor = {
 	hasAudio: false
 };
 
-const COMPOSITION_TRANSITION: CompositionTransition = {
-	from: 'lower-third',
-	to: 'quote-magnify',
-	effect: 'wipe',
-	durationMs: 400,
-	params: {}
-};
-
 function openBlankComposition(): void {
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.userCompositionSlug = 'untitled';
@@ -78,7 +68,6 @@ function openBlankComposition(): void {
 beforeEach(() => {
 	vi.clearAllMocks();
 	sessionStore.listUserCompositions.mockResolvedValue([]);
-	transitionState.capturing = false;
 	compositionMediaGrants.clear();
 	compositionMeta.userCompositionSlug = null;
 	compositionMeta.forkedFrom = null;
@@ -106,7 +95,6 @@ describe('WebMCP preconditions with a composition open', () => {
 		expect(state['composition-editable']).toBe(true);
 		expect(state['overlay-present']).toBe(false);
 		expect(state['undo-available']).toBe(false);
-		expect(state['transition-present']).toBe(false);
 	});
 
 	it('reports a corpus Preset as unsaved, and a stored Film as not', () => {
@@ -147,14 +135,6 @@ describe('WebMCP preconditions with a composition open', () => {
 		compositionMeta.isUserComposition = false;
 	});
 
-	it('closes editing while a transition snapshot owns engine state', () => {
-		transitionState.capturing = true;
-		const state = readWebmcpCompositionPreconditions();
-
-		expect(state['composition-open']).toBe(true);
-		expect(state['composition-editable']).toBe(false);
-	});
-
 	it('closes editing while a Scene swap has not settled', () => {
 		filmState.isSwappingScene = true;
 		const state = readWebmcpCompositionPreconditions();
@@ -176,14 +156,6 @@ describe('WebMCP preconditions with a composition open', () => {
 
 		removeOverlay(overlayId);
 		expect(readWebmcpCompositionPreconditions()['overlay-present']).toBe(false);
-	});
-
-	it('sees the composition transition the Preset carries', () => {
-		presetBase.transition = COMPOSITION_TRANSITION;
-		expect(readWebmcpCompositionPreconditions()['transition-present']).toBe(true);
-
-		presetBase.transition = undefined;
-		expect(readWebmcpCompositionPreconditions()['transition-present']).toBe(false);
 	});
 
 	it('waits for the visitor to grant a file before media may be added', () => {

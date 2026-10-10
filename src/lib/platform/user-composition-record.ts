@@ -8,8 +8,9 @@
  * composition document. The Film shape, `{ meta, film }`, is what every writer
  * emits. The legacy shape, `{ meta, preset }`, holds a standalone Preset: both
  * stores still read it through `readStoredUserCompositionRecord`, and reading
- * never rewrites it. The first save of a legacy record writes the Film shape,
- * with one exception, `userCompositionWriteShape`.
+ * never rewrites it. The first save of a legacy record writes the Film shape.
+ * A legacy record whose Preset states a two-endpoint `transition` reads as a
+ * two-Scene Film and is saved as one.
  *
  * The disk store keeps this record as `<store>/<slug>.json`. The browser-scoped
  * store keeps the same metadata flat on its own envelope, beside a write token,
@@ -20,13 +21,12 @@ import {
 	filmToWireFormat,
 	parseFilm,
 	presetFromFilmScene,
-	presetFromSingleSceneFilm
+	validateFilmSemantics
 } from './film-ingress';
 import { filmFrameCount } from './film-playhead';
 import { FILM_SCHEMA_ID } from './film-schema';
 import { legacyPresetEnvelopeFromPreset, type LegacyPresetEnvelope } from './open-film-document';
 import { PresetIngressSchema } from './preset-ingress';
-import { presetToWireFormat, serializeCompositionState } from './preset-pure';
 import {
 	formatPresetSemanticIssues,
 	validatePresetSemantics,
@@ -73,8 +73,8 @@ export type StoredUserCompositionRecord =
 /**
  * What both stores hand back for one slug and accept on a write: the Film, and
  * the legacy Preset envelope the Workspace still opens it with
- * (`./open-film-document.ts`). A Film record carries no envelope fields, so it
- * opens as a `deliverable` with no transition recipe.
+ * (`./open-film-document.ts`). A Film record carries no envelope field, so it
+ * opens as a `deliverable`.
  */
 export interface UserCompositionDocument {
 	film: Film;
@@ -114,8 +114,8 @@ export function isStoredUserCompositionRecordError(
  * A stored record after reading: always a Film, whichever shape was stored.
  *
  * A legacy record also keeps the Preset it parsed to. Its lifted Film cannot
- * carry the Preset's `kind` or its `transition` recipe (`filmFromPreset` drops
- * both), so `userCompositionDocumentFromReading` reads them off that Preset.
+ * carry the Preset's `kind` (`filmFromPreset` drops it), so
+ * `userCompositionDocumentFromReading` reads it off that Preset.
  */
 export type StoredUserCompositionReading =
 	| { recordShape: 'preset'; meta: StoredUserCompositionMeta; film: Film; preset: Preset }
@@ -151,6 +151,13 @@ export function readStoredUserCompositionMeta(value: unknown): StoredUserComposi
  * Legacy Supers document still folds (ADR-0053), and is lifted to a one-Scene
  * Film with `filmFromPreset`. The lifted Scene's origin is the slug the record
  * was forked from with a `null` content key, or `null` when it was not forked.
+ *
+ * A legacy Preset that states a two-endpoint `transition` is lifted to a
+ * two-Scene Film with one boundary instead (ADR-0068 §3). Its endpoints are
+ * read through `options.resolvePreset`, the catalogue lookup the caller
+ * supplies, and each Scene's origin is its endpoint's slug with a `null`
+ * content key. The lifted Film is then checked as a Film, so a transition
+ * longer than its endpoints allow is refused with its finding.
  *
  * `options` are the semantic-validation options each store already used for a
  * Preset (the disk store passes `packScope: 'stored'`); a Film's Scenes are
@@ -222,11 +229,60 @@ function readCompositionDocumentBody(
 	}
 	const origin =
 		forkedFrom !== null && forkedFrom.length > 0 ? { slug: forkedFrom, contentKey: null } : null;
+	if (result.data.transition === undefined) {
+		return {
+			recordShape: 'preset',
+			film: filmFromPreset(result.data, origin),
+			preset: result.data
+		};
+	}
 	return {
 		recordShape: 'preset',
-		film: filmFromPreset(result.data, origin),
+		film: filmFromStoredLegacyTransitionPreset(result.data, options),
 		preset: result.data
 	};
+}
+
+/**
+ * The two-Scene Film a stored legacy transition Preset reads as, checked as a
+ * Film. Throws `StoredUserCompositionRecordError` when the caller cannot look
+ * its endpoints up, an endpoint is gone, or the Film does not hold together.
+ */
+function filmFromStoredLegacyTransitionPreset(
+	preset: Preset,
+	options: PresetSemanticValidationOptions
+): Film {
+	const { resolvePreset } = options;
+	if (!resolvePreset) {
+		throw new StoredUserCompositionRecordError(
+			'composition_refused',
+			`"${preset.name}" is a legacy transition composition, and its two endpoint Presets cannot be looked up here.`
+		);
+	}
+	let film: Film;
+	try {
+		film = filmFromPreset(preset, null, {
+			resolveLegacyTransitionEndpoint: (slug) => {
+				const endpoint = resolvePreset(slug);
+				// A stored record never recorded its endpoints' content keys.
+				return endpoint === null ? null : { preset: endpoint, contentKey: null };
+			}
+		});
+	} catch (cause) {
+		throw new StoredUserCompositionRecordError(
+			'composition_refused',
+			cause instanceof Error ? cause.message : 'Invalid legacy transition composition',
+			{ cause }
+		);
+	}
+	const filmIssues = validateFilmSemantics(film, options);
+	if (filmIssues.length > 0) {
+		throw new StoredUserCompositionRecordError(
+			'composition_refused',
+			formatPresetSemanticIssues(filmIssues)
+		);
+	}
+	return film;
 }
 
 /**
@@ -255,8 +311,8 @@ export function readUserCompositionDocumentWireBody(
  * The document a read record opens as.
  *
  * A Film record opens as its Film. A legacy record opens as the Film it lifts
- * to, with the `kind` and `transition` its Preset stated in the envelope. A
- * Film of several Scenes opens whole, with its first Scene selected
+ * to, with the `kind` its Preset stated in the envelope. A Film of several
+ * Scenes opens whole, with its first Scene selected
  * (`openFilmDocumentFromFilm`).
  */
 export function userCompositionDocumentFromReading(
@@ -271,81 +327,41 @@ export function userCompositionDocumentFromReading(
 	};
 }
 
-/** The composition document a writer emits for one User composition: one of the two record shapes. */
-export type UserCompositionWriteShape =
-	{ recordShape: 'film'; film: Film } | { recordShape: 'preset'; preset: Preset };
-
 /**
- * Which record shape a document is written in. Every writer — both stores, the
- * request body the client store sends, and standalone JSON export — asks here,
- * so the choice is made in one place.
+ * The composition document as JSON: `{ film }`, the Film in its wire format.
+ * A stored record is this beside `meta`; the client store sends this as a
+ * request body. Every writer emits a Film (ADR-0068 §3): both stores, the
+ * client transport, and standalone JSON export. `kind` is not saved.
  */
-export function userCompositionWriteShape(
-	document: UserCompositionDocument
-): UserCompositionWriteShape {
-	// ADR-0068 §3: a Film cannot hold a two-endpoint transition until the live
-	// Scene boundaries change reads a transition Preset as a two-Scene Film. A
-	// document whose legacy envelope still carries a `transition` is therefore
-	// kept in the legacy `{ meta, preset }` shape, with its `kind`, so the recipe
-	// is not lost. This branch goes with that change. Such a document is always
-	// one Scene long: the recipe only ever arrives on a legacy Preset.
-	if (document.legacyPresetEnvelope.transition !== undefined) {
-		const scenePreset = presetFromSingleSceneFilm(document.film);
-		return {
-			recordShape: 'preset',
-			preset: serializeCompositionState(
-				{
-					name: scenePreset.name,
-					description: scenePreset.description,
-					kind: document.legacyPresetEnvelope.kind,
-					transition: document.legacyPresetEnvelope.transition
-				},
-				scenePreset.state,
-				scenePreset.pack
-			)
-		};
-	}
-	return { recordShape: 'film', film: document.film };
-}
-
-/**
- * The composition document as JSON, keyed by its record shape: `{ film }` or
- * `{ preset }`, each in its wire format. A stored record is this beside `meta`;
- * the client store sends this as a request body.
- */
-export function userCompositionDocumentWireBody(
-	document: UserCompositionDocument
-): { film: unknown } | { preset: unknown } {
-	const shape = userCompositionWriteShape(document);
-	return shape.recordShape === 'film'
-		? { film: filmToWireFormat(shape.film) }
-		: { preset: presetToWireFormat(shape.preset) };
+export function userCompositionDocumentWireBody(document: UserCompositionDocument): {
+	film: unknown;
+} {
+	return { film: filmToWireFormat(document.film) };
 }
 
 /** The record a writer stores for `document` beside `meta`. */
 export function storedUserCompositionRecordFromDocument(
 	meta: StoredUserCompositionMeta,
 	document: UserCompositionDocument
-): StoredUserCompositionRecord {
+): StoredFilmUserCompositionRecord {
 	return { meta, ...userCompositionDocumentWireBody(document) };
 }
 
 /**
- * The standalone document of a User composition: the Film's wire format, or
- * the legacy Preset's under the one exception `userCompositionWriteShape`
- * makes. This is what JSON export downloads, and what the disk store's slug
- * route returns from GET and accepts in PUT, so an agent reads a document,
- * edits it, and writes the same document back.
+ * The standalone document of a User composition: the Film's wire format. This
+ * is what JSON export downloads, and what the disk store's slug route returns
+ * from GET and accepts in PUT, so an agent reads a document, edits it, and
+ * writes the same document back.
  */
 export function standaloneUserCompositionDocument(document: UserCompositionDocument): unknown {
-	const body = userCompositionDocumentWireBody(document);
-	return 'film' in body ? body.film : body.preset;
+	return userCompositionDocumentWireBody(document).film;
 }
 
 /**
  * Read a standalone document: a `gfx-film@1` Film, or a Preset, which is
- * lifted to a one-Scene Film that came from no Starter. The inverse of
- * `standaloneUserCompositionDocument`.
+ * lifted to a Film that came from no Starter (one Scene, or two for a legacy
+ * transition Preset). The inverse of `standaloneUserCompositionDocument` for a
+ * Film.
  *
  * Throws `StoredUserCompositionRecordError`.
  */
@@ -368,10 +384,7 @@ export function readStandaloneUserCompositionDocument(
 export function storedScenePresetViewsOfUserComposition(
 	document: UserCompositionDocument
 ): Preset[] {
-	const shape = userCompositionWriteShape(document);
-	return shape.recordShape === 'preset'
-		? [shape.preset]
-		: shape.film.scenes.map((scene) => presetFromFilmScene(shape.film, scene.id));
+	return document.film.scenes.map((scene) => presetFromFilmScene(document.film, scene.id));
 }
 
 /**
@@ -384,13 +397,11 @@ export function storedScenePresetViewsOfUserComposition(
  * Preset keeps that Preset's poster key.
  */
 export function storedPresetViewOfUserComposition(document: UserCompositionDocument): Preset {
-	const shape = userCompositionWriteShape(document);
-	if (shape.recordShape === 'preset') return shape.preset;
-	const [firstScene] = shape.film.scenes;
+	const [firstScene] = document.film.scenes;
 	if (firstScene === undefined) {
-		throw new RangeError(`The Film "${shape.film.name}" has no Scene.`);
+		throw new RangeError(`The Film "${document.film.name}" has no Scene.`);
 	}
-	return presetFromFilmScene(shape.film, firstScene.id);
+	return presetFromFilmScene(document.film, firstScene.id);
 }
 
 /**

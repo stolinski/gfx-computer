@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import kineticFixtureJson from '$lib/presets/kinetic-type-field-static-fixture.json';
 
 import { compositionMeta } from './composition-meta.svelte';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import KineticWordInspector from './KineticWordInspector.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
@@ -22,7 +22,6 @@ function phraseIds(): string[] {
 // the operation (the same defect class as Sentry GFX-COMPUTER-X).
 describe('KineticWordInspector phrase edits', () => {
 	beforeEach(() => {
-		transitionState.capturing = false;
 		applyPreset(parsePresetIngress(kineticFixtureJson));
 		compositionMeta.isUserComposition = true;
 		compositionMeta.userCompositionSlug = 'untitled';
@@ -64,7 +63,6 @@ describe('KineticWordInspector phrase edits', () => {
 
 describe('KineticWordInspector orientation placement', () => {
 	beforeEach(() => {
-		transitionState.capturing = false;
 		applyPreset(parsePresetIngress(kineticFixtureJson));
 		compositionMeta.isUserComposition = true;
 		compositionMeta.userCompositionSlug = 'untitled';

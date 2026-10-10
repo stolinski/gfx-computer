@@ -6,7 +6,6 @@ import blankPresetJson from '$lib/presets/blank.json';
 
 import AddToFilmMenu from './AddToFilmMenu.svelte';
 import { compositionMeta } from './composition-meta.svelte';
-import { transitionState } from './engine-state.svelte';
 import { filmFromCorpusPreset, filmFromPreset } from './film-ingress';
 import { filmState } from './film-state.svelte';
 import { posterKeyForPreset } from './posters';
@@ -90,7 +89,6 @@ beforeEach(() => {
 	sessionStore.loadUserComposition.mockResolvedValue(null);
 	sessionStore.createUserComposition.mockResolvedValue(undefined);
 	sessionStore.saveUserComposition.mockResolvedValue(undefined);
-	transitionState.capturing = false;
 	filmState.isSwappingScene = false;
 
 	// An unsaved corpus Preset is open, as its page opens it.

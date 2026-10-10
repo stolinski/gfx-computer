@@ -34,8 +34,7 @@ registerHooks({
 		if (url.endsWith('/engine-state.svelte.ts')) {
 			return {
 				format: 'module',
-				source:
-					"export const engineState = {}; export const packState = { slug: 'syntax' }; export const transitionState = {};",
+				source: "export const engineState = {}; export const packState = { slug: 'syntax' };",
 				shortCircuit: true
 			};
 		}
@@ -138,7 +137,12 @@ expectSemanticIssue((input) => {
 		}
 	};
 	(input.state as Record<string, unknown>).overlays = [
-		{ type: 'source-url', id: 'source', content: { url: 'example.com' }, position: { anchor: 'center' } }
+		{
+			type: 'source-url',
+			id: 'source',
+			content: { url: 'example.com' },
+			position: { anchor: 'center' }
+		}
 	];
 	assert.deepEqual(validatePresetSemantics(parsed(input)), []);
 }

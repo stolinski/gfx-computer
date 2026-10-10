@@ -415,18 +415,20 @@ function validateTextAnimationTargets(
 	}
 }
 
+/**
+ * The legacy top-level `transition` of a Preset that is read as a two-Scene
+ * Film (ADR-0068 §3): its effect is registered, its params fit the effect, and
+ * both endpoints are in the catalogue. Nothing here refuses an endpoint with
+ * Video clips. The frozen-snapshot lane could not draw footage; a Film's
+ * boundary renders each Scene through the Scene frame stepper, which decodes
+ * each Scene's own Video frame before it renders that Scene.
+ */
 function validateTransitionSemantics(
 	preset: Preset,
 	options: PresetSemanticValidationOptions,
 	issues: PresetSemanticIssue[]
 ): void {
 	if (!preset.transition) return;
-	if (preset.state.media.videoTrack.clips.length > 0) {
-		issues.push({
-			path: ['state', 'media', 'videoTrack', 'clips'],
-			message: 'Active Video clips are not supported on transition Presets in v1'
-		});
-	}
 	const definition = getTransitionEffectDefinition(preset.transition.effect);
 	if (!definition) {
 		issues.push({
@@ -454,11 +456,6 @@ function validateTransitionSemantics(
 			issues.push({
 				path: ['transition', endpoint],
 				message: `Preset "${slug}" does not resolve`
-			});
-		} else if (resolved.state.media.videoTrack.clips.length > 0) {
-			issues.push({
-				path: ['transition', endpoint],
-				message: `Preset "${slug}" uses active Video clips, which transition snapshots do not support in v1`
 			});
 		}
 	}

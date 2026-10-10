@@ -82,7 +82,6 @@ export type WebmcpOperationPrecondition =
 	| 'orientation-override-present'
 	| 'keyframe-channel-present'
 	| 'cascade-anchor-present'
-	| 'transition-present'
 	| 'audio-cue-present'
 	| 'media-permitted'
 	| 'media-entry-present'
@@ -449,8 +448,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/typeField/words/*/glyphStagger', scope: 'value' },
 			{ pointer: '/state/motionBeats', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*/motion', scope: 'value' },
-			{ pointer: '/state/surface/figures/*/moves', scope: 'value' },
-			{ pointer: '/transition', scope: 'value' }
+			{ pointer: '/state/surface/figures/*/moves', scope: 'value' }
 		]
 	},
 	{
@@ -2169,37 +2167,6 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['block'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/ChartMotionSection.svelte'
-	},
-	{
-		id: 'motion.set-composition-transition',
-		family: 'motion',
-		toolName: 'gfx_motion_set_composition_transition',
-		summary:
-			'Declare the two-state transition recipe: the two composition slugs, the registered transition Effect, its duration, and its parameters.',
-		effect: 'write',
-		writes: ['/transition'],
-		precondition: 'composition-editable',
-		requiresExpectedRevision: true,
-		undoable: true,
-		cancellable: false,
-		focus: ['composition-root'],
-		exposure: 'agent-tool',
-		guiSurface: 'src/lib/platform/TransitionRecipeSection.svelte'
-	},
-	{
-		id: 'motion.clear-composition-transition',
-		family: 'motion',
-		toolName: 'gfx_motion_clear_composition_transition',
-		summary: 'Remove the transition recipe and return to an ordinary single-state composition.',
-		effect: 'write',
-		writes: ['/transition'],
-		precondition: 'transition-present',
-		requiresExpectedRevision: true,
-		undoable: true,
-		cancellable: false,
-		focus: ['composition-root'],
-		exposure: 'agent-tool',
-		guiSurface: 'src/lib/platform/TransitionWindowSection.svelte'
 	},
 
 	// ---- sound: cues and per-motion overrides ----

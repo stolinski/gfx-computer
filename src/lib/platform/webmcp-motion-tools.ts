@@ -21,11 +21,7 @@
  * one it touched. The kinds each tool accepts are its operation's own list, so a
  * chart Block — anchorable, but running the five phases its Pipeline owns — is
  * absent from the channel and weld subjects and present as an anchor.
- *
- * The transition recipe is here too, and is the one thing in this family that is
- * not a property of an element. Declaring one turns the piece into two rendered
- * states plus the Effect that wipes between them, so it is written whole: a
- * recipe half-pointing at one endpoint renders nothing anyone asked for.
+
  */
 import { CHART_MOTION_PHASE_NAMES } from '../utils/chart-motion';
 import {
@@ -51,10 +47,6 @@ import {
 	runSetCompositionKineticWordGlyphStaggerOperation,
 	runSetCompositionKineticWordPositionKeyframeOperation
 } from './composition-kinetic-type-operations';
-import {
-	runClearCompositionTransitionOperation,
-	runSetCompositionTransitionOperation
-} from './composition-transition-operations';
 import {
 	runAddCompositionMotionBeatOperation,
 	runLandCompositionKineticWordOnBeatOperation,
@@ -84,7 +76,6 @@ import {
 	readWebmcpOptionalLiteralArgument,
 	readWebmcpOptionalRecordArgument,
 	readWebmcpOptionalStringArgument,
-	readWebmcpOptionalRuntimeJsonArgument,
 	readWebmcpRecordArgument,
 	readWebmcpRecordArrayArgument,
 	readWebmcpStringArgument,
@@ -99,9 +90,7 @@ import {
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
 	webmcpFractionTimeProperty,
-	webmcpObservedRevisionProperty,
-	webmcpObservedRevisionOnlySchema,
-	webmcpRuntimeObjectOrJsonTextProperty
+	webmcpObservedRevisionProperty
 } from './webmcp-derived-tool-schemas';
 
 import type { ChartMotionPhaseName } from '../utils/chart-motion';
@@ -439,11 +428,6 @@ function chartPhasesProperty(): WebmcpSchemaProperty {
 		),
 		additionalProperties: false
 	};
-}
-
-/** The wipe parameters its registered transition Effect validates. */
-function readTransitionParams(args: unknown): unknown {
-	return readWebmcpOptionalRuntimeJsonArgument(args, 'params');
 }
 
 function readChartPhases(
@@ -958,56 +942,6 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						blockId: readWebmcpStringArgument(args, 'blockId'),
 						phases: readChartPhases(args)
-					})
-				)
-		},
-		{
-			operationId: 'motion.set-composition-transition',
-			inputSchema: {
-				type: 'object',
-				properties: {
-					expectedRevision: webmcpObservedRevisionProperty(),
-					from: webmcpDerivedEnumProperty(
-						'transition-endpoint-slug',
-						'The composition the wipe starts from.'
-					),
-					to: webmcpDerivedEnumProperty(
-						'transition-endpoint-slug',
-						'The composition the wipe lands on.'
-					),
-					effect: webmcpDerivedEnumProperty('transition-effect', 'The registered wipe to run.'),
-					durationMs: {
-						type: 'number',
-						description:
-							'How long the wipe itself runs. Milliseconds, because it belongs to the wipe rather than to either state transport.',
-						minimum: 0
-					},
-					params: webmcpRuntimeObjectOrJsonTextProperty(
-						"Parameters for the wipe against the Effect's schema. Omit them to take its defaults."
-					)
-				},
-				required: ['expectedRevision', 'from', 'to', 'effect', 'durationMs'],
-				additionalProperties: false
-			},
-			run: (args) =>
-				runWebmcpToolOperation('motion.set-composition-transition', () =>
-					runSetCompositionTransitionOperation({
-						expectedRevision: readWebmcpObservedRevisionArgument(args),
-						from: readWebmcpStringArgument(args, 'from'),
-						to: readWebmcpStringArgument(args, 'to'),
-						effect: readWebmcpStringArgument(args, 'effect'),
-						durationMs: readWebmcpNumberArgument(args, 'durationMs'),
-						params: readTransitionParams(args)
-					})
-				)
-		},
-		{
-			operationId: 'motion.clear-composition-transition',
-			inputSchema: webmcpObservedRevisionOnlySchema(),
-			run: (args) =>
-				runWebmcpToolOperation('motion.clear-composition-transition', () =>
-					runClearCompositionTransitionOperation({
-						expectedRevision: readWebmcpObservedRevisionArgument(args)
 					})
 				)
 		}

@@ -5,9 +5,8 @@ import { getEffectDefinition } from './definition-registry';
 import type { PipelineRendererRequirements } from './runtime-loader';
 
 export interface PresetRendererRequirementOptions {
+	/** The Pack the Presets render under; its chrome adds Effects to a full-frame piece. */
 	pack: PackManifest;
-	resolvePack?: (slug: string) => PackManifest;
-	resolvePreset?: (slug: string) => Preset | null;
 }
 
 function addPresetRequirements(
@@ -46,23 +45,6 @@ function addPresetRequirements(
 		for (const effect of chromeRole.effects) {
 			if (getEffectDefinition(effect.type)) requirements.effects.add(effect.type);
 		}
-	}
-
-	if (!preset.transition) return;
-	requirements.transitions.add(preset.transition.effect);
-	if (!options.resolvePreset) return;
-	for (const slug of [preset.transition.from, preset.transition.to]) {
-		const endpoint = options.resolvePreset(slug);
-		if (!endpoint) continue;
-		addPresetRequirements(
-			endpoint,
-			{
-				...options,
-				pack: options.resolvePack?.(endpoint.pack) ?? options.pack
-			},
-			requirements,
-			visitedPresets
-		);
 	}
 }
 

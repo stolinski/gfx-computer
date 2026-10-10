@@ -152,35 +152,16 @@ describe('Kinetic Type Field semantic validation', () => {
 });
 
 describe('Video media semantic validation', () => {
-	it('rejects active Video clips on a transition Preset', () => {
-		const preset = videoPreset('Transition');
-		preset.transition = {
-			from: 'from',
-			to: 'to',
-			effect: 'mask-wipe',
-			durationMs: 600,
-			params: {}
-		};
-
-		const issues = validatePresetSemantics(preset);
-
-		assert.ok(
-			issues.some(
-				(issue) =>
-					issue.path.join('.') === 'state.media.videoTrack.clips' &&
-					issue.message.includes('transition Presets')
-			)
-		);
-	});
-
-	it('rejects active Video clip transition endpoints when references resolve', () => {
-		const state = createDefaultEngineState();
+	// ADR-0068 §3: a legacy transition Preset is read as a two-Scene Film, whose
+	// boundary renders each Scene live, footage included. The frozen-snapshot
+	// lane's refusal of Video clips went with that lane.
+	it('accepts a legacy transition whose endpoint uses Video clips, and still requires both endpoints', () => {
 		const transition: Preset = {
 			schema: 'gfx@1',
 			name: 'Transition',
 			pack: 'syntax',
 			kind: 'fixture',
-			state,
+			state: createDefaultEngineState(),
 			transition: {
 				from: 'video',
 				to: 'plain',
@@ -198,18 +179,18 @@ describe('Video media semantic validation', () => {
 			state: createDefaultEngineState()
 		};
 
-		const issues = validatePresetSemantics(transition, {
-			resolvePreset: (slug) => (slug === 'video' ? video : slug === 'plain' ? plain : null)
-		});
-
-		assert.ok(
-			issues.some(
-				(issue) =>
-					issue.path.join('.') === 'transition.from' &&
-					issue.message.includes('transition snapshots')
-			)
+		assert.deepEqual(
+			validatePresetSemantics(transition, {
+				resolvePreset: (slug) => (slug === 'video' ? video : slug === 'plain' ? plain : null)
+			}),
+			[]
 		);
-		assert.ok(!issues.some((issue) => issue.path.join('.') === 'transition.to'));
+		assert.deepEqual(
+			validatePresetSemantics(transition, {
+				resolvePreset: (slug) => (slug === 'video' ? video : null)
+			}),
+			[{ path: ['transition', 'to'], message: 'Preset "plain" does not resolve' }]
+		);
 	});
 
 	it('enforces unique IDs, reference integrity, ordering, and composition bounds', () => {
@@ -475,9 +456,10 @@ describe('Effect keyframe channel semantic validation (ADR-0063)', () => {
 				}
 			])
 		);
-		assert.deepEqual(issues.map((issue) => issue.path), [
-			['state', 'effects', 0, 'animation', 'channels', 'pixelSize', 0, 'value']
-		]);
+		assert.deepEqual(
+			issues.map((issue) => issue.path),
+			[['state', 'effects', 0, 'animation', 'channels', 'pixelSize', 0, 'value']]
+		);
 	});
 
 	it('refuses an animation block on a composition-owned Effect', () => {
@@ -491,7 +473,10 @@ describe('Effect keyframe channel semantic validation (ADR-0063)', () => {
 				}
 			])
 		);
-		assert.deepEqual(issues.map((issue) => issue.path), [['state', 'effects', 0, 'animation']]);
+		assert.deepEqual(
+			issues.map((issue) => issue.path),
+			[['state', 'effects', 0, 'animation']]
+		);
 		assert.match(issues[0].message, /depth-of-field Effect carries no animation block/);
 	});
 });

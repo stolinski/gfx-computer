@@ -3,11 +3,6 @@ import type { EngineState, Preset } from '$lib/platform/engine-schema';
 import { resolveFrameRate, secondsToFrames } from './composition-timing.ts';
 import { videoTrackCoversFrames } from './video-clip-resolution.ts';
 
-interface ResolvedPresetTransition {
-	from: Preset;
-	to: Preset;
-}
-
 export function isEngineStateOpaque(
 	state: Pick<EngineState, 'backgroundFill' | 'media' | 'stage' | 'transport'>
 ): boolean {
@@ -21,8 +16,4 @@ export function isEngineStateOpaque(
 
 export function isPresetOpaque(preset: Preset): boolean {
 	return isEngineStateOpaque(preset.state);
-}
-
-export function isTransitionOpaque(transition: ResolvedPresetTransition): boolean {
-	return isPresetOpaque(transition.from) && isPresetOpaque(transition.to);
 }

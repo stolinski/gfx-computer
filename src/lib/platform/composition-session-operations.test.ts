@@ -12,7 +12,6 @@ import {
 	type CompositionSessionInspectionReceipt,
 	type CompositionSessionOutcome
 } from './composition-session-operations';
-import { transitionState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 import { userCompositionStore } from './user-composition-store';
@@ -91,7 +90,6 @@ beforeEach(() => {
 		quotaBytes: null
 	});
 
-	transitionState.capturing = false;
 	applyPreset(blankPreset);
 	compositionMeta.isUserComposition = false;
 	compositionMeta.userCompositionSlug = null;

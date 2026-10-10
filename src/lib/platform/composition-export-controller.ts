@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/sveltekit';
 
 import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
 import { framesToSeconds, resolveFrameRate, type FrameRate } from '$lib/utils/composition-timing';
-import { isEngineStateOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
+import { isEngineStateOpaque } from '$lib/utils/output-classification';
 import { getVideoFrameSize, type VideoFrameSize } from '$lib/utils/video-frame';
 
 import { AnimationManager, type AnimationManifest } from './animation-manager';
@@ -17,7 +17,6 @@ import {
 	unavailableCompositionExportFormatMessage
 } from './composition-export-formats';
 import type { CompositionFrameRenderResult } from './composition-frame-renderer';
-import type { Preset } from './engine-schema';
 import { renderFilmBoundaryFrame, type FilmBoundaryFrameSurface } from './film-boundary-frame';
 import {
 	filmBoundaryWindowProgress,
@@ -124,11 +123,6 @@ export interface CompositionExportPlan {
 	startTimecode?: string;
 }
 
-export interface CompositionExportTransition {
-	from: Preset;
-	to: Preset;
-}
-
 export interface CompositionExportUiState {
 	isExporting: boolean;
 	progress: number;
@@ -184,7 +178,6 @@ export interface CompositionExportControllerDependencies {
 	 * change under the plan and the audio mix.
 	 */
 	readFilm(): Film;
-	readTransition(): CompositionExportTransition | null;
 	beginFilmExportBracket(): CompositionExportFilmBracket;
 	readCanvas(): HTMLCanvasElement | OffscreenCanvas | null;
 	isFrameRendererReady(): boolean;
@@ -264,16 +257,13 @@ function assertNativeCanvasSize(
  * Film, every Scene in order.
  *
  * Output is opaque only when every Scene is: a Film with one transparent Scene
- * is a transparent file, and an opaque Scene paints its fill inside it. A
- * legacy two-endpoint transition, which replaces what every frame shows, is
- * classified by its endpoints as before.
+ * is a transparent file, and an opaque Scene paints its fill inside it.
  */
 export function buildCompositionExportPlan(options: {
 	film: Film;
-	transition: CompositionExportTransition | null;
 	request?: SyncExportRequest;
 }): CompositionExportPlan {
-	const { film, transition, request } = options;
+	const { film, request } = options;
 	const { fps, format, orientation } = film;
 	if (!isCompositionExportFormatAvailable(format)) {
 		throw new Error(unavailableCompositionExportFormatMessage(format));
@@ -301,9 +291,7 @@ export function buildCompositionExportPlan(options: {
 			frameCount: overlapFrames
 		});
 	}
-	const isOpaque = transition
-		? isTransitionOpaque(transition)
-		: film.scenes.every((scene) => isEngineStateOpaque(scene.state));
+	const isOpaque = film.scenes.every((scene) => isEngineStateOpaque(scene.state));
 	const output: CompositionOutputClassification = isOpaque ? 'opaque' : 'transparent';
 	const basename = isOpaque ? 'gfx-bumper' : 'gfx-overlay';
 	const extension = format === 'prores' ? 'mov' : 'webm';
@@ -459,11 +447,7 @@ export class CompositionExportController {
 		let plan: CompositionExportPlan;
 		try {
 			film = dependencies.readFilm();
-			plan = buildCompositionExportPlan({
-				film,
-				transition: dependencies.readTransition(),
-				request
-			});
+			plan = buildCompositionExportPlan({ film, request });
 			assertNativeCanvasSize(canvas, plan.size);
 		} catch (error) {
 			const message = compositionExportErrorMessage(error);

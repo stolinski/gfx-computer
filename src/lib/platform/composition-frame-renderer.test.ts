@@ -11,8 +11,6 @@ import type { CompositionPlanes } from './pipelines/composition-planes';
 import type { DepthStage } from './pipelines/depth-stage';
 import type { EffectChain } from './pipelines/effect-chain';
 import type { ShaderPassDispatcher } from './pipelines/shader-pass-runner';
-import type { CompiledTransitionWipe } from './pipelines/transition-pass';
-import type { TransitionSnapshots } from './pipelines/transition-snapshots';
 import type { PreparedVideoUnderlayTexture } from './video-underlay-frame-texture';
 import { pipelineRendererController } from './pipelines/runtime-loader';
 import type {
@@ -56,22 +54,16 @@ function dofEffect(): Effect {
 }
 
 describe('composition frame renderer branch policy', () => {
-	it('gives cached transitions exclusive precedence over every live branch', () => {
-		const state = stageState();
-		state.effects.push(dofEffect());
-		assert.deepEqual(resolveCompositionFrameBranchOrder(state, true), ['transition']);
-	});
-
 	it('orders stage, DOF, and flat fallback deterministically', () => {
 		const state = stageState();
 		state.effects.push(dofEffect());
-		assert.deepEqual(resolveCompositionFrameBranchOrder(state, false), ['stage', 'dof', 'flat']);
+		assert.deepEqual(resolveCompositionFrameBranchOrder(state), ['stage', 'dof', 'flat']);
 
 		state.stage = undefined;
-		assert.deepEqual(resolveCompositionFrameBranchOrder(state, false), ['dof', 'flat']);
+		assert.deepEqual(resolveCompositionFrameBranchOrder(state), ['dof', 'flat']);
 
 		state.effects = [];
-		assert.deepEqual(resolveCompositionFrameBranchOrder(state, false), ['flat']);
+		assert.deepEqual(resolveCompositionFrameBranchOrder(state), ['flat']);
 	});
 
 	it('splits Composition for DOF, GPU-owned opacity, and staged overlays', () => {
@@ -113,56 +105,6 @@ describe('composition frame renderer ordering', () => {
 			effects: new Map(),
 			transitions: new Map()
 		});
-	});
-
-	it('does not build inputs or upload live DOM for a cached transition', () => {
-		const calls: string[] = [];
-		const state = createDefaultEngineState();
-		state.transport.durationSeconds = 4;
-		const fromTexture = texture('from');
-		const toTexture = texture('to');
-		const snapshots = {
-			fromTexture: () => fromTexture,
-			toTexture: () => toTexture
-		} as unknown as TransitionSnapshots;
-		const effect = {
-			apply: ({ context }: { context: { progress: number } }) =>
-				calls.push(`transition:${context.progress}`)
-		} as unknown as CompiledTransitionWipe;
-
-		const result = renderCompositionFrameTo({
-			outputView: {} as GPUTextureView,
-			timestamp: 1,
-			state,
-			pack: getPack('syntax'),
-			paperVisibility: 1,
-			compositionElement: null,
-			overlayRootElement: null,
-			substrateTexture: null,
-			videoUnderlayTexture: null,
-			resources: {
-				host: null,
-				pipeline: null,
-				effectChain: null,
-				shaderPassDispatcher: null,
-				compositionPlanes: null,
-				depthStage: null
-			},
-			cachedTransition: {
-				snapshots,
-				effect,
-				params: {},
-				durationMs: 2_000,
-				width: 3840,
-				height: 2160
-			},
-			buildSurfaceInputs: () => {
-				throw new Error('transition must not build live Surface inputs');
-			}
-		});
-
-		assert.equal(result, 'transition');
-		assert.deepEqual(calls, ['transition:0.5']);
 	});
 
 	it('builds once, uploads once, then dispatches shader passes before effect/present', () => {
@@ -245,7 +187,6 @@ describe('composition frame renderer ordering', () => {
 				compositionPlanes: null as CompositionPlanes | null,
 				depthStage: null as DepthStage | null
 			},
-			cachedTransition: null,
 			buildSurfaceInputs: (timestamp) => {
 				calls.push('build-inputs');
 				return { ...SURFACE_INPUTS, timestamp };
@@ -326,7 +267,6 @@ describe('composition frame renderer ordering', () => {
 				compositionPlanes,
 				depthStage: null
 			},
-			cachedTransition: null,
 			buildSurfaceInputs: () => SURFACE_INPUTS
 		};
 
@@ -393,7 +333,6 @@ describe('composition frame renderer ordering', () => {
 				compositionPlanes: null,
 				depthStage: null
 			},
-			cachedTransition: null,
 			buildSurfaceInputs: () => SURFACE_INPUTS
 		};
 
@@ -456,7 +395,6 @@ describe('composition frame renderer ordering', () => {
 				compositionPlanes,
 				depthStage: null
 			},
-			cachedTransition: null,
 			buildSurfaceInputs: () => SURFACE_INPUTS
 		};
 
@@ -566,7 +504,6 @@ describe('keyframed Effect params in the frame renderer (ADR-0063 §5)', () => {
 				compositionPlanes: null,
 				depthStage: null
 			},
-			cachedTransition: null,
 			buildSurfaceInputs: (frameTimestamp) => ({ ...SURFACE_INPUTS, timestamp: frameTimestamp })
 		});
 		assert.equal(result, 'flat');

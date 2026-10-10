@@ -6,14 +6,10 @@ import {
 	type EngineState,
 	type Preset
 } from '$lib/platform/engine-schema';
-import {
-	isEngineStateOpaque,
-	isPresetOpaque,
-	isTransitionOpaque
-} from './output-classification.ts';
+import { isEngineStateOpaque, isPresetOpaque } from './output-classification.ts';
 
 describe('output classification', () => {
-	it('classifies state, preset, and transition opacity', () => {
+	it('classifies state and preset opacity', () => {
 		const transparentState = createDefaultEngineState();
 		const filledState = createDefaultEngineState();
 		filledState.backgroundFill = '#000000';
@@ -26,16 +22,7 @@ describe('output classification', () => {
 		assert.equal(isEngineStateOpaque(filledState), true);
 		assert.equal(isEngineStateOpaque(stagedState), true);
 		assert.equal(isPresetOpaque(preset(stagedState)), true);
-		assert.equal(
-			isTransitionOpaque({ from: preset(filledState), to: preset(stagedState) }),
-			true,
-			'a transition is opaque when both resolved Presets are opaque'
-		);
-		assert.equal(
-			isTransitionOpaque({ from: preset(filledState), to: preset(transparentState) }),
-			false,
-			'a transition stays transparent when either resolved Preset is transparent'
-		);
+		assert.equal(isPresetOpaque(preset(transparentState)), false);
 	});
 
 	it('uses complete Video-track coverage rather than Media presence', () => {

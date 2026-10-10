@@ -17,7 +17,7 @@ import {
 	runSetCompositionSurfaceTimingOperation,
 	runSetCompositionTextAnimationOperation
 } from './composition-motion-timing-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 
@@ -44,7 +44,6 @@ function expectFailed(outcome: CompositionOperationOutcome): CompositionOperatio
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

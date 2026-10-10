@@ -9,7 +9,6 @@ import {
 	type Effect,
 	type MarkTiming,
 	type Overlay,
-	type Preset,
 	type TextAnimation
 } from './engine-schema';
 import { createCompositionEntityId } from '$lib/utils/composition-entity-id';
@@ -55,35 +54,6 @@ export const engineState = $state<EngineState>(createDefaultEngineState());
  * own Pack and overrides this on load), so it uses the reference Pack.
  */
 export const packState = $state<{ slug: string }>({ slug: REFERENCE_PACK_SLUG });
-
-/**
- * The active multi-state transition (ADR-0026), or null for an ordinary
- * single-state Preset. Set by `applyPreset` from the Preset's `transition`
- * recipe with `from`/`to` resolved to full Presets. The Workspace reads this to
- * switch into transition mode: snapshot `from` and `to` into textures, then wipe
- * between them. Distinct from `engineState` (the live composition) so the
- * snapshot path can swap the composition state via `applyCompositionState`
- * without clearing the transition it is servicing.
- */
-export interface ResolvedTransition {
-	fromSlug: string;
-	toSlug: string;
-	from: Preset;
-	to: Preset;
-	effect: string;
-	durationMs: number;
-	params: unknown;
-}
-/**
- * `capturing` is true while the Workspace is snapshotting `from`/`to` — the
- * window where `engineState` is a scratch buffer holding a swapped-in state
- * rather than the composition's own. Persistence must not observe engineState
- * during this window (it would autosave the scratch state as a user edit).
- */
-export const transitionState = $state<{ active: ResolvedTransition | null; capturing: boolean }>({
-	active: null,
-	capturing: false
-});
 
 export function ensureMarkTimingAtIndex(index: number): MarkTiming {
 	while (engineState.marks.timings.length <= index) {

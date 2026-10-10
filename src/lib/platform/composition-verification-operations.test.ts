@@ -13,7 +13,7 @@ import {
 	type CompositionRenderedFrameReceipt
 } from './composition-verification-operations';
 import { compositionVerificationProbe } from './composition-verification-probe.svelte';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 
@@ -187,7 +187,6 @@ function expectFailed(
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

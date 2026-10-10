@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it, vi } from 'vitest';
 
 import type { FilmAudioMixRenderRequest, FilmAudioMixScene } from './audio-mix';
-import { createDefaultEngineState, type EngineState, type Preset } from './engine-schema';
+import { createDefaultEngineState, type EngineState } from './engine-schema';
 import type { TransparentVideoExportOptions, VideoExportDownload } from './export-video';
 import {
 	buildCompositionExportPlan,
@@ -15,12 +15,6 @@ import {
 	type CompositionExportUiState
 } from './composition-export-controller';
 import { FILM_SCHEMA_ID, type Film, type FilmSceneWindowBoundary } from './film-schema';
-
-function makePreset(name: string, opaque: boolean): Preset {
-	const state = createDefaultEngineState();
-	if (opaque) state.backgroundFill = '#000000';
-	return { schema: 'gfx@1', name, pack: 'syntax', kind: 'fixture', state };
-}
 
 function makeState(options?: {
 	format?: 'webm' | 'prores';
@@ -106,8 +100,7 @@ function fadeFilmOf(durationMs: number, ...states: EngineState[]): Film {
 describe('composition export plan', () => {
 	it('classifies transparent WebM and preserves exact rational frame timing', () => {
 		const plan = buildCompositionExportPlan({
-			film: filmOf(makeState({ durationSeconds: 10.01, fps: 29.97 })),
-			transition: null
+			film: filmOf(makeState({ durationSeconds: 10.01, fps: 29.97 }))
 		});
 
 		assert.equal(plan.output, 'transparent');
@@ -122,7 +115,6 @@ describe('composition export plan', () => {
 	it('keeps opaque ProRes on the existing 4444 lane at native vertical dimensions', () => {
 		const plan = buildCompositionExportPlan({
 			film: filmOf(makeState({ format: 'prores', orientation: 'vertical', opaque: true })),
-			transition: null,
 			request: { startTimecode: '01:00:08:00', filename: 'synced-piece.mov' }
 		});
 
@@ -136,8 +128,7 @@ describe('composition export plan', () => {
 
 	it('classifies only fully covered Video-track WebM as native opaque output', () => {
 		const plan = buildCompositionExportPlan({
-			film: filmOf(makeState({ videoTrack: 'full', fps: 60 })),
-			transition: null
+			film: filmOf(makeState({ videoTrack: 'full', fps: 60 }))
 		});
 
 		assert.equal(plan.output, 'opaque');
@@ -149,8 +140,7 @@ describe('composition export plan', () => {
 	it('keeps unused Media and gapped clips on the alpha overlay lane', () => {
 		for (const videoTrack of ['unused', 'gapped'] as const) {
 			const plan = buildCompositionExportPlan({
-				film: filmOf(makeState({ videoTrack, durationSeconds: 1, fps: 30 })),
-				transition: null
+				film: filmOf(makeState({ videoTrack, durationSeconds: 1, fps: 30 }))
 			});
 			assert.equal(plan.output, 'transparent');
 			assert.equal(plan.codec, 'vp9-alpha');
@@ -162,27 +152,11 @@ describe('composition export plan', () => {
 		const plan = buildCompositionExportPlan({
 			film: filmOf(
 				makeState({ format: 'prores', videoTrack: 'gapped', durationSeconds: 1, fps: 30 })
-			),
-			transition: null
+			)
 		});
 		assert.equal(plan.output, 'transparent');
 		assert.equal(plan.codec, 'prores-4444');
 		assert.equal(plan.videoFilename, 'gfx-overlay.mov');
-	});
-
-	it('classifies a transition as opaque only when both endpoint Presets are opaque', () => {
-		const film = filmOf(makeState({ opaque: true }));
-		const opaque = makePreset('Opaque', true);
-		const transparent = makePreset('Transparent', false);
-
-		assert.equal(
-			buildCompositionExportPlan({ film, transition: { from: opaque, to: opaque } }).output,
-			'opaque'
-		);
-		assert.equal(
-			buildCompositionExportPlan({ film, transition: { from: opaque, to: transparent } }).output,
-			'transparent'
-		);
 	});
 
 	it('rejects a start timecode on the WebM lane', () => {
@@ -190,7 +164,6 @@ describe('composition export plan', () => {
 			() =>
 				buildCompositionExportPlan({
 					film: filmOf(makeState()),
-					transition: null,
 					request: { startTimecode: '01:00:08:00' }
 				}),
 			/A start timecode requires the ProRes format/
@@ -223,7 +196,7 @@ describe('composition export plan of a Film', () => {
 				);
 				const frameCount = sceneFrameCounts.reduce((sum, count) => sum + count, 0);
 
-				const plan = buildCompositionExportPlan({ film, transition: null });
+				const plan = buildCompositionExportPlan({ film });
 
 				assert.equal(plan.frameCount, frameCount);
 				assert.equal(plan.fps, rate.fps);
@@ -278,8 +251,7 @@ describe('composition export plan of a Film', () => {
 		// Written out from what the plan was before export knew about Films, so
 		// this fails if a one-Scene export ever drifts from it.
 		const plan = buildCompositionExportPlan({
-			film: filmOf(makeState({ durationSeconds: 10.01, fps: 29.97 })),
-			transition: null
+			film: filmOf(makeState({ durationSeconds: 10.01, fps: 29.97 }))
 		});
 		const { scenes, boundaryWindows, ...planBeforeFilms } = plan;
 
@@ -304,8 +276,7 @@ describe('composition export plan of a Film', () => {
 		// A duration that is not a whole number of frames stays the authored one.
 		assert.equal(
 			buildCompositionExportPlan({
-				film: filmOf(makeState({ durationSeconds: 4, fps: 29.97 })),
-				transition: null
+				film: filmOf(makeState({ durationSeconds: 4, fps: 29.97 }))
 			}).durationSeconds,
 			4
 		);
@@ -317,7 +288,7 @@ describe('composition export plan of a Film', () => {
 		film.orientation = 'vertical';
 		film.format = 'prores';
 
-		const plan = buildCompositionExportPlan({ film, transition: null });
+		const plan = buildCompositionExportPlan({ film });
 
 		assert.equal(plan.fps, 60);
 		assert.equal(plan.format, 'prores');
@@ -340,7 +311,7 @@ describe('composition export plan of a Film', () => {
 		];
 
 		for (const { scenes, output } of matrix) {
-			const webm = buildCompositionExportPlan({ film: filmOf(...scenes), transition: null });
+			const webm = buildCompositionExportPlan({ film: filmOf(...scenes) });
 			assert.equal(webm.output, output);
 			assert.equal(webm.codec, output === 'opaque' ? 'vp9-opaque' : 'vp9-alpha');
 			assert.equal(
@@ -351,7 +322,7 @@ describe('composition export plan of a Film', () => {
 
 			const proresFilm = filmOf(...scenes);
 			proresFilm.format = 'prores';
-			const prores = buildCompositionExportPlan({ film: proresFilm, transition: null });
+			const prores = buildCompositionExportPlan({ film: proresFilm });
 			assert.equal(prores.output, output);
 			assert.equal(prores.codec, 'prores-4444');
 			assert.equal(
@@ -370,8 +341,7 @@ describe('composition export plan of a Film with a fade', () => {
 				1000,
 				makeState({ durationSeconds: 2, fps: 30 }),
 				makeState({ durationSeconds: 3, fps: 30 })
-			),
-			transition: null
+			)
 		});
 	}
 
@@ -439,8 +409,7 @@ describe('composition export plan of a Film with a fade', () => {
 
 	it('has no window in a Film of hard cuts', () => {
 		const plan = buildCompositionExportPlan({
-			film: filmOf(makeState({ durationSeconds: 2, fps: 30 }), makeState({ fps: 30 })),
-			transition: null
+			film: filmOf(makeState({ durationSeconds: 2, fps: 30 }), makeState({ fps: 30 }))
 		});
 
 		assert.deepEqual(plan.boundaryWindows, []);
@@ -453,8 +422,7 @@ describe('composition export plan of a Film with a fade', () => {
 describe('composition export frame sequence', () => {
 	it('maps every frame index to the exact rational timestamp', () => {
 		const plan = buildCompositionExportPlan({
-			film: filmOf(makeState({ durationSeconds: 10.01, fps: 29.97 })),
-			transition: null
+			film: filmOf(makeState({ durationSeconds: 10.01, fps: 29.97 }))
 		});
 
 		assert.deepEqual(compositionExportFrameAt(plan, 0), { frame: 0, timestamp: 0 });
@@ -589,7 +557,6 @@ function createHarness(options?: {
 
 	const dependencies: CompositionExportControllerDependencies = {
 		readFilm: () => film,
-		readTransition: () => null,
 		beginFilmExportBracket: () => {
 			bracketOpenCount += 1;
 			return {
@@ -1290,7 +1257,7 @@ describe('composition export of a Film with a transition effect at a boundary', 
 	}
 
 	it('plans each window with the boundary it belongs to', () => {
-		const plan = buildCompositionExportPlan({ film: effectFilm(), transition: null });
+		const plan = buildCompositionExportPlan({ film: effectFilm() });
 
 		assert.equal(plan.frameCount, 8);
 		assert.deepEqual(plan.boundaryWindows, [

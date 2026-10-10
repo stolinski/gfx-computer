@@ -8,13 +8,13 @@
 	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { collectFilmRendererRequirements } from '$lib/platform/composition-renderer-readiness';
-	import { transitionState } from '$lib/platform/engine-state.svelte';
 	import {
 		filmState,
 		isOpenFilmEngineStateInTransit,
 		readOpenFilmAsUserCompositionDocument
 	} from '$lib/platform/film-state.svelte';
 	import { filmFromCorpusPreset } from '$lib/platform/film-ingress';
+	import { resolveLegacyTransitionEndpointFromCatalog } from '$lib/platform/legacy-transition-endpoint-catalog';
 	import { legacyPresetEnvelopeFromPreset } from '$lib/platform/open-film-document';
 	import {
 		discardOpenCompositionArrival,
@@ -145,8 +145,6 @@
 		posterKey = null;
 		autosaveLedger.clear();
 		storedSlug = null;
-		transitionState.active = null;
-		transitionState.capturing = false;
 		filmState.isSwappingScene = false;
 		compositionMeta.isUserComposition = false;
 		compositionMeta.userCompositionSlug = null;
@@ -170,15 +168,21 @@
 
 		// The open document is a Film (ADR-0068 §8). A stored composition arrives
 		// as one, with each Scene's real origin. A corpus Preset opens as an
-		// unsaved one-Scene Film that remembers its source.
+		// unsaved one-Scene Film that remembers its source; one that states the
+		// legacy two-endpoint `transition` opens as the two-Scene Film of its
+		// endpoints (ADR-0068 §3).
 		const document: UserCompositionDocument | null =
 			sessionComposition ??
 			(nextData.corpusPreset
 				? {
-						film: filmFromCorpusPreset(nextData.corpusPreset, {
-							slug: nextData.slug,
-							contentKey: posterKeyForPreset(nextData.corpusPreset)
-						}),
+						film: filmFromCorpusPreset(
+							nextData.corpusPreset,
+							{
+								slug: nextData.slug,
+								contentKey: posterKeyForPreset(nextData.corpusPreset)
+							},
+							{ resolveLegacyTransitionEndpoint: resolveLegacyTransitionEndpointFromCatalog }
+						),
 						legacyPresetEnvelope: legacyPresetEnvelopeFromPreset(nextData.corpusPreset)
 					}
 				: null);
@@ -246,9 +250,8 @@
 	// Autosave: runs on any change to the open Film (engineState, presetBase,
 	// the Pack, or filmState) and saves when the Film would be stored differently
 	// from what the store holds. Skips a corpus Preset, which is never saved from
-	// its own page, and while engine state is in transit: the transition snapshot
-	// path is mid-capture (engineState is a scratch buffer holding a swapped-in
-	// from/to state), or a Scene swap has not settled.
+	// its own page, and while engine state is in transit: a Scene swap has not
+	// settled, or an export or a boundary window frame holds another Scene.
 	$effect(() => {
 		const currentRouteKey = routeKey;
 		// Editor mutations that remove optional topology wake this explicitly.

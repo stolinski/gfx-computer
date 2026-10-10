@@ -20,7 +20,7 @@ A **Film** places several Presets' states in a row as Scenes, and it is what a u
 
 `pack` is required and must name an entry in `PACK_REGISTRY`; there is no implicit default Pack. `kind: "deliverable"` is listed in the app catalog and receives the static safety/readability lint, while `kind: "fixture"` remains loadable for development but is excluded from the listing. Either kind still receives structural, semantic, Pack, and Identity validation.
 
-`transition` selects the shipped two-snapshot multi-state path ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md), [ADR-0046](adr/0046-seekable-simulation-and-deformation-families.md)). `from` and `to` resolve to ordinary Presets; `effect` resolves through the distinct typed transition-Effect registry and is not an `effects[]` entry. `params` is validated by the selected renderer and defaults to `{}`. `durationMs` drives transition-local progress; a longer composition holds the settled `to` endpoint after the transition completes.
+`transition` is a legacy field: accepted on read, never written ([ADR-0068](adr/0068-films-scenes-and-live-scene-boundaries.md) §3, [ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md) accept-old). A Preset that states it is read as a two-Scene **Film**: `from` and `to` name two corpus Presets, which become the two Scenes, and `effect`, `durationMs`, and `params` become the one boundary between them ([`film-format.md`](film-format.md#a-legacy-transition-preset)). `effect` resolves through the typed transition-effect registry ([ADR-0046](adr/0046-seekable-simulation-and-deformation-families.md)) and is not an `effects[]` entry; `params` is validated by that effect and defaults to `{}`. The Preset's own `state` supplies only the Film's transport. Both Scenes are live through the transition. The frozen two-snapshot lane of [ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md) that used to draw this field is retired. To make a transition now, set a Scene boundary on a Film.
 
 ## Shared blocks
 
@@ -51,7 +51,7 @@ The render target clears to transparent premultiplied alpha by default. `state.b
 
 - no `backgroundFill`, depth `stage`, or complete Video-track coverage → transparent overlay output (`gfx-overlay`);
 - `backgroundFill`, a depth `stage`, or Video clips covering every output frame → opaque full-frame output (`gfx-bumper`);
-- a transition is opaque only when both resolved endpoint Presets are opaque.
+- a Film is opaque only when every one of its Scenes is opaque.
 
 Unused Media library entries do not affect classification. A Video-track gap stays transparent rather than painting black or holding the preceding frame, so a gapped composition retains alpha. There is no schema enum for overlay/segment/bumper; those are descriptive delivery terms derived from rendered coverage.
 
@@ -100,7 +100,7 @@ At a cut, the ending clip is inactive and the next clip is active. The decoder s
 
 Each clip's audio is decoded from the same Source interval and placed at the same destination interval. `audio.enabled` mutes that clip only; `audio.gain` controls its contribution to the deterministic exact-length 48 kHz stereo mix with derived/manual cues and an eligible bed. Timeline play/loop previews that final mix from the explicit playhead; scrub remains silent.
 
-V1 rejects active Video clips with `backgroundFill`, `stage`, or transition Presets. It supports one 1x track, hard cuts, move, left/right trim, slip, snapping, clip removal, and transparent gaps. It excludes multiple Video tracks, overlaps, ripple edits, clip transitions, speed changes, loops/holds, footage grading, depth-stage video planes, live video transitions, silence detection, and automatic cut generation. Those exclusions add behavior around the clip contract rather than adding inert schema now.
+V1 rejects active Video clips with `backgroundFill` or `stage`. It supports one 1x track, hard cuts, move, left/right trim, slip, snapping, clip removal, and transparent gaps. It excludes multiple Video tracks, overlaps, ripple edits, clip transitions, speed changes, loops/holds, footage grading, depth-stage video planes, live video transitions, silence detection, and automatic cut generation. Those exclusions add behavior around the clip contract rather than adding inert schema now.
 
 Legacy input containing only `state.sourceVideo` is accepted at the shared ingress and normalized to one deterministic Media library entry plus one frame-0 full-span Video clip, preserving its offset, audio inclusion, and gain. Input containing both `state.sourceVideo` and `state.media` is rejected. Canonical parse, runtime state, GET/PUT interchange, GUI export, and first autosave emit only `state.media`; `state.sourceVideo` is migration history, not an active alternative contract.
 

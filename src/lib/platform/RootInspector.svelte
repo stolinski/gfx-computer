@@ -21,7 +21,6 @@
 	import MarkDefaultsSection from './MarkDefaultsSection.svelte';
 	import MotionBeatsSection from './MotionBeatsSection.svelte';
 	import PackSection from './PackSection.svelte';
-	import TransitionRecipeSection from './TransitionRecipeSection.svelte';
 	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 
 	const rendererChangeGuard = new AsyncAuthoringOperationGuard();
@@ -224,8 +223,6 @@
 			</Field>
 		{/if}
 	</InspectorSection>
-
-	<TransitionRecipeSection />
 
 	<DepthStageSection />
 

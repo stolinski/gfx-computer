@@ -4,9 +4,9 @@
  * ([ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §3, §7).
  *
  * Four checks are shared by every family, whatever an operation's effect kind:
- * the operation is a row the inventory declares, a composition is open, the
- * transition snapshot path does not currently own engine state, and the
- * caller's observed Composition revision is still current. A `write` runs them
+ * the operation is a row the inventory declares, a composition is open, engine
+ * state is the open document at rest, and the caller's observed Composition
+ * revision is still current. A `write` runs them
  * inside `runCompositionEditTransaction`; a `lifecycle`, `read`, or session
  * operation never opens a draft and so runs them here, which is why they live
  * in one module rather than inside the transaction.
@@ -21,7 +21,7 @@ import {
 	boundCompositionFindings,
 	type CompositionValidationFinding
 } from './composition-validation-findings';
-import { engineState, packState, transitionState } from './engine-state.svelte';
+import { engineState, packState } from './engine-state.svelte';
 import { filmState } from './film-state.svelte';
 import { presetBase } from './preset-base.svelte';
 import { serializeCompositionState } from './preset-pure';
@@ -177,23 +177,15 @@ export function refuseUnlessCompositionOpen(
 
 /**
  * The windows in which no operation may touch the composition, because engine
- * state is not the open document at rest. The transition snapshot path swaps a
- * scratch composition into engine state, so an edit landing there would be
- * applied to a document the author never opened. A Scene swap has made another
- * Scene live that the Workspace has not settled yet, so an operation that
- * reads the canvas there would read the previous Scene's frame.
+ * state is not the open document at rest. A Scene swap has made another Scene
+ * live that the Workspace has not settled yet, so an operation that reads the
+ * canvas there would read the previous Scene's frame; an export or a boundary
+ * window frame holds a Scene the author did not open, so an edit landing there
+ * would be applied to the wrong Scene.
  */
 export function refuseWhileCompositionStateIsSwapped(
 	row: WebmcpOperationRow
 ): CompositionOperationFailure | null {
-	if (transitionState.capturing) {
-		return refuseCompositionOperation(
-			row,
-			compositionEditHistory.revision,
-			'precondition_unmet',
-			'The composition is mid transition capture; retry once the snapshot finishes.'
-		);
-	}
 	if (filmState.isSwappingScene) {
 		return refuseCompositionOperation(
 			row,

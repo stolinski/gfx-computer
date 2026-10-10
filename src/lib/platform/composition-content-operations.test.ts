@@ -22,7 +22,7 @@ import {
 	runAddCompositionOverlayOperation,
 	runSetCompositionSurfaceOperation
 } from './composition-layer-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { serializeAnnotationBodyToText } from '$lib/annotations/annotation-body-text';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
@@ -45,7 +45,6 @@ function expectFailed(outcome: CompositionOperationOutcome): CompositionOperatio
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

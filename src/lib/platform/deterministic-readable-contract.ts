@@ -1,4 +1,4 @@
-import type { EngineState, Overlay, Preset, SurfaceContent } from '$lib/platform/engine-schema';
+import type { EngineState, Overlay, SurfaceContent } from '$lib/platform/engine-schema';
 import { isKineticWordReadableAt } from './kinetic-type-field-validation';
 import {
 	annotationBodyPlainText,
@@ -33,11 +33,6 @@ export interface DeterministicExpectedReadableText extends RendererReadableTextC
 export type DeterministicReadableContractResult =
 	| { status: 'available'; expected: readonly DeterministicExpectedReadableText[] }
 	| { status: 'unavailable'; reason: string };
-
-export interface DeterministicTransitionEndpointReadableContract {
-	endpoint: 'from' | 'to';
-	contract: DeterministicReadableContractResult;
-}
 
 function normalizedReadableText(text: string): string {
 	return text.replace(/\s+/g, ' ').trim();
@@ -498,23 +493,6 @@ function overlayHasReadableHold(overlay: Overlay, progress: number, state: Engin
 		? resolved.startFraction + envelope.departMs / durationMilliseconds
 		: (overlay.exit?.start ?? 1);
 	return progress >= holdStart && progress < holdEnd;
-}
-
-/** Derive endpoint authority at the same settled midpoint used by transition snapshots. */
-export function deriveDeterministicTransitionReadableContracts(transition: {
-	from: Preset;
-	to: Preset;
-}): readonly DeterministicTransitionEndpointReadableContract[] {
-	return (['from', 'to'] as const).map((endpoint) => {
-		const state = transition[endpoint].state;
-		return {
-			endpoint,
-			contract: deriveDeterministicReadableContract(
-				state,
-				state.transport.durationSeconds * 500_000
-			)
-		};
-	});
 }
 
 /** Derive complete readable identities from parsed EngineState and renderer-free definitions. */

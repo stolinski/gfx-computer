@@ -8,7 +8,7 @@ import {
 	type CompositionValidationOutcome,
 	type CompositionValidationReceipt
 } from './composition-validation-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 
@@ -29,7 +29,6 @@ function expectFailed(outcome: CompositionValidationOutcome): CompositionOperati
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

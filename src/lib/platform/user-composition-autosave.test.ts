@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import twoSceneCutFilmJson from '../../../scripts/fixtures/film-cut-frames/two-scene-cut.film.json';
 
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { parseFilm } from './film-ingress';
 import {
 	cutOpenFilmPlaybackToNextScene,
@@ -44,7 +44,6 @@ function openStoredDocument(document: UserCompositionDocument): UserCompositionA
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	filmState.isSwappingScene = false;
 	timelineHandle.current = null;
 	openFilmSceneSettlerHandle.current = null;

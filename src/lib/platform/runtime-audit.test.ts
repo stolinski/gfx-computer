@@ -1,10 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createDefaultEngineState } from './engine-schema';
-import {
-	deriveDeterministicReadableContract,
-	deriveDeterministicTransitionReadableContracts
-} from './deterministic-readable-contract';
+import { deriveDeterministicReadableContract } from './deterministic-readable-contract';
 import {
 	composedElementScale,
 	coveringDeterministicViewportRect,
@@ -179,44 +176,6 @@ describe('typed readable identity authority', () => {
 				'CSS spaces'
 			)
 		).toBe(true);
-	});
-
-	it('derives both transition endpoint Presets at their settled snapshot times', () => {
-		const from = createDefaultEngineState();
-		from.surface.type = 'plain';
-		from.surface.content.title = undefined;
-		from.surface.content.body = [
-			{ type: 'paragraph', segments: [{ text: 'From endpoint', markStyles: [] }] }
-		];
-		const to = createDefaultEngineState();
-		to.surface.type = 'plain';
-		to.surface.content.title = undefined;
-		to.surface.content.body = [
-			{ type: 'paragraph', segments: [{ text: 'To endpoint', markStyles: [] }] }
-		];
-		const contracts = deriveDeterministicTransitionReadableContracts({
-			from: {
-				schema: 'gfx@1',
-				name: 'From',
-				pack: 'syntax',
-				kind: 'fixture',
-				state: from
-			},
-			to: {
-				schema: 'gfx@1',
-				name: 'To',
-				pack: 'syntax',
-				kind: 'fixture',
-				state: to
-			}
-		});
-		expect(contracts.map((entry) => entry.endpoint)).toEqual(['from', 'to']);
-		for (const entry of contracts) {
-			expect(entry.contract.status).toBe('available');
-			if (entry.contract.status === 'available') {
-				expect(entry.contract.expected[0]?.id).toBe('surface:plain:body:0');
-			}
-		}
 	});
 
 	it('derives canonical rendered Surface URL text and stable paragraph identities', () => {

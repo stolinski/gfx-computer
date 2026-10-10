@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import type { Preset } from './engine-schema';
-import { filmFromPreset, filmToWireFormat } from './film-ingress';
+import { filmFromPreset, filmToWireFormat, parseFilm } from './film-ingress';
 import { parsePresetIngress } from './preset-ingress';
 import { LEGACY_SOURCE_VIDEO_ASSET_ID, LEGACY_SOURCE_VIDEO_CLIP_ID } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
@@ -223,7 +223,7 @@ describe('userCompositionStore', () => {
 		assert.deepEqual(fetchMock.mock.calls[1], ['/api/user-compositions/missing']);
 	});
 
-	it('loads a legacy transition record with its recipe in the envelope', async () => {
+	it('loads a legacy transition Preset document as a two-Scene Film, and saves a Film', async () => {
 		const transitionPreset = parsePresetIngress({
 			...blankPresetJson,
 			kind: 'deliverable',
@@ -241,14 +241,22 @@ describe('userCompositionStore', () => {
 
 		const loaded = await userCompositionStore.loadUserComposition('my-transition');
 		assert.ok(loaded);
-		assert.deepEqual(loaded.legacyPresetEnvelope, {
-			kind: 'deliverable',
-			transition: transitionPreset.transition
-		});
+		// ADR-0068 §3: the two endpoints are two Scenes, and the wipe their boundary.
+		assert.deepEqual(loaded.legacyPresetEnvelope, { kind: 'deliverable' });
+		assert.deepEqual(
+			loaded.film.scenes.map((scene) => scene.origin),
+			[
+				{ slug: 'lower-third', contentKey: null },
+				{ slug: 'blank', contentKey: null }
+			]
+		);
+		assert.deepEqual(
+			loaded.film.boundaries.map((boundary) => boundary.kind),
+			['mask-wipe']
+		);
 		await userCompositionStore.saveUserComposition('my-transition', loaded);
 
-		// ADR-0068 §3: a Film cannot hold the recipe yet, so the save keeps the Preset shape.
-		assert.deepEqual(parsePresetIngress(requestBodyAt(1)), transitionPreset);
+		assert.deepEqual(parseFilm(requestBodyAt(1)), loaded.film);
 	});
 
 	it('uses an explicit request fetch instead of global fetch when loading', async () => {

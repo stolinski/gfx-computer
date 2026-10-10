@@ -3,8 +3,8 @@
  * document.
  *
  * The bundle is resolved from the document itself — its Surface, Blocks,
- * Annotations, Overlays, Effects, transition endpoints, and the Effects its
- * Pack's chrome contributes to a full-frame piece — and activation is additive,
+ * Annotations, Overlays, Effects, the Effects its Pack's chrome contributes to
+ * a full-frame piece, and the transition effects its Scene boundaries name — and activation is additive,
  * so readying one document never unloads another's renderers.
  *
  * Any operation that changes what has to render resolves the prospective
@@ -20,7 +20,6 @@ import { compositionEditHistory } from './composition-edit-history';
 import { isFilmTransitionEffectBoundary } from './film-schema';
 import { scenePresetsOfOpenFilm, type OpenFilmDocument } from './open-film-document';
 import { getPack, UnknownPackError } from './packs/registry';
-import { getPresetBySlug } from './preset-catalog';
 import { ensurePackLoaded } from './user-pack-runtime';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 import {
@@ -47,11 +46,7 @@ export async function ensureCompositionRenderersLoaded(document: Preset): Promis
 		throw new UnknownPackError(document.pack);
 	}
 	const bundle = await pipelineRendererRuntime.resolve(
-		collectPresetRendererRequirements(document, {
-			pack: getPack(document.pack),
-			resolvePack: getPack,
-			resolvePreset: getPresetBySlug
-		})
+		collectPresetRendererRequirements(document, { pack: getPack(document.pack) })
 	);
 	pipelineRendererRuntime.activate(bundle);
 }
@@ -67,11 +62,7 @@ export function collectFilmRendererRequirements(
 ): PipelineRendererRequirements {
 	const sceneRequirements = collectScenePresetRendererRequirements(
 		scenePresetsOfOpenFilm(document),
-		{
-			pack: getPack(document.film.pack),
-			resolvePack: getPack,
-			resolvePreset: getPresetBySlug
-		}
+		{ pack: getPack(document.film.pack) }
 	);
 	// A boundary that is a transition effect composites its window with that
 	// effect's renderer, so it is loaded with the Film too.

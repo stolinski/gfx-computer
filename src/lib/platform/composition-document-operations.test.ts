@@ -14,7 +14,8 @@ import {
 	type CompositionJsonExportOutcome,
 	type CompositionJsonExportReceipt
 } from './composition-document-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
+import { filmState } from './film-state.svelte';
 import { parseFilmIngress } from './film-ingress';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
@@ -48,7 +49,6 @@ function expectFailed(
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';
@@ -126,16 +126,21 @@ describe('composition JSON export', () => {
 		expect(film.scenes[0].state).toEqual(parsePresetIngress(blankPresetJson).state);
 	});
 
-	it('exports the legacy Preset document while the composition carries a transition', () => {
+	it('exports a legacy transition Preset as the two-Scene Film it opened as', () => {
 		applyPreset(parsePresetIngress(transitionWipeDemoPresetJson));
 		compositionMeta.userCompositionSlug = 'my-transition';
 
 		const receipt = expectExported(runExportCompositionJsonOperation());
 
-		// ADR-0068 §3: a Film cannot hold a two-endpoint transition yet.
-		expect(parsePresetIngress(JSON.parse(receipt.json))).toEqual(
-			parsePresetIngress(transitionWipeDemoPresetJson)
-		);
+		// ADR-0068 §3: the transition is a boundary between two Scenes.
+		const film = parseFilmIngress(JSON.parse(receipt.json));
+		expect(film.scenes.map((scene) => scene.origin?.slug)).toEqual([
+			transitionWipeDemoPresetJson.transition.from,
+			transitionWipeDemoPresetJson.transition.to
+		]);
+		expect(film.boundaries.map((boundary) => boundary.kind)).toEqual([
+			transitionWipeDemoPresetJson.transition.effect
+		]);
 	});
 
 	it('refuses to export when no composition is open', () => {
@@ -206,12 +211,13 @@ describe('composition identity', () => {
 		expect(presetBase.name).toBe('First');
 	});
 
-	it('refuses to edit while the transition snapshot path owns engine state', async () => {
-		transitionState.capturing = true;
+	it('refuses to edit while a Scene swap has engine state in transit', async () => {
+		filmState.isSwappingScene = true;
 
 		const failure = expectFailed(
 			await runSetCompositionIdentityOperation({ expectedRevision: 0, name: 'Renamed' })
 		);
+		filmState.isSwappingScene = false;
 
 		expect(failure.code).toBe('precondition_unmet');
 		expect(presetBase.name).toBe('Blank');

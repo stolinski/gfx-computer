@@ -18,11 +18,7 @@ function requireBuiltinPreset(slug: string): Preset {
 }
 
 function collectRequirements(preset: Preset): PipelineRendererRequirements {
-	return collectPresetRendererRequirements(preset, {
-		pack: getPack(preset.pack),
-		resolvePack: getPack,
-		resolvePreset: getPresetBySlug
-	});
+	return collectPresetRendererRequirements(preset, { pack: getPack(preset.pack) });
 }
 
 function collectBuiltinRequirements(slug: string): PipelineRendererRequirements {
@@ -32,17 +28,6 @@ function collectBuiltinRequirements(slug: string): PipelineRendererRequirements 
 
 function cloneBuiltinPreset(slug: string): Preset {
 	return structuredClone(requireBuiltinPreset(slug));
-}
-
-function collectWithPresetMap(
-	preset: Preset,
-	presetsBySlug: ReadonlyMap<string, Preset>
-): PipelineRendererRequirements {
-	return collectPresetRendererRequirements(preset, {
-		pack: getPack(preset.pack),
-		resolvePack: getPack,
-		resolvePreset: (slug) => presetsBySlug.get(slug) ?? null
-	});
 }
 
 describe('collectPresetRendererRequirements', () => {
@@ -121,73 +106,16 @@ describe('collectPresetRendererRequirements', () => {
 		assert.equal(collectRequirements(preset).blocks.has('kinetic-word'), true);
 	});
 
-	it('includes transition renderers and both endpoint Preset graphs', () => {
+	// A legacy transition Preset is read as a two-Scene Film, whose requirements
+	// are the union of its Scenes and its boundary's effect
+	// (`collectFilmRendererRequirements`). The Preset's own state is all that is
+	// read here.
+	it('reads only the own state of a Preset that states a legacy transition', () => {
 		const requirements = collectBuiltinRequirements('transition-wipe-demo');
+		const preset = requireBuiltinPreset('transition-wipe-demo');
 
-		assert.deepEqual([...requirements.transitions], ['mask-wipe']);
-		assert.ok(requirements.surfaces.size >= 2);
-		assert.ok(requirements.overlays.size > 0);
-	});
-
-	it('uses each transition endpoint Pack when collecting chrome', () => {
-		const root = cloneBuiltinPreset('lower-third');
-		const from = cloneBuiltinPreset('lower-third');
-		const to = cloneBuiltinPreset('lower-third');
-		from.pack = 'crt-terminal';
-		from.state.backgroundFill = '#000000';
-		to.pack = 'clean-light';
-		delete to.state.backgroundFill;
-		root.transition = {
-			from: 'endpoint-from',
-			to: 'endpoint-to',
-			effect: 'mask-wipe',
-			durationMs: 800,
-			params: {}
-		};
-		const requirements = collectWithPresetMap(
-			root,
-			new Map([
-				['endpoint-from', from],
-				['endpoint-to', to]
-			])
-		);
-
-		assert.equal(requirements.effects.has('crt-tube'), true);
-	});
-
-	it('recursively collects nested transition endpoint requirement sets', () => {
-		const root = cloneBuiltinPreset('lower-third');
-		const middle = cloneBuiltinPreset('column-us-population-1950-2020');
-		const leaf = cloneBuiltinPreset('docu-map-journey');
-		const deep = cloneBuiltinPreset('checklist-project-setup');
-		root.transition = {
-			from: 'middle',
-			to: 'leaf',
-			effect: 'mask-wipe',
-			durationMs: 800,
-			params: {}
-		};
-		middle.transition = {
-			from: 'deep',
-			to: 'leaf',
-			effect: 'sheet-peel',
-			durationMs: 600,
-			params: {}
-		};
-		const requirements = collectWithPresetMap(
-			root,
-			new Map([
-				['middle', middle],
-				['leaf', leaf],
-				['deep', deep]
-			])
-		);
-
-		assert.deepEqual([...requirements.transitions], ['mask-wipe', 'sheet-peel']);
-		assert.equal(requirements.blocks.has('column-chart'), true);
-		assert.equal(requirements.blocks.has('node'), true);
-		assert.equal(requirements.surfaces.has('checklist'), true);
-		assert.equal(requirements.annotations.has('strike'), true);
+		assert.deepEqual([...requirements.surfaces], [preset.state.surface.type]);
+		assert.equal(requirements.transitions.size, 0);
 	});
 });
 

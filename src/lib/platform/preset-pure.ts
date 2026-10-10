@@ -5,9 +5,8 @@
  */
 import { PRESET_SCHEMA_ID } from './engine-schema.ts';
 import { serializeAnnotationBodyToText } from '../annotations/annotation-body-text.ts';
-import { cloneJsonValue } from '../utils/json-clone.ts';
 
-import type { CompositionTransition, EngineState, Preset, SurfaceContent } from './engine-schema';
+import type { EngineState, Preset, SurfaceContent } from './engine-schema';
 
 /**
  * The Preset-level metadata fields that live beside `state` — the shape the
@@ -18,7 +17,6 @@ export interface PresetBaseFields {
 	name: string;
 	description?: string | undefined;
 	kind: Preset['kind'];
-	transition?: CompositionTransition | undefined;
 }
 
 function canonicalCompositionState(state: EngineState): Preset['state'] {
@@ -27,9 +25,9 @@ function canonicalCompositionState(state: EngineState): Preset['state'] {
 
 /**
  * Produce a Preset from the base (top-level metadata) and the live engine
- * state. The base supplies `name`, `description`, `kind`, and `transition` —
- * all GUI-editable via the RootInspector's Composition / Transition sections,
- * fed from the reactive `presetBase`; the state and packSlug supply the
+ * state. The base supplies `name`, `description`, and `kind` — all
+ * GUI-editable via the RootInspector's Composition section, fed from the
+ * reactive `presetBase`; the state and packSlug supply the
  * composition. Fields the GUI has no control for pass through untouched from
  * `state` — the same data `applyCompositionState` loaded from the original
  * preset — ensuring a lossless round-trip even when only a subset of the
@@ -48,14 +46,6 @@ export function serializeCompositionState(
 		state: canonicalCompositionState(state)
 	};
 	if (base.description !== undefined) result.description = base.description;
-	// Cloned so the serialized Preset never shares the live (mutable) recipe
-	// object with the GUI state it came from.
-	if (base.transition !== undefined) {
-		result.transition = {
-			...base.transition,
-			params: cloneJsonValue(base.transition.params)
-		};
-	}
 	return result;
 }
 

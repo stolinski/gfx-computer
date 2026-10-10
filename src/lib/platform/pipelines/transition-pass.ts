@@ -35,9 +35,6 @@ export interface CompiledTransitionEffect {
 	dispose?(): void;
 }
 
-/** @deprecated Use CompiledTransitionEffect. */
-export type CompiledTransitionWipe = CompiledTransitionEffect;
-
 interface UniformBufferShape {
 	write(value: unknown): void;
 }

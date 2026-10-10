@@ -56,14 +56,14 @@ const CASES =
 					frames: [45],
 					expectedReadablePrefixes: ['caption:cue-1:word:']
 				},
+				// A legacy transition Preset opens as a two-Scene Film (ADR-0068 §3), on
+				// its first Scene. The frame is captured twice and beside its neighbour,
+				// so the replay probe holds it to be repeatable and to move.
 				{
 					slug: 'transition-wipe-demo',
 					frames: [18],
-					transition: true,
-					expectedTransitionEndpoints: {
-						from: ['overlay:main:glyph-0'],
-						to: ['surface:newspaper:title']
-					}
+					replay: true,
+					expectedReadable: ['overlay:main:glyph-0']
 				},
 				{ slug: 'deterministic-readable-audit-fixture', frames: [75], pixelProof: true }
 			];
@@ -299,27 +299,7 @@ async function runCase(testCase) {
 			}
 		}
 		const summary = { slug: testCase.slug, frames: testCase.frames, probes: [] };
-		if (testCase.transition) {
-			const endpointEvidence = manifests[0].transitionEndpoints ?? [];
-			for (const endpoint of ['from', 'to']) {
-				const evidence = endpointEvidence.find((entry) => entry.endpoint === endpoint);
-				if (!evidence?.manifest.readableCoverage.complete) {
-					throw new Error(`${testCase.slug}: ${endpoint} endpoint readable coverage unavailable`);
-				}
-				for (const expectedId of testCase.expectedTransitionEndpoints?.[endpoint] ?? []) {
-					if (!evidence.manifest.readableCoverage.expectedReadableIdentities.includes(expectedId)) {
-						throw new Error(`${testCase.slug}: ${endpoint} endpoint missing ${expectedId}`);
-					}
-					const identity = evidence.manifest.readableIdentityEvidence.find(
-						(entry) => entry.id === expectedId
-					);
-					if (!identity?.capture || identity.capture.expectedTreatmentPixelCount <= 0) {
-						throw new Error(
-							`${testCase.slug}: ${endpoint} endpoint mask missing for ${expectedId}`
-						);
-					}
-				}
-			}
+		if (testCase.replay) {
 			const frame = testCase.frames[0];
 			const address = manifests[0].address;
 			const firstPath = saveCanvasPng(

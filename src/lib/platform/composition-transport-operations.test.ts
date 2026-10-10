@@ -9,7 +9,7 @@ import {
 	runSetCompositionOrientationOperation,
 	runSetCompositionTimingOperation
 } from './composition-transport-operations';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { applyPreset } from './preset';
 import { parsePresetIngress } from './preset-ingress';
 
@@ -31,7 +31,6 @@ function expectChangedPointers(outcome: CompositionOperationOutcome): readonly s
 }
 
 beforeEach(() => {
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'untitled';

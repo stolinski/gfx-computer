@@ -35,7 +35,7 @@ import {
 	discardOpenCompositionArrival,
 	installOpenCompositionAddressNavigator
 } from './open-composition-address';
-import { engineState, transitionState } from './engine-state.svelte';
+import { engineState } from './engine-state.svelte';
 import { readOpenFilm } from './film-state.svelte';
 import { listWebmcpToolDefinitions } from './webmcp-tool-definitions';
 import { parsePresetIngress } from './preset-ingress';
@@ -203,7 +203,6 @@ function openEditableComposition(): void {
 beforeEach(() => {
 	vi.clearAllMocks();
 	sessionStore.listUserCompositions.mockResolvedValue([]);
-	transitionState.capturing = false;
 	applyPreset(parsePresetIngress(blankPresetJson));
 	compositionMeta.isUserComposition = false;
 	compositionMeta.userCompositionSlug = null;
@@ -531,7 +530,7 @@ describe('WebMCP tool calls', () => {
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
 		const film = readOpenFilm();
-		const plan = buildCompositionExportPlan({ film, transition: null });
+		const plan = buildCompositionExportPlan({ film });
 
 		const inspected = readPayload(await host.call(rowFor('playhead.inspect').toolName, {}));
 		const moved = readPayload(
@@ -611,7 +610,7 @@ describe('WebMCP validation and delivery', () => {
 		compositionExportHandle.current = () =>
 			Promise.resolve({
 				status: 'delivered',
-				plan: buildCompositionExportPlan({ film: readOpenFilm(), transition: null }),
+				plan: buildCompositionExportPlan({ film: readOpenFilm() }),
 				videoByteLength: 4096,
 				wavFilename: null
 			});

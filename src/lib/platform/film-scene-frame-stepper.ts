@@ -14,13 +14,10 @@
  * bracket's `close`, which puts the author's Scene and frame back.
  *
  * Export renders every Film frame through this, and a frame inside a Scene
- * boundary's window is two calls, one per Scene, into two targets.
- *
- * The legacy two-endpoint `transition` Preset path
- * (`./transition-snapshot-controller.ts`) does not use the stepper. It swaps
- * whole Presets that are not Scenes of the open Film, under
- * `transitionState.capturing`, and renders each once. The two share the settle
- * (`./composition-state-swap-settle.ts`) and nothing else.
+ * boundary's window is two calls, one per Scene, into two targets. Each call
+ * prepares the live Scene's own Video underlay sample straight before it
+ * renders that Scene, so two Scenes with footage are two decode positions,
+ * taken one after the other.
  */
 import { framesToSeconds, type FrameRate } from '$lib/utils/composition-timing';
 
