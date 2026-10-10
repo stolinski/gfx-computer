@@ -6,6 +6,10 @@
 	import { compositionMeta } from './composition-meta.svelte';
 	import { describeCompositionOperationFailure } from './composition-operation-preflight';
 	import {
+		runSeekCompositionPlayheadOperation,
+		type CompositionPlayheadSeekOutcome
+	} from './composition-playhead-operations';
+	import {
 		runRemoveCompositionSceneOperation,
 		runReorderCompositionSceneOperation,
 		runSelectCompositionSceneOperation,
@@ -17,9 +21,12 @@
 		filmSceneFrameCount,
 		filmSceneFrameOffsets
 	} from './film-playhead';
+	import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
+	import { filmSceneBoundaryKindLabel } from './film-scene-boundary-kind-label';
 	import { filmSceneDisplayName } from './film-scene-display-name';
 	import { readOpenFilmFrame } from './film-scene-selection';
 	import { filmState, readOpenFilm } from './film-state.svelte';
+	import { sceneBoundarySelection } from './selection.svelte';
 	import FilmSceneStarterPicker from './FilmSceneStarterPicker.svelte';
 	import { framesToSeconds, resolveFrameRate } from '$lib/utils/composition-timing';
 	import { clampNumber } from '$lib/utils/math';
@@ -29,9 +36,13 @@
 	// wide as its Scene is long and starts on its Scene's first Film frame, so two
 	// Scenes that share a boundary window overlap by that window. Clicking one opens that Scene at the Film frame
 	// under the pointer; dragging one along the strip reorders it; the open
-	// Scene's segment can be removed. The Timeline below keeps showing the open
-	// Scene on its own clock. An unsaved Starter has no strip: it is not a Film
-	// yet.
+	// Scene's segment can be removed. Between two neighbouring segments is their
+	// junction, the Scene boundary: the plain line of a cut, or the region the two
+	// Scenes share for a fade or an effect. Selecting a junction opens the
+	// boundary's fields in the inspector; a click inside its region also parks the
+	// Film playhead on the frame under the pointer, which shows the exact frame.
+	// The Timeline below keeps showing the open Scene on its own clock. An unsaved
+	// Starter has no strip: it is not a Film yet.
 
 	/** How far a press travels before it is a drag and not a click. */
 	const SEGMENT_DRAG_THRESHOLD_PX = 4;
@@ -45,6 +56,18 @@
 		frameCount: number;
 		/** Frames this Scene shares with the one before it: the window of their boundary. */
 		leadingOverlapFrames: number;
+	}
+
+	/** The boundary between two neighbouring Scenes, as the strip draws it. */
+	interface SceneJunction {
+		/** Index into the Film's boundaries: the boundary after Scene `boundaryIndex`. */
+		boundaryIndex: number;
+		/** What the junction is called: its kind and the two Scenes it sits between. */
+		label: string;
+		/** The first Film frame of the incoming Scene: where a cut falls and a window starts. */
+		startFrame: number;
+		/** Film frames the two Scenes share; 0 for a cut. */
+		windowFrames: number;
 	}
 
 	const strip = $derived.by(() => {
@@ -64,7 +87,13 @@
 				leadingOverlapFrames: sceneIndex === 0 ? 0 : overlapFrames[sceneIndex - 1]
 			};
 		});
-		return { segments, frameCount: filmFrameCount(film) };
+		const junctions: SceneJunction[] = film.boundaries.map((boundary, boundaryIndex) => ({
+			boundaryIndex,
+			label: `${filmSceneBoundaryKindLabel(boundary.kind)} between ${segments[boundaryIndex].name} and ${segments[boundaryIndex + 1].name}`,
+			startFrame: frameOffsets[boundaryIndex + 1],
+			windowFrames: overlapFrames[boundaryIndex]
+		}));
+		return { segments, junctions, frameCount: filmFrameCount(film) };
 	});
 
 	const selectedSegment = $derived(
@@ -82,7 +111,10 @@
 	let suppressNextClick = false;
 
 	function reportFailure(
-		outcome: CompositionOperationOutcome | CompositionSceneSelectionOutcome
+		outcome:
+			| CompositionOperationOutcome
+			| CompositionSceneSelectionOutcome
+			| CompositionPlayheadSeekOutcome
 	): void {
 		if (outcome.status === 'failed') {
 			compositionMeta.persistenceError = describeCompositionOperationFailure(outcome);
@@ -123,6 +155,26 @@
 		);
 	}
 
+	async function selectJunction(event: MouseEvent, junction: SceneJunction): Promise<void> {
+		moveCompositionWorkspaceFocus({
+			target: 'scene-boundary',
+			boundaryIndex: junction.boundaryIndex
+		});
+		// A pointer inside the region two Scenes share is on a Film frame: the
+		// playhead parks there, and a paused playhead inside a window shows the
+		// exact frame. A cut has no frames, and a keyboard activation no position.
+		if (event.detail === 0 || junction.windowFrames === 0) return;
+		reportFailure(
+			await runSeekCompositionPlayheadOperation({
+				frame: clampNumber(
+					filmFrameAtClientX(event.clientX),
+					junction.startFrame,
+					junction.startFrame + junction.windowFrames - 1
+				)
+			})
+		);
+	}
+
 	async function removeSelectedScene(): Promise<void> {
 		reportFailure(
 			await runRemoveCompositionSceneOperation({
@@ -132,17 +184,28 @@
 		);
 	}
 
-	function handleSegmentKeydown(event: KeyboardEvent, segment: SceneSegment): void {
-		if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-			const segmentEl = event.currentTarget as HTMLElement;
-			const neighbour =
-				event.key === 'ArrowLeft' ? segmentEl.previousElementSibling : segmentEl.nextElementSibling;
-			if (neighbour instanceof HTMLButtonElement && neighbour.dataset.sceneId !== undefined) {
-				event.preventDefault();
-				neighbour.focus();
-			}
-			return;
+	/**
+	 * Move focus along the strip with the arrow keys, in the order the Film
+	 * runs: a segment, the junction after it, the next segment. True when the key
+	 * was an arrow.
+	 */
+	function moveStripFocus(event: KeyboardEvent): boolean {
+		if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return false;
+		const focusedEl = event.currentTarget as HTMLElement;
+		const neighbour =
+			event.key === 'ArrowLeft' ? focusedEl.previousElementSibling : focusedEl.nextElementSibling;
+		if (
+			neighbour instanceof HTMLButtonElement &&
+			(neighbour.dataset.sceneId !== undefined || neighbour.dataset.boundaryIndex !== undefined)
+		) {
+			event.preventDefault();
+			neighbour.focus();
 		}
+		return true;
+	}
+
+	function handleSegmentKeydown(event: KeyboardEvent, segment: SceneSegment): void {
+		if (moveStripFocus(event)) return;
 		if (
 			(event.key === 'Delete' || event.key === 'Backspace') &&
 			segment.id === filmState.selectedSceneId &&
@@ -207,7 +270,8 @@
 {#if compositionMeta.isUserComposition}
 	<div class="scene-strip" role="toolbar" aria-label="Scenes">
 		<div class="scene-strip__track" bind:this={trackEl}>
-			{#each strip.segments as segment (segment.id)}
+			{#each strip.segments as segment, sceneIndex (segment.id)}
+				{@const junction = strip.junctions[sceneIndex]}
 				<button
 					class="scene-strip__segment"
 					class:is-dragging={drag?.isDragging === true && drag.sceneId === segment.id}
@@ -227,6 +291,22 @@
 					<span class="scene-strip__name">{segment.name}</span>
 					<span class="scene-strip__timing">{segment.timing}</span>
 				</button>
+				{#if junction}
+					<button
+						class="scene-strip__junction"
+						class:is-cut={junction.windowFrames === 0}
+						type="button"
+						aria-label={junction.label}
+						data-boundary-index={junction.boundaryIndex}
+						aria-pressed={sceneBoundarySelection.boundaryIndex === junction.boundaryIndex}
+						style:inset-inline-start="{(junction.startFrame / strip.frameCount) * 100}%"
+						style:inline-size={junction.windowFrames === 0
+							? null
+							: `${(junction.windowFrames / strip.frameCount) * 100}%`}
+						onclick={(event) => selectJunction(event, junction)}
+						onkeydown={moveStripFocus}
+					></button>
+				{/if}
 			{/each}
 			{#if selectedSegment && strip.segments.length > 1}
 				<button
@@ -332,6 +412,43 @@
 		min-inline-size: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	/* The junction between two segments: the Scene boundary. A boundary with a
+	   duration covers the frames its two Scenes share, as a lighter band between
+	   two hairlines. A cut shares none, so it is the segment's own end hairline
+	   with a narrow target centred on it. Selection takes the open segment's
+	   wash. */
+	.scene-strip__junction {
+		background: color-mix(in srgb, #ffffff 7%, transparent);
+		border: 0;
+		border-inline: 1px solid var(--chrome-hairline);
+		box-sizing: border-box;
+		cursor: pointer;
+		inset-block: 0;
+		padding: 0;
+		position: absolute;
+		transition: background 100ms ease;
+	}
+
+	.scene-strip__junction.is-cut {
+		background: transparent;
+		border-inline: 0;
+		inline-size: 9px;
+		translate: -50% 0;
+	}
+
+	.scene-strip__junction:hover {
+		background: color-mix(in srgb, #ffffff 12%, transparent);
+	}
+
+	.scene-strip__junction[aria-pressed='true'] {
+		background: color-mix(in srgb, #2de8ee 24%, transparent);
+	}
+
+	.scene-strip__junction:focus-visible {
+		outline: 2px solid #ffd608;
+		outline-offset: -2px;
 	}
 
 	/* The Timeline's lane remove control, riding the end of the open segment. */

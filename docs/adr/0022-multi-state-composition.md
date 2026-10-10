@@ -2,7 +2,9 @@
 
 ## Status
 
-**Canon model; implementation refined by ADR-0026.**
+**Superseded by [ADR-0068](0068-films-scenes-and-live-scene-boundaries.md) phase 2 on 2026-10-09.** A transition is now a **Scene boundary** between two Scenes of a Film, live on both sides, which is the "render both states live" this record first asked for, done by swapping one engine state per frame. The two-endpoint `transition` Preset form decided here is no longer written or drawn as such: it is accepted on read and lifted to a two-Scene Film with one boundary (ADR-0068 §3). The text below is the record of the original decision.
+
+**Was: Canon model; implementation refined by ADR-0026.**
 
 > **Status — Model canon, implementation refined by [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md).** The composition *model* and *schema* pinned here stand: a Preset declares `transition: { from, to, effect, durationMs }`, `from`/`to` are full normal Presets referenced by slug, and a transition Effect composites them with per-pixel selection (not a crossfade). The **"render both states live into two target pairs every frame"** implementation decision below is **revised by ADR-0026** — it fights the engine's global-singleton + live-DOM architecture; v1 instead snapshots each state once into a cached texture and animates the wipe mask over the two static textures. The live dual-tree render is the documented upgrade path, not the v1 build. Tracked in [`../roadmap.md`](../roadmap.md).
 

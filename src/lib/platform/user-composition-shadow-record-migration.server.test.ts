@@ -174,6 +174,7 @@ describe('migrateUserCompositionShadowRecords', () => {
 			storeDirectory,
 			// `blank-2` is a corpus slug here, so the shadow of `blank` skips it.
 			corpusSlugs: [...CORPUS_SLUGS, 'blank-2', 'lower-third-3'],
+			resolveCorpusPreset: getPresetBySlug,
 			dryRun: false,
 			now: NOW
 		});

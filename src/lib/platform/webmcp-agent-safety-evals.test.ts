@@ -95,6 +95,7 @@ import { compositionExportHandle } from './composition-export-handle.svelte';
 import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState } from './engine-state.svelte';
+import { FilmSceneBoundarySchema } from './film-schema';
 import { readOpenFilm } from './film-state.svelte';
 import { listWebmcpToolDefinitions } from './webmcp-tool-definitions';
 import { parsePresetIngress } from './preset-ingress';
@@ -773,6 +774,93 @@ describe('WebMCP authoring without an interface', () => {
 		await call('composition.undo');
 		expect((await inspectScenes()).ids).toEqual([third, first, second]);
 		expect(sessionStore.createUserComposition).toHaveBeenCalledTimes(1);
+	});
+
+	it('adds a second Scene, sets the boundary to a one-second fade, then to a shatter with a seed, through tools alone', async () => {
+		expect(typeof document).toBe('undefined');
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/');
+		const boundaryRow = rowFor('motion.set-scene-boundary');
+		const offered = (): string[] => [...host.getTools()].map((tool) => tool.name);
+		const call = async (
+			operationId: string,
+			args: Record<string, unknown> = {}
+		): Promise<Record<string, unknown>> => {
+			const row = rowFor(operationId);
+			const payload = readPayload(
+				await host.call(row.toolName, {
+					...(row.requiresExpectedRevision
+						? { expectedRevision: compositionEditHistory.revision }
+						: {}),
+					...args
+				})
+			);
+			await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+			return payload;
+		};
+
+		// One Scene: there is no boundary yet, so the tool that sets one is not offered.
+		await call('composition.create-from-starter', { starterSlug: 'lower-third' });
+		await prepareAuthoringFamily(host, 'motion');
+		expect(offered()).not.toContain(boundaryRow.toolName);
+
+		// A second Scene brings a cut, and the tool with it.
+		await call('composition.add-scene-from-starter', { starterSlug: 'chapter-card-descent' });
+		await prepareAuthoringFamily(host, 'motion');
+		expect(offered()).toContain(boundaryRow.toolName);
+		const inspection = await call('composition.inspect');
+		const [first] = (inspection.scenes as { entries: { id: string }[] }).entries.map(
+			(scene) => scene.id
+		);
+		expect(readOpenFilm().boundaries).toEqual([{ kind: 'cut' }]);
+
+		// A one-second fade.
+		const faded = await call('motion.set-scene-boundary', {
+			outgoingSceneId: first,
+			kind: 'fade',
+			durationMs: 1000
+		});
+		expect(faded).toMatchObject({
+			status: 'applied',
+			changed: { pointers: ['/boundaries/0/kind', '/boundaries/0/durationMs'] },
+			focus: { target: 'scene-boundary', boundaryIndex: 0 }
+		});
+		expect(faded).not.toHaveProperty('sceneId');
+		expect(readOpenFilm().boundaries).toEqual([{ kind: 'fade', durationMs: 1000 }]);
+
+		// Then a shatter with a seed: the second stays, and the rest are the effect's defaults.
+		const shattered = await call('motion.set-scene-boundary', {
+			outgoingSceneId: first,
+			kind: 'seeded-shatter',
+			params: { seed: 4242 }
+		});
+		expect(shattered.status, JSON.stringify(shattered)).toBe('applied');
+		const [boundary] = readOpenFilm().boundaries;
+		expect(boundary).toMatchObject({
+			kind: 'seeded-shatter',
+			durationMs: 1000,
+			params: { seed: 4242 }
+		});
+		expect(FilmSceneBoundarySchema.safeParse(boundary).success).toBe(true);
+
+		// A window the Scenes have no room for is refused with its finding, and nothing moves.
+		const tooLong = await call('motion.set-scene-boundary', {
+			outgoingSceneId: first,
+			kind: 'seeded-shatter',
+			durationMs: 600_000
+		});
+		expect(tooLong).toMatchObject({ status: 'failed', code: 'semantic_invalid' });
+		expect(
+			(tooLong.findings as { findings: { path: string }[] }).findings.map((finding) => finding.path)
+		).toEqual(['/boundaries/0/durationMs']);
+		expect(readOpenFilm().boundaries[0]).toEqual(boundary);
+
+		// Both edits are on the one shared history.
+		await call('composition.undo');
+		expect(readOpenFilm().boundaries).toEqual([{ kind: 'fade', durationMs: 1000 }]);
+		await call('composition.undo');
+		expect(readOpenFilm().boundaries).toEqual([{ kind: 'cut' }]);
 	});
 
 	it('walks a Film on Film time, and an edit planned before a seek crossed a cut lands nowhere', async () => {

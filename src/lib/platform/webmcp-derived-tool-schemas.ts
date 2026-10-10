@@ -59,6 +59,7 @@ import {
 	TEXT_ANIMATION_TARGET_KINDS,
 	WEB_DOCUMENT_SITES
 } from './engine-schema';
+import { FILM_SCENE_BOUNDARY_KINDS } from './film-schema';
 import { listPresets } from './preset-catalog';
 import { listSubstrateAssets } from './substrate-textures';
 import { listEffectKeyframeChannels } from './effect-keyframe-channels';
@@ -129,6 +130,7 @@ export type WebmcpDerivedEnumName =
 	| 'stage-backdrop-asset'
 	| 'pack-slug'
 	| 'starter-slug'
+	| 'scene-boundary-kind'
 	| 'sound-event'
 	| 'sound-asset'
 	| 'caption-style'
@@ -264,6 +266,8 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'stage-backdrop-asset': listSubstrateAssets(),
 		'pack-slug': PACK_REGISTRY_SLUGS,
 		'starter-slug': listPresets().map((entry) => entry.slug),
+		// `cut`, `fade`, and every registered transition effect (ADR-0068 §4).
+		'scene-boundary-kind': FILM_SCENE_BOUNDARY_KINDS,
 		'sound-event': SOUND_EVENTS,
 		'sound-asset': listSoundAssets(),
 		'caption-style': CAPTION_STYLES,

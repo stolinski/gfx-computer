@@ -18,6 +18,7 @@
 	import InspectorToggle from './InspectorToggle.svelte';
 	import InterchangeSection from './InterchangeSection.svelte';
 	import Field from './Field.svelte';
+	import FilmSceneBoundarySection from './FilmSceneBoundarySection.svelte';
 	import MarkDefaultsSection from './MarkDefaultsSection.svelte';
 	import MotionBeatsSection from './MotionBeatsSection.svelte';
 	import PackSection from './PackSection.svelte';
@@ -223,6 +224,8 @@
 			</Field>
 		{/if}
 	</InspectorSection>
+
+	<FilmSceneBoundarySection />
 
 	<DepthStageSection />
 

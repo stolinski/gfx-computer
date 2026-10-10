@@ -389,6 +389,14 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 		toolName: 'gfx_composition_select_scene'
 	},
 	{
+		prompt: 'Set the boundary after the first Scene to a one second fade.',
+		toolName: 'gfx_motion_set_scene_boundary'
+	},
+	{
+		prompt: 'Make the boundary between these two Scenes a seeded shatter transition effect.',
+		toolName: 'gfx_motion_set_scene_boundary'
+	},
+	{
 		prompt: 'Add the open Starter, edits included, to a Film this session already holds.',
 		toolName: 'gfx_composition_add_open_to_film'
 	},

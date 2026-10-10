@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
@@ -12,11 +12,16 @@ import {
 	filmSceneFrameOffsets
 } from './film-playhead';
 import { insertFilmScene } from './film-scene-membership';
+import { readOpenFilmFrame } from './film-scene-selection';
 import { filmState, readOpenFilm } from './film-state.svelte';
 import FilmSceneStrip from './FilmSceneStrip.svelte';
 import { posterKeyForPreset } from './posters';
 import { applyFilm } from './preset';
 import { getPresetBySlug, listPresets } from './preset-catalog';
+import { layerSelection, sceneBoundarySelection, selectLayer } from './selection.svelte';
+import { createTimelineTrackId } from './timeline-entity-identity';
+import { timelineHandle } from './timeline-handle.svelte';
+import { Timeline } from './timeline.svelte';
 import { resolveFrameRate } from '../utils/composition-timing';
 
 import type { Preset } from './engine-schema';
@@ -65,6 +70,12 @@ function segmentButtons(): HTMLButtonElement[] {
 		.filter((button) => button.dataset.sceneId !== undefined);
 }
 
+function junctionButtons(): HTMLButtonElement[] {
+	return within(screen.getByRole('toolbar', { name: 'Scenes' }))
+		.getAllByRole<HTMLButtonElement>('button')
+		.filter((button) => button.dataset.boundaryIndex !== undefined);
+}
+
 function segmentIds(): (string | undefined)[] {
 	return segmentButtons().map((button) => button.dataset.sceneId);
 }
@@ -102,6 +113,12 @@ beforeEach(() => {
 	compositionMeta.isUserComposition = true;
 	compositionMeta.userCompositionSlug = 'launch-film';
 	compositionMeta.persistenceError = null;
+	selectLayer(createTimelineTrackId({ kind: 'surface' }));
+});
+
+afterEach(() => {
+	timelineHandle.current?.dispose();
+	timelineHandle.current = null;
 });
 
 describe('the Scene strip', () => {
@@ -214,21 +231,144 @@ describe('the Scene strip', () => {
 		render(FilmSceneStrip);
 		const [first, second, third] = segmentButtons();
 
+		const [firstJunction, secondJunction] = junctionButtons();
+
+		// The arrow order is the Film's: a segment, the junction after it, the next segment.
 		first.focus();
 		await fireEvent.keyDown(first, { key: 'ArrowRight' });
+		expect(document.activeElement).toBe(firstJunction);
+		await fireEvent.keyDown(firstJunction, { key: 'ArrowRight' });
 		expect(document.activeElement).toBe(second);
 		await fireEvent.keyDown(second, { key: 'ArrowRight' });
+		expect(document.activeElement).toBe(secondJunction);
+		await fireEvent.keyDown(secondJunction, { key: 'ArrowRight' });
 		expect(document.activeElement).toBe(third);
-		// The last segment has no segment after it; focus stays.
+		// The last segment has nothing after it; focus stays.
 		await fireEvent.keyDown(third, { key: 'ArrowRight' });
 		expect(document.activeElement).toBe(third);
 		await fireEvent.keyDown(third, { key: 'ArrowLeft' });
+		expect(document.activeElement).toBe(secondJunction);
+		await fireEvent.keyDown(secondJunction, { key: 'ArrowLeft' });
 		expect(document.activeElement).toBe(second);
 
 		// Enter and Space activate a button as a click with no pointer position.
 		await fireEvent.click(second, { detail: 0 });
 
 		await waitFor(() => expect(filmState.selectedSceneId).toBe('scene-2'));
+	});
+
+	it('puts a junction button between each pair of neighbours, named for its kind and its two Scenes', () => {
+		const film = threeSceneFilm();
+		film.boundaries = [
+			{ kind: 'fade', durationMs: 1000 },
+			{
+				kind: 'seeded-shatter',
+				durationMs: 1500,
+				params: { seed: 1337, columns: 14, scatter: 0.13, rotation: 0.55, depth: 0.6, shadow: 0.35 }
+			}
+		];
+		applyFilm(film, { kind: 'deliverable' });
+		render(FilmSceneStrip);
+		const [first, second, third] = SCENE_STARTERS.map((slug) => requireStarter(slug).name);
+
+		const junctions = junctionButtons();
+
+		expect(junctions.map((junction) => junction.dataset.boundaryIndex)).toEqual(['0', '1']);
+		expect(screen.getByRole('button', { name: `Fade between ${first} and ${second}` })).toBe(
+			junctions[0]
+		);
+		expect(
+			screen.getByRole('button', { name: `Seeded shatter between ${second} and ${third}` })
+		).toBe(junctions[1]);
+		// Nothing is selected until a junction is.
+		expect(junctions.map((junction) => junction.getAttribute('aria-pressed'))).toEqual([
+			'false',
+			'false'
+		]);
+	});
+
+	it('draws a boundary with a duration over the frames its two Scenes share, and a cut as the plain line', () => {
+		const film = threeSceneFilm();
+		film.boundaries = [{ kind: 'fade', durationMs: 1000 }, { kind: 'cut' }];
+		applyFilm(film, { kind: 'deliverable' });
+		render(FilmSceneStrip);
+		const totalFrames = filmFrameCount(film);
+		const offsets = filmSceneFrameOffsets(film);
+		const [windowFrames] = filmSceneBoundaryOverlaps(film);
+
+		const [fade, cut] = junctionButtons();
+
+		// The fade's region starts on the incoming Scene's first Film frame and is as wide as the window.
+		expect(Number.parseFloat(fade.style.insetInlineStart)).toBeCloseTo(
+			(offsets[1] / totalFrames) * 100,
+			6
+		);
+		expect(Number.parseFloat(fade.style.inlineSize)).toBeCloseTo(
+			(windowFrames / totalFrames) * 100,
+			6
+		);
+		expect(fade.classList.contains('is-cut')).toBe(false);
+		// The cut sits on the line between its two segments and claims no frames.
+		expect(Number.parseFloat(cut.style.insetInlineStart)).toBeCloseTo(
+			(offsets[2] / totalFrames) * 100,
+			6
+		);
+		expect(cut.style.inlineSize).toBe('');
+		expect(cut.classList.contains('is-cut')).toBe(true);
+		expect(screen.getByRole('button', { name: /^Cut between / })).toBe(cut);
+	});
+
+	it('selects a junction from the keyboard or a click, without opening a Scene or editing the Film', async () => {
+		render(FilmSceneStrip);
+		const [firstJunction, secondJunction] = junctionButtons();
+		const revision = compositionEditHistory.revision;
+
+		// Enter and Space activate a button as a click with no pointer position.
+		await fireEvent.click(secondJunction, { detail: 0 });
+
+		expect(sceneBoundarySelection.boundaryIndex).toBe(1);
+		expect(layerSelection.id).toBeNull();
+		expect(junctionButtons().map((junction) => junction.getAttribute('aria-pressed'))).toEqual([
+			'false',
+			'true'
+		]);
+		// Selecting a boundary is not an edit and opens no Scene.
+		expect(compositionEditHistory.revision).toBe(revision);
+		expect(filmState.selectedSceneId).toBe('scene-1');
+
+		// A cut has no frames to park on, so a pointer click only selects it.
+		await fireEvent.click(firstJunction, { detail: 1, clientX: 10 });
+		expect(sceneBoundarySelection.boundaryIndex).toBe(0);
+		expect(compositionMeta.persistenceError).toBeNull();
+	});
+
+	it('parks the Film playhead on the frame under a click inside a window', async () => {
+		const film = threeSceneFilm();
+		film.boundaries = [{ kind: 'fade', durationMs: 1000 }, { kind: 'cut' }];
+		applyFilm(film, { kind: 'deliverable' });
+		timelineHandle.current = new Timeline({
+			durationSeconds: film.scenes[0].state.transport.durationSeconds,
+			fps: film.fps,
+			tick: () => {}
+		});
+		render(FilmSceneStrip);
+		layOutTrack();
+		const totalFrames = filmFrameCount(film);
+		const offsets = filmSceneFrameOffsets(film);
+		const [windowFrames] = filmSceneBoundaryOverlaps(film);
+		// A third of the way through the window.
+		const targetFilmFrame = offsets[1] + Math.floor(windowFrames / 3);
+
+		await fireEvent.click(junctionButtons()[0], {
+			detail: 1,
+			clientX: ((targetFilmFrame + 0.5) / totalFrames) * 1000
+		});
+
+		expect(sceneBoundarySelection.boundaryIndex).toBe(0);
+		await waitFor(() => expect(readOpenFilmFrame()).toBe(targetFilmFrame));
+		// Inside a window the Film frame names the outgoing Scene.
+		expect(filmState.selectedSceneId).toBe('scene-1');
+		expect(compositionMeta.persistenceError).toBeNull();
 	});
 
 	it('removes the open Scene from its remove control, and keeps a Film’s last Scene', async () => {

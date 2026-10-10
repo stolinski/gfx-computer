@@ -1,6 +1,7 @@
 /**
  * Timeline entity selection store (ADR-0034 §3).
- * Tracks selected Layer rows, Sound references, and Video clips in the timeline/canvas.
+ * Tracks selected Layer rows, Sound references, and Video clips in the timeline/canvas,
+ * and the selected Scene boundary on the Scene strip.
  * null = composition root → inspector shows transport / Pack / Effects.
  * Runtime selection IDs are created and parsed by timeline-entity-identity.ts.
  */
@@ -16,6 +17,22 @@ import {
 } from './timeline-entity-identity.ts';
 
 export const layerSelection = $state<{ id: TimelineEntitySelectionId | null }>({ id: null });
+
+/**
+ * The Scene boundary selected on the Scene strip (ADR-0068 §10), as its index
+ * into the open Film's `boundaries`: the boundary after Scene `boundaryIndex`.
+ * A boundary belongs to the Film, not to a Timeline row, so it is selected with
+ * no Layer selected and its fields show in the composition-root inspector.
+ * Selecting anything else clears it.
+ */
+export const sceneBoundarySelection = $state<{ boundaryIndex: number | null }>({
+	boundaryIndex: null
+});
+
+export function selectSceneBoundary(boundaryIndex: number): void {
+	deselectLayer();
+	sceneBoundarySelection.boundaryIndex = boundaryIndex;
+}
 
 /**
  * Spatial canvas multi-selection. `layerSelection` remains the primary entity
@@ -79,6 +96,7 @@ export function clearKeyframeSelection(): void {
 
 export function selectLayer(id: TimelineTrackId): void {
 	clearCanvasElementSelection();
+	sceneBoundarySelection.boundaryIndex = null;
 	layerSelection.id = id;
 	keyframeSelection.id = null;
 	inspectorFocus.target = null;
@@ -86,6 +104,7 @@ export function selectLayer(id: TimelineTrackId): void {
 
 export function selectSoundRailReference(reference: SoundRailReference): void {
 	clearCanvasElementSelection();
+	sceneBoundarySelection.boundaryIndex = null;
 	layerSelection.id = createSoundRailReferenceId(reference);
 	keyframeSelection.id = null;
 	inspectorFocus.target = null;
@@ -93,6 +112,7 @@ export function selectSoundRailReference(reference: SoundRailReference): void {
 
 export function selectVideoClip(clipId: string): void {
 	clearCanvasElementSelection();
+	sceneBoundarySelection.boundaryIndex = null;
 	layerSelection.id = createVideoClipSelectionId(clipId);
 	keyframeSelection.id = null;
 	inspectorFocus.target = null;
@@ -100,6 +120,7 @@ export function selectVideoClip(clipId: string): void {
 
 export function deselectLayer(): void {
 	clearCanvasElementSelection();
+	sceneBoundarySelection.boundaryIndex = null;
 	layerSelection.id = null;
 	keyframeSelection.id = null;
 	inspectorFocus.target = null;

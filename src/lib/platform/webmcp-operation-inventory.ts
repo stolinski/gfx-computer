@@ -117,6 +117,7 @@ export type WebmcpOperationFamilyDisclosure = 'core' | 'on-demand' | 'internal';
  */
 export type WebmcpOperationFocusTarget =
 	| 'composition-root'
+	| 'scene-boundary'
 	| 'surface'
 	| 'overlay'
 	| 'block'
@@ -311,9 +312,11 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/description', scope: 'value' },
 			{ pointer: '/kind', scope: 'value' },
 			// Film pointers (ADR-0068 §8). A Scene's own state is edited through the
-			// Scene's `/state/...` pointers, which the other families own.
+			// Scene's `/state/...` pointers, which the other families own. The
+			// boundary list grows and shrinks with the Scene list, so its membership
+			// is here; what each boundary is belongs to `motion`.
 			{ pointer: '/scenes', scope: 'membership' },
-			{ pointer: '/boundaries', scope: 'value' }
+			{ pointer: '/boundaries', scope: 'membership' }
 		]
 	},
 	{
@@ -448,7 +451,10 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/typeField/words/*/glyphStagger', scope: 'value' },
 			{ pointer: '/state/motionBeats', scope: 'value' },
 			{ pointer: '/state/surface/chart/items/*/motion', scope: 'value' },
-			{ pointer: '/state/surface/figures/*/moves', scope: 'value' }
+			{ pointer: '/state/surface/figures/*/moves', scope: 'value' },
+			// What happens between two Scenes of the Film (ADR-0068 §4, §8): the
+			// boundary's kind, its duration, and its effect's parameters.
+			{ pointer: '/boundaries/*', scope: 'value' }
 		]
 	},
 	{
@@ -2167,6 +2173,22 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['block'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/ChartMotionSection.svelte'
+	},
+	{
+		id: 'motion.set-scene-boundary',
+		family: 'motion',
+		toolName: 'gfx_motion_set_scene_boundary',
+		summary:
+			'Set what happens between two neighbouring Scenes of the open Film: a cut, a fade, or a registered transition effect, with its duration and the effect parameters.',
+		effect: 'write',
+		writes: ['/boundaries/*'],
+		precondition: 'film-multi-scene',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['scene-boundary'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/FilmSceneBoundarySection.svelte'
 	},
 
 	// ---- sound: cues and per-motion overrides ----

@@ -42,7 +42,7 @@ import {
 	moveFilmScene,
 	removeFilmScene
 } from './film-scene-membership';
-import { selectOpenFilmScene } from './film-scene-selection';
+import { selectOpenFilmScene, showOpenFilmBoundaryFrameAtRest } from './film-scene-selection';
 import { filmState, readOpenFilm } from './film-state.svelte';
 import { timelineHandle } from './timeline-handle.svelte';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
@@ -269,7 +269,9 @@ export async function runReorderCompositionSceneOperation(
 
 /**
  * Open one Scene of the Film for editing, with its playhead on `sceneFrame`.
- * The Scene that was open is parked exactly as it stood. The Composition
+ * The Scene that was open is parked exactly as it stood. When `sceneFrame` is
+ * stated and lands inside a boundary window, the canvas shows both Scenes
+ * composited there. The Composition
  * revision advances by one when another Scene becomes the open one, and no undo
  * entry is recorded (`selectOpenFilmScene`), which is why this takes no
  * observed revision: it discards nothing, and the receipt hands back the
@@ -307,6 +309,10 @@ export async function runSelectCompositionSceneOperation(
 	if (!isSelectedScene || request.sceneFrame !== undefined) {
 		await selectOpenFilmScene(request.sceneId, sceneFrame);
 	}
+	// A playhead parked on a stated frame inside a boundary window is shown the
+	// exact frame of the Film there, as a Film-time seek is (ADR-0068 §4). A
+	// Scene opened without a frame shows the Scene alone.
+	if (request.sceneFrame !== undefined) await showOpenFilmBoundaryFrameAtRest();
 
 	return {
 		status: 'selected',

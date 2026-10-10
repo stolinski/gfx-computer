@@ -21,7 +21,12 @@
  * one it touched. The kinds each tool accepts are its operation's own list, so a
  * chart Block — anchorable, but running the five phases its Pipeline owns — is
  * absent from the channel and weld subjects and present as an anchor.
-
+ *
+ * The Scene boundary is here too, and is the one thing in this family that is
+ * not a property of an element: it is what happens between two Scenes of the
+ * Film, a cut, a fade, or a registered transition effect (ADR-0068 §4). It is
+ * named by the Scene it follows, because a Scene id is stable and a boundary's
+ * index is not.
  */
 import { CHART_MOTION_PHASE_NAMES } from '../utils/chart-motion';
 import {
@@ -47,6 +52,7 @@ import {
 	runSetCompositionKineticWordGlyphStaggerOperation,
 	runSetCompositionKineticWordPositionKeyframeOperation
 } from './composition-kinetic-type-operations';
+import { runSetCompositionSceneBoundaryOperation } from './composition-scene-boundary-operations';
 import {
 	runAddCompositionMotionBeatOperation,
 	runLandCompositionKineticWordOnBeatOperation,
@@ -76,6 +82,7 @@ import {
 	readWebmcpOptionalLiteralArgument,
 	readWebmcpOptionalRecordArgument,
 	readWebmcpOptionalStringArgument,
+	readWebmcpOptionalRuntimeJsonArgument,
 	readWebmcpRecordArgument,
 	readWebmcpRecordArrayArgument,
 	readWebmcpStringArgument,
@@ -90,7 +97,8 @@ import {
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
 	webmcpFractionTimeProperty,
-	webmcpObservedRevisionProperty
+	webmcpObservedRevisionProperty,
+	webmcpRuntimeObjectOrJsonTextProperty
 } from './webmcp-derived-tool-schemas';
 
 import type { ChartMotionPhaseName } from '../utils/chart-motion';
@@ -942,6 +950,43 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						blockId: readWebmcpStringArgument(args, 'blockId'),
 						phases: readChartPhases(args)
+					})
+				)
+		},
+		{
+			operationId: 'motion.set-scene-boundary',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					outgoingSceneId: webmcpEntityIdProperty(
+						'The id of the Scene the boundary follows, as gfx_composition_inspect lists it. Any Scene but the last.'
+					),
+					kind: webmcpDerivedEnumProperty(
+						'scene-boundary-kind',
+						'What happens between the two Scenes: a cut, a fade, or a registered transition effect.'
+					),
+					durationMs: {
+						type: 'number',
+						description:
+							'How long the two Scenes share the frame, in milliseconds. Not for a cut. Omit it to keep the duration the boundary has.',
+						minimum: 1
+					},
+					params: webmcpRuntimeObjectOrJsonTextProperty(
+						"Parameters of a transition effect, against that effect's schema. One left out keeps its value, or takes the effect's default when the kind changes."
+					)
+				},
+				required: ['expectedRevision', 'outgoingSceneId', 'kind'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.set-scene-boundary', () =>
+					runSetCompositionSceneBoundaryOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						outgoingSceneId: readWebmcpStringArgument(args, 'outgoingSceneId'),
+						kind: readWebmcpStringArgument(args, 'kind'),
+						durationMs: readWebmcpOptionalNumberArgument(args, 'durationMs'),
+						params: readWebmcpOptionalRuntimeJsonArgument(args, 'params')
 					})
 				)
 		}

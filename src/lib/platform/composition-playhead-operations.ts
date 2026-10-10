@@ -167,7 +167,7 @@ export function runInspectCompositionPlayheadOperation(): CompositionPlayheadIns
  * Scene opens that Scene first and resolves once the Workspace has settled it;
  * the Composition revision advances by one, and the receipt carries the new
  * one. That seek is refused while the composition is not at rest (a Scene swap,
- * an export of the Film, a transition capture).
+ * an export of the Film, a boundary window frame being rendered).
  */
 export async function runSeekCompositionPlayheadOperation(
 	request: SeekCompositionPlayheadRequest

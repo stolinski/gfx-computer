@@ -33,7 +33,19 @@ Adding, removing, and reordering are each one undo step. Opening a Scene is not 
 
 Agents use `gfx_composition_add_scene_from_starter`, `gfx_composition_remove_scene`, `gfx_composition_reorder_scene`, and `gfx_composition_select_scene`. `gfx_composition_inspect` lists the Scene ids. Every other family's tools act on the Scene that is open.
 
-**Older records.** A record an older build saved as a standalone Preset (`{ meta, preset }`) still opens: it is read as a one-Scene Film whose `origin` is the Starter the record was forked from. Reading never rewrites it. The first save writes it as a Film. One case keeps the old shape: a composition that still carries a two-endpoint `transition` is saved as `{ meta, preset }`, because a Film cannot hold that recipe until Scene boundaries are live (ADR-0068 §3–4).
+### Scene boundaries
+
+Between two neighbouring segments of the strip is their **junction**, the Scene boundary ([`film-format.md`](film-format.md#a-scene-boundary)). A new Scene arrives with a cut.
+
+- **What it shows.** A cut is the line between two segments. A fade or a transition effect is a band over the frames the two Scenes share.
+- **Select it:** click the junction, or reach it with the arrow keys from a segment and press Enter. Its fields open in the inspector: **Kind** (Cut, Fade, or a transition effect), **Duration** in milliseconds, and the effect's own parameters.
+- **Change it:** pick another kind, type a duration, or move a parameter. Each change is one undo step. A cut made a fade or an effect starts at 1000 ms. A duration the two Scenes have no room for is refused, and the reason shows where a save error does.
+- **Look at it:** a click inside the band parks the playhead on that Film frame. Paused inside a boundary, the canvas shows both Scenes composited exactly as an export does, and it does so again after the boundary is changed. While the Film plays, a boundary is a cut at its midpoint; pause to see the real frame. After an edit to a Scene, the canvas shows that Scene alone until the playhead next arrives.
+- **Hear it:** in an export, the outgoing Scene's sound fades out across the boundary and the incoming Scene's fades in.
+
+Agents use `gfx_motion_set_scene_boundary`, in the `motion` family, with the id of the Scene the boundary follows: `{ outgoingSceneId, kind, durationMs?, params? }`. `durationMs` left out keeps the boundary's duration; a param left out keeps its value, or takes the effect's default when the kind changes. The tool is offered while the Film has more than one Scene.
+
+**Older records.** A record an older build saved as a standalone Preset (`{ meta, preset }`) still opens: it is read as a one-Scene Film whose `origin` is the Starter the record was forked from. Reading never rewrites it. The first save writes it as a Film. A record whose Preset states the legacy two-endpoint `transition` is read as a two-Scene Film of the two corpus Presets it names, with the transition as the boundary between them, and is saved as that Film (ADR-0068 §3; [`film-format.md`](film-format.md#a-legacy-transition-preset)).
 
 A Film with several Scenes opens on its first Scene. The listing shows it by that Scene: its poster, Surface type, and media.
 
@@ -54,7 +66,7 @@ The store directory is always given explicitly; the primary one is `~/Library/Ap
 For every record whose slug equals a corpus Preset slug, the script:
 
 1. picks the first free slug of the form `<slug>-2`, `<slug>-3`, …, free against every corpus slug and every stored slug;
-2. writes the record there as `{ meta, film }`, with the Scene's `origin.slug` set to the corpus slug it shadowed and `meta` (including `forkedFrom` and `savedAt`) unchanged — or as `{ meta, preset }` when it carries a `transition`;
+2. writes the record there as `{ meta, film }`, with the Scene's `origin.slug` set to the corpus slug it shadowed and `meta` (including `forkedFrom` and `savedAt`) unchanged; a record that states a legacy `transition` is written as the two-Scene Film it reads as, each Scene naming its own endpoint;
 3. moves the old file into the store's trash directory, beside the store. Nothing is deleted.
 
 It prints each move, and each record it skipped with the reason: a record this engine cannot read is left exactly where it is. A second run finds nothing to do. It refuses a directory that holds no stored record or holds other JSON. No sidecar needs moving: the slug index is rebuilt from the directory by a running server, and posters are keyed by content, not by slug. Restart the server afterwards so its index is fresh.
@@ -93,7 +105,7 @@ curl -fsS -X DELETE http://localhost:7263/api/user-compositions/my-composition
 
 `GET /api/user-compositions/<slug>` returns the exact standalone `gfx-film@1` document accepted by `PUT`: annotation bodies and chat messages are strings, not the engine's transformed runtime structures. This symmetry is the agent edit loop: GET, edit JSON, PUT, reopen in the GUI. Invalid JSON, schema fields, Packs, Pipeline variants, Effect parameters, assets, or cross-references are rejected before persistence with a path-qualified response message.
 
-`PUT` also accepts a standalone `gfx@1` Preset and stores it as a one-Scene Film, so a Preset file still imports. `POST /api/user-compositions` takes `{ "slug": "...", "film": {…} }` (or `"preset"`) to create one. A slug that is a corpus Preset's is refused with **409**. The one composition `GET` returns as a Preset is one that still carries a `transition`.
+`PUT` also accepts a standalone `gfx@1` Preset and stores it as a one-Scene Film, so a Preset file still imports. `POST /api/user-compositions` takes `{ "slug": "...", "film": {…} }` (or `"preset"`) to create one. A slug that is a corpus Preset's is refused with **409**. `GET` always returns a Film; a stored legacy transition record is returned as the two-Scene Film it reads as.
 
 A slug the store holds nothing for is `null`, not an error. A stored composition this engine will not accept — because a schema field or an authoring rule tightened after it was saved — is **409** with every finding named; the store read fine, so this reports the author's work going stale rather than a failure of this origin, and it stays a log line instead of a Sentry issue ([`sentry-dev-flow.md`](sentry-dev-flow.md): 4xx = log, 5xx = issue). Only a file that is not a store document at all is a 500.
 

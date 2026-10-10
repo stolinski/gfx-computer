@@ -19,6 +19,7 @@ import {
 	deselectLayer,
 	requestInspectorFocus,
 	selectLayer,
+	selectSceneBoundary,
 	selectSoundRailReference,
 	selectVideoClip
 } from './selection.svelte';
@@ -27,6 +28,7 @@ import type { WebmcpOperationFocusTarget } from './webmcp-operation-inventory';
 
 export type CompositionWorkspaceFocus =
 	| { target: 'composition-root' }
+	| { target: 'scene-boundary'; boundaryIndex: number }
 	| { target: 'surface' }
 	| { target: 'overlay'; overlayId: string }
 	| { target: 'block'; blockId: string }
@@ -48,6 +50,7 @@ export type CompositionWorkspaceFocus =
  */
 export const COMPOSITION_WORKSPACE_FOCUS_TARGETS = [
 	'composition-root',
+	'scene-boundary',
 	'surface',
 	'overlay',
 	'block',
@@ -84,6 +87,10 @@ export function moveCompositionWorkspaceFocus(focus: CompositionWorkspaceFocus):
 	switch (focus.target) {
 		case 'composition-root':
 			deselectLayer();
+			return;
+		case 'scene-boundary':
+			// The junction on the Scene strip; its fields show in the root inspector.
+			selectSceneBoundary(focus.boundaryIndex);
 			return;
 		case 'surface':
 			selectLayer(createTimelineTrackId({ kind: 'surface' }));
