@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, it } from 'vitest';
+import { afterEach, beforeEach, describe, it } from 'vite-plus/test';
 
 import type { UserCompositionStoreLocation } from './user-composition-store-location.server';
 import { moveUserCompositionToTrash } from './user-composition-trash.server';

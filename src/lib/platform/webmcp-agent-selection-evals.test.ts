@@ -18,7 +18,7 @@
  * that makes two tools equally plausible answers to one question, which is the
  * ambiguity a real agent resolves by guessing.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 // The origin's User Pack store with one pack, so every pack tool has a state to be reached in.
 vi.mock('./user-pack-store', async (importOriginal) => ({

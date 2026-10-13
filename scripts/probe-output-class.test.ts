@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { PNG } from 'pngjs';
 
 import { classifyProbeOutputClass } from './_probe-output-class';

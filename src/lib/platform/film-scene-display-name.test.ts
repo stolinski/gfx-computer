@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { filmSceneDisplayName } from './film-scene-display-name';
 import { getPresetBySlug } from './preset-catalog';

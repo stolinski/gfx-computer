@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { filmSceneBoundaryKindLabel } from './film-scene-boundary-kind-label';
 import { FILM_SCENE_BOUNDARY_KINDS } from './film-schema';

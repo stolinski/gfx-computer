@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterEach, describe, it } from 'vitest';
+import { afterEach, describe, it } from 'vite-plus/test';
 import { addChartBlock, engineState, removeBlock } from './engine-state.svelte';
 import { createDefaultEngineState } from './engine-schema';
 import { applyCompositionState } from './preset';

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { exportWebMInBrowser } from './browser-webm-export';
 import type { TransparentVideoExportOptions } from './export-video';

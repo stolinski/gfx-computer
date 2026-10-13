@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { createDefaultEngineState, PresetSchema, type Preset } from './engine-schema';
 import { parsePreset } from './preset-parser';
 import { presetToWireFormat } from './preset-pure';

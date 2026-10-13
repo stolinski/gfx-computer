@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { resolveFrameRate } from '$lib/utils/composition-timing';
 import { createVideoClipDragOrigin } from '$lib/utils/video-clip-edit';

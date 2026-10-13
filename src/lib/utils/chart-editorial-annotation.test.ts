@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { ChartResolvedDataTarget } from './chart-data-target';
 import {
 	chartAnnotationBracketSvgPath,

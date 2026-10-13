@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { resolveFilmMagicMoveQuad } from './film-magic-move-quad';
 import { evaluateNamedEase, NAMED_EASE_CURVES } from '../utils/ease-curves';

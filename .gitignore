@@ -67,3 +67,4 @@ vite.config.ts.timestamp-*
 # END swamp managed section
 # Prime Agent Factory cockpit runtime telemetry
 .prime/agent/telemetry/
+.vitest/

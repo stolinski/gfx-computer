@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import chartFixtureJson from '$lib/presets/chart-domain-survey-fixture.json';
 import { parsePresetIngress } from '$lib/platform/preset-ingress';

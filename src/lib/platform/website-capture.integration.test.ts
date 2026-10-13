@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { PNG } from 'pngjs';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { captureWebsite, parseWebsiteCaptureRequest } from './website-capture.server';
 

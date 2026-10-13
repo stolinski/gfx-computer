@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import type { EngineState, KineticWord, MotionBeat } from '$lib/platform/engine-schema';
 import { STANDARD_TRANSPORT_RATES, resolveFrameRate } from './composition-timing';

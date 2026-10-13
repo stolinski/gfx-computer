@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 const SOURCE_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const LIB_ROOT = resolve(SOURCE_ROOT, 'lib');

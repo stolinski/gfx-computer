@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import type { ChartMotion, UnitGridChartBlock } from '$lib/platform/engine-schema';
 import { allocateChartNormalizedUnits } from './chart-normalized-allocation';
 

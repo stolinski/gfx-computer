@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import type { UserVideoAssetDescriptor, UserVideoAssetMetadata } from './user-video-asset';
 import { createCompositionMediaInspection } from './composition-media-inspection.svelte';

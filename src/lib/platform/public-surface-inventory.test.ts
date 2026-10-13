@@ -3,7 +3,7 @@ import { readdirSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import {
 	PUBLIC_SURFACE_INVENTORY,

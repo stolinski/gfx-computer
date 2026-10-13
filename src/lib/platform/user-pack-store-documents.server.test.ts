@@ -3,7 +3,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile, mkdir } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, it } from 'vitest';
+import { afterEach, beforeEach, describe, it } from 'vite-plus/test';
 
 import { PACK_REGISTRY } from './packs/registry.ts';
 import { MANDATORY_CORE_ROLES, type PackManifest } from './packs/types.ts';

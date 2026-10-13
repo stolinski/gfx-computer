@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import type { StageMeshData } from './stage-mesh-format';
 import { StageModelController } from './stage-model-controller';

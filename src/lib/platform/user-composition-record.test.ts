@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import blankPresetJson from '$lib/presets/blank.json';
 import twoSceneFadeFilmJson from '../../../scripts/fixtures/film-fade/two-scene-fade.film.json';

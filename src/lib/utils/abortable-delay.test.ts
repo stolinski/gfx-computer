@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterEach, describe, it, vi } from 'vitest';
+import { afterEach, describe, it, vi } from 'vite-plus/test';
 
 import { waitForAbortableDelay } from './abortable-delay';
 

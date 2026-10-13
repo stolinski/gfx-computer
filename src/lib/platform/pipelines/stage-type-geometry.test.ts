@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { decodeStageTypeface } from '../stage-glyph-format.ts';
 import { STAGE_MESH_VERTEX_FLOATS } from '../stage-mesh-format.ts';

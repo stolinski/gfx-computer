@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterAll, beforeAll, describe, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, it, vi } from 'vite-plus/test';
 
 import { PACK_REGISTRY } from './packs/registry.ts';
 import { registerLoadedUserPack, unregisterLoadedUserPack } from './user-pack-runtime.svelte.ts';

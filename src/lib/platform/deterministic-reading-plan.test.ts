@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { createDefaultEngineState } from './engine-schema';
 import { deriveDeterministicReadingPlan } from './deterministic-reading-plan';

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import { beforeAll, describe, it } from 'vitest';
+import { beforeAll, describe, it } from 'vite-plus/test';
 import { vec4 } from 'wgpu-matrix';
 
 import type { Overlay } from './engine-schema';

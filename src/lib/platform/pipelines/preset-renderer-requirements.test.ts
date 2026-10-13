@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { getPack } from '$lib/platform/packs/registry';
 import { getPresetBySlug, listFixtures, listPresets } from '$lib/platform/preset-catalog';

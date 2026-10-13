@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { afterAll, beforeAll, describe, it } from 'vitest';
+import { afterAll, beforeAll, describe, it } from 'vite-plus/test';
 import { isHttpError } from '@sveltejs/kit';
 
 import { POST } from './+server';

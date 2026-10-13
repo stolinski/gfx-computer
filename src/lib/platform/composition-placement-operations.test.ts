@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
 import blankPresetJson from '$lib/presets/blank.json';
 import chartPresetJson from '$lib/presets/bar-chart-apollo-sample-return.json';

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import type { VideoSample } from 'mediabunny';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import type { VideoAsset } from './engine-schema';
 import {

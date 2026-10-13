@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import fixtureJson from './figure-domain-fixture.json';
 import { FIGURE_KINDS } from '../platform/engine-schema';

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { TEXT_EFFECT_CATALOG, TEXT_EFFECT_IDS } from './catalog.ts';
 import { resolveTextEffectSpec } from './compile.ts';

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { collectViaPackRoles } from '../pipelines/identity.ts';
 import { IDENTITY_REGISTRY } from '../pipelines/identity-registry.ts';

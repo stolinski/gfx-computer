@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { beforeEach, describe, it, vi } from 'vitest';
+import { beforeEach, describe, it, vi } from 'vite-plus/test';
 
 import blankPresetJson from '$lib/presets/blank.json';
 

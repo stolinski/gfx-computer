@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { afterEach, describe, it, vi } from 'vitest';
+import { afterEach, describe, it, vi } from 'vite-plus/test';
 
 import { uploadUserImage } from './user-image-upload-transport.ts';
 

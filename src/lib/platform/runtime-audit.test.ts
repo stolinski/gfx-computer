@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import { createDefaultEngineState } from './engine-schema';
 import { deriveDeterministicReadableContract } from './deterministic-readable-contract';

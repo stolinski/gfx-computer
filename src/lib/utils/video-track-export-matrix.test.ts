@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { PresetSchema } from '../platform/engine-schema';
 import { isEngineStateOpaque } from './output-classification';

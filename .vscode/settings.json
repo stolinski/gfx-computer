@@ -1,1 +1,10 @@
-{}
+{
+	"editor.defaultFormatter": "oxc.oxc-vscode",
+	"[javascript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+	"[typescript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+	"[svelte]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+	"editor.formatOnSaveMode": "file",
+	"eslint.validate": ["svelte"],
+	"oxc.disableNestedConfig": true,
+	"oxc.fmt.disableNestedConfig": true
+}

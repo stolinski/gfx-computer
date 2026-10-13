@@ -12,9 +12,9 @@
  * deterministically — swamp/meta-only changes run no app suites, extension
  * changes run the deno extension tests, docs-site changes run the docs site's
  * own install + check + build (never the app suites or the preset verifier),
- * and app changes run check + test plus `verify-presets --affected` (the
- * script's own fixture-tested selector decides which presets that means —
- * never `--all` unless explicitly asked).
+ * and app changes run check + fast tests + structural checks. Preset and
+ * render/export verification are explicit authoring commands, never inferred
+ * from a generic app change.
  *
  * Deliberately absent: repository-cleanliness preconditions. Verification
  * runs against whatever the worktree contains — a dirty primary checkout or
@@ -196,10 +196,6 @@ export function deriveVerificationSuites(
 		plans.push({
 			name: "structural",
 			command: buildSuiteCommand("structural", null),
-		});
-		plans.push({
-			name: "presets",
-			command: buildSuiteCommand("presets", appPaths),
 		});
 	}
 	return plans;

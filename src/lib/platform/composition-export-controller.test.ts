@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it, vi } from 'vitest';
+import { describe, it, vi } from 'vite-plus/test';
 
 import type { FilmAudioMixRenderRequest, FilmAudioMixScene } from './audio-mix';
 import { createDefaultEngineState, type EngineState } from './engine-schema';

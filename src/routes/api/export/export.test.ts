@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 
-import { afterEach, describe, it, vi } from 'vitest';
+import { afterEach, describe, it, vi } from 'vite-plus/test';
 
 import {
 	cleanupOrphanedExportDirectories,

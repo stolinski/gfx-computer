@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { vec4 } from 'wgpu-matrix';
 
 import { StageSchema, type StageCamera } from '$lib/platform/engine-schema';

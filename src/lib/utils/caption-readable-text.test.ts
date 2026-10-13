@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import type { Captions } from '$lib/platform/engine-schema';
 import { resolveCaptionReadableText } from './caption-readable-text';

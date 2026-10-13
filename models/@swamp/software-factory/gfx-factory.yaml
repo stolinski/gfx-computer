@@ -48,7 +48,10 @@ globalArguments:
                  files or scaffolding — add tests only where the task calls for
                  them or a behavior contract changed; config/yaml-only changes
                  need no new tests.
-              4. Run `pnpm check` and `pnpm test` in the worktree until green.
+              4. Run `pnpm check` and `pnpm test` (Node/jsdom units) until green.
+                 Vite+ owns their cache; use native changed/related tests for
+                 local feedback, not new routing or cache scripts. Browser/media
+                 changes also run `pnpm test:integration`; UI-only changes do not.
                  If you touched preset, pack, or pipeline files, also run
                  `node --experimental-strip-types scripts/verify-presets.ts --affected --changed-paths-json '<json array of your changed paths>'`
                  — never `--all`.
@@ -146,12 +149,14 @@ globalArguments:
         systemPrompt: |
           Build a concrete review packet BEFORE asking the human anything —
           never ask them to "test the build". Start from the change-summary's
-          reviewGuide (fall back to reading the diff when it is thin): render
-          every listed preset/route from the worktree (serve the worktree
-          itself — `pnpm build && pnpm preview` on 4173, or the CDP harness on
-          9223 with the CanvasDrawElement flag) in both orientations and at
-          least two Packs where the change is Pack-dependent, and save the
-          captures. Record the review-packet artifact with those capture
+          reviewGuide (fall back to reading the diff when it is thin): capture
+          listed UI routes for UI work. Render listed presets only for composition
+          work, in both orientations and at least two Packs when Pack-dependent;
+          never turn UI-only review into a preset/render sweep.
+          Serve pending work on gfx-review through local-dev-control (local-dev
+          skill). Scripted captures use the sanctioned CDP harness and a jailed
+          worktree-local server with its own port/store, never a new server on
+          4173 or 7263. Record the review-packet artifact with those capture
           paths, the numbered checkpoints (specific: what changed, where to
           look, what might have regressed), and previewUrl + routes when live
           interaction helps. Then present to the human, in this shape: one

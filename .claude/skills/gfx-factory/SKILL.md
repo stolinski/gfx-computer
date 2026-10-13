@@ -30,24 +30,26 @@ gfx-factory describe` for the Mermaid when in doubt.
   policy is code: `deriveVerificationSuites` in
   `extensions/models/gfx-verify.ts`): swamp/meta-only changes run zero app
   suites, `extensions/` changes run the deno extension tests, and app changes
-  run `pnpm check` + `pnpm test` plus `verify-presets --affected` (the
-  script's own selector picks which presets — a CSS change typically selects
-  none; `--all` never runs unless explicitly requested). Red routes back to
+  run `pnpm check` + `pnpm test` + `pnpm test:structural`, with native Vite+
+  caching behind check/test. Preset/render/export verification is explicit
+  when the work needs it; a UI-only change does not invoke it. Browser/media
+  changes also run `pnpm test:integration`. Red routes back to
   implement with the stored failure bound into the retry prompt.
 - **aesthetic-review** — only reached when the change-summary says
   `visualChange: true`. Never ask the human to "test the build": the approve
   gate requires a fresh `review-packet` artifact, so build it first from the
-  change-summary's `reviewGuide` — captures of every affected preset/route
-  (both orientations, ≥2 Packs where Pack-dependent), numbered checkpoints
+  change-summary's `reviewGuide` — capture UI routes for UI work, and affected
+  presets only for composition work (both orientations, ≥2 Packs where
+  Pack-dependent). Do not turn UI review into a preset/render sweep. Include numbered checkpoints
   (what changed, where to look, what might have regressed), and a preview URL
   with exact paths for anything interactive. Present exactly that packet: one
   sentence of what changed, the checkpoints, the captures, the URL. The human
   judges in two minutes; they approve via the `aesthetic-approval` gate, and
   a rejection records their verbatim reason. Non-visual work ships with no
-  human gate. To serve the worktree: `pnpm build && pnpm preview` inside it
-  (port 4173) and capture via the CDP harness — the serving rule protects
-  the supervised `:7263` production serve and the `:4173` review route, not
-  a throwaway worktree preview on another port.
+  human gate. Serve pending work on `gfx-review` through `local-dev-control`
+  (the `local-dev` skill). Scripted captures use a jailed worktree-local server
+  with its own port/store and the sanctioned CDP harness; never start another
+  server on the supervised `:7263` production or `:4173` review ports.
 - **integrate** — `gfx-integration-git.cherry_pick` of the work item's
   commit onto `main` in the primary checkout. A real content conflict routes
   back to implement (the agent rebases and recommits). Unrelated dirty files

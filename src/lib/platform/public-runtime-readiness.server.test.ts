@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { PUBLIC_EXPORT_RUNTIME_LIMITS } from '$lib/platform/public-runtime-contract';
 import {

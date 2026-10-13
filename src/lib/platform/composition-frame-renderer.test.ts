@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { beforeEach, describe, it } from 'vitest';
+import { beforeEach, describe, it } from 'vite-plus/test';
 
 import type { RenderAnimState } from './anim-state.svelte';
 import { AnimationManager } from './animation-manager';

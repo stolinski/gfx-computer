@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { getOverlayDefinition, PIPELINE_DEFINITION_REGISTRY } from './definition-registry';
 import { transitionEffectDefinitions } from './transition-definition-registry';

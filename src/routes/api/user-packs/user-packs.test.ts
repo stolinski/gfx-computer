@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { isHttpError } from '@sveltejs/kit';
-import { afterAll, beforeAll, describe, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, it, vi } from 'vite-plus/test';
 
 import type { PackFont } from '$lib/platform/packs/types';
 import { parseUserPackDocument, type UserPackDocument } from '$lib/platform/user-pack-store';

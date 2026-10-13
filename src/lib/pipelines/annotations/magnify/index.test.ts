@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import type { AnnotationDrawContext } from '$lib/platform/pipelines/types';
 

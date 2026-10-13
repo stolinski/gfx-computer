@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-import { beforeAll, describe, it } from 'vitest';
+import { beforeAll, describe, it } from 'vite-plus/test';
 
 const COMPONENT_FILES = {
 	rootInspector: 'RootInspector.svelte',

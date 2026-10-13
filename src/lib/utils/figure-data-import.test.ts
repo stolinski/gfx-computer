@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { createStarterFigure } from '$lib/platform/figure-starters';
 import { parseFigureCsv, parseFigureDataImport, slugFigureDataId } from './figure-data-import';

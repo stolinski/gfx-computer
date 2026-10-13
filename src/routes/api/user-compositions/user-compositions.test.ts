@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { isHttpError } from '@sveltejs/kit';
-import { afterEach, beforeAll, beforeEach, describe, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, it, vi } from 'vite-plus/test';
 
 import validPreset from '$lib/presets/blank.json';
 import type { Preset } from '$lib/platform/engine-schema';

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterAll, beforeAll, describe, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, it, vi } from 'vite-plus/test';
 
 import { getPack, PACK_REGISTRY, packSourceOf } from './packs/registry.ts';
 import type { UserPackDocument, UserPackStore } from './user-pack-store.ts';

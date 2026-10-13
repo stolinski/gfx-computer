@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import type { Page } from 'playwright';
-import { afterEach, beforeEach, describe, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vite-plus/test';
 
 import blankPresetJson from '$lib/presets/blank.json';
 import {

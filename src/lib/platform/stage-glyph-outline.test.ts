@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import earcut, { deviation } from 'earcut';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { decodeStageTypeface } from './stage-glyph-format.ts';
 import {

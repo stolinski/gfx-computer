@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { isHttpError } from '@sveltejs/kit';
-import { afterAll, beforeAll, describe, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, it, vi } from 'vite-plus/test';
 
 const publicEnv = vi.hoisted(() => ({ env: {} as Record<string, string | undefined> }));
 vi.mock('$env/dynamic/public', () => publicEnv);

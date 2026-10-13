@@ -12,21 +12,32 @@ Every lane routes on the same repo-owned commands, run wherever the work
 lives (usually an isolated worktree — the primary checkout's local state is
 never an admission or verification concern):
 
-| Command                 | Covers                                                              |
-| ----------------------- | ------------------------------------------------------------------- |
-| `pnpm check`            | svelte-check + eslint + discoverability and name-disposition rules  |
-| `pnpm check:names`      | ADR-0053 name dispositions (below)                                  |
-| `pnpm test`             | vitest unit suites                                                  |
-| `pnpm test:structural`  | structural/discoverability node suites + planning + preset contract |
-| `pnpm verify-presets`   | Preset schema/semantic/lint — `--affected` scoped to changed paths  |
-| `pnpm audit:planning`   | planning-state drift audit (below)                                  |
+| Command | Covers |
+| --- | --- |
+| `pnpm check` | Native incremental svelte-check + Oxlint + Svelte-only ESLint + repo policy checks |
+| `pnpm test` | Full Node/jsdom unit suites, through native Vite Task caching |
+| `pnpm test:changed` | Native Vitest changed/related selection for local feedback |
+| `pnpm test:integration` | Existing real-browser capture and ffmpeg/ffprobe cases |
+| `pnpm test:all` | All test projects, including integration, without task-result caching |
+| `pnpm test:structural` | Structural/discoverability Node suites + planning + preset contracts |
+| `pnpm verify-presets --affected --changed-paths-json '<paths>'` | Explicit affected Preset schema/semantic/lint validation |
+| `pnpm verify-presets --all` | Explicit full static Preset validation |
+| `pnpm audit:planning` | Planning-state drift audit |
+| `pnpm check:names` | ADR-0053 name dispositions |
 
-CI (`.github/workflows/quality.yml`) runs exactly these plus build. It does not
-run the browser render test (`pnpm test:browser`): on a GitHub-hosted runner the
-WebGPU capture came back blank (2026-10-09), most likely because the runner has
-no GPU, so that test runs on a machine with one. Direct delivery,
-factory-assisted delivery, and CI share these commands, so the meaning of
-"green" does not depend on who ran the work.
+Generic app/UI checks do not invoke preset, render, export, poster, or media
+verification. Authors invoke the existing domain commands when their change
+needs them; there is no new path router or dependency analyser.
+`pnpm test:changed` is local feedback, not the final full unit-suite gate.
+For config, dynamically loaded assets, or uncertain dependency selection, use
+`pnpm test` rather than invent selection logic.
+
+CI (`.github/workflows/quality.yml`) runs app checks, unit/structural tests,
+planning audit, and build. Its manual dispatch additionally runs full static
+preset validation and the browser/media integration project, with those
+binaries installed only for that explicit job. It does not run the WebGPU
+render test (`pnpm test:browser`): a GitHub-hosted runner produced blank
+captures (2026-10-09), so that existing command needs a GPU-equipped machine.
 
 ## Type-check memory and time
 
@@ -99,53 +110,61 @@ dropping it changed both on purpose:
 Do not restore `projectService`, or add any rule that requires type information,
 without weighing that cost. `eslint --cache` is not used.
 
-## One run per tree
+## Native tooling and caching
 
-`pnpm check` and `pnpm test` go through `scripts/verified-suite-stamp.mjs`. A
-suite that passes leaves a stamp, and the same suite asked for again on exactly
-the same tree prints one line and exits 0 without running:
+Vite+ 1.1.0 owns Vite, Vitest 5, Oxlint, Oxfmt, and task execution. The root
+`vite.config.ts` is the tooling config; `pnpm@11.1.3`, the lockfile,
+build-approval policy, and SvelteKit patch remain in place. The separately
+managed `docs-site/` package keeps its existing toolchain.
 
-```
-check: skipped — already passed on tree 793891a178c6 at 2026-10-09T17:20:11.000Z. …
-```
+Four declared `vp run` tasks cover native Svelte checking, linting, repo policy
+checks, and the Node/jsdom test projects. Vite Task records the files commands
+actually read and invalidates from those inputs, rather than hashing the
+whole Git worktree. The type/test tasks also declare `NODE_ENV`,
+`PUBLIC_GFX_*`, and `GFX_*` inputs. The type task excludes generated SvelteKit
+artifacts from its inputs and restores only sync/compiler artifacts as outputs,
+never `.svelte-kit/output`, Node adapter output, or Worker output. A passing unchanged command replays its
+result; a failure is not a pass. Build output, integration tests, live smoke
+checks, captures, deployments, and release evidence are not task-result cached.
+There is no second stamp wrapper or custom cache.
 
-This exists for one repeat in particular. The factory's implement stage runs
-both suites until green and commits; its verify stage then asks for both again
-on that commit. Because `gfx-verify.run_checks` calls `pnpm run check` and
-`pnpm run test`, the stamp sits behind those two scripts and no factory or
-workflow definition changes.
+| To | Run |
+| --- | --- |
+| Check with native caching | `pnpm check` |
+| Execute every check without task-result reuse | `pnpm exec vp run --no-cache check:run` |
+| Execute all unit cases without task-result reuse | `pnpm test:run` |
+| Run tests related to a source file | `pnpm exec vp test related <source-path> --run --project node --project dom` |
+| Inspect cache hits or invalidation | `pnpm exec vp run --last-details` |
+| Format deliberately | `pnpm exec vp fmt <paths>` |
 
-The stamp is reused only when all of these match the passing run:
+Oxfmt retains tabs, single quotes, no trailing commas, a 100-column width, no
+package-key sorting, and the existing ignored files. Svelte formatting is
+explicitly enabled. No repository-wide reformat is part of this migration,
+and formatting remains an explicit command, not a new whole-tree gate.
+Oxlint handles JS/TS (including rune modules), while ESLint retains the
+existing Svelte component script/template rules and `structuredClone`
+safeguard. Neither linter builds another TypeScript program.
 
-- **The content of the worktree** as git would commit it now — tracked,
-  modified, and untracked files, hashed through a throwaway copy of the index.
-  Uncommitted work and the commit made from it share one key, which is what
-  lets the verify stage reuse the implement stage's pass. Any edit, new file,
-  deletion, or `pnpm-lock.yaml` change produces a different key.
-- **The lockfile pnpm installed from** (`node_modules/.pnpm/lock.yaml`), so a
-  worktree whose `node_modules` lags its lockfile never matches.
-- **The suite, the Node version, the platform, and the worktree's path.** A
-  passed `check` says nothing about `test`.
+Migration measurements in one linked worktree, with `/usr/bin/time -p`:
+the original real check took **19.61 s**, the final check without task-result
+reuse **14.41 s**, and an unchanged replay **1.63 s**. All **3374 existing
+Vitest cases** pass (301 files after extracting the media integration case);
+the final full run took **21.40 s**, the unit run **22.55 s**, and its unchanged
+replay **1.19 s**. The original full attempt took **23.89 s** but failed for a
+missing browser, and migrated full runs ranged up to 27 s, so this is not a
+claim of a consistent cold full-suite speedup.
 
-Only a pass is stamped, and only if the tree is still what it was when the suite
-started. A failure or an interruption records nothing. Stamps live in
-`node_modules/.cache/gfx-verified-suites/`, which is ignored and belongs to one
-worktree.
+A docs-only edit reused both linters, Svelte checking, and the unit suite; only
+the relevant name-disposition check reran (**2.69 s** check, **0.98 s** test).
+A temporary comment in `EffectParamRow.svelte` invalidated Svelte checking and
+template linting, while Oxlint stayed cached (**10.59 s** check). Native related
+selection ran **41 files / 938 cases** (**12.53 s**), without browser/media or
+preset verification. Both probes were removed. Deleting generated Svelte
+artifacts and repeating the check restored them on a native cache hit.
 
-The key does not cover ignored files (`.env`, build output) or environment
-variables. To run a suite for real regardless of its stamp:
-
-| To                           | Run                                               |
-| ---------------------------- | ------------------------------------------------- |
-| Force one real run           | `GFX_FORCE_SUITE_RUN=1 pnpm check`                |
-| Call the suite with no stamp | `pnpm check:run`, `pnpm test:run`                 |
-| Forget every stamp           | delete `node_modules/.cache/gfx-verified-suites/` |
-
-CI always runs for real: with `CI` set the stamp is neither read nor written.
-The same holds when extra arguments narrow the run, as in
-`pnpm test src/lib/one.test.ts`. `pnpm test:structural` and
-`pnpm verify-presets` are not stamped: together they take about three seconds,
-so a stamp would save nothing worth the extra state.
+No new test cases were added. The existing structural render-seam assertions
+were refreshed for the already-shipped Film Scene stepper, with no application
+code changes.
 
 ## Planning-drift audit
 
@@ -219,8 +238,9 @@ gates only visual changes; and integration onto `main` stays serialized.
 `models/@swamp/software-factory/gfx-factory.yaml` (~6 stages). Its work items are
 Dex task ids, and it applies the same completion contract as direct delivery.
 The `gfx-verify.run_checks` implementation in `extensions/models/gfx-verify.ts`
-derives suites from `filesChanged` — swamp-only changes run no app suites, and
-preset verification runs `--affected`, never `--all`. Factory integration is a
+derives the existing generic suites from `filesChanged` — swamp-only changes
+run no app suites; app changes run check, unit, and structural checks. Preset
+verification is an explicit request, not inferred from generic app paths. Factory integration is a
 serialized cherry-pick onto `main` via `gfx-integration-git`. Use the
 `gfx-factory` skill only when the user opts into this lane.
 

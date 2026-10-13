@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 /**
  * ADR-0055: User Packs are renderable, never catalog. Every deterministic

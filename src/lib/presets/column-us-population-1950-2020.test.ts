@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import presetJson from './column-us-population-1950-2020.json';
 import { parsePresetIngress } from '../platform/preset-ingress';

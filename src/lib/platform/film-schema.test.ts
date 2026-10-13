@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import blankPresetJson from '$lib/presets/blank.json';
 

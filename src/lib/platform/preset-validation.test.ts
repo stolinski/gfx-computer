@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { createDefaultEngineState, type Preset } from './engine-schema';
 import { validatePresetSemantics } from './preset-validation';

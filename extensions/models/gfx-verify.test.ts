@@ -41,33 +41,19 @@ Deno.test("extension changes derive only the deno extension suite", () => {
 	assertEquals(suiteNames(["extensions/models/gfx-verify.ts"]), ["extensions"]);
 });
 
-Deno.test("a single preset change derives check, test, and affected-scoped presets", () => {
-	const plans = deriveVerificationSuites(["src/lib/presets/chapter-card.json"]);
-	assertEquals(plans.map((plan) => plan.name), ["check", "test", "structural", "presets"]);
-	const presets = plans.find((plan) => plan.name === "presets");
-	assertEquals(presets?.command.includes("--affected"), true);
-	assertEquals(presets?.command.includes("--all"), false);
+Deno.test("preset changes keep app checks without automatically invoking authoring verification", () => {
+	assertEquals(suiteNames(["src/lib/presets/chapter-card.json"]), ["check", "test", "structural"]);
+});
+
+Deno.test("UI changes do not invoke preset verification", () => {
 	assertEquals(
-		presets?.command.at(-1),
-		JSON.stringify(["src/lib/presets/chapter-card.json"]),
+		suiteNames(["src/routes/+layout.svelte", "docs/adr/0050-something.md"]),
+		["check", "test", "structural"],
 	);
 });
 
-Deno.test("platform CSS changes pass only the CSS path to the presets selector", () => {
-	const plans = deriveVerificationSuites([
-		"src/routes/+layout.svelte",
-		"docs/adr/0050-something.md",
-	]);
-	const presets = plans.find((plan) => plan.name === "presets");
-	assertEquals(
-		presets?.command.at(-1),
-		JSON.stringify(["src/routes/+layout.svelte"]),
-	);
-});
-
-Deno.test("docs/packs changes stay app-relevant for the presets selector", () => {
-	const plans = deriveVerificationSuites(["docs/packs/syntax/aesthetic.md"]);
-	assertEquals(plans.map((plan) => plan.name), ["check", "test", "structural", "presets"]);
+Deno.test("docs/packs changes retain app checks without inferred preset verification", () => {
+	assertEquals(suiteNames(["docs/packs/syntax/aesthetic.md"]), ["check", "test", "structural"]);
 });
 
 Deno.test("docs-site changes derive only the docs-site suite", () => {
@@ -83,7 +69,7 @@ Deno.test("docs-site changes derive only the docs-site suite", () => {
 Deno.test("mixed docs-site and app changes derive both lanes", () => {
 	assertEquals(
 		suiteNames(["docs-site/src/app.css", "src/lib/utils/thing.ts"]),
-		["docs-site", "check", "test", "structural", "presets"],
+		["docs-site", "check", "test", "structural"],
 	);
 });
 

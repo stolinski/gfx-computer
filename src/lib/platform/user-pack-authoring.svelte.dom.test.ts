@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import { packState } from './engine-state.svelte';
 import { PACK_REGISTRY, REFERENCE_PACK_SLUG } from './packs/registry';

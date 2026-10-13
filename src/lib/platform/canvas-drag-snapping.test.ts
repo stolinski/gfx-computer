@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import type { CanvasAlignableElement } from './canvas-alignment';
 import { isCanvasSnapBypassGesture, resolveCanvasDragSnapping } from './canvas-drag-snapping';

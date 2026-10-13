@@ -34,7 +34,7 @@ end-to-end repair attempt through the `gfx-agent` coding agent:
 
 ```text
 observed Sentry error → sentry issue view/explain/plan → fix in isolated worktree
-→ pnpm check + pnpm test → cherry-pick onto main → sentry issue resolve → dex complete
+→ pnpm check + pnpm test (Node/jsdom; native Vite+ cache) → cherry-pick onto main → sentry issue resolve → dex complete
 ```
 
 - **The original event is enough evidence.** Runtime reproduction, a mandatory

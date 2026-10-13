@@ -4,49 +4,56 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
-
-      - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
-
       - name: Check
         run: pnpm check
-
       - name: Unit tests
         run: pnpm test
-
       - name: Structural tests
         run: pnpm test:structural
-
       - name: Planning audit
         run: pnpm audit:planning
-
-      - name: Verify presets
-        run: pnpm verify-presets
-
       - name: Build
         run: pnpm build
+      - name: Full static preset validation (explicit dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: pnpm verify-presets --all
 
-      # The browser render test (`pnpm test:browser`) is not run here: on a
-      # GitHub-hosted runner its WebGPU capture came back blank (2026-10-09),
-      # most likely because the runner has no GPU. Run it on a machine with one.
+  integration:
+    # Native GitHub manual dispatch, not a custom changed-path router.
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser and media integration tests
+        run: pnpm test:integration
+
+# The existing WebGPU render test needs a GPU-equipped machine; the browser
+# capture integration above is ordinary Chromium, not the Canvas render matrix.

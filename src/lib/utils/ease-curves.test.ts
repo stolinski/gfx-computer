@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { evaluateNamedEase, NAMED_EASE_CURVES } from './ease-curves.ts';
 

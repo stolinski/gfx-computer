@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 import { packChartMarkRendererInstances } from '$lib/pipelines/shader-passes/chart-mark-renderer';
 
 import type { RenderAnimState } from './anim-state.svelte';

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 
 import { isHttpError } from '@sveltejs/kit';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import {
 	primaryUserCompositionStoreDirectory,

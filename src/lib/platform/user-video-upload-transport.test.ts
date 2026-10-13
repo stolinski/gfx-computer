@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { afterEach, beforeEach, describe, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vite-plus/test';
 
 const mediabunnyState = vi.hoisted(() => ({
 	dispose: vi.fn(),

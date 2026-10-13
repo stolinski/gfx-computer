@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 import { hasUserVideoSignature, userVideoFormatForMime } from './user-video-format-validation';
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
-import { describe, it } from 'vitest';
+import { describe, it } from 'vite-plus/test';
 
 // The rubric resolves absent typography colours through the Pack registry
 // (ADR-0038), whose manifests transitively import @fontsource side-effect

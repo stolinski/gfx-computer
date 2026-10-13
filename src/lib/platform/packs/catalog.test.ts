@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 import { createRuntimeRenderRegistryIdentity } from '../deterministic-render-registry-fingerprint';
 import { createPackCalibrationVerificationBundleId } from './calibration-bundle';

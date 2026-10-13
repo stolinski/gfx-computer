@@ -13,15 +13,19 @@ const exportController = readFileSync(
 	new URL('../src/lib/platform/composition-export-controller.ts', import.meta.url),
 	'utf8'
 );
+const sceneStepper = readFileSync(
+	new URL('../src/lib/platform/film-scene-frame-stepper.ts', import.meta.url),
+	'utf8'
+);
 const exportFrame = source.match(
-	/renderCompositionFrame: \(timestamp\) => \{([\s\S]*?)\n\t\t\t\t\},/
+	/async function performExport\([\s\S]*?renderCompositionFrame: \(outputView, timestamp\) =>\s*([^\n]+)/
 );
 
 assert.ok(exportFrame, 'Workspace must provide the controller a live export frame callback');
 assert.match(
 	exportFrame[1],
-	/renderCompositionFrameTo\(\s*buildCompositionFrameRenderRequest\(\s*host\.context\.getCurrentTexture\(\)\.createView\(\),\s*timestamp\s*\)/,
-	'export must delegate its canvas frame to the shared render seam'
+	/renderCompositionFrameTo\(buildCompositionFrameRenderRequest\(outputView, timestamp\)\)/,
+	'export must delegate its supplied Scene target to the shared render seam'
 );
 assert.doesNotMatch(
 	exportFrame[1],
@@ -30,8 +34,13 @@ assert.doesNotMatch(
 );
 assert.match(
 	exportController,
-	/dependencies\.renderCompositionFrame\(timestamp\)/,
-	"the export controller must invoke Workspace's shared frame callback"
+	/createFilmSceneFrameStepper\(\{[\s\S]*?renderCompositionFrame: dependencies\.renderCompositionFrame,/,
+	'the export controller must pass the live frame callback to the Film Scene stepper'
+);
+assert.match(
+	sceneStepper,
+	/dependencies\.renderCompositionFrame\(request\.readOutputView\(\), timestamp\)/,
+	"the Film Scene stepper must invoke Workspace's shared frame callback with the current target"
 );
 assert.equal(
 	(renderer.match(/export function renderCompositionFrameTo\(/g) ?? []).length,
@@ -74,13 +83,13 @@ assert.match(
 );
 assert.match(
 	source,
-	/transitionSnapshotPreparation = preparation;[\s\S]*?transitionSnapshotPreparation === preparation[\s\S]*?transitionSnapshotPreparation = null;/,
-	'Workspace must retain and identity-clear the active transition snapshot preparation'
+	/if \(next\.isExporting\) heldFilmBoundaryFrame = null;/,
+	'export must discard held preview boundary frames before rendering its own'
 );
 assert.match(
 	source,
-	/async function performExport\([\s\S]*?\): Promise<CompositionExportOutcome> \{\s*await tick\(\);\s*await transitionSnapshotPreparation;/,
-	'export must flush reactive effects before awaiting transition snapshot preparation'
+	/async function performExport\([\s\S]*?\): Promise<CompositionExportOutcome> \{\s*await tick\(\);[\s\S]*?readFilm: \(\) => cloneJsonValue\(readOpenFilm\(\)\)/,
+	'export must flush reactive effects and plan from a detached Film snapshot'
 );
 assert.match(
 	source,
@@ -93,9 +102,9 @@ assert.match(
 	'the verification family must measure frames through the shared deterministic settle'
 );
 assert.match(
-	exportController,
-	/await dependencies\.waitForCompositionResources\(signal\)[\s\S]*?await dependencies\.settleCompositionPaint\(signal\)[\s\S]*?await dependencies\.prepareCompositionFrame/,
-	'export must await resources and browser paint settlement before frame preparation'
+	sceneStepper,
+	/async function prepareScene\([\s\S]*?await dependencies\.waitForCompositionResources\(signal\)[\s\S]*?await prepareScene\([\s\S]*?await dependencies\.settleCompositionPaint\(signal\)[\s\S]*?await dependencies\.prepareCompositionFrame/,
+	'the Film Scene stepper must await resources and browser paint settlement before frame preparation'
 );
 assert.equal(
 	(renderer.match(/request\.buildSurfaceInputs\(request\.timestamp\)/g) ?? []).length,

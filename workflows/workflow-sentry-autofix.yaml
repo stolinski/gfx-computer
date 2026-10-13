@@ -51,8 +51,11 @@ jobs:
                  Implement the smallest credible fix per the worktree's CLAUDE.md.
                  No speculative test files — add a test only when it pins the
                  actual bug you fixed.
-              5. Verify in the worktree: `pnpm check` and `pnpm test` must be
-                 green. If the fix touched preset, pack, or pipeline files, also
+              5. Verify in the worktree: `pnpm check` and `pnpm test` (Node/jsdom
+                 units, native Vite+ caching) must be green. Browser/media fixes
+                 also run `pnpm test:integration`; UI-only fixes do not. Do not
+                 add routing or cache wrappers. If the fix touched preset, pack,
+                 or pipeline files, also
                  run `node --experimental-strip-types scripts/verify-presets.ts --affected --changed-paths-json '<json array of changed paths>'`
                  — never `--all`. Commit as ONE commit.
               6. Integrate and close out: cherry-pick that commit onto main in
