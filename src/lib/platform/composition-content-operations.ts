@@ -205,6 +205,11 @@ const DIAGRAM_FIELDS_OWNED_ELSEWHERE: Record<string, string> = {
 	control: 'gfx_placement_set_diagram_geometry',
 	scale: 'gfx_placement_set_diagram_geometry',
 	maxWidth: 'gfx_placement_set_diagram_geometry',
+	fontSize: 'gfx_placement_set_diagram_geometry',
+	paddingX: 'gfx_placement_set_diagram_geometry',
+	paddingY: 'gfx_placement_set_diagram_geometry',
+	minWidth: 'gfx_placement_set_diagram_geometry',
+	minHeight: 'gfx_placement_set_diagram_geometry',
 	orientationOverrides: 'gfx_placement_set_diagram_geometry',
 	animation: 'gfx_motion_set_keyframe_channel'
 };

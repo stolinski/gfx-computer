@@ -4688,6 +4688,31 @@
                               "minimum": 0.25,
                               "maximum": 4
                             },
+                            "fontSize": {
+                              "type": "number",
+                              "minimum": 0.5,
+                              "maximum": 20
+                            },
+                            "paddingX": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 20
+                            },
+                            "paddingY": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 20
+                            },
+                            "minWidth": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "minHeight": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
                             "orientationOverrides": {
                               "type": "object",
                               "properties": {
@@ -4718,6 +4743,31 @@
                                       "type": "number",
                                       "minimum": 0.25,
                                       "maximum": 4
+                                    },
+                                    "fontSize": {
+                                      "type": "number",
+                                      "minimum": 0.5,
+                                      "maximum": 20
+                                    },
+                                    "paddingX": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 20
+                                    },
+                                    "paddingY": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 20
+                                    },
+                                    "minWidth": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "minHeight": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
                                     }
                                   },
                                   "required": [
@@ -4752,6 +4802,31 @@
                                       "type": "number",
                                       "minimum": 0.25,
                                       "maximum": 4
+                                    },
+                                    "fontSize": {
+                                      "type": "number",
+                                      "minimum": 0.5,
+                                      "maximum": 20
+                                    },
+                                    "paddingX": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 20
+                                    },
+                                    "paddingY": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 20
+                                    },
+                                    "minWidth": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "minHeight": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
                                     }
                                   },
                                   "required": [

@@ -1,7 +1,11 @@
 <script lang="ts">
 	import {
+		CODE_DEFAULT_FONT_SIZE,
+		CODE_DEFAULT_PADDING_X,
+		CODE_DEFAULT_PADDING_Y,
 		DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH,
 		DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH,
+		type DiagramCodeGeometry,
 		type DiagramEdgeGeometry,
 		type DiagramEndpoint,
 		type DiagramLabelGeometry,
@@ -45,6 +49,23 @@
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
 		geometry.scale = Math.max(0.25, Math.min(4, n));
+	}
+
+	// A code panel size (ADR-0070): empty returns the field to its default.
+	function setCodeSize(
+		geometry: DiagramCodeGeometry,
+		field: 'fontSize' | 'paddingX' | 'paddingY' | 'minWidth' | 'minHeight',
+		value: string,
+		min: number,
+		max: number
+	): void {
+		if (value.trim() === '') {
+			geometry[field] = undefined;
+			return;
+		}
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		geometry[field] = Math.max(min, Math.min(max, n));
 	}
 
 	function setTextBoxWidth(geometry: DiagramLabelGeometry, value: string): void {
@@ -304,6 +325,65 @@
 					placeholder="auto"
 					oninput={(e) =>
 						setTextBoxWidth(labelGeometry, (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+		{:else if el.type === 'code'}
+			{@const codeGeometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
+			<Field label="Text size">
+				<input
+					type="number"
+					min="0.5"
+					max="20"
+					step="0.1"
+					value={codeGeometry.fontSize ?? CODE_DEFAULT_FONT_SIZE}
+					oninput={(e) =>
+						setCodeSize(codeGeometry, 'fontSize', (e.currentTarget as HTMLInputElement).value, 0.5, 20)}
+				/>
+			</Field>
+			<Field label="Padding">
+				<input
+					type="number"
+					min="0"
+					max="20"
+					step="0.1"
+					aria-label="Padding left and right"
+					value={codeGeometry.paddingX ?? CODE_DEFAULT_PADDING_X}
+					oninput={(e) =>
+						setCodeSize(codeGeometry, 'paddingX', (e.currentTarget as HTMLInputElement).value, 0, 20)}
+				/>
+				<input
+					type="number"
+					min="0"
+					max="20"
+					step="0.1"
+					aria-label="Padding top and bottom"
+					value={codeGeometry.paddingY ?? CODE_DEFAULT_PADDING_Y}
+					oninput={(e) =>
+						setCodeSize(codeGeometry, 'paddingY', (e.currentTarget as HTMLInputElement).value, 0, 20)}
+				/>
+			</Field>
+			<Field label="Min size">
+				<input
+					type="number"
+					min="0"
+					max="1"
+					step="any"
+					aria-label="Minimum width"
+					placeholder="auto"
+					value={codeGeometry.minWidth ?? ''}
+					oninput={(e) =>
+						setCodeSize(codeGeometry, 'minWidth', (e.currentTarget as HTMLInputElement).value, 0, 1)}
+				/>
+				<input
+					type="number"
+					min="0"
+					max="1"
+					step="any"
+					aria-label="Minimum height"
+					placeholder="auto"
+					value={codeGeometry.minHeight ?? ''}
+					oninput={(e) =>
+						setCodeSize(codeGeometry, 'minHeight', (e.currentTarget as HTMLInputElement).value, 0, 1)}
 				/>
 			</Field>
 		{/if}

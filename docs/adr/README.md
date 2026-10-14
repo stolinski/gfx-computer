@@ -80,6 +80,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0067](0067-figures-generated-visualization-domain.md)                         | Canon (built 2026-10-06: nine approved Figure Presets; migration review kept every Chart Block and Diagram primitive)                          | Figures: one declaration generates marks through live layouts, Pins, encodings, keyed data frames, and named Moves; amends 0036, 0048   |
 | [0068](0068-films-scenes-and-live-scene-boundaries.md)                         | Canon for phases 1–2, built 2026-10-09, and magic move of Overlays, built 2026-10-10; the rest of phase 3 and phases 4–7 designed (`70u0qn13`) | Films: owned Scenes, live Scene boundaries, magic move, a Strudel Score; supersedes 0032 §3–4, 0026, and the two-endpoint form of 0022  |
 | [0069](0069-strudel-score-ships-in-local-builds-only.md)                       | Designed, not built (decided 2026-10-08, Dex epic `70u0qn13`)                                                                                  | The Strudel Score is an internal, development-only tool; GFX stays FSL                                                                  |
+| [0070](0070-every-visible-size-is-authorable.md) | Canon (rule adopted 2026-10-14) | Every text size and box size a Pipeline draws is settable on its own in the Preset, the Inspector, and WebMCP |
 
 ## Supersession And Refinement
 

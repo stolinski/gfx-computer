@@ -191,4 +191,33 @@ describe('achievement Overlay', () => {
 		setAchievementBeat(content, Number.NaN);
 		assert.equal(content.beat, 1, 'invalid numeric editor input does not corrupt state');
 	});
+
+	it('takes authored sizes and keeps its own when none are set (ADR-0070)', () => {
+		const sized = achievementOverlayRenderer.schema.safeParse({
+			variant: 'checklist-complete',
+			kicker: 'TASK COMPLETE',
+			title: 'Env vars set',
+			width: { horizontal: 0.5, vertical: 0.9 },
+			minHeight: 0.2,
+			titleSize: 6,
+			kickerSize: 2.5,
+			paddingX: 3,
+			paddingY: 2
+		});
+		assert.ok(sized.success, sized.success ? '' : sized.error.message);
+
+		const frame = getVideoFrameSize('horizontal');
+		assert.equal(achievementFrameLayout('horizontal', frame.width, frame.height, 0.5).width, 1920);
+		assert.equal(
+			achievementFrameLayout('horizontal', frame.width, frame.height).width,
+			Math.round(frame.width * 0.32)
+		);
+
+		const tooSmall = achievementOverlayRenderer.schema.safeParse({
+			kicker: 'K',
+			title: 'T',
+			width: { horizontal: 0.01 }
+		});
+		assert.equal(tooSmall.success, false);
+	});
 });

@@ -307,6 +307,40 @@ function diagramGeometryProperties(): Readonly<Record<string, WebmcpSchemaProper
 			description: 'A label text box width, as a fraction of the composition width.',
 			minimum: 0.03,
 			maximum: 1
+		},
+		fontSize: {
+			type: 'number',
+			description: "A code panel's text size, in hundredths of the frame's shorter side.",
+			minimum: 0.5,
+			maximum: 20
+		},
+		paddingX: {
+			type: 'number',
+			description:
+				"A code panel's left and right padding, in hundredths of the frame's shorter side.",
+			minimum: 0,
+			maximum: 20
+		},
+		paddingY: {
+			type: 'number',
+			description:
+				"A code panel's top and bottom padding, in hundredths of the frame's shorter side.",
+			minimum: 0,
+			maximum: 20
+		},
+		minWidth: {
+			type: 'number',
+			description:
+				"A code panel's smallest width, as a fraction of the composition width; it never shrinks below its code.",
+			minimum: 0,
+			maximum: 1
+		},
+		minHeight: {
+			type: 'number',
+			description:
+				"A code panel's smallest height, as a fraction of the composition height; it never shrinks below its code.",
+			minimum: 0,
+			maximum: 1
 		}
 	};
 }
@@ -335,6 +369,9 @@ function readDiagramGeometry(args: unknown): DiagramGeometryPatch {
 	}
 	if ('scale' in geometry) patch.scale = readWebmcpNumberArgument(geometry, 'scale');
 	if ('maxWidth' in geometry) patch.maxWidth = readWebmcpNumberArgument(geometry, 'maxWidth');
+	for (const field of ['fontSize', 'paddingX', 'paddingY', 'minWidth', 'minHeight'] as const) {
+		if (field in geometry) patch[field] = readWebmcpNumberArgument(geometry, field);
+	}
 	return patch;
 }
 

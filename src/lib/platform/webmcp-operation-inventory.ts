@@ -45,7 +45,13 @@ export type WebmcpOperationFamilyName =
  * - `deliver` — produces a rendered artifact the visitor receives.
  */
 export type WebmcpOperationEffectKind =
-	'read' | 'view' | 'context' | 'write' | 'history' | 'lifecycle' | 'deliver';
+	| 'read'
+	| 'view'
+	| 'context'
+	| 'write'
+	| 'history'
+	| 'lifecycle'
+	| 'deliver';
 
 /**
  * The condition under which a tool is registered on `document.modelContext`.
@@ -399,6 +405,11 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/diagram/*/control', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/scale', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/maxWidth', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/fontSize', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/paddingX', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/paddingY', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/minWidth', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/minHeight', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/orientationOverrides', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/position', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/scale', scope: 'value' },
@@ -1613,7 +1624,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'placement',
 		toolName: 'gfx_placement_set_diagram_geometry',
 		summary:
-			"Set one diagram primitive's composition-space position, endpoints, control point, scale, and label width, per orientation.",
+			"Set one diagram primitive's composition-space position, endpoints, control point, scale, label width, and code panel text size, padding, and minimum box, per orientation.",
 		effect: 'write',
 		writes: [
 			'/state/surface/diagram/*/position',
@@ -1622,6 +1633,11 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 			'/state/surface/diagram/*/control',
 			'/state/surface/diagram/*/scale',
 			'/state/surface/diagram/*/maxWidth',
+			'/state/surface/diagram/*/fontSize',
+			'/state/surface/diagram/*/paddingX',
+			'/state/surface/diagram/*/paddingY',
+			'/state/surface/diagram/*/minWidth',
+			'/state/surface/diagram/*/minHeight',
 			'/state/surface/diagram/*/orientationOverrides'
 		],
 		precondition: 'diagram-present',

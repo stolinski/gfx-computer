@@ -750,6 +750,21 @@ export const CODE_COLUMN_LIMIT = 100;
 
 const CodePositionSchema = z.number().int().min(1);
 
+// A code panel's sizes (ADR-0070), each on its own and each per orientation.
+// Text size and padding are in `cqmin` (hundredths of the frame's shorter
+// side); the minimum box is a fraction of the frame's width and height. The
+// panel never shrinks below its code. Absent, the renderer's defaults apply.
+export const CODE_DEFAULT_FONT_SIZE = 2.1;
+export const CODE_DEFAULT_PADDING_X = 2.94;
+export const CODE_DEFAULT_PADDING_Y = 2.31;
+const CodeGeometrySchema = DiagramPositionGeometrySchema.extend({
+	fontSize: z.number().min(0.5).max(20).optional(),
+	paddingX: z.number().min(0).max(20).optional(),
+	paddingY: z.number().min(0).max(20).optional(),
+	minWidth: z.number().min(0).max(1).optional(),
+	minHeight: z.number().min(0).max(1).optional()
+});
+
 const CodeHighlightRangeSchema = z.strictObject({
 	lines: z.tuple([CodePositionSchema, CodePositionSchema]),
 	columns: z.tuple([CodePositionSchema, CodePositionSchema]).optional()
@@ -772,7 +787,12 @@ const DiagramCodeSchema = z
 		language: z.enum(CODE_LANGUAGES),
 		steps: CodeStepsSchema,
 		scale: z.number().min(0.25).max(4).optional(),
-		orientationOverrides: diagramOrientationOverridesSchema(DiagramPositionGeometrySchema),
+		fontSize: CodeGeometrySchema.shape.fontSize,
+		paddingX: CodeGeometrySchema.shape.paddingX,
+		paddingY: CodeGeometrySchema.shape.paddingY,
+		minWidth: CodeGeometrySchema.shape.minWidth,
+		minHeight: CodeGeometrySchema.shape.minHeight,
+		orientationOverrides: diagramOrientationOverridesSchema(CodeGeometrySchema),
 		animation: DiagramAnimationSchema.optional()
 	})
 	.superRefine((primitive, ctx) => {
@@ -941,6 +961,7 @@ export type DiagramLabel = z.infer<typeof DiagramLabelSchema>;
 export type DiagramStatCallout = z.infer<typeof DiagramStatCalloutSchema>;
 export type DiagramTimelineSegment = z.infer<typeof DiagramTimelineSegmentSchema>;
 export type DiagramCode = z.infer<typeof DiagramCodeSchema>;
+export type DiagramCodeGeometry = z.infer<typeof CodeGeometrySchema>;
 export type CodeStep = z.infer<typeof CodeStepSchema>;
 export type CodeHighlightRange = z.infer<typeof CodeHighlightRangeSchema>;
 export type CodeLanguage = DiagramCode['language'];

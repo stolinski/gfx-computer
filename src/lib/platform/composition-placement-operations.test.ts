@@ -590,3 +590,60 @@ describe('diagram geometry', () => {
 		expect(failure.code).toBe('invalid_argument');
 	});
 });
+
+describe('code panel sizes (ADR-0070)', () => {
+	beforeEach(async () => {
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 0,
+				primitiveType: 'code'
+			})
+		);
+	});
+
+	it('writes text size, padding, and minimum box on their own', async () => {
+		expectApplied(
+			await runSetCompositionDiagramGeometryOperation({
+				expectedRevision: 1,
+				blockId: 'code-1',
+				target: 'shared',
+				geometry: { fontSize: 3.5, paddingX: 4, paddingY: 2, minWidth: 0.6, minHeight: 0.4 }
+			})
+		);
+
+		expect(engineState.surface.diagram?.[0]).toMatchObject({
+			fontSize: 3.5,
+			paddingX: 4,
+			paddingY: 2,
+			minWidth: 0.6,
+			minHeight: 0.4
+		});
+	});
+
+	it('gives an orientation its own sizes and keeps the shared ones for the other', async () => {
+		expectApplied(
+			await runSetCompositionDiagramGeometryOperation({
+				expectedRevision: 1,
+				blockId: 'code-1',
+				target: 'shared',
+				geometry: { fontSize: 3 }
+			})
+		);
+		expectApplied(
+			await runSetCompositionDiagramGeometryOperation({
+				expectedRevision: 2,
+				blockId: 'code-1',
+				target: 'vertical',
+				geometry: { fontSize: 2, minWidth: 0.9 }
+			})
+		);
+
+		const primitive = engineState.surface.diagram?.[0];
+		if (primitive?.type !== 'code') throw new Error('Expected the code primitive.');
+		expect(resolveDiagramPrimitiveGeometry(primitive, 'vertical')).toMatchObject({
+			fontSize: 2,
+			minWidth: 0.9
+		});
+		expect(resolveDiagramPrimitiveGeometry(primitive, 'horizontal').fontSize).toBe(3);
+	});
+});

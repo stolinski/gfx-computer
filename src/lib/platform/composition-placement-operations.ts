@@ -143,6 +143,12 @@ export interface DiagramGeometryPatch {
 	control?: DiagramPoint;
 	scale?: number;
 	maxWidth?: number;
+	/** A code panel's text size and padding (cqmin) and minimum box (frame fractions), ADR-0070. */
+	fontSize?: number;
+	paddingX?: number;
+	paddingY?: number;
+	minWidth?: number;
+	minHeight?: number;
 }
 
 export interface SetCompositionDiagramGeometryRequest {
@@ -160,7 +166,7 @@ const DIAGRAM_GEOMETRY_FIELDS: Record<DiagramPrimitive['type'], readonly Diagram
 	node: ['position', 'scale'],
 	label: ['position', 'scale', 'maxWidth'],
 	'stat-callout': ['position', 'scale', 'from', 'to'],
-	code: ['position', 'scale'],
+	code: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'minWidth', 'minHeight'],
 	'edge-arrow': ['from', 'to', 'control'],
 	'timeline-segment': ['from', 'to']
 };
@@ -177,7 +183,7 @@ const DIAGRAM_ORIENTATION_GEOMETRY_FIELDS: Record<
 	node: ['position', 'scale'],
 	label: ['position', 'scale', 'maxWidth'],
 	'stat-callout': ['position', 'scale'],
-	code: ['position', 'scale'],
+	code: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'minWidth', 'minHeight'],
 	'edge-arrow': ['from', 'to', 'control'],
 	'timeline-segment': ['from', 'to']
 };

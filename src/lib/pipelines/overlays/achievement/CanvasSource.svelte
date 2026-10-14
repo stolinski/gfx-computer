@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { cqminLength } from '$lib/utils/frame-relative-length';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	import { achievementFrameLayout } from './achievement-frame-layout';
@@ -17,7 +18,19 @@
 	const variant = $derived(VARIANTS[variantId]);
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const layout = $derived(
-		achievementFrameLayout(engineState.transport.orientation, frame.width, frame.height)
+		achievementFrameLayout(
+			engineState.transport.orientation,
+			frame.width,
+			frame.height,
+			content.width?.[engineState.transport.orientation]
+		)
+	);
+	// Authored sizes (ADR-0070) win over the Pack's padding and the card's own
+	// width-relative text sizes; absent, those stay as they are.
+	const padding = $derived(
+		content.paddingX === undefined && content.paddingY === undefined
+			? undefined
+			: `${cqminLength(content.paddingY) ?? '0.048em'} ${cqminLength(content.paddingX) ?? '0.058em'}`
 	);
 	const durationMs = $derived(engineState.transport.durationSeconds * 1000);
 	const sinceBeatMs = $derived((animState.globalProgress - (content.beat ?? 0.3375)) * durationMs);
@@ -32,6 +45,10 @@
 	data-gfx-shadow-owner="plate"
 	style:inline-size={`${layout.width}px`}
 	style:font-size={`${layout.width}px`}
+	style:padding
+	style:min-block-size={content.minHeight === undefined
+		? undefined
+		: `${Math.round(content.minHeight * frame.height)}px`}
 >
 	<span class="achievement__icon" aria-hidden="true">
 		{#if variantId === 'checklist-complete'}
@@ -76,6 +93,7 @@
 			data-gfx-readable-id="kicker"
 			data-gfx-text-role="overlay-corner-secondary"
 			class={['achievement__kicker', { 'achievement__kicker--chip': variantId === 'unlocked' }]}
+			style:font-size={cqminLength(content.kickerSize)}
 			style:opacity={variantId === 'unlocked' ? motion.chipOpacity : 1}
 			style:scale={variantId === 'unlocked' ? motion.chipScale : 1}
 		>
@@ -85,6 +103,7 @@
 			class="achievement__title"
 			data-gfx-readable-id="title"
 			data-gfx-text-role="overlay-corner-primary"
+			style:font-size={cqminLength(content.titleSize)}
 			style:color={`color-mix(in srgb, var(--ink) ${100 - titleCompletion * 28}%, var(--mutedInk, var(--ink)) ${titleCompletion * 28}%)`}
 		>
 			{content.title}
