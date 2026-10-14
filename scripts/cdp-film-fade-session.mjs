@@ -23,7 +23,10 @@ import {
 	filmSceneFrameOffsets
 } from '../src/lib/platform/film-playhead.ts';
 import { registerGfxRuntimeModuleHooks } from './gfx-runtime-module-hooks.ts';
-import { assertVerificationOriginAllowed } from './verification-server-jail.ts';
+import {
+	assertVerificationOriginAllowed,
+	signalServerProcessGroup
+} from './verification-server-jail.ts';
 
 export const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const FILM_FADE_FIXTURE_PATH = 'scripts/fixtures/film-fade/two-scene-fade.film.json';
@@ -183,19 +186,16 @@ export async function writeStoredFilm(storeDirectory, slug, film) {
 export async function startJailedDevServer(jail, serverPort) {
 	const origin = `http://localhost:${serverPort}`;
 	assertVerificationOriginAllowed(origin);
-	const child = spawn(
-		'pnpm',
-		['exec', 'vp', 'dev', '--port', String(serverPort), '--strictPort'],
-		{
-			cwd: repositoryRoot,
-			stdio: ['ignore', 'pipe', 'pipe'],
-			env: { ...process.env, ...jail.environment }
-		}
-	);
+	const child = spawn('pnpm', ['exec', 'vp', 'dev', '--port', String(serverPort), '--strictPort'], {
+		cwd: repositoryRoot,
+		detached: true,
+		stdio: ['ignore', 'pipe', 'pipe'],
+		env: { ...process.env, ...jail.environment }
+	});
 	const stop = async () => {
-		if (child.exitCode === null) child.kill('SIGTERM');
+		signalServerProcessGroup(child, 'SIGTERM');
 		await sleep(250);
-		if (child.exitCode === null) child.kill('SIGKILL');
+		signalServerProcessGroup(child, 'SIGKILL');
 	};
 	const deadline = Date.now() + SERVER_READY_TIMEOUT_MS;
 	while (Date.now() < deadline) {

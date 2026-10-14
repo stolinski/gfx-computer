@@ -35,7 +35,8 @@ import { fileURLToPath } from 'node:url';
 import {
 	assertVerificationOriginAllowed,
 	createVerificationServerJail,
-	type VerificationServerJail
+	type VerificationServerJail,
+	signalServerProcessGroup
 } from './verification-server-jail.ts';
 
 const SERVER_PORT = Number(process.env.GFX_OPTICAL_VIGNETTE_PROBE_PORT ?? 7333);
@@ -496,14 +497,15 @@ async function startProbeDevServer(jail: VerificationServerJail): Promise<() => 
 		['exec', 'vp', 'dev', '--port', String(SERVER_PORT), '--strictPort'],
 		{
 			cwd: repoRoot,
+			detached: true,
 			stdio: ['ignore', 'pipe', 'pipe'],
 			env: { ...process.env, ...jail.environment }
 		}
 	);
 	const stop = async (): Promise<void> => {
-		if (child.exitCode === null) child.kill('SIGTERM');
+		signalServerProcessGroup(child, 'SIGTERM');
 		await sleep(250);
-		if (child.exitCode === null) child.kill('SIGKILL');
+		signalServerProcessGroup(child, 'SIGKILL');
 	};
 	const deadline = Date.now() + SERVER_READY_TIMEOUT_MS;
 	while (Date.now() < deadline) {

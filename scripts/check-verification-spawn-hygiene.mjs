@@ -31,7 +31,9 @@ const SERVER_LAUNCH_MARKERS = [
 	'serverEntryPath',
 	"'preview'",
 	'"preview"',
-	'vite'
+	'vite',
+	// `pnpm exec vp dev` since the Vite+ migration.
+	"'vp'"
 ];
 
 /** What a server-launching spawn must set, unless it spreads a jail environment. */

@@ -12,6 +12,7 @@
  * `scripts/check-verification-spawn-hygiene.mjs` fails the build when a harness
  * spawn skips any of that.
  */
+import type { ChildProcess } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -82,4 +83,20 @@ export async function createVerificationServerJail(label: string): Promise<Verif
 			await rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 		}
 	};
+}
+
+/**
+ * Stop a jailed dev server and everything under it. The server runs as
+ * `pnpm exec vp dev`; a signal to the pnpm wrapper alone leaves the server
+ * listening and its pipes open, so the harness never exits. Spawn the server
+ * with `detached: true` (its own process group) and stop it with this.
+ */
+export function signalServerProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+	if (child.exitCode !== null || child.pid === undefined) return;
+	try {
+		process.kill(-child.pid, signal);
+	} catch (error) {
+		// The group already exited between the check and the signal.
+		if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) throw error;
+	}
 }

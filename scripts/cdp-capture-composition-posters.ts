@@ -35,7 +35,8 @@ import { registerGfxRuntimeModuleHooks } from './gfx-runtime-module-hooks.ts';
 import {
 	assertVerificationOriginAllowed,
 	createVerificationServerJail,
-	type VerificationServerJail
+	type VerificationServerJail,
+	signalServerProcessGroup
 } from './verification-server-jail.ts';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -214,14 +215,15 @@ async function startPosterDevServer(jail: VerificationServerJail): Promise<Poste
 		['exec', 'vp', 'dev', '--port', String(POSTER_CAPTURE_SERVER_PORT), '--strictPort'],
 		{
 			cwd: repositoryRoot,
+			detached: true,
 			stdio: ['ignore', 'pipe', 'pipe'],
 			env: { ...process.env, ...jail.environment }
 		}
 	);
 	const stop = async (): Promise<void> => {
-		if (child.exitCode === null) child.kill('SIGTERM');
+		signalServerProcessGroup(child, 'SIGTERM');
 		await sleep(250);
-		if (child.exitCode === null) child.kill('SIGKILL');
+		signalServerProcessGroup(child, 'SIGKILL');
 	};
 
 	const deadline = Date.now() + SERVER_READY_TIMEOUT_MS;

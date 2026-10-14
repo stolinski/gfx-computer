@@ -59,7 +59,8 @@ import { registerGfxRuntimeModuleHooks } from './gfx-runtime-module-hooks.ts';
 import {
 	assertVerificationOriginAllowed,
 	createVerificationServerJail,
-	type VerificationServerJail
+	type VerificationServerJail,
+	signalServerProcessGroup
 } from './verification-server-jail.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -274,6 +275,7 @@ async function startJailedDevServer(jail: VerificationServerJail): Promise<Jaile
 		['exec', 'vp', 'dev', '--port', String(SERVER_PORT), '--strictPort'],
 		{
 			cwd: repositoryRoot,
+			detached: true,
 			stdio: ['ignore', 'pipe', 'pipe'],
 			env: { ...process.env, ...jail.environment, GFX_RUNTIME_PROFILE: '' }
 		}
@@ -302,9 +304,9 @@ async function startJailedDevServer(jail: VerificationServerJail): Promise<Jaile
 		output.add(`[server] exited with code ${code} signal ${signal}`);
 	});
 	const stop = async (): Promise<void> => {
-		if (child.exitCode === null) child.kill('SIGTERM');
+		signalServerProcessGroup(child, 'SIGTERM');
 		await sleep(250);
-		if (child.exitCode === null) child.kill('SIGKILL');
+		signalServerProcessGroup(child, 'SIGKILL');
 	};
 	const deadline = Date.now() + SERVER_READY_TIMEOUT_MS;
 	while (Date.now() < deadline) {
