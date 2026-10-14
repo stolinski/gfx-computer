@@ -90,6 +90,7 @@ function cloneResolvedDiagramGeometry(
 		case 'node':
 		case 'label':
 		case 'stat-callout':
+		case 'code':
 			return cloneDiagramPrimitiveGeometry(resolveDiagramPrimitiveGeometry(primitive, orientation));
 		case 'timeline-segment':
 			return cloneDiagramPrimitiveGeometry(resolveDiagramPrimitiveGeometry(primitive, orientation));
@@ -196,7 +197,8 @@ function copyDiagramGeometry(
 ): boolean {
 	switch (primitive.type) {
 		case 'node':
-		case 'stat-callout': {
+		case 'stat-callout':
+		case 'code': {
 			const resolved =
 				source === 'base' ? primitive : (primitive.orientationOverrides?.[orientation] ?? null);
 			if (!resolved || !isDiagramPositionGeometry(geometry)) return false;
@@ -311,7 +313,8 @@ function translateDiagramPrimitive(
 	switch (primitive.type) {
 		case 'node':
 		case 'label':
-		case 'stat-callout': {
+		case 'stat-callout':
+		case 'code': {
 			const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);
 			geometry.position.x = boundedCanvasAuthoringValue(geometry.position.x + deltaX);
 			geometry.position.y = boundedCanvasAuthoringValue(geometry.position.y + deltaY);

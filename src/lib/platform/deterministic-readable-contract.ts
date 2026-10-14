@@ -448,6 +448,13 @@ function expectedSurfaceReadableText(
 				primitive.text,
 				primitive.role === 'headline' ? 'diagram-headline' : 'diagram-caption'
 			);
+		} else if (primitive.type === 'code') {
+			appendReadableText(
+				entries,
+				`block:${primitive.id}:code`,
+				primitive.steps[0].code,
+				'diagram-caption'
+			);
 		} else if (primitive.type === 'stat-callout') {
 			appendReadableText(
 				entries,

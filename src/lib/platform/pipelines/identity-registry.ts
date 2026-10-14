@@ -61,6 +61,7 @@ import { labelIdentity } from '$lib/pipelines/blocks/label/identity';
 import { kineticWordIdentity } from '$lib/pipelines/blocks/kinetic-word/identity';
 import { nodeIdentity } from '$lib/pipelines/blocks/node/identity';
 import { paragraphIdentity } from '$lib/pipelines/blocks/paragraph/identity';
+import { codeIdentity } from '$lib/pipelines/blocks/code/identity';
 import { statCalloutIdentity } from '$lib/pipelines/blocks/stat-callout/identity';
 import { timelineSegmentIdentity } from '$lib/pipelines/blocks/timeline-segment/identity';
 import { lineChartIdentity } from '$lib/pipelines/blocks/line-chart/identity';
@@ -120,6 +121,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'block:edge-arrow': edgeArrowIdentity,
 	'block:label': labelIdentity,
 	'block:stat-callout': statCalloutIdentity,
+	'block:code': codeIdentity,
 	'block:timeline-segment': timelineSegmentIdentity,
 	'block:bar-chart': barChartIdentity,
 	'block:column-chart': columnChartIdentity,

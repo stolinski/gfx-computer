@@ -95,6 +95,10 @@ const blockRendererLoaders: Record<string, RuntimeRendererLoader<BlockRenderer>>
 		import('$lib/pipelines/blocks/stat-callout').then(
 			(module) => module.statCalloutBlockRenderer as unknown as BlockRenderer
 		),
+	[PIPELINE_DEFINITION_REGISTRY.blocks.code.type]: () =>
+		import('$lib/pipelines/blocks/code').then(
+			(module) => module.codeBlockRenderer as unknown as BlockRenderer
+		),
 	[PIPELINE_DEFINITION_REGISTRY.blocks.timelineSegment.type]: () =>
 		import('$lib/pipelines/blocks/timeline-segment').then(
 			(module) => module.timelineSegmentBlockRenderer as unknown as BlockRenderer

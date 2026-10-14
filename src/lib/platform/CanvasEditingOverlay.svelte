@@ -1126,7 +1126,8 @@
 		// drag, width reflow, or inspector edit (getBoundingClientRect isn't reactive).
 		switch (primitive.type) {
 			case 'node':
-			case 'stat-callout': {
+			case 'stat-callout':
+			case 'code': {
 				const geometry = resolveDiagramPrimitiveGeometry(
 					primitive,
 					engineState.transport.orientation
@@ -1866,7 +1867,8 @@
 		switch (primitive.type) {
 			case 'node':
 			case 'label':
-			case 'stat-callout': {
+			case 'stat-callout':
+			case 'code': {
 				const geometry = resolveDiagramPrimitiveGeometry(
 					primitive,
 					engineState.transport.orientation

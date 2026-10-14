@@ -1,4 +1,5 @@
 import type {
+	DiagramCode,
 	DiagramEdgeArrow,
 	DiagramEdgeGeometry,
 	DiagramEndpoint,
@@ -14,13 +15,16 @@ import type {
 
 import type { VideoOrientation } from './video-frame';
 
-type DiagramPositionedPrimitive = DiagramNode | DiagramLabel | DiagramStatCallout;
+type DiagramPositionedPrimitive = DiagramNode | DiagramLabel | DiagramStatCallout | DiagramCode;
 
 export type DiagramPrimitiveGeometry =
-	DiagramPositionGeometry | DiagramLabelGeometry | DiagramEdgeGeometry | DiagramTimelineGeometry;
+	| DiagramPositionGeometry
+	| DiagramLabelGeometry
+	| DiagramEdgeGeometry
+	| DiagramTimelineGeometry;
 
 export function resolveDiagramPrimitiveGeometry(
-	primitive: DiagramNode | DiagramStatCallout,
+	primitive: DiagramNode | DiagramStatCallout | DiagramCode,
 	orientation: VideoOrientation
 ): DiagramPositionGeometry;
 export function resolveDiagramPrimitiveGeometry(
@@ -109,7 +113,8 @@ export function resolveDiagramPrimitiveForRender(
 				maxWidth: geometry.maxWidth
 			};
 		}
-		case 'stat-callout': {
+		case 'stat-callout':
+		case 'code': {
 			const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);
 			return {
 				...primitive,

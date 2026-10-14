@@ -20,7 +20,7 @@
 	import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
 
 	// The DOM half of the diagram Block layer (ADR-0036): node / label /
-	// stat-callout mounted at their explicit composition fractions, plus the
+	// stat-callout / code mounted at their explicit composition fractions, plus the
 	// timeline-segment's caption. Lives inside `.composition` beside the
 	// SurfaceMount so the surface pipeline's DOM capture carries it on the
 	// SURFACE plane in every render path (flat, DOF split, depth stage) — a
@@ -36,7 +36,10 @@
 		const CanvasSource = requireLoadedBlockRenderer(primitive.type).CanvasSource;
 		if (
 			!CanvasSource &&
-			(primitive.type === 'node' || primitive.type === 'label' || primitive.type === 'stat-callout')
+			(primitive.type === 'node' ||
+				primitive.type === 'label' ||
+				primitive.type === 'stat-callout' ||
+				primitive.type === 'code')
 		) {
 			throw new Error(`Required diagram Block renderer "${primitive.type}" has no CanvasSource.`);
 		}
@@ -240,7 +243,7 @@
 							? channelStyle(channels)
 							: intrinsicStyle(primitive)};{appearanceStyle(primitive)}"
 					>
-						{#if (primitive.type === 'node' || primitive.type === 'label' || primitive.type === 'stat-callout') && PrimitiveSource}
+						{#if (primitive.type === 'node' || primitive.type === 'label' || primitive.type === 'stat-callout' || primitive.type === 'code') && PrimitiveSource}
 							<PrimitiveSource block={primitive} />
 						{:else if primitive.type === 'timeline-segment'}
 							<span

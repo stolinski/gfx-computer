@@ -208,6 +208,16 @@ Every primitive also takes an optional `"ink": "ink" | "accent"` — a Role **se
     "rollStart": 0..1, "rollWindow": 0..1,                  // optional count window (counter-roll semantics); holds the landed value
     "animation": { ... } },                                 // full channel set
 
+  { "type": "code", "id": "c1", "position": { "x": 0..1, "y": 0..1 },
+    "language": "javascript" | "typescript" | "jsx" | "tsx" | "svelte" | "css" | "html" | "json" | "bash",
+    "scale": 0.25..4,
+    "steps": [                                              // 1..16 Code steps, in order
+      { "code": "required on the first step; absent → keeps the previous step's code",
+        "highlight": [ { "lines": [3, 5] }, { "lines": [2, 2], "columns": [4, 10] } ],  // optional; 1-based inclusive; absent → nothing dims
+        "move": { "start": 0..1, "duration": 0..1, "ease": "smooth" } }  // required on every step after the first; moves never overlap
+    ],
+    "animation": { ... } },                                 // full channel set
+
   { "type": "timeline-segment", "id": "t1",
     "from": { "x": 0..1, "y": 0..1 }, "to": { "x": 0..1, "y": 0..1 },  // explicit endpoints — H↔V reflow repositions, never reshapes
     "label": "2019 – 2024",                                 // optional
@@ -215,9 +225,11 @@ Every primitive also takes an optional `"ink": "ink" | "accent"` — a Role **se
 ]
 ```
 
-Parse-time rules: primitive ids are unique within the surface; every edge endpoint `{ node }` ref must resolve to a `node` primitive in the same diagram. Stroke-drawn primitives (`edge-arrow`, `timeline-segment`) reveal by stroke-draw over their enter window and expose only the `opacity` channel; DOM primitives (`node`, `label`, `stat-callout`) take the full ADR-0035 channel set. Reveal choreography is Cascade chains (node → edge draws to → next node) — see Animation below.
+Parse-time rules: primitive ids are unique within the surface; every edge endpoint `{ node }` ref must resolve to a `node` primitive in the same diagram. Stroke-drawn primitives (`edge-arrow`, `timeline-segment`) reveal by stroke-draw over their enter window and expose only the `opacity` channel; DOM primitives (`node`, `label`, `stat-callout`, `code`) take the full ADR-0035 channel set. Reveal choreography is Cascade chains (node → edge draws to → next node) — see Animation below.
 
-Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` as a **complete geometry snapshot**. Node and stat-callout snapshots are `{ "position": { "x", "y" }, "scale"? }`; label snapshots also carry optional `"maxWidth"`; edge-arrow snapshots are `{ "from", "to", "route", "control"? }`; timeline-segment snapshots are `{ "from", "to" }`. A snapshot replaces the shared geometry as one unit rather than inheriting individual fields. Content, timing, animation, ink, form, direction, labels, and values remain shared. The GUI edits shared geometry until **Customize horizontal** or **Customize vertical** is enabled; safe-area lint validates resolved points without mutating them.
+A `code` primitive is a syntax-highlighted panel that walks through its Code steps. During a step's `move` window, tokens both steps share glide from their old line and column to their new ones, tokens only the earlier step has fade out over the first half, and new tokens fade in over the second half. Tokens outside a step's `highlight` dim to 30%. The panel is sized to the widest and tallest step and never changes size. Its appearance comes only from the Pack: the panel uses the `fill-treatment` and plain code uses the `ink-treatment` (an authored `typography` colour wins). Each syntax role uses the ink's lightness with its own hue, so no Pack Role exists for code. A step has at most 40 lines of at most 100 columns. Shiki (`src/lib/utils/code-tokens.ts`) splits the code into tokens and their roles; the motion is computed from the composition progress, never on a clock of its own.
+
+Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` as a **complete geometry snapshot**. Node, stat-callout, and code snapshots are `{ "position": { "x", "y" }, "scale"? }`; label snapshots also carry optional `"maxWidth"`; edge-arrow snapshots are `{ "from", "to", "route", "control"? }`; timeline-segment snapshots are `{ "from", "to" }`. A snapshot replaces the shared geometry as one unit rather than inheriting individual fields. Content, timing, animation, ink, form, direction, labels, and values remain shared. The GUI edits shared geometry until **Customize horizontal** or **Customize vertical** is enabled; safe-area lint validates resolved points without mutating them.
 
 A Diagram label is the bounded text-container domain. `maxWidth` is the label's final width as a fraction of the native composition width, independent of `scale`; changing it reflows lines without changing font size, and the box height follows its content. The Inspector edits the same field agents author. On-canvas west/east handles keep the opposite edge fixed, convert screen movement through the active canvas projection, and write the active orientation's shared or override geometry.
 
@@ -692,7 +704,7 @@ Pack immunity is declared by each Pipeline's Identity Spec and derived at runtim
 ## Block variants
 
 - **`paragraph`** — text run inside `content.body` (the bracket-tag string).
-- **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
+- **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`**, **`code`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
 - **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers.
 - **`figure`** — the one shipped generated-visualization Block ([ADR-0067](adr/0067-figures-generated-visualization-domain.md)), carried in `surface.figures[]`; its `kind` (`neural-network`, `tree`, `network`, `cycle`, `bar-race`, `line`, `slope`, `sankey`, `treemap`) picks the scene builder (see the Figures section above).
 - **`kinetic-word`** — a shipped first-class word token in `surface.typeField.words[]` ([ADR-0064](adr/0064-kinetic-type-word-fields.md)); static and orientation-specific placement, appearance, phrase semantics, Timeline identity, independently authored opacity/reveal/spatial/normalized-weight/tracking tracks, a bounded glyph stagger over the word's own line-box mask, nonzero-playhead direct manipulation, and shared GUI/WebMCP operations ship. Motion Beats and beat-relative keys remain deferred. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.

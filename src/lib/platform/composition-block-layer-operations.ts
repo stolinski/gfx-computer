@@ -400,6 +400,15 @@ function createDefaultDiagramPrimitive(
 			return { type, id, position: { x: 0.5, y: 0.3 }, text: 'Label', enter };
 		case 'stat-callout':
 			return { type, id, position: { x: 0.5, y: 0.6 }, from: 0, to: 100, enter };
+		case 'code':
+			return {
+				type,
+				id,
+				position: { x: 0.5, y: 0.5 },
+				language: 'javascript',
+				steps: [{ code: "console.log('hello')" }],
+				enter
+			};
 		case 'timeline-segment':
 			return { type, id, from: { x: 0.3, y: 0.7 }, to: { x: 0.7, y: 0.7 }, enter };
 		case 'edge-arrow': {

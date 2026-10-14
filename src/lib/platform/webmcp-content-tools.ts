@@ -34,6 +34,10 @@ import {
 	DIAGRAM_LABEL_WRAP_MODES,
 	DIAGRAM_NODE_FORMS,
 	DIAGRAM_STAT_FORMATS,
+	CODE_LANGUAGES,
+	CODE_LINE_LIMIT,
+	CODE_STEP_LIMIT,
+	CodeStepsSchema,
 	SOUND_EVENTS,
 	CAPTIONS_BAND_PLACEMENT_FIELDS,
 	type Captions,
@@ -421,6 +425,68 @@ function diagramPrimitiveContentFields(): Readonly<Record<string, WebmcpSchemaPr
 		wrap: webmcpDerivedEnumProperty('diagram-label-wrap', 'How a label wraps.'),
 		label: { type: 'string', description: 'The caption on a stat callout or timeline segment.' },
 		format: webmcpDerivedEnumProperty('diagram-stat-format', 'How a stat callout reads out.'),
+		language: webmcpDerivedEnumProperty('code-language', 'The language a code Block highlights.'),
+		steps: {
+			type: 'array',
+			description: `A code Block's whole step list, in order (replaces every step). Each step after the first needs a move window. Up to ${CODE_LINE_LIMIT} lines per step.`,
+			minItems: 1,
+			maxItems: CODE_STEP_LIMIT,
+			items: {
+				type: 'object',
+				description: 'One Code step.',
+				additionalProperties: false,
+				properties: {
+					code: {
+						type: 'string',
+						description: "The step's code. Omit to keep the previous step's code."
+					},
+					highlight: {
+						type: 'array',
+						description:
+							'Line ranges that stay lit; every other token dims. Omit to light everything.',
+						items: {
+							type: 'object',
+							description: '1-based inclusive lines, optionally narrowed to columns on one line.',
+							additionalProperties: false,
+							required: ['lines'],
+							properties: {
+								lines: {
+									type: 'array',
+									description: '[first line, last line].',
+									minItems: 2,
+									maxItems: 2,
+									items: { type: 'integer', description: 'A 1-based line.', minimum: 1 }
+								},
+								columns: {
+									type: 'array',
+									description: '[first column, last column] on a one-line range.',
+									minItems: 2,
+									maxItems: 2,
+									items: { type: 'integer', description: 'A 1-based column.', minimum: 1 }
+								}
+							}
+						}
+					},
+					move: {
+						type: 'object',
+						description:
+							'When the previous step becomes this one, as fractions of the composition.',
+						additionalProperties: false,
+						required: ['start', 'duration', 'ease'],
+						properties: {
+							start: { type: 'number', description: 'Move start, 0-1.', minimum: 0, maximum: 1 },
+							duration: {
+								type: 'number',
+								description: 'Move length, 0-1.',
+								minimum: 0,
+								maximum: 1
+							},
+							ease: webmcpDerivedEnumProperty('motion-ease', 'The move ease.')
+						}
+					}
+				}
+			}
+		},
 		ink: webmcpDerivedEnumProperty(
 			'diagram-ink-role',
 			'Which Pack ink Role the primitive rides. Never a colour.'
@@ -462,6 +528,21 @@ function readDiagramPrimitiveContent(args: unknown): DiagramPrimitiveContentPatc
 	if ('label' in content) patch.label = readWebmcpStringArgument(content, 'label');
 	if ('format' in content) {
 		patch.format = readWebmcpLiteralArgument(content, 'format', DIAGRAM_STAT_FORMATS);
+	}
+	if ('language' in content) {
+		patch.language = readWebmcpLiteralArgument(content, 'language', CODE_LANGUAGES);
+	}
+	if ('steps' in content) {
+		const steps = CodeStepsSchema.safeParse(readWebmcpRecordArrayArgument(content, 'steps'));
+		if (!steps.success) {
+			const issue = steps.error.issues[0];
+			throw new WebmcpArgumentError(
+				'invalid_argument',
+				`"steps.${issue.path.join('.')}": ${issue.message}`,
+				{ rejected: 'steps' }
+			);
+		}
+		patch.steps = steps.data;
 	}
 	if ('ink' in content) patch.ink = readWebmcpLiteralArgument(content, 'ink', DIAGRAM_INK_ROLES);
 	return patch;

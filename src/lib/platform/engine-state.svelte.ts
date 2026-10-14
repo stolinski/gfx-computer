@@ -186,6 +186,15 @@ export function addDiagramPrimitive(type: DiagramPrimitive['type']): string {
 		primitive = { type, id, position: { x: 0.5, y: 0.3 }, text: 'Label', enter };
 	} else if (type === 'stat-callout') {
 		primitive = { type, id, position: { x: 0.5, y: 0.6 }, from: 0, to: 100, enter };
+	} else if (type === 'code') {
+		primitive = {
+			type,
+			id,
+			position: { x: 0.5, y: 0.5 },
+			language: 'javascript',
+			steps: [{ code: "console.log('hello')" }],
+			enter
+		};
 	} else {
 		primitive = { type, id, from: { x: 0.3, y: 0.7 }, to: { x: 0.7, y: 0.7 }, enter };
 	}

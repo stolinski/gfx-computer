@@ -4,7 +4,7 @@
 
 **Canon (built).**
 
-> **Status: Shipped** — grilled 2026-07-01/02, built 2026-07-03/04 (dex epic `phd3zd26`): schema (`surface.diagram[]`), five Block pipelines + Identity Specs, GUI parity (rows / canvas drag / per-type inspector / cascade picker), and the four-piece demo set (`docu-map-journey`, `docu-flowchart`, `docu-stat-build`, `docu-timeline-build`) through Critic ACCEPT. Orientation geometry overrides shipped 2026-07-24 (Dex `q85lmeln`), folding the original H/V sibling proofs into one Preset per piece. The Critic loop drove three engine corrections (odometer carry, capture-safe digit rolls, transparent-ink legibility halo) plus orientation-aware segment-caption placement. Glossary: **Diagram primitive** in [`CONTEXT.md`](../CONTEXT.md).
+> **Status: Shipped** — grilled 2026-07-01/02, built 2026-07-03/04 (dex epic `phd3zd26`): schema (`surface.diagram[]`), five Block pipelines + Identity Specs, GUI parity (rows / canvas drag / per-type inspector / cascade picker), and the four-piece demo set (`docu-map-journey`, `docu-flowchart`, `docu-stat-build`, `docu-timeline-build`) through Critic ACCEPT. Orientation geometry overrides shipped 2026-07-24 (Dex `q85lmeln`), folding the original H/V sibling proofs into one Preset per piece. The Critic loop drove three engine corrections (odometer carry, capture-safe digit rolls, transparent-ink legibility halo) plus orientation-aware segment-caption placement. Glossary: **Diagram primitive** in [`CONTEXT.md`](../CONTEXT.md). A sixth primitive, `code`, joined on 2026-10-14 — see [Amendment 2026-10-14](#amendment-2026-10-14--the-code-primitive).
 
 Supers gets a **five-primitive diagram vocabulary** — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living as **Blocks on any Surface**, positioned **explicitly** in composition space and revealed with **stroke-draw + Cascade**. The register is high-end YouTube documentary (Johnny Harris / Vox): every primitive is placed deliberately and revealed in choreographed order. **Auto-layout is rejected** — mermaid-style layout reads as documentation, not documentary; at most a future compile-*into*-primitives authoring shortcut.
 
@@ -53,3 +53,16 @@ All four chosen: **animated map** (primitives over image substrate — the signa
 - New pack Roles (edge stroke, node form, arrowhead) join all pack manifests — lands cleanly only after the pack-contract work (core-vocabulary enforcement, epic `wscbvu5k`).
 - GUI: diagram Blocks join the timeline outline as rows and get canvas drag + a per-type inspector (the ADR-0034 machinery, extended).
 - Depends on ADR-0035 shipping first; epic `phd3zd26` stays blocked on `4i8gx2i7`.
+
+## Amendment 2026-10-14 — the `code` primitive
+
+**Decision.** Code on screen is a sixth Diagram primitive, `code`: a syntax-highlighted panel that walks through ordered **Code steps**. Each step after the first has a `move` window. During that window, tokens both steps share glide to their new line and column, removed tokens fade out, and added tokens fade in. Each step may also light chosen line ranges, or a column range on one line, and dim every other token to 30%. A step without code keeps the previous step's code, so a step can change only what is lit.
+
+**Why a Diagram primitive.** It is a positioned, timed, placed element like `stat-callout`. Joining the Diagram vocabulary gives it enter/exit, keyframe channels, Cascade, canvas drag, timeline rows, orientation geometry overrides, and the `content.set-diagram-primitive` operation without new machinery. The steps live inside one Block rather than across Scenes, so one Preset is a whole walkthrough. Scott chose this over Scene-boundary magic move (ADR-0068 §5); `code` as a Scene-boundary kind is not built.
+
+**Appearance is only the Pack's fill and ink.** The panel uses `fill-treatment`, plain code uses `ink-treatment` (authored `typography` colours win), and each syntax role uses the ink's lightness with its own hue (`oklch(from ink …)`). Comments and punctuation mix the ink toward the fill. No Pack Role exists for code, so every Pack dresses it without extra work. The face is always JetBrains Mono with ligatures off, because a token's place is its grid cell.
+
+**Tokens and motion.** Shiki tokenises synchronously, with the JavaScript regex engine and a fixed set of nine grammars; a theme of sentinel colours reads each token's role back. `@shikijs/magic-move/core` keys tokens across neighbouring steps, matching whole tokens only (split tokens moved as stray letters). Its renderer is never used, because it animates on a clock. `src/lib/utils/code-tokens.ts` places tokens on the monospace grid and computes each frame from the composition progress, so preview and export match.
+
+**Limits.** 16 steps, 40 lines, 100 columns. Lines never wrap: wrapping would move a token across lines mid-move. The demo `code-async-await` is art-directed for horizontal only, at Scott's direction; its vertical composition has not been designed.
+

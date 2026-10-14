@@ -125,6 +125,13 @@
 		"height": 360,
 		"contentFraction": 0.2375
 	},
+	"code-async-await": {
+		"contentKey": "f88247db853088e0",
+		"timestampSeconds": 1.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.1536
+	},
 	"column-us-population-1950-2020": {
 		"contentKey": "c4a2396a5f2b15f1",
 		"timestampSeconds": 5,

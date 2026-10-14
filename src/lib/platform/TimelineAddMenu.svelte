@@ -72,6 +72,7 @@
 		{ type: 'edge-arrow', label: 'Diagram edge' },
 		{ type: 'label', label: 'Diagram label' },
 		{ type: 'stat-callout', label: 'Stat callout' },
+		{ type: 'code', label: 'Code' },
 		{ type: 'timeline-segment', label: 'Timeline segment' }
 	] as const;
 

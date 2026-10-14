@@ -133,6 +133,8 @@ export interface DiagramPrimitiveContentPatch {
 	wrap?: Extract<DiagramPrimitive, { type: 'label' }>['wrap'];
 	label?: string;
 	format?: Extract<DiagramPrimitive, { type: 'stat-callout' }>['format'];
+	language?: Extract<DiagramPrimitive, { type: 'code' }>['language'];
+	steps?: Extract<DiagramPrimitive, { type: 'code' }>['steps'];
 	ink?: DiagramPrimitive['ink'];
 }
 
@@ -186,6 +188,8 @@ const DIAGRAM_CONTENT_FIELDS: Record<
 	wrap: ['label'],
 	label: ['stat-callout', 'timeline-segment'],
 	format: ['stat-callout'],
+	language: ['code'],
+	steps: ['code'],
 	ink: ['node', 'edge-arrow', 'label', 'stat-callout', 'timeline-segment']
 };
 

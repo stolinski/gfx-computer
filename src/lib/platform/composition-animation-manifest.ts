@@ -337,7 +337,10 @@ function appendPrimitiveChannelTweens(
 	tweens: AnimationTweenSpec[]
 ): void {
 	const staticScale =
-		primitive.type === 'node' || primitive.type === 'label' || primitive.type === 'stat-callout'
+		primitive.type === 'node' ||
+		primitive.type === 'label' ||
+		primitive.type === 'stat-callout' ||
+		primitive.type === 'code'
 			? (resolveDiagramPrimitiveGeometry(primitive, state.transport.orientation).scale ?? 1)
 			: 1;
 	runtime.blockChannels[primitive.id] = {

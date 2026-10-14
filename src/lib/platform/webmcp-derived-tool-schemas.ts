@@ -39,6 +39,7 @@ import {
 	DIAGRAM_NODE_FORMS,
 	DIAGRAM_PRIMITIVE_TYPES,
 	DIAGRAM_STAT_FORMATS,
+	CODE_LANGUAGES,
 	DIAGRAM_STROKE_KEYFRAME_CHANNELS,
 	ENGINE_EASES,
 	ENGINE_FONT_FAMILIES,
@@ -117,6 +118,7 @@ export type WebmcpDerivedEnumName =
 	| 'diagram-label-wrap'
 	| 'diagram-stat-format'
 	| 'diagram-ink-role'
+	| 'code-language'
 	| 'kinetic-word-hierarchy'
 	| 'kinetic-word-horizontal-anchor'
 	| 'kinetic-word-ink-role'
@@ -254,6 +256,7 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'diagram-label-wrap': DIAGRAM_LABEL_WRAP_MODES,
 		'diagram-stat-format': DIAGRAM_STAT_FORMATS,
 		'diagram-ink-role': DIAGRAM_INK_ROLES,
+		'code-language': CODE_LANGUAGES,
 		'kinetic-word-hierarchy': KINETIC_WORD_HIERARCHIES,
 		'kinetic-word-horizontal-anchor': KINETIC_WORD_HORIZONTAL_ANCHORS,
 		'kinetic-word-ink-role': KINETIC_WORD_INK_ROLES,

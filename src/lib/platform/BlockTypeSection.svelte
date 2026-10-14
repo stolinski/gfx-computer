@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { DiagramPrimitive } from './engine-schema';
+	import BlockCodeFields from './BlockCodeFields.svelte';
 	import BlockStatCalloutFields from './BlockStatCalloutFields.svelte';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
@@ -51,6 +52,8 @@
 		</Field>
 	{:else if el.type === 'stat-callout'}
 		<BlockStatCalloutFields primitive={el} />
+	{:else if el.type === 'code'}
+		<BlockCodeFields primitive={el} />
 	{:else if el.type === 'edge-arrow'}
 		<Field label="Direction">
 			<select
@@ -76,6 +79,7 @@
 			/>
 		</Field>
 	{/if}
+	{#if el.type !== 'code'}
 	<!-- Ink is a Role SELECTION (which pen), not appearance (what the pen looks
 	     like — still the Pack's): 'accent' routes the primitive to the Pack's
 	     core accent-treatment for emphasis hierarchy. -->
@@ -91,4 +95,5 @@
 			<option value="accent">accent</option>
 		</select>
 	</Field>
+	{/if}
 </InspectorSection>

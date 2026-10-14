@@ -8,6 +8,7 @@ import { labelBlockDefinition } from '$lib/pipelines/blocks/label/definition';
 import { kineticWordBlockDefinition } from '$lib/pipelines/blocks/kinetic-word/definition';
 import { nodeBlockDefinition } from '$lib/pipelines/blocks/node/definition';
 import { paragraphBlockDefinition } from '$lib/pipelines/blocks/paragraph/definition';
+import { codeBlockDefinition } from '$lib/pipelines/blocks/code/definition';
 import { statCalloutBlockDefinition } from '$lib/pipelines/blocks/stat-callout/definition';
 import { timelineSegmentBlockDefinition } from '$lib/pipelines/blocks/timeline-segment/definition';
 import { unitGridChartBlockDefinition } from '$lib/pipelines/blocks/unit-grid-chart/definition';
@@ -101,6 +102,7 @@ export const PIPELINE_DEFINITION_REGISTRY = {
 		edgeArrow: edgeArrowBlockDefinition,
 		label: labelBlockDefinition,
 		statCallout: statCalloutBlockDefinition,
+		code: codeBlockDefinition,
 		timelineSegment: timelineSegmentBlockDefinition,
 		barChart: barChartBlockDefinition,
 		columnChart: columnChartBlockDefinition,

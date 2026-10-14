@@ -280,6 +280,9 @@ export function rescaleCompositionTimings(state: EngineState, factor: number): v
 	for (const primitive of surface.diagram ?? []) {
 		scaleWindow(primitive.enter, factor);
 		scaleWindow(primitive.exit, factor);
+		if (primitive.type === 'code') {
+			for (const step of primitive.steps) scaleWindow(step.move, factor);
+		}
 		// stat-callout carries its own fraction-timed counter-roll window.
 		if (primitive.type === 'stat-callout') {
 			if (typeof primitive.rollStart === 'number') {

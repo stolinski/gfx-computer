@@ -725,7 +725,8 @@ function checkDiagramPlacement(
 		switch (primitive.type) {
 			case 'node':
 			case 'label':
-			case 'stat-callout': {
+			case 'stat-callout':
+			case 'code': {
 				const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);
 				checkPoint(geometry.position, `${path}.position`);
 				break;

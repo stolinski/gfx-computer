@@ -388,7 +388,8 @@ export const BlockTypeSchema = z.enum([
 	'line-chart',
 	'unit-grid-chart',
 	'dot-field-chart',
-	'figure'
+	'figure',
+	'code'
 ]);
 /** Discriminants for the complete Block Layer vocabulary. */
 export type BlockType = z.infer<typeof BlockTypeSchema>;
@@ -723,12 +724,136 @@ const DiagramTimelineSegmentSchema = z.strictObject({
 	animation: DiagramStrokeAnimationSchema.optional()
 });
 
+// A syntax-highlighted code panel that walks through ordered Code steps. Each
+// step after the first states the `move` window (fractions of the clip) over
+// which the previous step's code becomes this one: tokens present in both glide
+// to their new places, removed tokens fade out, added tokens fade in. A step
+// without `code` keeps the previous step's code, so a step can change only the
+// highlight. `highlight` lists the 1-based, inclusive line ranges (optionally
+// narrowed to a column range on a one-line range) that stay lit; every other
+// token dims. Absent or empty, nothing dims. Colour is never schema: the panel
+// takes the Pack's fill and ink, and the token colours are derived from them.
+export const CODE_LANGUAGES = [
+	'javascript',
+	'typescript',
+	'jsx',
+	'tsx',
+	'svelte',
+	'css',
+	'html',
+	'json',
+	'bash'
+] as const;
+export const CODE_STEP_LIMIT = 16;
+export const CODE_LINE_LIMIT = 40;
+export const CODE_COLUMN_LIMIT = 100;
+
+const CodePositionSchema = z.number().int().min(1);
+
+const CodeHighlightRangeSchema = z.strictObject({
+	lines: z.tuple([CodePositionSchema, CodePositionSchema]),
+	columns: z.tuple([CodePositionSchema, CodePositionSchema]).optional()
+});
+
+const CodeStepSchema = z.strictObject({
+	code: z.string().min(1).optional(),
+	highlight: z.array(CodeHighlightRangeSchema).optional(),
+	move: TransitionSchema.optional()
+});
+
+/** One Code Block's step list, for callers that write steps without a whole document. */
+export const CodeStepsSchema = z.array(CodeStepSchema).min(1).max(CODE_STEP_LIMIT);
+
+const DiagramCodeSchema = z
+	.strictObject({
+		...diagramPrimitiveBase,
+		type: z.literal('code'),
+		position: DiagramPointSchema,
+		language: z.enum(CODE_LANGUAGES),
+		steps: CodeStepsSchema,
+		scale: z.number().min(0.25).max(4).optional(),
+		orientationOverrides: diagramOrientationOverridesSchema(DiagramPositionGeometrySchema),
+		animation: DiagramAnimationSchema.optional()
+	})
+	.superRefine((primitive, ctx) => {
+		let code = '';
+		let previousMoveEnd = 0;
+		primitive.steps.forEach((step, index) => {
+			code = step.code ?? code;
+			if (index === 0 && step.code === undefined) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['steps', 0, 'code'],
+					message: `code "${primitive.id}": the first step must state its code.`
+				});
+			}
+			if (index === 0 && step.move) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['steps', 0, 'move'],
+					message: `code "${primitive.id}": the first step has nothing to move from, so it takes no move window.`
+				});
+			}
+			if (index > 0) {
+				if (!step.move) {
+					ctx.addIssue({
+						code: 'custom',
+						path: ['steps', index, 'move'],
+						message: `code "${primitive.id}": step ${index + 1} needs a move window.`
+					});
+				} else if (step.move.start < previousMoveEnd) {
+					ctx.addIssue({
+						code: 'custom',
+						path: ['steps', index, 'move', 'start'],
+						message: `code "${primitive.id}": step ${index + 1} starts its move before the previous move ends.`
+					});
+				} else {
+					previousMoveEnd = step.move.start + step.move.duration;
+				}
+			}
+			const lines = code.split('\n');
+			if (lines.length > CODE_LINE_LIMIT) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['steps', index, 'code'],
+					message: `code "${primitive.id}": step ${index + 1} has ${lines.length} lines; the limit is ${CODE_LINE_LIMIT}.`
+				});
+			}
+			const widest = Math.max(...lines.map((line) => line.replaceAll('\t', '  ').length));
+			if (widest > CODE_COLUMN_LIMIT) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['steps', index, 'code'],
+					message: `code "${primitive.id}": step ${index + 1} has a ${widest}-column line; the limit is ${CODE_COLUMN_LIMIT}.`
+				});
+			}
+			step.highlight?.forEach((range, rangeIndex) => {
+				const [firstLine, lastLine] = range.lines;
+				if (firstLine > lastLine || lastLine > lines.length) {
+					ctx.addIssue({
+						code: 'custom',
+						path: ['steps', index, 'highlight', rangeIndex, 'lines'],
+						message: `code "${primitive.id}": step ${index + 1} highlights lines ${firstLine}-${lastLine}, outside its ${lines.length} lines.`
+					});
+				}
+				if (range.columns && (firstLine !== lastLine || range.columns[0] > range.columns[1])) {
+					ctx.addIssue({
+						code: 'custom',
+						path: ['steps', index, 'highlight', rangeIndex, 'columns'],
+						message: `code "${primitive.id}": a column range needs a one-line range and an ascending column pair.`
+					});
+				}
+			});
+		});
+	});
+
 const DiagramPrimitiveSchema = z.discriminatedUnion('type', [
 	DiagramNodeSchema,
 	DiagramEdgeArrowSchema,
 	DiagramLabelSchema,
 	DiagramStatCalloutSchema,
-	DiagramTimelineSegmentSchema
+	DiagramTimelineSegmentSchema,
+	DiagramCodeSchema
 ]);
 
 /**
@@ -815,6 +940,10 @@ export type DiagramEdgeArrow = z.infer<typeof DiagramEdgeArrowSchema>;
 export type DiagramLabel = z.infer<typeof DiagramLabelSchema>;
 export type DiagramStatCallout = z.infer<typeof DiagramStatCalloutSchema>;
 export type DiagramTimelineSegment = z.infer<typeof DiagramTimelineSegmentSchema>;
+export type DiagramCode = z.infer<typeof DiagramCodeSchema>;
+export type CodeStep = z.infer<typeof CodeStepSchema>;
+export type CodeHighlightRange = z.infer<typeof CodeHighlightRangeSchema>;
+export type CodeLanguage = DiagramCode['language'];
 export type DiagramPrimitive = z.infer<typeof DiagramPrimitiveSchema>;
 
 // ---- Kinetic Type Field (ADR-0064) ----

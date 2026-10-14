@@ -308,6 +308,8 @@ function diagramTrackLabel(primitive: DiagramPrimitive): string {
 			return `label · ${truncateMiddle(primitive.text, 14)}`;
 		case 'stat-callout':
 			return `stat · ${primitive.to.toLocaleString('en-US')}`;
+		case 'code':
+			return `code · ${primitive.steps.length} ${primitive.steps.length === 1 ? 'step' : 'steps'}`;
 		case 'timeline-segment':
 			return primitive.label ? `span · ${truncateMiddle(primitive.label, 14)}` : 'span';
 	}
@@ -715,6 +717,48 @@ function appendBlockTracks(
 					{
 						id: `move-${index}`,
 						label: move.move,
+						color: BLOCK_COLOR,
+						start: move.start,
+						duration: move.duration,
+						minStart: minimumStart,
+						maxStart: Math.max(minimumStart, maximumEnd - move.duration),
+						minDuration: Number.EPSILON,
+						maxDuration: Math.max(Number.EPSILON, maximumEnd - move.start),
+						onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+							if (!Number.isFinite(start) || !(duration > 0)) return;
+							if (start < minimumStart || start + duration > maximumEnd + Number.EPSILON) return;
+							move.start = start;
+							move.duration = duration;
+						}
+					}
+				]
+			});
+		});
+	}
+
+	// Code steps: each step after the first owns its move window on a sub-row,
+	// kept after the previous move and before the next one.
+	for (const primitive of state.surface.diagram ?? []) {
+		if (primitive.type !== 'code') continue;
+		primitive.steps.forEach((step, index) => {
+			const move = step.move;
+			if (!move) return;
+			const previous = primitive.steps[index - 1]?.move;
+			const next = primitive.steps[index + 1]?.move;
+			const minimumStart = previous ? previous.start + previous.duration : 0;
+			const maximumEnd = next ? next.start : 1;
+			tracks.push({
+				id: createTimelineTrackId({
+					kind: 'block-subtrack',
+					blockId: primitive.id,
+					subtrack: { kind: 'move', index }
+				}),
+				label: `step ${index + 1}`,
+				color: BLOCK_COLOR,
+				transitions: [
+					{
+						id: `move-${index}`,
+						label: `step ${index + 1}`,
 						color: BLOCK_COLOR,
 						start: move.start,
 						duration: move.duration,

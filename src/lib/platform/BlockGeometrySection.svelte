@@ -93,7 +93,8 @@
 			// geometry resolver's overloads only resolve on a narrowed primitive.
 			switch (el.type) {
 				case 'node':
-				case 'stat-callout': {
+				case 'stat-callout':
+				case 'code': {
 					const geometry = cloneDiagramPrimitiveGeometry(
 						resolveDiagramPrimitiveGeometry(el, orientation)
 					);

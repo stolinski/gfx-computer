@@ -1,0 +1,97 @@
+{
+	"schema": "supers@1",
+	"name": "Code — promise to async/await",
+	"description": "A code Block walks a promise chain into async/await. The two .then lines light while the rest dims, then the code magic-moves: fetch, res, json, user, and render glide to their new places, .then fades out, and async, const, and await fade in. Last, the two await lines light. The panel takes the Pack's fill and ink only; every syntax colour is derived from them.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 9,
+			"fps": 30,
+			"format": "webm",
+			"posterSeconds": 1.5
+		},
+		"typography": {
+			"fontFamily": "mono"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.04,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"diagram": [
+				{
+					"type": "code",
+					"id": "code-load-user",
+					"position": {
+						"x": 0.5,
+						"y": 0.5
+					},
+					"language": "javascript",
+					"scale": 1.45,
+					"steps": [
+						{
+							"code": "function loadUser(id) {\n  return fetch(`/api/users/${id}`)\n    .then((res) => res.json())\n    .then((user) => render(user))\n}"
+						},
+						{
+							"highlight": [
+								{
+									"lines": [3, 4]
+								}
+							],
+							"move": {
+								"start": 0.2,
+								"duration": 0.05,
+								"ease": "smooth"
+							}
+						},
+						{
+							"code": "async function loadUser(id) {\n  const res = await fetch(`/api/users/${id}`)\n  const user = await res.json()\n  render(user)\n}",
+							"move": {
+								"start": 0.4,
+								"duration": 0.1,
+								"ease": "smooth"
+							}
+						},
+						{
+							"highlight": [
+								{
+									"lines": [2, 3]
+								}
+							],
+							"move": {
+								"start": 0.68,
+								"duration": 0.05,
+								"ease": "smooth"
+							}
+						}
+					],
+					"enter": {
+						"start": 0.02,
+						"duration": 0.05,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.92,
+						"duration": 0.05,
+						"ease": "smooth"
+					}
+				}
+			]
+		},
+		"overlays": []
+	}
+}

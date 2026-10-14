@@ -160,6 +160,7 @@ const DIAGRAM_GEOMETRY_FIELDS: Record<DiagramPrimitive['type'], readonly Diagram
 	node: ['position', 'scale'],
 	label: ['position', 'scale', 'maxWidth'],
 	'stat-callout': ['position', 'scale', 'from', 'to'],
+	code: ['position', 'scale'],
 	'edge-arrow': ['from', 'to', 'control'],
 	'timeline-segment': ['from', 'to']
 };
@@ -176,6 +177,7 @@ const DIAGRAM_ORIENTATION_GEOMETRY_FIELDS: Record<
 	node: ['position', 'scale'],
 	label: ['position', 'scale', 'maxWidth'],
 	'stat-callout': ['position', 'scale'],
+	code: ['position', 'scale'],
 	'edge-arrow': ['from', 'to', 'control'],
 	'timeline-segment': ['from', 'to']
 };
