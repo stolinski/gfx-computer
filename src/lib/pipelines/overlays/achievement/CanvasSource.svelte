@@ -52,19 +52,19 @@
 >
 	<span class="achievement__icon" aria-hidden="true">
 		{#if variantId === 'checklist-complete'}
-			<svg class="achievement__checkbox" viewBox="0 0 100 100">
-				<rect
-					class="achievement__box-fill"
-					x="8"
-					y="8"
-					width="84"
-					height="84"
-					rx="14"
-					style:opacity={motion.completion * 0.18}
+			<!-- An empty ring in border ink; at the beat the check draws on and the
+			     ring takes the success colour. -->
+			<svg class="achievement__check" viewBox="0 0 100 100">
+				<circle class="achievement__ring" cx="50" cy="50" r="44" />
+				<circle
+					class="achievement__ring achievement__ring--done"
+					cx="50"
+					cy="50"
+					r="44"
+					style:opacity={motion.completion}
 				/>
-				<rect x="8" y="8" width="84" height="84" rx="14" fill="none" />
 				<path
-					d="M25 52 L43 70 L77 32"
+					d="M30 52 L45 66 L71 37"
 					fill="none"
 					pathLength="1"
 					stroke-dasharray="1"
@@ -142,20 +142,21 @@
 		overflow: visible;
 	}
 
-	.achievement__checkbox rect:last-of-type {
+	.achievement__ring {
+		fill: none;
 		stroke: var(--borderInk, var(--ink));
 		stroke-width: 7;
 	}
 
-	.achievement__box-fill {
-		fill: var(--success, var(--accent));
+	.achievement__ring--done {
+		stroke: var(--success, var(--accent));
 	}
 
-	.achievement__checkbox path {
+	.achievement__check path {
 		stroke: var(--success, var(--accent));
 		stroke-linecap: round;
 		stroke-linejoin: round;
-		stroke-width: 10;
+		stroke-width: 9;
 	}
 
 	.achievement__medal {
