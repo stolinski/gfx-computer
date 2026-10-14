@@ -118,7 +118,7 @@ async function startHostedDevServer(jail: VerificationServerJail): Promise<Hoste
 	assertVerificationOriginAllowed(hostedOrigin);
 	const child = spawn(
 		'pnpm',
-		['exec', 'vite', 'dev', '--port', String(HOSTED_EXPORT_SERVER_PORT), '--strictPort'],
+		['exec', 'vp', 'dev', '--port', String(HOSTED_EXPORT_SERVER_PORT), '--strictPort'],
 		{
 			cwd: repositoryRoot,
 			stdio: ['ignore', 'pipe', 'pipe'],

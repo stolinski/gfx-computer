@@ -211,7 +211,7 @@ async function startPosterDevServer(jail: VerificationServerJail): Promise<Poste
 	assertVerificationOriginAllowed(posterCaptureOrigin);
 	const child = spawn(
 		'pnpm',
-		['exec', 'vite', 'dev', '--port', String(POSTER_CAPTURE_SERVER_PORT), '--strictPort'],
+		['exec', 'vp', 'dev', '--port', String(POSTER_CAPTURE_SERVER_PORT), '--strictPort'],
 		{
 			cwd: repositoryRoot,
 			stdio: ['ignore', 'pipe', 'pipe'],

@@ -493,7 +493,7 @@ async function startProbeDevServer(jail: VerificationServerJail): Promise<() => 
 	assertVerificationOriginAllowed(PROBE_ORIGIN);
 	const child = spawn(
 		'pnpm',
-		['exec', 'vite', 'dev', '--port', String(SERVER_PORT), '--strictPort'],
+		['exec', 'vp', 'dev', '--port', String(SERVER_PORT), '--strictPort'],
 		{
 			cwd: repoRoot,
 			stdio: ['ignore', 'pipe', 'pipe'],

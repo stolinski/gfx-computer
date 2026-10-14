@@ -95,7 +95,7 @@ async function startWorkspaceDevServer(jail: VerificationServerJail): Promise<Wo
 	assertVerificationOriginAllowed(workspaceLoopOrigin);
 	const child = spawn(
 		'pnpm',
-		['exec', 'vite', 'dev', '--port', String(WORKSPACE_LOOP_SERVER_PORT), '--strictPort'],
+		['exec', 'vp', 'dev', '--port', String(WORKSPACE_LOOP_SERVER_PORT), '--strictPort'],
 		{
 			cwd: repositoryRoot,
 			stdio: ['ignore', 'pipe', 'pipe'],

@@ -129,7 +129,7 @@ async function startJailedDevServer(jail) {
 	assertVerificationOriginAllowed(origin);
 	const child = spawn(
 		'pnpm',
-		['exec', 'vite', 'dev', '--port', String(SERVER_PORT), '--strictPort'],
+		['exec', 'vp', 'dev', '--port', String(SERVER_PORT), '--strictPort'],
 		{
 			cwd: repositoryRoot,
 			stdio: ['ignore', 'pipe', 'pipe'],
