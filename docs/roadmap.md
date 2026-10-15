@@ -82,6 +82,8 @@ The capability and core parity arcs are complete. Dex carries executable edges. 
 
 20. ✅ **Native Vite+ tooling, without new verification machinery** — built and verified in direct delivery requested by Scott (task `99i5wp1p`): replace supported app tools with pinned Vite+, use its native task cache and changed/related test selection, retain Svelte diagnostics/template linting and existing formatting, and stop generic app/UI checks from invoking preset or media verification. Full domain checks remain explicit; no custom router, analyser, cache, or new test framework. Current commands and timings: [`project-control-plane.md`](project-control-plane.md).
 
+21. ⏸ **One schema-checked element edit for agents** — planned 2026-10-14, waits until Scott's current batch of Presets is finished (epic `r9volckh`; [ADR-0071](adr/0071-schema-checked-element-edit.md), amends [ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md)): five element tools — inspect, edit, add, remove, reorder — over the existing edit transaction replace the per-field WebMCP tools (118 on 2026-10-14), so a new schema field is authorable by agents with no new tool. Per-field tools are deleted family by family after the evals move over. The follow-up `qvgp271q` makes the Inspector build its fields from the same element schemas, with Scott's visual review.
+
 At an epic boundary that lane still stops for the human as required by the execution loop; other independent epic lanes may continue. A task that is advisory, speculative, or waiting on a design ruling must not remain an unblocked priority-1 leaf.
 
 ## Now — quality, capability, and operational parity
