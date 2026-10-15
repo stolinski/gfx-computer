@@ -521,7 +521,9 @@ function checkOverlayPlacement(
 		// only ever lands on slots, which carry their own safe placement — so the
 		// safe-zone bound doesn't apply to its coordinate frame.
 		const isFullFrameCoordinateOverlay =
-			overlay.type === 'cursor-trail' || overlay.type === 'icon-orbit';
+			overlay.type === 'cursor-trail' ||
+			overlay.type === 'icon-orbit' ||
+			overlay.type === 'multiplayer-session';
 
 		if (anchor === 'normalized-rect' && rect && !isFullFrameCoordinateOverlay) {
 			if (

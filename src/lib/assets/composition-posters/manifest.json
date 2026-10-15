@@ -426,6 +426,13 @@
 		"height": 360,
 		"contentFraction": 0.0615
 	},
+	"multiplayer-agent-session": {
+		"contentKey": "380671a86917ee7a",
+		"timestampSeconds": 22.18,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.638
+	},
 	"neural-network-forward-pass": {
 		"contentKey": "b381781266396d3e",
 		"timestampSeconds": 6,

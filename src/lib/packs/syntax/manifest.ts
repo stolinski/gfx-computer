@@ -63,6 +63,9 @@ export const syntaxPack: PackManifest = {
 		'field-treatment': { kind: 'style', value: '#0e0e0d' },
 		// Primary channel text paired with that warm-black field.
 		'field-ink-treatment': { kind: 'style', value: '#f7f6f2' },
+		// Multiplayer Session: the agent window and its send / waiting accent.
+		'multiplayer-session.window': { kind: 'style', value: '#141413' },
+		'multiplayer-session.accent': { kind: 'style', value: '#ffd54a' },
 		// Brand yellow per the real overlay system (github.com/randyrektor/
 		// syntax-overlay, calibration 2026-07-09) — was #fabf47, which belongs to
 		// the physical-highlighter mark defaults, not the chrome accent.

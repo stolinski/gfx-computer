@@ -197,6 +197,10 @@ const overlayRendererLoaders: Record<string, RuntimeRendererLoader<OverlayRender
 		import('$lib/pipelines/overlays/icon-orbit').then(
 			(module) => module.iconOrbitOverlayRenderer as unknown as OverlayRenderer
 		),
+	[PIPELINE_DEFINITION_REGISTRY.overlays.multiplayerSession.type]: () =>
+		import('$lib/pipelines/overlays/multiplayer-session').then(
+			(module) => module.multiplayerSessionOverlayRenderer as unknown as OverlayRenderer
+		),
 	[PIPELINE_DEFINITION_REGISTRY.overlays.dimensionalType.type]: () =>
 		import('$lib/pipelines/overlays/dimensional-type').then(
 			(module) => module.dimensionalTypeOverlayRenderer as unknown as OverlayRenderer

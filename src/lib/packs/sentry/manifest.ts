@@ -88,6 +88,10 @@ export const sentryPack: PackManifest = {
 		// on it, never on it — the console-panel read.
 		'field-treatment': { kind: 'style', value: '#1f1633' },
 		'field-ink-treatment': { kind: 'style', value: '#ffffff' },
+		// Multiplayer Session: the agent window and its send / waiting accent.
+		'multiplayer-session.window': { kind: 'style', value: '#1f1633' },
+		'multiplayer-session.accent': { kind: 'style', value: '#fd44b0' },
+		'icon-orbit.glow': { kind: 'style', value: '#c6a6ff' },
 		// Die-cut clean silhouettes — a product console tears nothing.
 		'edge-treatment': { kind: 'style', value: 'clean' },
 		// THE structural signature: depth is a neon bloom, not a shadow. Hot

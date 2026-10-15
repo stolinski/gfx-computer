@@ -1,0 +1,212 @@
+{
+	"schema": "supers@1",
+	"name": "Multiplayer agent session",
+	"description": "Several people work in one agent at once: their named cursors fly in, type into the shared prompt side by side, steer the run while it works, fork child runs, and all see the same saved approval timer. Transparent overlay.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 36.9667,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "multiplayer-session",
+				"id": "session",
+				"content": {
+					"title": "agent",
+					"users": [
+						{
+							"id": "scott",
+							"name": "Scott"
+						},
+						{
+							"id": "wes",
+							"name": "Wes"
+						},
+						{
+							"id": "cj",
+							"name": "CJ"
+						}
+					],
+					"events": [
+						{
+							"kind": "step",
+							"tool": "search",
+							"text": "durable agents",
+							"at": 0.01082
+						},
+						{
+							"kind": "step",
+							"tool": "read",
+							"text": "pi-durable/README.md",
+							"at": 0.03246
+						},
+						{
+							"kind": "join",
+							"user": "scott",
+							"at": 0.0541
+						},
+						{
+							"kind": "join",
+							"user": "wes",
+							"at": 0.07394
+						},
+						{
+							"kind": "join",
+							"user": "cj",
+							"at": 0.09378
+						},
+						{
+							"kind": "type",
+							"user": "scott",
+							"text": "research durable agents",
+							"at": 0.15329,
+							"duration": 0.07665
+						},
+						{
+							"kind": "type",
+							"user": "wes",
+							"text": "focus on Pi Durable",
+							"at": 0.17583,
+							"duration": 0.07214
+						},
+						{
+							"kind": "type",
+							"user": "cj",
+							"text": "keep it under 5 minutes",
+							"at": 0.19838,
+							"duration": 0.07394
+						},
+						{
+							"kind": "send",
+							"user": "scott",
+							"at": 0.28674
+						},
+						{
+							"kind": "send",
+							"user": "wes",
+							"at": 0.29396
+						},
+						{
+							"kind": "send",
+							"user": "cj",
+							"at": 0.30117
+						},
+						{
+							"kind": "step",
+							"tool": "plan",
+							"text": "outline \u00b7 5 sections",
+							"at": 0.32642
+						},
+						{
+							"kind": "step",
+							"tool": "write",
+							"text": "intro.md",
+							"at": 0.37872
+						},
+						{
+							"kind": "type",
+							"user": "wes",
+							"text": "actually, add a live demo",
+							"at": 0.41659,
+							"duration": 0.06312
+						},
+						{
+							"kind": "send",
+							"user": "wes",
+							"at": 0.49143,
+							"tag": "steer"
+						},
+						{
+							"kind": "step",
+							"tool": "plan",
+							"text": "+ live demo section",
+							"at": 0.51849
+						},
+						{
+							"kind": "fork",
+							"label": "compare frameworks",
+							"user": "scott",
+							"at": 0.56628
+						},
+						{
+							"kind": "fork",
+							"label": "sub-agent: write demo",
+							"user": "cj",
+							"at": 0.59062
+						},
+						{
+							"kind": "step",
+							"tool": "write",
+							"text": "outline.md",
+							"at": 0.63571
+						},
+						{
+							"kind": "wait",
+							"text": "Publish the draft?",
+							"timerSeconds": 120,
+							"at": 0.78629
+						}
+					],
+					"x": 0.1,
+					"y": 0.12,
+					"width": 0.5,
+					"height": 0.76,
+					"forkSide": "right",
+					"textSize": 2.3,
+					"titleSize": 2.4,
+					"nameSize": 1.9,
+					"cursorSize": 4,
+					"paddingX": 3,
+					"paddingY": 2.4,
+					"gap": 1.4,
+					"radius": 2.2,
+					"orientationOverrides": {
+						"vertical": {
+							"x": 0.06,
+							"y": 0.1,
+							"width": 0.88,
+							"height": 0.56,
+							"forkSide": "below"
+						}
+					}
+				},
+				"position": {
+					"anchor": "top-left",
+					"offset": {
+						"x": 0,
+						"y": 0
+					}
+				},
+				"enter": {
+					"start": 0,
+					"duration": 0.012,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.985,
+					"duration": 0.015,
+					"ease": "smooth"
+				}
+			}
+		],
+		"effects": []
+	}
+}

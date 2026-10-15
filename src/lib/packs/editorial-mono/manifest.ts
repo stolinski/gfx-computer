@@ -58,6 +58,10 @@ export const editorialMonoPack: PackManifest = {
 		// card colour.
 		'field-treatment': { kind: 'style', value: '#080b10' },
 		'field-ink-treatment': { kind: 'style', value: '#eef3f8' },
+		// Multiplayer Session: the agent window and its send / waiting accent.
+		'multiplayer-session.window': { kind: 'style', value: '#0d1117' },
+		'multiplayer-session.accent': { kind: 'style', value: '#22d3ee' },
+		'icon-orbit.glow': { kind: 'style', value: '#22d3ee' },
 		'edge-treatment': { kind: 'style', value: 'clean' },
 		'depth-treatment': { kind: 'style', value: 'none' },
 		'light-treatment': { kind: 'style', value: 'none' },

@@ -148,7 +148,9 @@ const OVERLAY_EVENT_DEFAULTS: Record<
 	// The cursor glides; its dwells are the story, not air displacement.
 	'cursor-trail': { enter: null, exit: null },
 	// Floating icons arrive quietly; the editor adds any sound around the speaker.
-	'icon-orbit': { enter: null, exit: null }
+	'icon-orbit': { enter: null, exit: null },
+	// The window settles in quietly; typing and clicks are the editor's to score.
+	'multiplayer-session': { enter: null, exit: null }
 };
 
 // The iMessage bubble arrivals — locked-specific signature sounds (ADR-0033

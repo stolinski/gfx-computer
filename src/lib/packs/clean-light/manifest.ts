@@ -75,6 +75,10 @@ export const cleanLightPack: PackManifest = {
 		// separates them).
 		'field-treatment': { kind: 'style', value: '#f6f7f8' },
 		'field-ink-treatment': { kind: 'style', value: '#16181d' },
+		// Multiplayer Session: the agent window and its send / waiting accent.
+		'multiplayer-session.window': { kind: 'style', value: '#ffffff' },
+		'multiplayer-session.accent': { kind: 'style', value: '#0075de' },
+		'icon-orbit.glow': { kind: 'style', value: '#5cb3ff' },
 		// Die-cut clean silhouettes — nothing in this register tears or feathers.
 		'edge-treatment': { kind: 'style', value: 'clean' },
 		// THE structural signature: the quiet float. Straight-down offset with a

@@ -61,6 +61,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'shader-fill',
 	'cursor-trail',
 	'icon-orbit',
+	'multiplayer-session',
 	'counter',
 	'dimensional-type',
 	'instance-stack',

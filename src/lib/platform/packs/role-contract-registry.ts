@@ -522,6 +522,8 @@ const colorRoleFallbacks: Readonly<Record<string, string>> = {
 	'counter.ink': 'ink-treatment',
 	'dimensional-type.accent': 'accent-treatment',
 	'icon-orbit.glow': 'accent-treatment',
+	'multiplayer-session.window': 'field-treatment',
+	'multiplayer-session.accent': 'accent-treatment',
 	'dimensional-type.ink': 'ink-treatment',
 	'highlight.fill': 'accent-treatment',
 	'instance-stack.ink': 'ink-treatment',
@@ -570,7 +572,9 @@ const intrinsicColorFallbackRoles = new Set([
 const resolverColorRoles = new Set([
 	'dimensional-type.ink',
 	'dimensional-type.accent',
-	'icon-orbit.glow'
+	'icon-orbit.glow',
+	'multiplayer-session.window',
+	'multiplayer-session.accent'
 ]);
 
 const referenceIdentityRoles = new Set([
@@ -592,6 +596,8 @@ const referenceIdentityRoles = new Set([
 	'counter.ink',
 	'dimensional-type.accent',
 	'icon-orbit.glow',
+	'multiplayer-session.window',
+	'multiplayer-session.accent',
 	'dimensional-type.face',
 	'dimensional-type.ink',
 	'cursor-trail.pointer',

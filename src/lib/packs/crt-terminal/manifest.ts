@@ -76,6 +76,10 @@ export const crtTerminalPack: PackManifest = {
 		// contrast.
 		'field-treatment': { kind: 'style', value: '#070b08' },
 		'field-ink-treatment': { kind: 'style', value: '#45ff6e' },
+		// Multiplayer Session: the agent window and its send / waiting accent.
+		'multiplayer-session.window': { kind: 'style', value: '#070b08' },
+		'multiplayer-session.accent': { kind: 'style', value: '#d9ffe0' },
+		'icon-orbit.glow': { kind: 'style', value: '#45ff6e' },
 		// Hard pixel edges: a screen silhouette is exactly as rasterized — no
 		// torn fiber, no soft feather.
 		'edge-treatment': { kind: 'style', value: 'none' },
