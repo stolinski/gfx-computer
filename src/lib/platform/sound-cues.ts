@@ -17,6 +17,7 @@ import { resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
 import {
 	resolveMarkForIndex,
 	type ChatMessage,
+	type DiagramNodeHighlight,
 	type EngineState,
 	type Keyframe,
 	type MarkInstance,
@@ -40,7 +41,7 @@ export type DerivedSoundCueEditTarget =
 	| { kind: 'mark-transition'; markIndex: number }
 	| { kind: 'checklist-item-strike'; itemIndex: number }
 	| { kind: 'overlay-transition'; overlayId: string; phase: 'enter' | 'exit' }
-	| { kind: 'block-transition'; blockId: string; phase: 'enter' }
+	| { kind: 'block-transition'; blockId: string; phase: 'enter' | 'highlight' }
 	| {
 			kind: 'text-animation-transition';
 			textAnimationId: string;
@@ -523,6 +524,31 @@ function pushDiagramBlockCue(
 	);
 }
 
+// A node's highlighter swipe is a marker drag, the same `swipe` a highlight
+// mark makes, at the swipe's own window; its override lives on the highlight.
+function pushDiagramNodeHighlightCue(
+	primitive: DiagramPrimitive,
+	highlight: DiagramNodeHighlight,
+	cues: DerivedSoundCue[]
+): void {
+	const target: DerivedSoundCueEditTarget = {
+		kind: 'block-transition',
+		blockId: primitive.id,
+		phase: 'highlight'
+	};
+	cues.push(
+		cueFrom(
+			`block:${primitive.id}:highlight`,
+			{ kind: 'block', blockId: primitive.id },
+			MARK_EVENT_DEFAULTS.highlight ?? MOTION_SOUND_DEFAULTS.mark,
+			{ start: highlight.start, duration: highlight.duration },
+			highlight.sound,
+			target,
+			target
+		)
+	);
+}
+
 // Channel-owned primitives get the one enter beat, silent unless the channels
 // travel.
 function deriveChannelBlockCue(
@@ -564,6 +590,9 @@ function deriveDiagramBlockCues(
 	cues: DerivedSoundCue[]
 ): void {
 	for (const primitive of diagram ?? []) {
+		if (primitive.type === 'node' && primitive.highlight) {
+			pushDiagramNodeHighlightCue(primitive, primitive.highlight, cues);
+		}
 		const enterDefault = diagramBlockEnterDefault(primitive.type);
 		const channels = resolveOrientationKeyframeChannels(primitive.animation, orientation);
 		if (hasChannelMotion(channels)) {

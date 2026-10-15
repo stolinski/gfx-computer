@@ -28,7 +28,7 @@ Dimensional type is the next body ([ADR-0059](0059-compiled-stage-models-and-the
 ## Considered options
 
 - **A separate 3D panel or viewport for the stage** — rejected: the Workspace has one canvas and one timeline, and the stage is the space those already compose in ([ADR-0028](0028-dimensional-depth-stage.md)). A second workspace would fork selection, undo, and parity.
-- **Camera keyframes as timeline channels** — rejected again, as in [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md): a rest pose and one travel keep the vocabulary decisive and the inspector bounded. If a piece needs more, that is a new decision, not a row.
+- **Camera keyframes as timeline channels** — rejected again, as in [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md): a rest pose and one travel keep the vocabulary decisive and the inspector bounded (amended by ADR-0057 on 2026-10-14: a travel may chain up to eight whole moves, one clip each on the Camera row; per-field channels stay rejected). If a piece needs more, that is a new decision, not a row.
 - **Keeping the stage in the root inspector and adding rows that only select it** — rejected: a row that opens a section for something else teaches the wrong model. Selection opens the entity.
 - **Selecting the body only from its row, not the canvas** — rejected: the body is the thing on screen; a Workspace where the visible object cannot be clicked is the gap Scott named.
 - **A generic `set-stage` write for the gestures** — rejected: the camera and the focus are the decisions a person makes on the canvas and an agent makes in a call; narrower rows give both a receipt that says what changed.

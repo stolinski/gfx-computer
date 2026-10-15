@@ -1,4 +1,11 @@
-import { STAGE_CAMERA_POSE_LIMITS, type StageCameraPose, type StageCameraTravel } from './engine-schema';
+import {
+	STAGE_CAMERA_POSE_LIMITS,
+	STAGE_CAMERA_TRAVEL_MAX_MOVES,
+	type StageCameraPose,
+	type StageCameraTravel,
+	type StageCameraTravelMove
+} from './engine-schema';
+import { resolveStageCameraPose, stageCameraTravelMoves } from './pipelines/depth-stage-camera';
 
 // The stage camera's editing vocabulary shared by the Camera inspector and the
 // canvas gestures (ADR-0060): the rest pose a new pose starts from, a travel
@@ -12,7 +19,7 @@ export function restStageCameraPose(): StageCameraPose {
 }
 
 /** A travel that starts as a copy of `pose`, so turning the travel on changes nothing until its target moves. */
-export function stageCameraTravelFrom(pose: StageCameraPose): StageCameraTravel {
+export function stageCameraTravelFrom(pose: StageCameraPose): StageCameraTravelMove {
 	return {
 		to: { ...pose, aim: { ...pose.aim } },
 		start: 0,
@@ -22,7 +29,42 @@ export function stageCameraTravelFrom(pose: StageCameraPose): StageCameraTravel 
 }
 
 /** A pose or a travel target: the two objects the pose writers address. */
-export type StageCameraPoseTarget = StageCameraPose | StageCameraTravel['to'];
+export type StageCameraPoseTarget = StageCameraPose | StageCameraTravelMove['to'];
+
+/** Longest window a newly added camera move gets, as a timeline fraction. */
+const ADDED_STAGE_CAMERA_MOVE_DURATION = 0.2;
+
+/** Whether one more move fits: under the move limit, with time left after the last move. */
+export function canAppendStageCameraTravelMove(travel: StageCameraTravel | undefined): boolean {
+	const moves = stageCameraTravelMoves(travel);
+	const last = moves.at(-1);
+	return moves.length < STAGE_CAMERA_TRAVEL_MAX_MOVES && (!last || last.start + last.duration < 1);
+}
+
+/** The travel with one more move after the last: it starts where the last move
+ *  ends and holds that pose (an empty target) until a field moves. */
+export function appendStageCameraTravelMove(travel: StageCameraTravel): StageCameraTravel {
+	const moves = stageCameraTravelMoves(travel);
+	const last = moves.at(-1);
+	const start = last ? Math.min(1, last.start + last.duration) : 0;
+	const added: StageCameraTravelMove = {
+		to: {},
+		start,
+		duration: Math.min(ADDED_STAGE_CAMERA_MOVE_DURATION, 1 - start),
+		ease: 'smooth'
+	};
+	return [...moves, added];
+}
+
+/** The travel without move `index`; one move left is written as a single move, none as no travel. */
+export function removeStageCameraTravelMove(
+	travel: StageCameraTravel,
+	index: number
+): StageCameraTravel | undefined {
+	const remaining = stageCameraTravelMoves(travel).filter((_, at) => at !== index);
+	if (remaining.length === 0) return undefined;
+	return remaining.length === 1 ? remaining[0] : remaining;
+}
 
 export function setStageCameraPoseAngle(
 	target: StageCameraPoseTarget,
@@ -84,4 +126,31 @@ export function stageDollyDistance(distance: number, wheelDeltaY: number): numbe
 		STAGE_CAMERA_POSE_LIMITS.minDistance,
 		Math.min(STAGE_CAMERA_POSE_LIMITS.maxDistance, next)
 	);
+}
+
+/** The pose move `index` starts from — the rest pose carried through every
+ *  earlier move — which is what a target field it leaves out holds. */
+export function stageCameraPoseBeforeMove(
+	rest: StageCameraPose | undefined,
+	travel: StageCameraTravel,
+	index: number
+): StageCameraPose {
+	const earlier = stageCameraTravelMoves(travel).slice(0, index);
+	const frame = resolveStageCameraPose(
+		{
+			move: 'static',
+			amount: 0,
+			ease: 'smooth',
+			pose: rest,
+			travel: earlier.length ? earlier : undefined
+		},
+		1
+	);
+	return {
+		yaw: frame.yaw,
+		pitch: frame.pitch,
+		roll: frame.roll,
+		distance: frame.distance,
+		aim: { x: frame.aimX, y: frame.aimY }
+	};
 }

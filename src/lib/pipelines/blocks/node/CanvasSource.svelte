@@ -1,26 +1,61 @@
 <script lang="ts">
-	import type { DiagramNode } from '$lib/platform/engine-schema';
+	import { animState } from '$lib/platform/anim-state.svelte';
+	import {
+		NODE_DEFAULT_BORDER_WIDTH,
+		NODE_DEFAULT_FONT_SIZE,
+		NODE_DEFAULT_PADDING_X,
+		NODE_DEFAULT_PADDING_Y,
+		type DiagramNode
+	} from '$lib/platform/engine-schema';
+	import { diagramNodeHighlightSpanAt } from '$lib/utils/diagram-node-highlight';
 
 	interface Props {
 		block: DiagramNode;
 	}
 
 	let { block }: Props = $props();
+
+	const highlightSpan = $derived(
+		block.highlight ? diagramNodeHighlightSpanAt(block.highlight, animState.globalProgress) : null
+	);
+	// Once most of the word is under the marker, the word takes the marker's ink.
+	const isHighlighted = $derived(
+		highlightSpan !== null && highlightSpan.to - highlightSpan.from > 0.5
+	);
 </script>
 
+{#snippet highlighter()}
+	{#if highlightSpan && highlightSpan.to > highlightSpan.from}
+		<span
+			class="node__highlight"
+			aria-hidden="true"
+			style:inset-inline-start="{highlightSpan.from * 100}%"
+			style:inline-size="calc({(highlightSpan.to - highlightSpan.from) * 100}% + 0.44em)"
+		></span>
+	{/if}
+{/snippet}
+
 {#if block.form === 'box'}
-	<span class="node node--box">
+	<span
+		class="node node--box"
+		style:--node-font-size={block.fontSize ?? NODE_DEFAULT_FONT_SIZE}
+		style:--node-padding-x={block.paddingX ?? NODE_DEFAULT_PADDING_X}
+		style:--node-padding-y={block.paddingY ?? NODE_DEFAULT_PADDING_Y}
+		style:--node-border-width={block.borderWidth ?? NODE_DEFAULT_BORDER_WIDTH}
+	>
 		<span class="node__box-depth" aria-hidden="true"></span>
 		<span
 			class="node__box-face"
+			class:node--highlighted={isHighlighted}
 			data-diagram-text-role="caption"
 			data-gfx-readable-id={`block:${block.id}:text`}
 			data-gfx-readable-text={block.text ?? ''}
-			data-gfx-text-role="diagram-caption">{block.text ?? ''}</span
+			data-gfx-text-role="diagram-caption"
+			><span class="node__marked">{@render highlighter()}{block.text ?? ''}</span></span
 		>
 	</span>
 {:else if block.form === 'pin'}
-	<span class="node node--pin">
+	<span class="node node--pin" style:--node-font-size={block.fontSize}>
 		<!-- Shadow is an offset SVG path, never a CSS filter — filters promote
 		     compositing layers, which drop out of the HTML-in-Canvas capture. -->
 		<svg class="node__pin-mark" viewBox="0 0 52 65" aria-hidden="true">
@@ -37,23 +72,27 @@
 		{#if block.text}
 			<span
 				class="node__pin-text"
+				class:node--highlighted={isHighlighted}
 				data-diagram-text-role="caption"
 				data-gfx-readable-id={`block:${block.id}:text`}
 				data-gfx-readable-text={block.text}
-				data-gfx-text-role="diagram-caption">{block.text}</span
+				data-gfx-text-role="diagram-caption"
+				><span class="node__marked">{@render highlighter()}{block.text}</span></span
 			>
 		{/if}
 	</span>
 {:else}
-	<span class="node node--dot">
+	<span class="node node--dot" style:--node-font-size={block.fontSize}>
 		<span class="node__dot-mark"></span>
 		{#if block.text}
 			<span
 				class="node__dot-text"
+				class:node--highlighted={isHighlighted}
 				data-diagram-text-role="caption"
 				data-gfx-readable-id={`block:${block.id}:text`}
 				data-gfx-readable-text={block.text}
-				data-gfx-text-role="diagram-caption">{block.text}</span
+				data-gfx-text-role="diagram-caption"
+				><span class="node__marked">{@render highlighter()}{block.text}</span></span
 			>
 		{/if}
 	</span>
@@ -75,9 +114,9 @@
 	.node--box {
 		box-shadow: var(--node-shadow, none);
 		color: var(--node-box-ink);
-		font-size: calc(2.9 * var(--cqmin));
-		font-weight: 700;
-		letter-spacing: 0.01em;
+		font-size: calc(var(--node-font-size) * var(--cqmin));
+		font-weight: var(--weight, 700);
+		letter-spacing: var(--tracking, 0.01em);
 		position: relative;
 	}
 	.node__box-depth,
@@ -92,8 +131,8 @@
 	}
 	.node__box-face {
 		background: var(--fill);
-		border: calc(0.32 * var(--cqmin)) solid var(--node-box-ink);
-		padding: calc(1.5 * var(--cqmin)) calc(2.4 * var(--cqmin));
+		border: calc(var(--node-border-width) * var(--cqmin)) solid var(--node-box-ink);
+		padding: calc(var(--node-padding-y) * var(--cqmin)) calc(var(--node-padding-x) * var(--cqmin));
 		position: relative;
 	}
 
@@ -125,9 +164,32 @@
 	.node__pin-text,
 	.node__dot-text {
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
-		font-size: calc(2 * var(--cqmin));
+		font-size: calc(var(--node-font-size, 2) * var(--cqmin));
 		font-weight: 700;
 		letter-spacing: 0.06em;
+	}
+
+	/* Highlight — a chisel-marker swipe behind the word, drawn on left to right.
+	   Rotation and skew are transforms, never filters, so the swipe survives the
+	   HTML-in-Canvas capture. */
+	.node__marked {
+		isolation: isolate;
+		position: relative;
+	}
+
+	.node__highlight {
+		background: var(--node-highlight);
+		border-radius: 0.04em 0.16em 0.06em 0.2em;
+		inset-block: 0.14em -0.02em;
+		margin-inline-start: -0.22em;
+		position: absolute;
+		rotate: -1.6deg;
+		transform: skewX(-6deg);
+		z-index: -1;
+	}
+
+	.node--highlighted {
+		color: var(--node-highlight-ink);
 	}
 
 	/* Dot — the quiet point marker. */

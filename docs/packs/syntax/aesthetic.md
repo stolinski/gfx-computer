@@ -44,10 +44,11 @@ The repo's tokens, verbatim. These are the channel colors — deviate only insid
 
 ## Type System
 
-Two faces, fixed jobs (Q18's 2-family cap holds; a found-document substrate carrying its own face is the only third):
+Two faces, fixed jobs (Q18's 2-family cap holds for chrome; a found-document substrate carrying its own face, and the printed diagram cards below, are the only exceptions):
 
 - **Space Grotesk** — display: names, titles, headlines on cards. 700 for primary (tight, `-0.02em`), 500 for supporting.
-- **Space Mono** — chrome: kickers, tags, tickers, stamps, diagram labels, code. 700 uppercase `.08em` on chips; 400 for quiet labels.
+- **Space Mono** — chrome: kickers, tags, tickers, stamps, code. 700 uppercase `.08em` on chips; 400 for quiet labels.
+- **Diagrams set in print faces** (Scott, 2026-10-14): a flowchart is printed cut-out cards on a page, so it takes print type — **Archivo 900** (tracking `-0.03em`) on node cards and diagram headings, **Source Serif 4 italic 500** for captions beside them (`diagram.font`, `label.font`, `label.captionFont`, `label.captionStyle`, `node.weight`, `node.tracking`).
 
 Both are self-hosted via `@fontsource` in `src/lib/packs/syntax/fonts.ts`. Kinetic display motion uses the separate `Space Grotesk Variable` face over the real 300–700 `wght` axis, with 650 as the Pack rest; ordinary typography keeps the static 500/700 cuts. (Operator Mono is retired from this doc — the repo uses Space Mono.)
 
@@ -70,6 +71,10 @@ The signature construction, from the repo (values ×2 for the 4K frame):
 - **Pulse dot:** `#ff474e` circle with an opacity/box-shadow pulse — the "live" cue.
 - **Separator:** the yellow diamond `◆` between ticker items.
 - **Bars/tickers:** full-width flex bars on the card construction (border + stepped shadow), content scrolling linear.
+
+## Diagram cards
+
+Flowchart nodes are off-white (`#f7f6f2`) cut-out cards with no border, lifted off a dark page by one soft cast shadow (`node.depth` `{ offset: { dx: 0, dy: 40, blur: 90, color: 'rgba(0, 0, 0, 0.7)' } }`). They are printed objects on a page, filmed by the Stage camera, so the chrome rule "no gaussian shadows" does not reach them — the same way a found document keeps its own physics. The node that is "now" gets a chisel-marker swipe in `#ffd54a` (`node.accent`) behind its word. Direction plate: the filmed flowchart mock of 2026-10-14; deliverable `docu-flowchart-filmed`.
 
 ## Diagram strokes
 

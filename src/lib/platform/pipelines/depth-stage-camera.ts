@@ -2,7 +2,12 @@ import { mat4, vec4 } from 'wgpu-matrix';
 
 import { evaluateNamedEase } from '$lib/utils/ease-curves';
 import { clampNumber } from '$lib/utils/math';
-import { STAGE_CAMERA_POSE_LIMITS, type StageCamera } from '$lib/platform/engine-schema';
+import {
+	STAGE_CAMERA_POSE_LIMITS,
+	type StageCamera,
+	type StageCameraTravel,
+	type StageCameraTravelMove
+} from '$lib/platform/engine-schema';
 
 // The depth stage's camera model (ADR-0028, posed by ADR-0057), single-sourced
 // so the renderer (depth-stage.ts), the frame resolver, and canvas hit-testing
@@ -13,9 +18,9 @@ import { STAGE_CAMERA_POSE_LIMITS, type StageCamera } from '$lib/platform/engine
 //
 // The camera ORBITS an aim point on the Surface plane: `pose.aim` picks the
 // point (composition fractions), `yaw` / `pitch` swing the eye around it,
-// `distance` dollies along the line of sight, `roll` tilts the horizon, and one
+// `distance` dollies along the line of sight, `roll` tilts the horizon, and an
 // optional `travel` eases every field toward a second pose over an authored
-// window. The legacy `move: push | drift` offsets compose on top in the
+// window, or through several poses in turn. The legacy `move: push | drift` offsets compose on top in the
 // camera's own frame. With no pose authored every function below reproduces
 // the shipped frontal camera bit-for-bit — that identity is a gate.
 
@@ -128,8 +133,54 @@ export function resolveStageCameraForOrientation(
 
 const mix = (a: number, b: number, t: number): number => a + (b - a) * t;
 
-/** The camera pose at clip progress `time`: the rest pose eased toward the
- *  travel target inside the travel window, clamped to the authored limits so
+/** The moves of a travel in timeline order: a single authored move is a list
+ *  of one, so every consumer walks the same shape. */
+export function stageCameraTravelMoves(
+	travel: StageCameraTravel | undefined
+): readonly StageCameraTravelMove[] {
+	if (!travel) return [];
+	return Array.isArray(travel) ? travel : [travel];
+}
+
+function easeStageCameraPose(
+	from: StageCameraPoseFrame,
+	move: StageCameraTravelMove,
+	time: number
+): StageCameraPoseFrame {
+	const duration = move.duration > 0 ? move.duration : 1;
+	const local = clampNumber((time - move.start) / duration, 0, 1);
+	const eased = evaluateNamedEase(move.ease, local);
+	const to = move.to;
+	const limits = STAGE_CAMERA_POSE_LIMITS;
+	return {
+		yaw: clampNumber(
+			mix(from.yaw, to.yaw ?? from.yaw, eased),
+			-limits.yawDegrees,
+			limits.yawDegrees
+		),
+		pitch: clampNumber(
+			mix(from.pitch, to.pitch ?? from.pitch, eased),
+			-limits.pitchDegrees,
+			limits.pitchDegrees
+		),
+		roll: clampNumber(
+			mix(from.roll, to.roll ?? from.roll, eased),
+			-limits.rollDegrees,
+			limits.rollDegrees
+		),
+		distance: clampNumber(
+			mix(from.distance, to.distance ?? from.distance, eased),
+			limits.minDistance,
+			limits.maxDistance
+		),
+		aimX: clampNumber(mix(from.aimX, to.aim?.x ?? from.aimX, eased), 0, 1),
+		aimY: clampNumber(mix(from.aimY, to.aim?.y ?? from.aimY, eased), 0, 1)
+	};
+}
+
+/** The camera pose at clip progress `time`: the rest pose carried through each
+ *  travel move in order — a move eases from where the previous one landed
+ *  toward its own target inside its window — clamped to the authored limits so
  *  an overshooting ease (`settled`, `bouncy`) never leaves the vocabulary. */
 export function resolveStageCameraPose(camera: StageCamera, time: number): StageCameraPoseFrame {
 	const rest: StageCameraPoseFrame = camera.pose
@@ -142,37 +193,11 @@ export function resolveStageCameraPose(camera: StageCamera, time: number): Stage
 				aimY: camera.pose.aim.y
 			}
 		: STAGE_CAMERA_REST_POSE;
-	const travel = camera.travel;
-	if (!travel) return rest;
-	const duration = travel.duration > 0 ? travel.duration : 1;
-	const local = clampNumber((time - travel.start) / duration, 0, 1);
-	const eased = evaluateNamedEase(travel.ease, local);
-	const to = travel.to;
-	const limits = STAGE_CAMERA_POSE_LIMITS;
-	return {
-		yaw: clampNumber(
-			mix(rest.yaw, to.yaw ?? rest.yaw, eased),
-			-limits.yawDegrees,
-			limits.yawDegrees
-		),
-		pitch: clampNumber(
-			mix(rest.pitch, to.pitch ?? rest.pitch, eased),
-			-limits.pitchDegrees,
-			limits.pitchDegrees
-		),
-		roll: clampNumber(
-			mix(rest.roll, to.roll ?? rest.roll, eased),
-			-limits.rollDegrees,
-			limits.rollDegrees
-		),
-		distance: clampNumber(
-			mix(rest.distance, to.distance ?? rest.distance, eased),
-			limits.minDistance,
-			limits.maxDistance
-		),
-		aimX: clampNumber(mix(rest.aimX, to.aim?.x ?? rest.aimX, eased), 0, 1),
-		aimY: clampNumber(mix(rest.aimY, to.aim?.y ?? rest.aimY, eased), 0, 1)
-	};
+	let pose = rest;
+	for (const move of stageCameraTravelMoves(camera.travel)) {
+		pose = easeStageCameraPose(pose, move, time);
+	}
+	return pose;
 }
 
 type Vec3Tuple = [number, number, number];
@@ -367,8 +392,21 @@ const FRAME_CORNERS: readonly [number, number][] = [
 ];
 // Progress samples that bracket every authored move: the legacy push is fully
 // pulled back at 0, a travel has landed by 1, and the interior samples catch
-// an overshooting ease.
+// an overshooting ease. Each travel move adds its own start, quarters, and end,
+// so a pose held only between two moves is never missed.
 const MOVE_SAMPLE_TIMES: readonly number[] = [0, 0.25, 0.5, 0.75, 1];
+
+function stageCameraSampleTimes(camera: StageCamera): readonly number[] {
+	const moves = stageCameraTravelMoves(camera.travel);
+	if (moves.length < 2) return MOVE_SAMPLE_TIMES;
+	const times = new Set(MOVE_SAMPLE_TIMES);
+	for (const move of moves) {
+		for (const quarter of [0, 0.25, 0.5, 0.75, 1]) {
+			times.add(clampNumber(move.start + move.duration * quarter, 0, 1));
+		}
+	}
+	return [...times].sort((a, b) => a - b);
+}
 
 /** The backdrop oversize (cover) this camera needs so no far-plane edge shows
  *  anywhere in the authored move: the frame corners are cast onto the backdrop
@@ -377,7 +415,7 @@ const MOVE_SAMPLE_TIMES: readonly number[] = [0, 0.25, 0.5, 0.75, 1];
 export function stageBackdropCover(camera: StageCamera, aspect: number): number {
 	const fill = stagePlaneHalfExtents(STAGE_CAM_Z + STAGE_BACKDROP_DEPTH, aspect);
 	let need = 1;
-	for (const time of MOVE_SAMPLE_TIMES) {
+	for (const time of stageCameraSampleTimes(camera)) {
 		const rig = createStageCameraRig({ aspect, camera, time });
 		const inverse = mat4.invert(rig.viewProjection) as Float32Array;
 		for (const [fx, fy] of FRAME_CORNERS) {
@@ -413,7 +451,7 @@ export interface StageSurfaceFootprint {
 export function stageSurfaceFootprint(camera: StageCamera, aspect: number): StageSurfaceFootprint {
 	const fill = stagePlaneHalfExtents(STAGE_CAM_Z, aspect);
 	let worst: StageSurfaceFootprint = { overshoot: 0, time: 0, corner: { x: 0, y: 0 } };
-	for (const time of MOVE_SAMPLE_TIMES) {
+	for (const time of stageCameraSampleTimes(camera)) {
 		const rig = createStageCameraRig({ aspect, camera, time });
 		const inverse = mat4.invert(rig.viewProjection) as Float32Array;
 		for (const [fx, fy] of FRAME_CORNERS) {
@@ -470,7 +508,7 @@ export function stageDepthEncoding(camera: StageCamera, aspect: number): StageDe
 	const cover = stageBackdropCover(camera, aspect);
 	let nearest = Number.POSITIVE_INFINITY;
 	let farthest = 0;
-	for (const time of MOVE_SAMPLE_TIMES) {
+	for (const time of stageCameraSampleTimes(camera)) {
 		const { eye } = createStageCameraRig({ aspect, camera, time });
 		const onSurface = distanceToRect(eye, surface.halfW, surface.halfH, 0);
 		const onBackdrop = distanceToRect(

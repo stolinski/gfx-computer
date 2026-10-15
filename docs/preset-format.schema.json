@@ -1099,6 +1099,115 @@
                         "minimum": 0.25,
                         "maximum": 4
                       },
+                      "highlight": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "default": "smooth",
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "click",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "draw",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          },
+                          "lift": {
+                            "type": "object",
+                            "properties": {
+                              "start": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "duration": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "ease": {
+                                "default": "smooth",
+                                "type": "string",
+                                "enum": [
+                                  "smooth",
+                                  "settled",
+                                  "sharp",
+                                  "bouncy"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "start",
+                              "duration"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "fontSize": {
+                        "type": "number",
+                        "minimum": 0.5,
+                        "maximum": 20
+                      },
+                      "paddingX": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 20
+                      },
+                      "paddingY": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 20
+                      },
+                      "borderWidth": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 4
+                      },
                       "orientationOverrides": {
                         "type": "object",
                         "properties": {
@@ -1128,6 +1237,26 @@
                               "scale": {
                                 "type": "number",
                                 "minimum": 0.25,
+                                "maximum": 4
+                              },
+                              "fontSize": {
+                                "type": "number",
+                                "minimum": 0.5,
+                                "maximum": 20
+                              },
+                              "paddingX": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 20
+                              },
+                              "paddingY": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 20
+                              },
+                              "borderWidth": {
+                                "type": "number",
+                                "minimum": 0,
                                 "maximum": 4
                               }
                             },
@@ -1162,6 +1291,26 @@
                               "scale": {
                                 "type": "number",
                                 "minimum": 0.25,
+                                "maximum": 4
+                              },
+                              "fontSize": {
+                                "type": "number",
+                                "minimum": 0.5,
+                                "maximum": 20
+                              },
+                              "paddingX": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 20
+                              },
+                              "paddingY": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 20
+                              },
+                              "borderWidth": {
+                                "type": "number",
+                                "minimum": 0,
                                 "maximum": 4
                               }
                             },
@@ -1949,6 +2098,11 @@
                           "none"
                         ]
                       },
+                      "strokeWidth": {
+                        "type": "number",
+                        "minimum": 1,
+                        "maximum": 80
+                      },
                       "orientationOverrides": {
                         "type": "object",
                         "properties": {
@@ -2495,6 +2649,11 @@
                         "minimum": 0.25,
                         "maximum": 4
                       },
+                      "fontSize": {
+                        "type": "number",
+                        "minimum": 0.5,
+                        "maximum": 20
+                      },
                       "maxWidth": {
                         "type": "number",
                         "minimum": 0.03,
@@ -2530,6 +2689,11 @@
                                 "type": "number",
                                 "minimum": 0.25,
                                 "maximum": 4
+                              },
+                              "fontSize": {
+                                "type": "number",
+                                "minimum": 0.5,
+                                "maximum": 20
                               },
                               "maxWidth": {
                                 "type": "number",
@@ -2569,6 +2733,11 @@
                                 "type": "number",
                                 "minimum": 0.25,
                                 "maximum": 4
+                              },
+                              "fontSize": {
+                                "type": "number",
+                                "minimum": 0.5,
+                                "maximum": 20
                               },
                               "maxWidth": {
                                 "type": "number",
@@ -18658,126 +18827,8 @@
                   }
                 },
                 "travel": {
-                  "type": "object",
-                  "properties": {
-                    "to": {
-                      "type": "object",
-                      "properties": {
-                        "yaw": {
-                          "type": "number",
-                          "minimum": -60,
-                          "maximum": 60
-                        },
-                        "pitch": {
-                          "type": "number",
-                          "minimum": -45,
-                          "maximum": 45
-                        },
-                        "roll": {
-                          "type": "number",
-                          "minimum": -30,
-                          "maximum": 30
-                        },
-                        "distance": {
-                          "type": "number",
-                          "minimum": 0.25,
-                          "maximum": 2
-                        },
-                        "aim": {
-                          "type": "object",
-                          "properties": {
-                            "x": {
-                              "type": "number",
-                              "minimum": 0,
-                              "maximum": 1
-                            },
-                            "y": {
-                              "type": "number",
-                              "minimum": 0,
-                              "maximum": 1
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "start": {
-                      "default": 0,
-                      "type": "number",
-                      "minimum": 0,
-                      "maximum": 1
-                    },
-                    "duration": {
-                      "default": 1,
-                      "type": "number",
-                      "minimum": 0,
-                      "maximum": 1
-                    },
-                    "ease": {
-                      "default": "smooth",
-                      "type": "string",
-                      "enum": [
-                        "smooth",
-                        "settled",
-                        "sharp",
-                        "bouncy"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "to"
-                  ]
-                },
-                "vertical": {
-                  "type": "object",
-                  "properties": {
-                    "pose": {
-                      "type": "object",
-                      "properties": {
-                        "yaw": {
-                          "default": 0,
-                          "type": "number",
-                          "minimum": -60,
-                          "maximum": 60
-                        },
-                        "pitch": {
-                          "default": 0,
-                          "type": "number",
-                          "minimum": -45,
-                          "maximum": 45
-                        },
-                        "roll": {
-                          "default": 0,
-                          "type": "number",
-                          "minimum": -30,
-                          "maximum": 30
-                        },
-                        "distance": {
-                          "default": 1,
-                          "type": "number",
-                          "minimum": 0.25,
-                          "maximum": 2
-                        },
-                        "aim": {
-                          "default": {},
-                          "type": "object",
-                          "properties": {
-                            "x": {
-                              "default": 0.5,
-                              "type": "number",
-                              "minimum": 0,
-                              "maximum": 1
-                            },
-                            "y": {
-                              "default": 0.5,
-                              "type": "number",
-                              "minimum": 0,
-                              "maximum": 1
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "travel": {
+                  "anyOf": [
+                    {
                       "type": "object",
                       "properties": {
                         "to": {
@@ -18845,6 +18896,282 @@
                       },
                       "required": [
                         "to"
+                      ]
+                    },
+                    {
+                      "minItems": 1,
+                      "maxItems": 8,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "to": {
+                            "type": "object",
+                            "properties": {
+                              "yaw": {
+                                "type": "number",
+                                "minimum": -60,
+                                "maximum": 60
+                              },
+                              "pitch": {
+                                "type": "number",
+                                "minimum": -45,
+                                "maximum": 45
+                              },
+                              "roll": {
+                                "type": "number",
+                                "minimum": -30,
+                                "maximum": 30
+                              },
+                              "distance": {
+                                "type": "number",
+                                "minimum": 0.25,
+                                "maximum": 2
+                              },
+                              "aim": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "start": {
+                            "default": 0,
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "default": 1,
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "default": "smooth",
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "to"
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "vertical": {
+                  "type": "object",
+                  "properties": {
+                    "pose": {
+                      "type": "object",
+                      "properties": {
+                        "yaw": {
+                          "default": 0,
+                          "type": "number",
+                          "minimum": -60,
+                          "maximum": 60
+                        },
+                        "pitch": {
+                          "default": 0,
+                          "type": "number",
+                          "minimum": -45,
+                          "maximum": 45
+                        },
+                        "roll": {
+                          "default": 0,
+                          "type": "number",
+                          "minimum": -30,
+                          "maximum": 30
+                        },
+                        "distance": {
+                          "default": 1,
+                          "type": "number",
+                          "minimum": 0.25,
+                          "maximum": 2
+                        },
+                        "aim": {
+                          "default": {},
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "default": 0.5,
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "y": {
+                              "default": 0.5,
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "travel": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "to": {
+                              "type": "object",
+                              "properties": {
+                                "yaw": {
+                                  "type": "number",
+                                  "minimum": -60,
+                                  "maximum": 60
+                                },
+                                "pitch": {
+                                  "type": "number",
+                                  "minimum": -45,
+                                  "maximum": 45
+                                },
+                                "roll": {
+                                  "type": "number",
+                                  "minimum": -30,
+                                  "maximum": 30
+                                },
+                                "distance": {
+                                  "type": "number",
+                                  "minimum": 0.25,
+                                  "maximum": 2
+                                },
+                                "aim": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "start": {
+                              "default": 0,
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "duration": {
+                              "default": 1,
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "ease": {
+                              "default": "smooth",
+                              "type": "string",
+                              "enum": [
+                                "smooth",
+                                "settled",
+                                "sharp",
+                                "bouncy"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "to"
+                          ]
+                        },
+                        {
+                          "minItems": 1,
+                          "maxItems": 8,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "to": {
+                                "type": "object",
+                                "properties": {
+                                  "yaw": {
+                                    "type": "number",
+                                    "minimum": -60,
+                                    "maximum": 60
+                                  },
+                                  "pitch": {
+                                    "type": "number",
+                                    "minimum": -45,
+                                    "maximum": 45
+                                  },
+                                  "roll": {
+                                    "type": "number",
+                                    "minimum": -30,
+                                    "maximum": 30
+                                  },
+                                  "distance": {
+                                    "type": "number",
+                                    "minimum": 0.25,
+                                    "maximum": 2
+                                  },
+                                  "aim": {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "start": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "duration": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "ease": {
+                                "default": "smooth",
+                                "type": "string",
+                                "enum": [
+                                  "smooth",
+                                  "settled",
+                                  "sharp",
+                                  "bouncy"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "to"
+                            ]
+                          }
+                        }
                       ]
                     }
                   }

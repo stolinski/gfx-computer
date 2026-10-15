@@ -57,13 +57,24 @@ export const COMPOSITION_SOUND_CUE_KINDS: readonly AudioCue['kind'][] = ['cue', 
 
 /**
  * A motion whose emitted cue can be overridden. These are exactly the windows
- * `sound` owns a `sound` key inside; a text animation's and a Block's windows
- * are `motion`'s alone, so they are absent here rather than silently ignored.
+ * `sound` owns a `sound` key inside; a text animation's windows are `motion`'s
+ * alone, so they are absent here rather than silently ignored. A diagram Block
+ * sounds on its entrance and, for a node, on its highlighter swipe; its exit is
+ * a fade and emits nothing.
  */
 export type CompositionSoundMotion =
 	| { kind: 'surface'; phase: CompositionSoundMotionPhase }
 	| { kind: 'overlay'; overlayId: string; phase: CompositionSoundMotionPhase }
+	| { kind: 'block'; blockId: string; phase: CompositionSoundBlockPhase }
 	| { kind: 'mark'; markIndex: number };
+
+/** Which of a diagram Block's motions emits the cue. */
+export type CompositionSoundBlockPhase = 'enter' | 'highlight';
+
+export const COMPOSITION_SOUND_BLOCK_PHASES: readonly CompositionSoundBlockPhase[] = [
+	'enter',
+	'highlight'
+];
 
 /** Which edge of a Layer's clip emits the cue. A Mark draws once and has neither. */
 export type CompositionSoundMotionPhase = 'enter' | 'exit';
@@ -77,6 +88,7 @@ export const COMPOSITION_SOUND_MOTION_PHASES: readonly CompositionSoundMotionPha
 export const COMPOSITION_SOUND_MOTION_KINDS: readonly CompositionSoundMotion['kind'][] = [
 	'surface',
 	'overlay',
+	'block',
 	'mark'
 ];
 
@@ -114,6 +126,8 @@ export function describeCompositionSoundMotionCueId(motion: CompositionSoundMoti
 			return `surface:${motion.phase}`;
 		case 'overlay':
 			return `overlay:${motion.overlayId}:${motion.phase}`;
+		case 'block':
+			return `block:${motion.blockId}:${motion.phase}`;
 		case 'mark':
 			return `mark:${motion.markIndex}`;
 	}
@@ -295,6 +309,14 @@ function findMotionWindow(
 	if (motion.kind === 'overlay') {
 		const overlay = state.overlays.find((entry) => entry.id === motion.overlayId);
 		return overlay?.[motion.phase] ?? null;
+	}
+	if (motion.kind === 'block') {
+		const primitive = (state.surface.diagram ?? []).find((entry) => entry.id === motion.blockId);
+		if (!primitive) return null;
+		if (motion.phase === 'highlight') {
+			return primitive.type === 'node' ? (primitive.highlight ?? null) : null;
+		}
+		return primitive.enter ?? null;
 	}
 	return state.marks.timings[motion.markIndex] ?? null;
 }

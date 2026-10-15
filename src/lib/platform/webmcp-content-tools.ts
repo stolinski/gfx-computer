@@ -38,6 +38,7 @@ import {
 	CODE_LINE_LIMIT,
 	CODE_STEP_LIMIT,
 	CodeStepsSchema,
+	DiagramNodeHighlightSchema,
 	SOUND_EVENTS,
 	CAPTIONS_BAND_PLACEMENT_FIELDS,
 	type Captions,
@@ -414,7 +415,11 @@ function readCaptions(args: unknown): Captions {
  */
 function diagramPrimitiveContentFields(): Readonly<Record<string, WebmcpSchemaProperty>> {
 	return {
-		text: { type: 'string', description: 'The words a node or label carries.' },
+		text: {
+			type: 'string',
+			description:
+				"The words a node or label carries. An empty string clears a node's words; a label always needs some."
+		},
 		form: webmcpDerivedEnumProperty('diagram-node-form', 'What shape a node takes.'),
 		route: webmcpDerivedEnumProperty('diagram-edge-route', 'How an edge travels.'),
 		direction: webmcpDerivedEnumProperty(
@@ -487,6 +492,45 @@ function diagramPrimitiveContentFields(): Readonly<Record<string, WebmcpSchemaPr
 				}
 			}
 		},
+		highlight: {
+			description:
+				"A node's highlighter swipe: it draws on behind the node's text over its window and holds; `lift` wipes it off later. null removes it.",
+			oneOf: [
+				{
+					type: 'object',
+					description: 'The swipe window, as fractions of the composition.',
+					additionalProperties: false,
+					required: ['start', 'duration'],
+					properties: {
+						start: { type: 'number', description: 'Swipe start, 0-1.', minimum: 0, maximum: 1 },
+						duration: {
+							type: 'number',
+							description: 'Swipe length, 0-1.',
+							minimum: 0,
+							maximum: 1
+						},
+						ease: webmcpDerivedEnumProperty('motion-ease', 'The swipe ease.'),
+						lift: {
+							type: 'object',
+							description: 'Optional: when the swipe wipes off again, after it has drawn on.',
+							additionalProperties: false,
+							required: ['start', 'duration'],
+							properties: {
+								start: { type: 'number', description: 'Lift start, 0-1.', minimum: 0, maximum: 1 },
+								duration: {
+									type: 'number',
+									description: 'Lift length, 0-1.',
+									minimum: 0,
+									maximum: 1
+								},
+								ease: webmcpDerivedEnumProperty('motion-ease', 'The lift ease.')
+							}
+						}
+					}
+				},
+				{ type: 'null', description: 'Remove the swipe.' }
+			]
+		},
 		ink: webmcpDerivedEnumProperty(
 			'diagram-ink-role',
 			'Which Pack ink Role the primitive rides. Never a colour.'
@@ -511,7 +555,9 @@ function readDiagramPrimitiveContent(args: unknown): DiagramPrimitiveContentPatc
 	// Only the keys the caller sent are carried, so an absent field stays absent
 	// rather than overwriting an authored one with `undefined`.
 	const patch: DiagramPrimitiveContentPatch = {};
-	if ('text' in content) patch.text = readWebmcpStringArgument(content, 'text');
+	// Empty text is kept: it clears a node's words (a label always needs some,
+	// which the operation's schema check answers).
+	if ('text' in content) patch.text = readWebmcpOptionalStringArgument(content, 'text');
 	if ('form' in content)
 		patch.form = readWebmcpLiteralArgument(content, 'form', DIAGRAM_NODE_FORMS);
 	if ('route' in content) {
@@ -543,6 +589,30 @@ function readDiagramPrimitiveContent(args: unknown): DiagramPrimitiveContentPatc
 			);
 		}
 		patch.steps = steps.data;
+	}
+	if ('highlight' in content) {
+		if (content.highlight === null) {
+			patch.highlight = null;
+		} else {
+			const highlightArgument = readWebmcpRecordArgument(content, 'highlight');
+			if ('sound' in highlightArgument) {
+				throw new WebmcpArgumentError(
+					'invalid_argument',
+					'"highlight.sound" is not authored content; gfx_sound_set_motion_override writes it.',
+					{ rejected: 'highlight.sound' }
+				);
+			}
+			const highlight = DiagramNodeHighlightSchema.safeParse(highlightArgument);
+			if (!highlight.success) {
+				const issue = highlight.error.issues[0];
+				throw new WebmcpArgumentError(
+					'invalid_argument',
+					`"highlight.${issue.path.join('.')}": ${issue.message}`,
+					{ rejected: 'highlight' }
+				);
+			}
+			patch.highlight = highlight.data;
+		}
 	}
 	if ('ink' in content) patch.ink = readWebmcpLiteralArgument(content, 'ink', DIAGRAM_INK_ROLES);
 	return patch;

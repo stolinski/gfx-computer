@@ -16,6 +16,8 @@ import {
 	stageBackdropCover,
 	stageCameraFrameRay,
 	stageCameraMoveOffset,
+	stageCameraTravelMoves,
+	stageSurfaceFootprint,
 	stageDepthEncoding
 } from './depth-stage-camera';
 import { createStageProjector } from './depth-stage-planes';
@@ -171,6 +173,61 @@ describe('stage camera travel', () => {
 	});
 });
 
+describe('stage camera travel through several moves', () => {
+	const walking = camera({
+		pose: { yaw: -16, pitch: -22, distance: 0.8, aim: { x: 0.2, y: 0.4 } },
+		travel: [
+			{ to: { aim: { x: 0.5 } }, start: 0.2, duration: 0.1, ease: 'smooth' },
+			{ to: { aim: { x: 0.8 }, yaw: -10 }, start: 0.5, duration: 0.1, ease: 'smooth' }
+		]
+	});
+
+	it('holds each landing between moves, and starts each move from the last one', () => {
+		assert.equal(resolveStageCameraPose(walking, 0.1).aimX, 0.2);
+		assert.equal(resolveStageCameraPose(walking, 0.4).aimX, 0.5);
+		assert.equal(resolveStageCameraPose(walking, 0.4).yaw, -16, 'a field a move leaves out holds');
+		const landed = resolveStageCameraPose(walking, 0.9);
+		assert.equal(landed.aimX, 0.8);
+		assert.equal(landed.yaw, -10);
+		assert.equal(landed.pitch, -22);
+	});
+
+	it('moves monotonically through every move', () => {
+		let previousAim = 0.2;
+		for (let step = 0; step <= 40; step += 1) {
+			const aimX = resolveStageCameraPose(walking, step / 40).aimX;
+			assert.ok(aimX >= previousAim - 1e-12);
+			previousAim = aimX;
+		}
+	});
+
+	it('resolves a single move exactly as a list of one', () => {
+		const single = camera({
+			pose: { yaw: 4 },
+			travel: { to: { yaw: 20 }, start: 0.1, duration: 0.5, ease: 'smooth' }
+		});
+		const listed = camera({
+			pose: { yaw: 4 },
+			travel: [{ to: { yaw: 20 }, start: 0.1, duration: 0.5, ease: 'smooth' }]
+		});
+		for (const time of [0, 0.2, 0.35, 0.6, 1]) {
+			assert.deepEqual(resolveStageCameraPose(listed, time), resolveStageCameraPose(single, time));
+		}
+	});
+
+	it('samples a pose held only between moves when it checks the page stays in shot', () => {
+		// Swings hard right only between 0.31 and 0.34: the five fixed samples miss it.
+		const brief = camera({
+			pose: { distance: 0.8 },
+			travel: [
+				{ to: { yaw: 60, pitch: 45, distance: 2 }, start: 0.31, duration: 0.01, ease: 'smooth' },
+				{ to: { yaw: 0, pitch: 0, distance: 0.8 }, start: 0.33, duration: 0.01, ease: 'smooth' }
+			]
+		});
+		assert.ok(stageSurfaceFootprint(brief, ASPECT).overshoot > 0);
+	});
+});
+
 describe('stage projector under a pose', () => {
 	const posed = camera({ pose: { yaw: -24, pitch: 7, distance: 0.55, aim: { x: 0.6, y: 0.4 } } });
 
@@ -212,7 +269,10 @@ describe('stage projector under a pose', () => {
 		for (const [cam, time] of [
 			[camera(), 0],
 			[posed, 0.4],
-			[camera({ pose: { yaw: 12, pitch: -9, roll: 15, distance: 1.4, aim: { x: 0.3, y: 0.7 } } }), 1]
+			[
+				camera({ pose: { yaw: 12, pitch: -9, roll: 15, distance: 1.4, aim: { x: 0.3, y: 0.7 } } }),
+				1
+			]
 		] as const) {
 			const rig = createStageCameraRig({ aspect: ASPECT, camera: cam, time });
 			for (const [fx, fy] of [
@@ -222,8 +282,7 @@ describe('stage projector under a pose', () => {
 				[0.2, 0.85]
 			]) {
 				const ray = stageCameraFrameRay(rig, ASPECT, fx, fy);
-				const axial =
-					ray[0] * rig.forward[0] + ray[1] * rig.forward[1] + ray[2] * rig.forward[2];
+				const axial = ray[0] * rig.forward[0] + ray[1] * rig.forward[1] + ray[2] * rig.forward[2];
 				close(axial, 1, 1e-9, 'axial unit');
 				const along = 2.3;
 				const point = [
@@ -285,7 +344,7 @@ describe('the vertical camera', () => {
 		assert.equal(resolved.pose?.yaw, 2);
 		assert.equal(resolved.pose?.distance, 1.1);
 		// No vertical travel authored: the horizontal travel still plays.
-		assert.equal(resolved.travel?.to.distance, 1.1);
+		assert.equal(stageCameraTravelMoves(resolved.travel)[0]?.to.distance, 1.1);
 		assert.equal(resolved.vertical, undefined);
 	});
 

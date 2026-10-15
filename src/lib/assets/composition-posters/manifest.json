@@ -242,7 +242,14 @@
 		"timestampSeconds": 3,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.0532
+		"contentFraction": 0.0629
+	},
+	"docu-flowchart-filmed": {
+		"contentKey": "15e32ab43993300e",
+		"timestampSeconds": 5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9916
 	},
 	"docu-map-journey": {
 		"contentKey": "3825efa56625f4bb",
@@ -256,14 +263,14 @@
 		"timestampSeconds": 3,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.0756
+		"contentFraction": 0.0771
 	},
 	"docu-timeline-build": {
 		"contentKey": "63fc8d35d7b7dd2f",
 		"timestampSeconds": 4,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.1244
+		"contentFraction": 0.1316
 	},
 	"docu-timeline-build-clean-light": {
 		"contentKey": "f6a8380d72d356ef",
@@ -459,7 +466,7 @@
 		"timestampSeconds": 2,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.9598
+		"contentFraction": 0.9599
 	},
 	"outro-watch-next": {
 		"contentKey": "4293753ce916157a",
@@ -627,7 +634,7 @@
 		"timestampSeconds": 2.5,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.0428
+		"contentFraction": 0.0443
 	},
 	"title-card-newspaper": {
 		"contentKey": "d7a854940d387c8a",
@@ -711,7 +718,7 @@
 		"timestampSeconds": 6,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.1161
+		"contentFraction": 0.1488
 	},
 	"washi-tape-corner-accent": {
 		"contentKey": "f516b9ded5cfc674",

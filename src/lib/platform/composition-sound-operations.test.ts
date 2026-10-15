@@ -5,6 +5,7 @@ import blankPresetJson from '$lib/presets/blank.json';
 import { compositionMeta } from './composition-meta.svelte';
 import { deriveSoundCues, resolveCueSample } from './sound-cues';
 import { parseAnnotationBodyText } from '$lib/annotations/annotation-body-text';
+import { runAddCompositionDiagramPrimitiveOperation } from './composition-block-layer-operations';
 import {
 	runAddCompositionAnnotationMarkOperation,
 	runAddCompositionOverlayOperation
@@ -331,5 +332,33 @@ describe('per-motion sound overrides', () => {
 
 		expect(failure.code).toBe('invalid_argument');
 		expect(failure.alternatives).toEqual(['mute', 'event', 'sample']);
+	});
+});
+
+describe('diagram Block cue overrides', () => {
+	it("mutes a node's highlighter swipe without touching its entrance", async () => {
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 0,
+				primitiveType: 'node'
+			})
+		);
+		const node = engineState.surface.diagram?.[0];
+		if (node?.type !== 'node') throw new Error('expected a node');
+		node.highlight = { start: 0.4, duration: 0.05, ease: 'smooth' };
+		expect(deriveSoundCues(engineState).some((cue) => cue.id === 'block:node-1:highlight')).toBe(
+			true
+		);
+
+		expectApplied(
+			await runSetCompositionMotionSoundOverrideOperation({
+				expectedRevision: 1,
+				motion: { kind: 'block', blockId: 'node-1', phase: 'highlight' },
+				override: { mute: true }
+			})
+		);
+		const swiped = engineState.surface.diagram?.[0];
+		expect(swiped?.type === 'node' ? swiped.highlight?.sound : undefined).toEqual({ mute: true });
+		expect(swiped?.enter?.sound).toBeUndefined();
 	});
 });

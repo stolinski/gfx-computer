@@ -5,10 +5,16 @@
 		CODE_DEFAULT_PADDING_Y,
 		DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH,
 		DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH,
+		NODE_DEFAULT_BORDER_WIDTH,
+		NODE_DEFAULT_FONT_SIZE,
+		NODE_DEFAULT_PADDING_X,
+		NODE_DEFAULT_PADDING_Y,
 		type DiagramCodeGeometry,
+		type DiagramEdgeArrow,
 		type DiagramEdgeGeometry,
 		type DiagramEndpoint,
 		type DiagramLabelGeometry,
+		type DiagramNodeGeometry,
 		type DiagramPositionGeometry,
 		type DiagramPrimitive
 	} from './engine-schema';
@@ -51,10 +57,16 @@
 		geometry.scale = Math.max(0.25, Math.min(4, n));
 	}
 
-	// A code panel size (ADR-0070): empty returns the field to its default.
+	// A drawn size (ADR-0070): empty returns the field to its default.
+	type SizedGeometry = Partial<
+		Pick<
+			DiagramCodeGeometry & DiagramNodeGeometry,
+			'fontSize' | 'paddingX' | 'paddingY' | 'minWidth' | 'minHeight' | 'borderWidth'
+		>
+	>;
 	function setCodeSize(
-		geometry: DiagramCodeGeometry,
-		field: 'fontSize' | 'paddingX' | 'paddingY' | 'minWidth' | 'minHeight',
+		geometry: SizedGeometry,
+		field: keyof SizedGeometry,
 		value: string,
 		min: number,
 		max: number
@@ -66,6 +78,18 @@
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
 		geometry[field] = Math.max(min, Math.min(max, n));
+	}
+
+	// An edge's stroke width is one weight for both orientations, so it is
+	// written on the edge itself, never into an orientation snapshot.
+	function setStrokeWidth(edge: DiagramEdgeArrow, value: string): void {
+		if (value.trim() === '') {
+			edge.strokeWidth = undefined;
+			return;
+		}
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		edge.strokeWidth = Math.max(1, Math.min(80, n));
 	}
 
 	function setTextBoxWidth(geometry: DiagramLabelGeometry, value: string): void {
@@ -251,6 +275,17 @@
 				/>
 			{/if}
 		</Field>
+		<Field label="Stroke">
+			<input
+				type="number"
+				min="1"
+				max="80"
+				step="1"
+				placeholder="Pack"
+				value={el.strokeWidth ?? ''}
+				oninput={(e) => setStrokeWidth(el, (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</Field>
 	{:else if el.type === 'timeline-segment'}
 		{@const geometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
 		{#each ['from', 'to'] as const as end (end)}
@@ -315,6 +350,24 @@
 				el,
 				engineState.transport.orientation
 			)}
+			<Field label="Text size">
+				<input
+					type="number"
+					min="0.5"
+					max="20"
+					step="0.1"
+					placeholder="auto"
+					value={labelGeometry.fontSize ?? ''}
+					oninput={(e) =>
+						setCodeSize(
+							labelGeometry,
+							'fontSize',
+							(e.currentTarget as HTMLInputElement).value,
+							0.5,
+							20
+						)}
+				/>
+			</Field>
 			<Field label="Width">
 				<input
 					type="number"
@@ -327,6 +380,96 @@
 						setTextBoxWidth(labelGeometry, (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
+		{:else if el.type === 'node' && el.form === 'box'}
+			{@const nodeGeometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
+			<Field label="Text size">
+				<input
+					type="number"
+					min="0.5"
+					max="20"
+					step="0.1"
+					value={nodeGeometry.fontSize ?? NODE_DEFAULT_FONT_SIZE}
+					oninput={(e) =>
+						setCodeSize(
+							nodeGeometry,
+							'fontSize',
+							(e.currentTarget as HTMLInputElement).value,
+							0.5,
+							20
+						)}
+				/>
+			</Field>
+			<Field label="Padding">
+				<input
+					type="number"
+					min="0"
+					max="20"
+					step="0.1"
+					aria-label="Padding left and right"
+					value={nodeGeometry.paddingX ?? NODE_DEFAULT_PADDING_X}
+					oninput={(e) =>
+						setCodeSize(
+							nodeGeometry,
+							'paddingX',
+							(e.currentTarget as HTMLInputElement).value,
+							0,
+							20
+						)}
+				/>
+				<input
+					type="number"
+					min="0"
+					max="20"
+					step="0.1"
+					aria-label="Padding top and bottom"
+					value={nodeGeometry.paddingY ?? NODE_DEFAULT_PADDING_Y}
+					oninput={(e) =>
+						setCodeSize(
+							nodeGeometry,
+							'paddingY',
+							(e.currentTarget as HTMLInputElement).value,
+							0,
+							20
+						)}
+				/>
+			</Field>
+			<Field label="Border">
+				<input
+					type="number"
+					min="0"
+					max="4"
+					step="0.01"
+					value={nodeGeometry.borderWidth ?? NODE_DEFAULT_BORDER_WIDTH}
+					oninput={(e) =>
+						setCodeSize(
+							nodeGeometry,
+							'borderWidth',
+							(e.currentTarget as HTMLInputElement).value,
+							0,
+							4
+						)}
+				/>
+			</Field>
+		{:else if el.type === 'node'}
+			{@const nodeGeometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
+			<Field label="Text size">
+				<input
+					type="number"
+					min="0.5"
+					max="20"
+					step="0.1"
+					placeholder="auto"
+					value={nodeGeometry.fontSize ?? ''}
+					oninput={(e) =>
+						setCodeSize(
+							nodeGeometry,
+							'fontSize',
+							(e.currentTarget as HTMLInputElement).value,
+							0.5,
+							20
+						)}
+				/>
+			</Field>
 		{:else if el.type === 'code'}
 			{@const codeGeometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
 			<Field label="Text size">
@@ -337,7 +480,13 @@
 					step="0.1"
 					value={codeGeometry.fontSize ?? CODE_DEFAULT_FONT_SIZE}
 					oninput={(e) =>
-						setCodeSize(codeGeometry, 'fontSize', (e.currentTarget as HTMLInputElement).value, 0.5, 20)}
+						setCodeSize(
+							codeGeometry,
+							'fontSize',
+							(e.currentTarget as HTMLInputElement).value,
+							0.5,
+							20
+						)}
 				/>
 			</Field>
 			<Field label="Padding">
@@ -349,7 +498,13 @@
 					aria-label="Padding left and right"
 					value={codeGeometry.paddingX ?? CODE_DEFAULT_PADDING_X}
 					oninput={(e) =>
-						setCodeSize(codeGeometry, 'paddingX', (e.currentTarget as HTMLInputElement).value, 0, 20)}
+						setCodeSize(
+							codeGeometry,
+							'paddingX',
+							(e.currentTarget as HTMLInputElement).value,
+							0,
+							20
+						)}
 				/>
 				<input
 					type="number"
@@ -359,7 +514,13 @@
 					aria-label="Padding top and bottom"
 					value={codeGeometry.paddingY ?? CODE_DEFAULT_PADDING_Y}
 					oninput={(e) =>
-						setCodeSize(codeGeometry, 'paddingY', (e.currentTarget as HTMLInputElement).value, 0, 20)}
+						setCodeSize(
+							codeGeometry,
+							'paddingY',
+							(e.currentTarget as HTMLInputElement).value,
+							0,
+							20
+						)}
 				/>
 			</Field>
 			<Field label="Min size">
@@ -372,7 +533,13 @@
 					placeholder="auto"
 					value={codeGeometry.minWidth ?? ''}
 					oninput={(e) =>
-						setCodeSize(codeGeometry, 'minWidth', (e.currentTarget as HTMLInputElement).value, 0, 1)}
+						setCodeSize(
+							codeGeometry,
+							'minWidth',
+							(e.currentTarget as HTMLInputElement).value,
+							0,
+							1
+						)}
 				/>
 				<input
 					type="number"
@@ -383,7 +550,13 @@
 					placeholder="auto"
 					value={codeGeometry.minHeight ?? ''}
 					oninput={(e) =>
-						setCodeSize(codeGeometry, 'minHeight', (e.currentTarget as HTMLInputElement).value, 0, 1)}
+						setCodeSize(
+							codeGeometry,
+							'minHeight',
+							(e.currentTarget as HTMLInputElement).value,
+							0,
+							1
+						)}
 				/>
 			</Field>
 		{/if}

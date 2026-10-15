@@ -33,6 +33,7 @@ import {
 	type ChartBlock,
 	type ChatMessage,
 	type ChecklistItem,
+	type DiagramNodeHighlight,
 	type DiagramPrimitive,
 	type SurfaceState
 } from './engine-schema';
@@ -135,6 +136,8 @@ export interface DiagramPrimitiveContentPatch {
 	format?: Extract<DiagramPrimitive, { type: 'stat-callout' }>['format'];
 	language?: Extract<DiagramPrimitive, { type: 'code' }>['language'];
 	steps?: Extract<DiagramPrimitive, { type: 'code' }>['steps'];
+	/** A node's highlighter swipe; `null` removes it. */
+	highlight?: DiagramNodeHighlight | null;
 	ink?: DiagramPrimitive['ink'];
 }
 
@@ -190,6 +193,7 @@ const DIAGRAM_CONTENT_FIELDS: Record<
 	format: ['stat-callout'],
 	language: ['code'],
 	steps: ['code'],
+	highlight: ['node'],
 	ink: ['node', 'edge-arrow', 'label', 'stat-callout', 'timeline-segment']
 };
 
@@ -210,6 +214,10 @@ const DIAGRAM_FIELDS_OWNED_ELSEWHERE: Record<string, string> = {
 	paddingY: 'gfx_placement_set_diagram_geometry',
 	minWidth: 'gfx_placement_set_diagram_geometry',
 	minHeight: 'gfx_placement_set_diagram_geometry',
+	enter: 'gfx_motion_set_block_timing',
+	exit: 'gfx_motion_set_block_timing',
+	borderWidth: 'gfx_placement_set_diagram_geometry',
+	strokeWidth: 'gfx_placement_set_diagram_geometry',
 	orientationOverrides: 'gfx_placement_set_diagram_geometry',
 	animation: 'gfx_motion_set_keyframe_channel'
 };
@@ -520,7 +528,16 @@ export async function runSetCompositionDiagramPrimitiveOperation(
 					{ rejected: request.blockId }
 				);
 			}
-			entries[index] = { ...entries[index], ...request.content } as DiagramPrimitive;
+			const { highlight, ...content } = request.content;
+			const next = { ...entries[index], ...content } as DiagramPrimitive;
+			if (next.type === 'node' && next.text === '') delete next.text;
+			if (next.type === 'node' && highlight !== undefined) {
+				const previous = next.highlight;
+				if (highlight === null) delete next.highlight;
+				// The swipe's cue override is the sound family's; a new window keeps it.
+				else next.highlight = previous?.sound ? { ...highlight, sound: previous.sound } : highlight;
+			}
+			entries[index] = next;
 		}
 	});
 }

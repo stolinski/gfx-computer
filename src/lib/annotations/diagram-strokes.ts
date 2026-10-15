@@ -26,7 +26,7 @@ import type { ResolvedDiagramStroke } from '$lib/platform/packs/resolve';
 
 export const DIAGRAM_NODE_ATTRIBUTE = 'data-diagram-node';
 
-	/** A node primitive's rendered box, in marks-canvas pixels. */
+/** A node primitive's rendered box, in marks-canvas pixels. */
 export interface DiagramNodeLayout {
 	id: string;
 	x: number;
@@ -88,7 +88,7 @@ export interface DrawDiagramStrokesOptions {
 	alphaById: Readonly<Record<string, number>>;
 	stroke: ResolvedDiagramStroke;
 	/**
-		 * The Pack's core accent colour — a primitive declaring `ink: 'accent'`
+	 * The Pack's core accent colour — a primitive declaring `ink: 'accent'`
 	 * strokes in this instead of `stroke.color` (composition picks which
 	 * elements carry emphasis; the Pack owns the colour).
 	 */
@@ -415,7 +415,8 @@ function drawEdgeArrow(
 		return;
 	}
 
-	const { widthPx, wobble, arrowhead } = options.stroke;
+	const { wobble, arrowhead } = options.stroke;
+	const widthPx = edge.strokeWidth ?? options.stroke.widthPx;
 	const color = strokeColorFor(edge, options);
 	const gap = widthPx * 1.6;
 

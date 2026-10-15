@@ -183,6 +183,13 @@ Every primitive also takes an optional `"ink": "ink" | "accent"` — a Role **se
     "form": "pin" | "box" | "dot",       // which form — content, the author picks; HOW it looks is the Pack's Role
     "text": "...",                        // optional in-node text
     "scale": 0.25..4,                     // optional
+    "fontSize": 0.5..20,                  // optional text size in cqmin; absent → 2.9 (box), 2 (pin/dot)
+    "paddingX": 0..20, "paddingY": 0..20, // optional box padding in cqmin; absent → 2.4 / 1.5
+    "borderWidth": 0..4,                  // optional box border in cqmin; absent → 0.32; 0 = borderless cut-out card
+    "highlight": {                        // optional highlighter swipe across the node's text
+      "start": 0..1, "duration": 0..1, "ease": "smooth",   // draws on left to right, then holds
+      "sound": { ... },                                     // optional override of its `swipe` cue
+      "lift": { "start": 0..1, "duration": 0..1, "ease": "smooth" } },  // optional: wipes off again, after the swipe
     "enter": { ... }, "exit": { ... },    // optional Transition sugar (start/duration/ease/sound)
     "animation": { "channels": { ... }, "cascade": { ... } } },  // full channel set: opacity | x | y | scale | rotation
 
@@ -192,12 +199,14 @@ Every primitive also takes an optional `"ink": "ink" | "accent"` — a Role **se
     "route": "straight" | "elbow" | "arc",                  // authored, never auto-routed
     "control": { "x": 0..1, "y": 0..1 },                    // optional single control point (elbow corner / arc bow)
     "direction": "forward" | "both" | "none",               // arrowhead placement; absent → "forward"
+    "strokeWidth": 1..80,                                   // optional stroke width in native-frame px; absent → the Pack's `diagram.stroke` width
     "animation": { "channels": { "opacity": [ ... ] }, "cascade": { ... } } },  // stroke elements: opacity only
 
   { "type": "label", "id": "l1", "position": { "x": 0..1, "y": 0..1 },
     "text": "required", "role": "headline" | "caption",   // optional; absent → caption at the consumer
     "wrap": "auto" | "explicit",                           // optional; explicit preserves authored line breaks
     "scale": 0.25..4,
+    "fontSize": 0.5..20,                                    // optional text size in cqmin; absent → 2.75 (caption), 5.1 (headline)
     "maxWidth": 0.03..1,                                    // optional final composition-width fraction; height follows text
     "animation": { ... } },                                 // full channel set
 
@@ -232,7 +241,9 @@ Parse-time rules: primitive ids are unique within the surface; every edge endpoi
 
 A `code` primitive is a syntax-highlighted panel that walks through its Code steps. During a step's `move` window, tokens both steps share glide from their old line and column to their new ones, tokens only the earlier step has fade out over the first half, and new tokens fade in over the second half. Tokens outside a step's `highlight` dim to 30%. The panel is sized to the widest and tallest step and never changes size between steps; `minWidth` and `minHeight` make it larger, never smaller. Text size, padding, and minimum box are each set on their own, per orientation, through the code snapshot and `gfx_placement_set_diagram_geometry` ([ADR-0070](adr/0070-every-visible-size-is-authorable.md)). Its appearance comes only from the Pack: the panel uses the `fill-treatment` and plain code uses the `ink-treatment` (an authored `typography` colour wins). Each syntax role uses the ink's lightness with its own hue, so no Pack Role exists for code. A step has at most 40 lines of at most 100 columns. Shiki (`src/lib/utils/code-tokens.ts`) splits the code into tokens and their roles; the motion is computed from the composition progress, never on a clock of its own.
 
-Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` as a **complete geometry snapshot**. Node and stat-callout snapshots are `{ "position": { "x", "y" }, "scale"? }`; code snapshots also carry optional `"fontSize"`, `"paddingX"`, `"paddingY"`, `"minWidth"`, and `"minHeight"`; label snapshots also carry optional `"maxWidth"`; edge-arrow snapshots are `{ "from", "to", "route", "control"? }`; timeline-segment snapshots are `{ "from", "to" }`. A snapshot replaces the shared geometry as one unit rather than inheriting individual fields. Content, timing, animation, ink, form, direction, labels, and values remain shared. The GUI edits shared geometry until **Customize horizontal** or **Customize vertical** is enabled; safe-area lint validates resolved points without mutating them.
+A node's `highlight` is the mark that says "this step, now": a chisel-marker band in the Pack's `node.accent` colour draws on behind the node's text over its window and holds; the word takes the legibility ink for that colour once most of it is covered. An optional `lift` wipes the band off left to right when the story moves on; it may start only after the swipe has drawn on. The swipe emits the `swipe` sound event at its start, the same event as a highlight mark; `gfx_sound_set_motion_override` reaches it as `{ kind: "block", blockId, phase: "highlight" }`, and `gfx_motion_set_block_timing` retimes a Block's enter and exit.
+
+Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` as a **complete geometry snapshot**. Node snapshots are `{ "position": { "x", "y" }, "scale"?, "fontSize"?, "paddingX"?, "paddingY"?, "borderWidth"? }`; stat-callout snapshots are `{ "position": { "x", "y" }, "scale"? }`; code snapshots also carry optional `"fontSize"`, `"paddingX"`, `"paddingY"`, `"minWidth"`, and `"minHeight"`; label snapshots also carry optional `"fontSize"` and `"maxWidth"`; edge-arrow snapshots are `{ "from", "to", "route", "control"? }`; timeline-segment snapshots are `{ "from", "to" }`. A snapshot replaces the shared geometry as one unit rather than inheriting individual fields. Content, timing, animation, ink, form, direction, labels, and values remain shared. The GUI edits shared geometry until **Customize horizontal** or **Customize vertical** is enabled; safe-area lint validates resolved points without mutating them.
 
 A Diagram label is the bounded text-container domain. `maxWidth` is the label's final width as a fraction of the native composition width, independent of `scale`; changing it reflows lines without changing font size, and the box height follows its content. The Inspector edits the same field agents author. On-canvas west/east handles keep the opposite edge fixed, convert screen movement through the active canvas projection, and write the active orientation's shared or override geometry.
 
@@ -597,11 +608,13 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
       "distance": 0.25..2,          // fraction of the rest distance (default 1)
       "aim": { "x": 0..1, "y": 0..1 }   // page point the camera orbits and looks at (default centre)
     },
-    "travel": {                     // optional: one move from the rest pose
+    "travel": {                     // optional: one move from the rest pose…
       "to": { "yaw"?, "pitch"?, "roll"?, "distance"?, "aim"?: { "x"?, "y"? } },  // fields left out hold
       "start": 0..1, "duration": 0..1,                    // timeline fractions (defaults 0, 1)
       "ease": "smooth" | "settled" | "sharp" | "bouncy"   // default "smooth"
     },
+    // …or a list of 1–8 such moves in timeline order (ADR-0057 amendment 2026-10-14):
+    // "travel": [ { "to": { "aim": { "x": 0.5 } }, "start": 0.14, "duration": 0.12 }, { ... } ],
     "vertical": {                   // optional: the camera under a vertical frame (ADR-0059)
       "pose": { ... },              // replaces `pose` whole when present
       "travel": { ... }             // replaces `travel` whole when present
@@ -622,6 +635,8 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
 ```
 
 A `screen` films the Surface on a real object: the model's opening fits inside the frame plane and the composition covers it (a widescreen tube shows nearly all of a horizontal frame and the middle band of a vertical one), the glass carries the model's own optics (a CRT's dome, raster, grille, halation, and vignette), the housing stands on the model's floor around the glass lit by the Pack key and by the picture itself, casts a real shadow, and occludes the glass from an oblique camera. The model's plastics and optics are its own; a Pack changes the field, the light, and what is on the screen. Aim, focus, and canvas hit-tests keep addressing the glass.
+
+A travel list visits one place after another: each move eases from where the previous one landed (the first from the rest pose), a field its `to` leaves out holds that pose, and windows never overlap — a move that starts before the previous one ends is a schema error. A single move may be written as the object or as a list of one; both resolve identically.
 
 Focus follows the aim: `focusZ` 0 keeps the aimed page point sharp (the Surface plane's centre under the frontal camera), `focusZ` 1 reaches the backdrop straight behind it, and a `travel` that moves the aim racks focus with it. A pose widens the stage's depth encoding to the distances the move can reach and scales the lens with the camera's nearness — the circle of confusion per world unit grows as one over the focus distance squared, as a thin lens does, so a camera at `distance` 0.5 defocuses the same page four times as hard as the rest camera; with no `pose` or `travel` every existing Preset renders pixel-identical. How a filmed piece reflows to the tall frame is designable: `vertical` films the same set from its own rest pose and travel under a vertical frame, each field replacing its horizontal counterpart whole (a landscape screen can sit closer and push in until its picture fills the width), and an absent `vertical` films both frames through one camera. The renderer, the canvas projector, and the WS7 rubric all resolve it the same way, once per frame.
 

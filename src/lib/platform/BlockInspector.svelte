@@ -128,7 +128,10 @@
 
 	<SoundSection
 		motions={[
-			...(el.enter ? [{ label: 'Enter', cueId: `block:${el.id}:enter`, window: el.enter }] : [])
+			...(el.enter ? [{ label: 'Enter', cueId: `block:${el.id}:enter`, window: el.enter }] : []),
+			...(el.type === 'node' && el.highlight
+				? [{ label: 'Highlight', cueId: `block:${el.id}:highlight`, window: el.highlight }]
+				: [])
 		]}
 	/>
 {/if}

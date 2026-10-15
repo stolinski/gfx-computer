@@ -1,0 +1,640 @@
+{
+	"schema": "supers@1",
+	"name": "Docu flowchart, filmed",
+	"description": "A flowchart printed on a dark page and filmed by the Stage camera.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 10,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#1a1918",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"diagram": [
+				{
+					"type": "label",
+					"id": "l-workflow",
+					"position": {
+						"x": 0.2,
+						"y": 0.29
+					},
+					"text": "A WORKFLOW",
+					"role": "headline",
+					"enter": {
+						"start": 0.02,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"fontSize": 3,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.1
+							},
+							"fontSize": 3
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-step-1",
+					"position": {
+						"x": 0.2,
+						"y": 0.4
+					},
+					"form": "box",
+					"text": "Step 1",
+					"enter": {
+						"start": 0.03,
+						"duration": 0.04,
+						"ease": "settled",
+						"sound": {
+							"mute": true
+						}
+					},
+					"highlight": {
+						"start": 0.07,
+						"duration": 0.04,
+						"ease": "smooth",
+						"lift": {
+							"start": 0.25,
+							"duration": 0.04,
+							"ease": "smooth"
+						}
+					},
+					"fontSize": 7,
+					"paddingX": 4.4,
+					"paddingY": 2.8,
+					"borderWidth": 0,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.17
+							},
+							"fontSize": 8.5,
+							"paddingX": 5,
+							"paddingY": 3.2,
+							"borderWidth": 0
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-1-2",
+					"from": {
+						"node": "n-step-1"
+					},
+					"to": {
+						"node": "n-step-2"
+					},
+					"route": "straight",
+					"direction": "forward",
+					"enter": {
+						"start": 0.15,
+						"duration": 0.06,
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
+					},
+					"strokeWidth": 26,
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "n-step-1"
+							},
+							"to": {
+								"node": "n-step-2"
+							},
+							"route": "straight"
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-step-2",
+					"position": {
+						"x": 0.5,
+						"y": 0.4
+					},
+					"form": "box",
+					"text": "Step 2",
+					"enter": {
+						"start": 0.2,
+						"duration": 0.04,
+						"ease": "settled",
+						"sound": {
+							"mute": true
+						}
+					},
+					"highlight": {
+						"start": 0.26,
+						"duration": 0.04,
+						"ease": "smooth",
+						"lift": {
+							"start": 0.44,
+							"duration": 0.04,
+							"ease": "smooth"
+						}
+					},
+					"fontSize": 7,
+					"paddingX": 4.4,
+					"paddingY": 2.8,
+					"borderWidth": 0,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.31
+							},
+							"fontSize": 8.5,
+							"paddingX": 5,
+							"paddingY": 3.2,
+							"borderWidth": 0
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-2-3",
+					"from": {
+						"node": "n-step-2"
+					},
+					"to": {
+						"node": "n-step-3"
+					},
+					"route": "straight",
+					"direction": "forward",
+					"enter": {
+						"start": 0.34,
+						"duration": 0.06,
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
+					},
+					"strokeWidth": 26,
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "n-step-2"
+							},
+							"to": {
+								"node": "n-step-3"
+							},
+							"route": "straight"
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-step-3",
+					"position": {
+						"x": 0.8,
+						"y": 0.4
+					},
+					"form": "box",
+					"text": "Step 3",
+					"enter": {
+						"start": 0.39,
+						"duration": 0.04,
+						"ease": "settled",
+						"sound": {
+							"mute": true
+						}
+					},
+					"highlight": {
+						"start": 0.45,
+						"duration": 0.04,
+						"ease": "smooth",
+						"lift": {
+							"start": 0.6,
+							"duration": 0.04,
+							"ease": "smooth"
+						}
+					},
+					"fontSize": 7,
+					"paddingX": 4.4,
+					"paddingY": 2.8,
+					"borderWidth": 0,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.45
+							},
+							"fontSize": 8.5,
+							"paddingX": 5,
+							"paddingY": 3.2,
+							"borderWidth": 0
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "l-workflow-caption",
+					"position": {
+						"x": 0.5,
+						"y": 0.52
+					},
+					"text": "each step is a function call",
+					"role": "caption",
+					"enter": {
+						"start": 0.3,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"fontSize": 4.2,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.53
+							},
+							"fontSize": 3.6
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "l-agent",
+					"position": {
+						"x": 0.5,
+						"y": 0.62
+					},
+					"text": "AN AGENT",
+					"role": "headline",
+					"enter": {
+						"start": 0.58,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"fontSize": 3,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.585
+							},
+							"fontSize": 3
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-model",
+					"position": {
+						"x": 0.3,
+						"y": 0.76
+					},
+					"form": "box",
+					"text": "Model",
+					"enter": {
+						"start": 0.6,
+						"duration": 0.04,
+						"ease": "settled",
+						"sound": {
+							"mute": true
+						}
+					},
+					"highlight": {
+						"start": 0.72,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"fontSize": 7,
+					"paddingX": 4.4,
+					"paddingY": 2.8,
+					"borderWidth": 0,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.655
+							},
+							"fontSize": 8.5,
+							"paddingX": 5,
+							"paddingY": 3.2,
+							"borderWidth": 0
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-tools",
+					"position": {
+						"x": 0.7,
+						"y": 0.76
+					},
+					"form": "box",
+					"text": "Tools",
+					"enter": {
+						"start": 0.63,
+						"duration": 0.04,
+						"ease": "settled",
+						"sound": {
+							"mute": true
+						}
+					},
+					"fontSize": 7,
+					"paddingX": 4.4,
+					"paddingY": 2.8,
+					"borderWidth": 0,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.775
+							},
+							"fontSize": 8.5,
+							"paddingX": 5,
+							"paddingY": 3.2,
+							"borderWidth": 0
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-model-tools",
+					"from": {
+						"node": "n-model"
+					},
+					"to": {
+						"node": "n-tools"
+					},
+					"route": "arc",
+					"direction": "forward",
+					"enter": {
+						"start": 0.65,
+						"duration": 0.06,
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
+					},
+					"control": {
+						"x": 0.5,
+						"y": 0.64
+					},
+					"strokeWidth": 26,
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "n-model"
+							},
+							"to": {
+								"node": "n-tools"
+							},
+							"route": "arc",
+							"control": {
+								"x": 0.82,
+								"y": 0.715
+							}
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-tools-model",
+					"from": {
+						"node": "n-tools"
+					},
+					"to": {
+						"node": "n-model"
+					},
+					"route": "arc",
+					"direction": "forward",
+					"enter": {
+						"start": 0.69,
+						"duration": 0.06,
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
+					},
+					"control": {
+						"x": 0.5,
+						"y": 0.88
+					},
+					"strokeWidth": 26,
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "n-tools"
+							},
+							"to": {
+								"node": "n-model"
+							},
+							"route": "arc",
+							"control": {
+								"x": 0.18,
+								"y": 0.715
+							}
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "l-agent-caption",
+					"position": {
+						"x": 0.5,
+						"y": 0.93
+					},
+					"text": "it loops until it’s done",
+					"role": "caption",
+					"enter": {
+						"start": 0.74,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"fontSize": 4.2,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.83
+							},
+							"fontSize": 3.6
+						}
+					}
+				}
+			]
+		},
+		"overlays": [],
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "grain",
+				"params": {
+					"warmth": 0.2,
+					"density": 0.35
+				}
+			},
+			{
+				"type": "optical-vignette",
+				"id": "lens",
+				"params": {
+					"exposureLoss": 2.2,
+					"onset": 0.15,
+					"feather": 0.8,
+					"roundness": 0.6,
+					"center": {
+						"x": 0.5,
+						"y": 0.5
+					}
+				}
+			}
+		],
+		"stage": {
+			"type": "depth",
+			"camera": {
+				"move": "static",
+				"pose": {
+					"yaw": -16,
+					"pitch": -22,
+					"roll": -5,
+					"distance": 0.75,
+					"aim": {
+						"x": 0.2,
+						"y": 0.42
+					}
+				},
+				"travel": [
+					{
+						"to": {
+							"aim": {
+								"x": 0.5
+							}
+						},
+						"start": 0.14,
+						"duration": 0.12,
+						"ease": "smooth"
+					},
+					{
+						"to": {
+							"aim": {
+								"x": 0.8
+							},
+							"yaw": -12
+						},
+						"start": 0.33,
+						"duration": 0.12,
+						"ease": "smooth"
+					},
+					{
+						"to": {
+							"aim": {
+								"x": 0.5,
+								"y": 0.77
+							},
+							"yaw": 12,
+							"roll": 4,
+							"distance": 0.85
+						},
+						"start": 0.56,
+						"duration": 0.14,
+						"ease": "smooth"
+					},
+					{
+						"to": {
+							"aim": {
+								"x": 0.5,
+								"y": 0.58
+							},
+							"yaw": -6,
+							"pitch": -16,
+							"roll": -2,
+							"distance": 1.25
+						},
+						"start": 0.82,
+						"duration": 0.16,
+						"ease": "smooth"
+					}
+				],
+				"vertical": {
+					"pose": {
+						"yaw": -14,
+						"pitch": -20,
+						"roll": -4,
+						"distance": 0.72,
+						"aim": {
+							"x": 0.5,
+							"y": 0.17
+						}
+					},
+					"travel": [
+						{
+							"to": {
+								"aim": {
+									"y": 0.31
+								}
+							},
+							"start": 0.14,
+							"duration": 0.12,
+							"ease": "smooth"
+						},
+						{
+							"to": {
+								"aim": {
+									"y": 0.45
+								},
+								"yaw": -8
+							},
+							"start": 0.33,
+							"duration": 0.12,
+							"ease": "smooth"
+						},
+						{
+							"to": {
+								"aim": {
+									"y": 0.715
+								},
+								"yaw": 12,
+								"roll": 4,
+								"distance": 0.8
+							},
+							"start": 0.56,
+							"duration": 0.14,
+							"ease": "smooth"
+						},
+						{
+							"to": {
+								"aim": {
+									"y": 0.5
+								},
+								"yaw": -6,
+								"pitch": -14,
+								"roll": -2,
+								"distance": 1.1
+							},
+							"start": 0.82,
+							"duration": 0.16,
+							"ease": "smooth"
+						}
+					]
+				}
+			},
+			"focus": {
+				"focusZ": 0,
+				"aperture": 0.25,
+				"band": 0.12
+			}
+		}
+	}
+}

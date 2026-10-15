@@ -35,10 +35,13 @@ describe('Diagram orientation geometry', () => {
 			scale: 1.8,
 			maxWidth: 0.7
 		});
+		// A snapshot replaces the shared geometry whole, so a size it leaves out
+		// resolves absent rather than inheriting the shared one.
 		assert.deepEqual(resolveDiagramPrimitiveForRender(label, 'vertical'), {
 			...label,
 			position: { x: 0.5, y: 0.12 },
 			scale: 1.8,
+			fontSize: undefined,
 			maxWidth: 0.7
 		});
 	});

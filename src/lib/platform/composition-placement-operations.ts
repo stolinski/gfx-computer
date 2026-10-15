@@ -143,12 +143,18 @@ export interface DiagramGeometryPatch {
 	control?: DiagramPoint;
 	scale?: number;
 	maxWidth?: number;
-	/** A code panel's text size and padding (cqmin) and minimum box (frame fractions), ADR-0070. */
+	/**
+	 * Sizes (ADR-0070): text size and padding in cqmin for a code panel, a box
+	 * node, and (text size only) a label; a code panel's minimum box in frame
+	 * fractions; a box node's border in cqmin; an edge's stroke in native px.
+	 */
 	fontSize?: number;
 	paddingX?: number;
 	paddingY?: number;
 	minWidth?: number;
 	minHeight?: number;
+	borderWidth?: number;
+	strokeWidth?: number;
 }
 
 export interface SetCompositionDiagramGeometryRequest {
@@ -163,25 +169,26 @@ type DiagramGeometryField = keyof DiagramGeometryPatch;
 
 /** The geometry fields each primitive type carries on itself. */
 const DIAGRAM_GEOMETRY_FIELDS: Record<DiagramPrimitive['type'], readonly DiagramGeometryField[]> = {
-	node: ['position', 'scale'],
-	label: ['position', 'scale', 'maxWidth'],
+	node: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'borderWidth'],
+	label: ['position', 'scale', 'fontSize', 'maxWidth'],
 	'stat-callout': ['position', 'scale', 'from', 'to'],
 	code: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'minWidth', 'minHeight'],
-	'edge-arrow': ['from', 'to', 'control'],
+	'edge-arrow': ['from', 'to', 'control', 'strokeWidth'],
 	'timeline-segment': ['from', 'to']
 };
 
 /**
  * The fields an orientation snapshot holds. Narrower than the shared set on the
  * stat callout, whose snapshot is position and scale: its `from`/`to` are the
- * counted range, which does not reflow and so has no per-orientation value.
+ * counted range, which does not reflow and so has no per-orientation value. An
+ * edge's stroke width is one weight for the whole piece, so it is shared only.
  */
 const DIAGRAM_ORIENTATION_GEOMETRY_FIELDS: Record<
 	DiagramPrimitive['type'],
 	readonly DiagramGeometryField[]
 > = {
-	node: ['position', 'scale'],
-	label: ['position', 'scale', 'maxWidth'],
+	node: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'borderWidth'],
+	label: ['position', 'scale', 'fontSize', 'maxWidth'],
 	'stat-callout': ['position', 'scale'],
 	code: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'minWidth', 'minHeight'],
 	'edge-arrow': ['from', 'to', 'control'],

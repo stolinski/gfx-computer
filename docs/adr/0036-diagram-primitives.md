@@ -66,3 +66,13 @@ All four chosen: **animated map** (primitives over image substrate — the signa
 
 **Limits.** 16 steps, 40 lines, 100 columns. Lines never wrap: wrapping would move a token across lines mid-move. The demo `code-async-await` is art-directed for horizontal only, at Scott's direction; its vertical composition has not been designed.
 
+## Amendment 2026-10-14 — the filmed flowchart
+
+**Why.** Scott judged the agent-made flowcharts ugly, badly sounded, and unengaging: small boxes in a mostly empty frame, every element entering the same way, a pop and a draw for every element. The direction he chose is printed cut-out cards on a dark page, filmed by the Stage camera ([ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md)), which walks from step to step and marks the current step with a highlighter swipe. The deliverable is `docu-flowchart-filmed`.
+
+**Decisions.**
+
+- **A node may carry a `highlight`.** A chisel-marker band in the Pack's `node.accent` colour draws on behind the node's text over its window and holds; an optional `lift` wipes it off when the story moves on. This is the "this step, now" mark §5 left to keyframes; keyframes cannot draw a band, so it is a node field. It emits the `swipe` sound event, the same as a highlight mark, and nothing else in a filmed flowchart needs to sound: the Preset mutes the per-element pop and draw.
+- **Node, label, and edge sizes are authorable** ([ADR-0070](0070-every-visible-size-is-authorable.md)). A box node takes `fontSize`, `paddingX`, `paddingY`, and `borderWidth` (0 is a borderless cut-out card); a label takes `fontSize`; an edge takes `strokeWidth`. Node and label sizes are geometry, so they ride the per-orientation snapshot.
+- **A blurred depth rig is a lifted card.** A Pack `node.depth` offset with a blur draws one soft cast shadow and no backing plate; an unblurred offset keeps the hard plate.
+- **The Syntax Pack sets diagrams in print faces**: Archivo 900 on cards and headings, Source Serif 4 italic for captions, through `diagram.font`, `label.font`, and the new `label.captionFont`, `label.captionStyle`, `node.weight`, and `node.tracking` Roles ([`docs/packs/syntax/aesthetic.md`](../packs/syntax/aesthetic.md)). Every Syntax flowchart takes the new dress.

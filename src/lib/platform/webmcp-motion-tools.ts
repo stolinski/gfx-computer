@@ -33,6 +33,7 @@ import {
 	COMPOSITION_MOTION_EASES,
 	runSetCompositionChartMotionOperation,
 	runSetCompositionMarkTimingOperation,
+	runSetCompositionBlockTimingOperation,
 	runSetCompositionOverlayTimingOperation,
 	runSetCompositionSurfaceTimingOperation,
 	runSetCompositionTextAnimationOperation
@@ -526,6 +527,29 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 					runSetCompositionOverlayTimingOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						overlayId: readWebmcpStringArgument(args, 'overlayId'),
+						enter: readClearableMotionWindow(args, 'enter'),
+						exit: readClearableMotionWindow(args, 'exit')
+					})
+				)
+		},
+		{
+			operationId: 'motion.set-block-timing',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					blockId: webmcpEntityIdProperty('The diagram Block to retime.'),
+					enter: clearableMotionWindowProperty('The Block entrance.'),
+					exit: clearableMotionWindowProperty('The Block exit.')
+				},
+				required: ['expectedRevision', 'blockId'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('motion.set-block-timing', () =>
+					runSetCompositionBlockTimingOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						blockId: readWebmcpStringArgument(args, 'blockId'),
 						enter: readClearableMotionWindow(args, 'enter'),
 						exit: readClearableMotionWindow(args, 'exit')
 					})

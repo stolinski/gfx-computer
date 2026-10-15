@@ -19,6 +19,8 @@ const SAMPLES = (process.env.CDP_SAMPLES ?? '0,0.25,0.5,0.75,1').split(',').map(
 const TARGET_ORIENTATION = process.env.CDP_ORIENTATION;
 const TARGET_PACK = process.env.CDP_PACK;
 const WAIT_SELECTOR = process.env.CDP_WAIT_SELECTOR;
+// Decimal places in each frame's file name; a dense sweep (a whole clip) needs more than 2.
+const NAME_DIGITS = Number(process.env.CDP_NAME_DIGITS ?? 2);
 const BUILT_IN_PRESET_PATH = `src/lib/presets/${SLUG}.json`;
 const EXPECTED_PRESET_LABEL = existsSync(BUILT_IN_PRESET_PATH)
 	? JSON.parse(readFileSync(BUILT_IN_PRESET_PATH, 'utf8')).name
@@ -270,7 +272,7 @@ for (const p of SAMPLES) {
 		fromSurface: true,
 		clip: { x: rect.x, y: rect.y, width: rect.w, height: rect.bh / clipScale, scale: clipScale }
 	});
-	const file = `${OUTDIR}/p${p.toFixed(2)}.png`;
+	const file = `${OUTDIR}/p${p.toFixed(NAME_DIGITS)}.png`;
 	writeFileSync(file, Buffer.from(shot.data, 'base64'));
 	saved.push(file);
 	console.log(`saved ${file}  (t=${landedTime.toFixed(2)}s)`);

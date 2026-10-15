@@ -433,3 +433,79 @@ describe('captions', () => {
 		expect(failure.code).toBe('precondition_unmet');
 	});
 });
+
+describe('a node highlighter swipe and its words', () => {
+	beforeEach(async () => {
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 0,
+				primitiveType: 'node'
+			})
+		);
+	});
+
+	it('writes a swipe, keeps its cue override through a rewrite, and removes it with null', async () => {
+		expectApplied(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 1,
+				blockId: 'node-1',
+				content: { highlight: { start: 0.2, duration: 0.05, ease: 'smooth' } }
+			})
+		);
+		const node = engineState.surface.diagram?.[0];
+		if (node?.type !== 'node' || !node.highlight) throw new Error('expected a swipe');
+		node.highlight.sound = { mute: true };
+
+		expectApplied(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 2,
+				blockId: 'node-1',
+				content: {
+					highlight: {
+						start: 0.3,
+						duration: 0.05,
+						ease: 'smooth',
+						lift: { start: 0.6, duration: 0.05, ease: 'smooth' }
+					}
+				}
+			})
+		);
+		const rewritten = engineState.surface.diagram?.[0];
+		expect(rewritten?.type === 'node' ? rewritten.highlight : undefined).toMatchObject({
+			start: 0.3,
+			sound: { mute: true },
+			lift: { start: 0.6 }
+		});
+
+		expectApplied(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 3,
+				blockId: 'node-1',
+				content: { highlight: null }
+			})
+		);
+		const cleared = engineState.surface.diagram?.[0];
+		expect(cleared?.type === 'node' ? cleared.highlight : 'missing').toBeUndefined();
+	});
+
+	it("clears a node's words with empty text, and points timing at the motion tool", async () => {
+		expectApplied(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 1,
+				blockId: 'node-1',
+				content: { text: '' }
+			})
+		);
+		const node = engineState.surface.diagram?.[0];
+		expect(node?.type === 'node' ? node.text : 'missing').toBeUndefined();
+
+		const failure = expectFailed(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 2,
+				blockId: 'node-1',
+				content: { enter: { start: 0, duration: 0.1, ease: 'smooth' } } as never
+			})
+		);
+		expect(failure.message).toContain('gfx_motion_set_block_timing');
+	});
+});

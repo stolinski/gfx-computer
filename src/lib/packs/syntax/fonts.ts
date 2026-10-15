@@ -34,6 +34,11 @@ import '@fontsource/space-grotesk/700.css';
 import '@fontsource-variable/space-grotesk/index.css';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
+// The printed-card diagram voice (2026-10-14): heavy Archivo on the cut-out
+// cards and headings, Source Serif italic for the captions beside them.
+import '@fontsource/archivo/latin-800.css';
+import '@fontsource/archivo/latin-900.css';
+import '@fontsource/source-serif-4/latin-500-italic.css';
 
 import type { PackFont } from '$lib/platform/packs/types';
 
@@ -45,5 +50,7 @@ export const syntaxFonts: readonly PackFont[] = [
 	{ family: 'Inter', weights: [400, 600, 700] },
 	{ family: 'Space Grotesk', weights: [500, 700] },
 	{ family: 'Space Grotesk Variable', weights: [300, 650, 700] },
-	{ family: 'Space Mono', weights: [400, 700] }
+	{ family: 'Space Mono', weights: [400, 700] },
+	{ family: 'Archivo', weights: [800, 900] },
+	{ family: 'Source Serif 4', weights: [500], style: 'italic' }
 ];

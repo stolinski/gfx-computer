@@ -79,6 +79,14 @@ export interface SetCompositionOverlayTimingRequest {
 	exit?: CompositionMotionWindow | null;
 }
 
+export interface SetCompositionBlockTimingRequest {
+	expectedRevision: number;
+	/** The diagram Block to retime. */
+	blockId: string;
+	enter?: CompositionMotionWindow | null;
+	exit?: CompositionMotionWindow | null;
+}
+
 export interface SetCompositionMarkTimingRequest {
 	expectedRevision: number;
 	/** The Annotation Mark's index in `marks.timings`, in document order. */
@@ -291,6 +299,58 @@ export async function runSetCompositionOverlayTimingOperation(
 			}
 			overlay.enter = retimeMotionWindow(overlay.enter, enter);
 			overlay.exit = retimeMotionWindow(overlay.exit, exit);
+		}
+	});
+}
+
+/** Set one diagram Block's entrance and exit windows. */
+export async function runSetCompositionBlockTimingOperation(
+	request: SetCompositionBlockTimingRequest
+): Promise<CompositionOperationOutcome> {
+	const row = requireCompositionOperationRow('motion.set-block-timing');
+	const refusal = refuseUnlessCompositionEditable(row);
+	if (refusal) return refusal;
+
+	const document = readOpenCompositionDocument();
+	const diagram = document.state.surface.diagram ?? [];
+	if (!diagram.some((entry) => entry.id === request.blockId)) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'unknown_target',
+			`No diagram Block in this composition is named "${request.blockId}".`,
+			{ rejected: request.blockId, alternatives: diagram.map((entry) => entry.id) }
+		);
+	}
+	if (request.enter === undefined && request.exit === undefined) {
+		return refuseEmptyTimingEdit(row);
+	}
+	const enter = resolveOptionalMotionWindow(request.enter, document);
+	const exit = resolveOptionalMotionWindow(request.exit, document);
+	const windowRefusal = refuseUnauthorableWindows(row, [
+		['Block enter', enter],
+		['Block exit', exit]
+	]);
+	if (windowRefusal) return windowRefusal;
+
+	return runCompositionEditTransaction({
+		operationId: row.id,
+		expectedRevision: request.expectedRevision,
+		undoLabel: 'Set Block timing',
+		focus: { target: 'block', blockId: request.blockId },
+		mutate: (draft) => {
+			const primitive = (draft.state.surface.diagram ?? []).find(
+				(entry) => entry.id === request.blockId
+			);
+			if (!primitive) {
+				throw new CompositionOperationError(
+					'unknown_target',
+					`Block "${request.blockId}" is no longer on the Surface.`,
+					{ rejected: request.blockId }
+				);
+			}
+			primitive.enter = retimeMotionWindow(primitive.enter, enter);
+			primitive.exit = retimeMotionWindow(primitive.exit, exit);
 		}
 	});
 }

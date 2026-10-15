@@ -11,6 +11,7 @@
 		resolveDepthTreatment,
 		resolveFieldInkColor,
 		resolveFontTreatment,
+		resolvePackRoleColor,
 		resolveTypographyColors
 	} from './packs/resolve';
 	import { ENGINE_FONT_FAMILIES, type DiagramPrimitive } from './engine-schema';
@@ -201,6 +202,10 @@
 					// Emissive packs bloom with a centered hot core and wider skirt.
 					const glow = `0 0 ${depth.radius}px color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 100)}%, transparent), 0 0 ${depth.radius * 2.25}px color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 45)}%, transparent)`;
 					style += `;--node-shadow:${glow}`;
+				} else if (depth.blur > 0) {
+					// A blurred offset is a card lifted off the page: one soft cast
+					// shadow and no backing plate.
+					style += `;--node-shadow:${depth.dx}px ${depth.dy}px ${depth.blur}px ${depth.color}`;
 				} else {
 					// A reflective Pack's hard offset is a physical backing plate, not a
 					// zero-falloff shadow. Keep that signature as explicit geometry and
@@ -217,6 +222,12 @@
 				// composition's ink is footage-white. The pair is intentionally
 				// near-black/near-white — legibility poles, not palette colours.
 				style += `;--node-box-ink:${isDarkSurfaceColor(fill) ? '#ffffff' : '#0c0c0c'}`;
+			}
+			if (primitive.highlight) {
+				// The swipe wears the node's own accent Role; the word under it takes
+				// the legibility pole for that colour.
+				const marker = resolvePackRoleColor(pack, 'node.accent', 'accent-treatment');
+				style += `;--node-highlight:${marker};--node-highlight-ink:${isDarkSurfaceColor(marker) ? '#ffffff' : '#0c0c0c'}`;
 			}
 		}
 		return style;

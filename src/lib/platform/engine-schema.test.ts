@@ -526,6 +526,36 @@ describe('engine schema', () => {
 		expectIssue(invalid, 'Invalid option', 'invalid Diagram label role');
 	});
 
+	it('takes a node highlight and node sizes, and refuses a lift before the swipe', () => {
+		const state = baseState();
+		state.surface.diagram = [
+			{
+				type: 'node',
+				id: 'step',
+				position: { x: 0.5, y: 0.5 },
+				form: 'box',
+				text: 'Step',
+				fontSize: 7,
+				paddingX: 4,
+				paddingY: 2.5,
+				borderWidth: 0,
+				highlight: { start: 0.2, duration: 0.05, lift: { start: 0.5, duration: 0.05 } },
+				orientationOverrides: {
+					vertical: { position: { x: 0.5, y: 0.4 }, fontSize: 9, borderWidth: 0 }
+				}
+			}
+		];
+		const result = EngineStateSchema.safeParse(state);
+		assert.ok(result.success, result.success ? '' : result.error.message);
+		const node = result.data.surface.diagram?.[0];
+		assert.equal(node?.type === 'node' ? node.highlight?.ease : undefined, 'smooth');
+
+		const early = structuredClone(state);
+		const earlyNode = (early.surface.diagram as Record<string, unknown>[])[0];
+		earlyNode.highlight = { start: 0.2, duration: 0.05, lift: { start: 0.21, duration: 0.05 } };
+		expectIssue(early, 'lifts only after', 'a lift that starts mid-swipe');
+	});
+
 	it('validates canonical Video media and full-frame bed eligibility', () => {
 		const emptyResult = EngineStateSchema.safeParse(baseState());
 		assert.ok(emptyResult.success, emptyResult.success ? '' : emptyResult.error.message);
@@ -921,6 +951,48 @@ describe('chart Block structural schema', () => {
 			{ id: 'bar-chart-a', type: 'label', position: { x: 0.5, y: 0.5 }, text: 'x' }
 		];
 		expectIssue(state, 'duplicates a surface.diagram[] Block id', 'Block identity collision');
+	});
+});
+
+describe('stage camera travel through several moves (ADR-0057 amendment)', () => {
+	it("parses a list of moves with each move's defaults filled in", () => {
+		const stage = StageSchema.parse({
+			type: 'depth',
+			camera: {
+				travel: [
+					{ to: { aim: { x: 0.5 } }, start: 0.1, duration: 0.2 },
+					{ to: { aim: { x: 0.8 } }, start: 0.4, duration: 0.2, ease: 'settled' }
+				]
+			}
+		});
+		assert.deepEqual(stage.camera.travel, [
+			{ to: { aim: { x: 0.5 } }, start: 0.1, duration: 0.2, ease: 'smooth' },
+			{ to: { aim: { x: 0.8 } }, start: 0.4, duration: 0.2, ease: 'settled' }
+		]);
+	});
+
+	it('refuses moves that overlap or run out of order, and more than eight', () => {
+		const overlapping = StageSchema.safeParse({
+			type: 'depth',
+			camera: {
+				travel: [
+					{ to: { yaw: 10 }, start: 0.1, duration: 0.3 },
+					{ to: { yaw: 20 }, start: 0.3, duration: 0.2 }
+				]
+			}
+		});
+		assert.equal(overlapping.success, false);
+		const tooMany = StageSchema.safeParse({
+			type: 'depth',
+			camera: {
+				travel: Array.from({ length: 9 }, (_, index) => ({
+					to: { yaw: index },
+					start: index / 10,
+					duration: 0.05
+				}))
+			}
+		});
+		assert.equal(tooMany.success, false);
 	});
 });
 

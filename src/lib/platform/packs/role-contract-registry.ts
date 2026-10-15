@@ -14,7 +14,9 @@ import {
 export type PackRoleAvailability = 'mandatory' | 'reference-identity' | 'optional';
 
 export type PackRoleFallback =
-	{ kind: 'role'; role: string } | { kind: 'intrinsic'; description: string } | { kind: 'none' };
+	| { kind: 'role'; role: string }
+	| { kind: 'intrinsic'; description: string }
+	| { kind: 'none' };
 
 export type PackRoleConsumer =
 	| {
@@ -673,6 +675,11 @@ for (const role of [
 	'counter.radius',
 	'counter.weight',
 	'instance-stack.weight',
+	'label.captionFont',
+	'label.captionStyle',
+	'label.font',
+	'node.tracking',
+	'node.weight',
 	'lower-third.border',
 	'lower-third.case',
 	'lower-third.gap',
@@ -714,7 +721,7 @@ for (const role of [
 ])
 	addCssContract(
 		role,
-		role.endsWith('.font')
+		role.endsWith('.font') || role.endsWith('.captionFont')
 			? { kind: 'role', role: 'font-treatment' }
 			: role.endsWith('.fontLabel')
 				? { kind: 'role', role: 'font-label-treatment' }

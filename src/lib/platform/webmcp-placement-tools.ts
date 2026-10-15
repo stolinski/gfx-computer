@@ -310,23 +310,38 @@ function diagramGeometryProperties(): Readonly<Record<string, WebmcpSchemaProper
 		},
 		fontSize: {
 			type: 'number',
-			description: "A code panel's text size, in hundredths of the frame's shorter side.",
+			description:
+				"A code panel's, box node's, or label's text size, in hundredths of the frame's shorter side.",
 			minimum: 0.5,
 			maximum: 20
 		},
 		paddingX: {
 			type: 'number',
 			description:
-				"A code panel's left and right padding, in hundredths of the frame's shorter side.",
+				"A code panel's or box node's left and right padding, in hundredths of the frame's shorter side.",
 			minimum: 0,
 			maximum: 20
 		},
 		paddingY: {
 			type: 'number',
 			description:
-				"A code panel's top and bottom padding, in hundredths of the frame's shorter side.",
+				"A code panel's or box node's top and bottom padding, in hundredths of the frame's shorter side.",
 			minimum: 0,
 			maximum: 20
+		},
+		borderWidth: {
+			type: 'number',
+			description:
+				"A box node's border, in hundredths of the frame's shorter side; 0 is a borderless cut-out card.",
+			minimum: 0,
+			maximum: 4
+		},
+		strokeWidth: {
+			type: 'number',
+			description:
+				"An edge's stroke width, in pixels of the native frame; shared by both orientations.",
+			minimum: 1,
+			maximum: 80
 		},
 		minWidth: {
 			type: 'number',
@@ -369,7 +384,15 @@ function readDiagramGeometry(args: unknown): DiagramGeometryPatch {
 	}
 	if ('scale' in geometry) patch.scale = readWebmcpNumberArgument(geometry, 'scale');
 	if ('maxWidth' in geometry) patch.maxWidth = readWebmcpNumberArgument(geometry, 'maxWidth');
-	for (const field of ['fontSize', 'paddingX', 'paddingY', 'minWidth', 'minHeight'] as const) {
+	for (const field of [
+		'fontSize',
+		'paddingX',
+		'paddingY',
+		'minWidth',
+		'minHeight',
+		'borderWidth',
+		'strokeWidth'
+	] as const) {
 		if (field in geometry) patch[field] = readWebmcpNumberArgument(geometry, field);
 	}
 	return patch;

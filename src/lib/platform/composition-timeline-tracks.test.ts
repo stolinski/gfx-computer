@@ -8,6 +8,7 @@ import {
 	type ChartMotion,
 	type EngineState
 } from './engine-schema.ts';
+import { stageCameraTravelMoves } from './pipelines/depth-stage-camera.ts';
 import { createTimelineTrackId, createVideoClipSelectionId } from './timeline-entity-identity.ts';
 import { isVideoTimelineTrack } from './timeline-track.ts';
 
@@ -548,7 +549,10 @@ describe('stage rows (ADR-0060)', () => {
 		assert.deepEqual([travel.start, travel.duration], [0.1, 0.6]);
 		travel.onUpdate?.({ start: 0.25, duration: 0.4 });
 		assert.deepEqual(
-			[state.stage?.camera.travel?.start, state.stage?.camera.travel?.duration],
+			[
+				stageCameraTravelMoves(state.stage?.camera.travel)[0]?.start,
+				stageCameraTravelMoves(state.stage?.camera.travel)[0]?.duration
+			],
 			[0.25, 0.4]
 		);
 		const pull = tracks[1].transitions[0];
@@ -566,10 +570,17 @@ describe('stage rows (ADR-0060)', () => {
 		assert.deepEqual([travel.start, travel.duration], [0.2, 0.5]);
 		travel.onUpdate?.({ start: 0.3, duration: 0.45 });
 		assert.deepEqual(
-			[state.stage?.camera.vertical?.travel?.start, state.stage?.camera.vertical?.travel?.duration],
+			[
+				stageCameraTravelMoves(state.stage?.camera.vertical?.travel)[0]?.start,
+				stageCameraTravelMoves(state.stage?.camera.vertical?.travel)[0]?.duration
+			],
 			[0.3, 0.45]
 		);
-		assert.equal(state.stage?.camera.travel?.start, 0.1, 'the horizontal travel is untouched');
+		assert.equal(
+			stageCameraTravelMoves(state.stage?.camera.travel)[0]?.start,
+			0.1,
+			'the horizontal travel is untouched'
+		);
 	});
 
 	it('keeps the Camera and Focus rows without their clips, so the entities stay selectable', () => {
@@ -645,7 +656,12 @@ describe('Effect rows (ADR-0063)', () => {
 				id: 'welded',
 				params: { pixelSize: 48 },
 				animation: {
-					channels: { pixelSize: [{ atMs: 0, value: 96 }, { atMs: 400, value: 1 }] },
+					channels: {
+						pixelSize: [
+							{ atMs: 0, value: 96 },
+							{ atMs: 400, value: 1 }
+						]
+					},
 					cascade: { anchor: { overlay: 'leader' }, event: 'end', offsetMs: 0 }
 				}
 			}

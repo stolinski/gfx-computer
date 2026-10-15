@@ -5,10 +5,15 @@
 		STAGE_CAMERA_POSE_LIMITS,
 		type Ease,
 		type StageCameraPose,
-		type StageCameraTravel
+		type StageCameraTravelMove
 	} from './engine-schema';
+	import { stageCameraTravelMoves } from './pipelines/depth-stage-camera';
 	import {
+		appendStageCameraTravelMove,
+		canAppendStageCameraTravelMove,
 		parseUnitIntervalInput,
+		removeStageCameraTravelMove,
+		stageCameraPoseBeforeMove,
 		restStageCameraPose,
 		setStageCameraPoseAim,
 		setStageCameraPoseAngle,
@@ -21,7 +26,7 @@
 	import Field from './Field.svelte';
 
 	// The Camera inspector (ADR-0060 §2): what the Camera row opens. The legacy
-	// move, the rest pose, its one travel, and the vertical camera — the fields
+	// move, the rest pose, its travel moves, and the vertical camera — the fields
 	// the stage camera has (ADR-0057, ADR-0059), edited where the entity is
 	// selected. Only the tall frame can carry its own camera, so the shared
 	// Customize control appears there; while it is on, the pose and travel
@@ -79,13 +84,22 @@
 			return;
 		}
 		const pose = stage.camera.pose ?? restStageCameraPose();
-		const travel = stage.camera.travel;
 		stage.camera.vertical = {
 			pose: { ...pose, aim: { ...pose.aim } },
-			travel: travel
-				? { ...travel, to: { ...travel.to, aim: travel.to.aim ? { ...travel.to.aim } : undefined } }
-				: undefined
+			travel: $state.snapshot(stage.camera.travel)
 		};
+	}
+
+	function appendMove(): void {
+		const owner = cameraOwner;
+		if (!owner?.travel) return;
+		owner.travel = appendStageCameraTravelMove(owner.travel);
+	}
+
+	function removeMove(index: number): void {
+		const owner = cameraOwner;
+		if (!owner?.travel) return;
+		owner.travel = removeStageCameraTravelMove(owner.travel, index);
 	}
 </script>
 
@@ -144,7 +158,7 @@
 {/snippet}
 
 {#snippet travelFields(
-	travel: StageCameraTravel,
+	travel: StageCameraTravelMove,
 	pose: StageCameraPose | undefined,
 	prefix: string
 )}
@@ -301,7 +315,22 @@
 				<InspectorToggle checked={!!owner.travel} label="Camera travel" onchange={toggleTravel} />
 			</Field>
 			{#if owner.travel}
-				{@render travelFields(owner.travel, owner.pose ?? stage.camera.pose, '')}
+				{@const moves = stageCameraTravelMoves(owner.travel)}
+				{#each moves as move, index (index)}
+					{#if moves.length > 1}
+						<Field label={`Move ${index + 1}`}>
+							<button type="button" onclick={() => removeMove(index)}>Remove</button>
+						</Field>
+					{/if}
+					{@render travelFields(
+						move,
+						stageCameraPoseBeforeMove(owner.pose ?? stage.camera.pose, owner.travel, index),
+						moves.length > 1 ? `${index + 1} · ` : ''
+					)}
+				{/each}
+				{#if canAppendStageCameraTravelMove(owner.travel)}
+					<button type="button" onclick={appendMove}>Add move</button>
+				{/if}
 			{/if}
 		{/if}
 	</InspectorSection>

@@ -21,6 +21,7 @@
 import { SOUND_EVENTS, type SoundOverride } from './engine-schema';
 import {
 	COMPOSITION_SOUND_CUE_KINDS,
+	COMPOSITION_SOUND_BLOCK_PHASES,
 	COMPOSITION_SOUND_MOTION_KINDS,
 	COMPOSITION_SOUND_MOTION_PHASES,
 	runRemoveCompositionSoundCueOperation,
@@ -67,10 +68,14 @@ function soundMotionProperty(): WebmcpSchemaProperty {
 			},
 			phase: {
 				type: 'string',
-				description: 'Which edge of the clip, for a Surface or an Overlay.',
-				enum: COMPOSITION_SOUND_MOTION_PHASES
+				description:
+					"Which edge of the clip, for a Surface or an Overlay; for a diagram Block, its entrance or a node's highlighter swipe.",
+				enum: [...COMPOSITION_SOUND_MOTION_PHASES, ...COMPOSITION_SOUND_BLOCK_PHASES.slice(1)]
 			},
 			overlayId: webmcpEntityIdProperty('The Overlay, when the motion is an Overlay clip.'),
+			blockId: webmcpEntityIdProperty(
+				'The diagram Block, when the motion is a Block entrance or swipe.'
+			),
 			markIndex: {
 				type: 'integer',
 				description: 'The Annotation Mark index, when the motion is a Mark draw-on.',
@@ -87,6 +92,13 @@ function readSoundMotion(args: unknown): CompositionSoundMotion {
 	const kind = readWebmcpLiteralArgument(motion, 'kind', COMPOSITION_SOUND_MOTION_KINDS);
 	if (kind === 'mark') {
 		return { kind, markIndex: readWebmcpNumberArgument(motion, 'markIndex') };
+	}
+	if (kind === 'block') {
+		return {
+			kind,
+			blockId: readWebmcpStringArgument(motion, 'blockId'),
+			phase: readWebmcpLiteralArgument(motion, 'phase', COMPOSITION_SOUND_BLOCK_PHASES)
+		};
 	}
 	const phase = readWebmcpLiteralArgument(motion, 'phase', COMPOSITION_SOUND_MOTION_PHASES);
 	if (kind === 'surface') return { kind, phase };

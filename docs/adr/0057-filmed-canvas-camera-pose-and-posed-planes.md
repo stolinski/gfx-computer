@@ -57,3 +57,13 @@ Of those Surface-owned bodies, the screen shipped ([ADR-0059](0059-compiled-stag
 - `website-screenshot` gains a variant and a capture registry; its Identity Spec gains a `filmed-page-crop` dimension.
 - The deliverable `website-filmed` is the phase-1 acceptance evidence, rendered at native horizontal and vertical under every Pack.
 - ADR-0051's status stays designed until phase 2 builds it; the ADR index and roadmap carry both phases. Phase 2 was built and closed on 2026-09-03, and both now read built.
+
+## Amendment 2026-10-14 — a travel may visit several places
+
+**Decision.** `stage.camera.travel` (and `stage.camera.vertical.travel`) is one move, as before, or an ordered list of up to eight moves (`STAGE_CAMERA_TRAVEL_MAX_MOVES`). Each move has the shape a single travel always had: `to`, `start`, `duration`, `ease`. Moves run in timeline order and their windows never overlap; the schema refuses a move that starts before the previous one ends. A move eases from the pose the camera holds when it starts (the rest pose, or where the previous move landed), and a field its `to` leaves out holds that pose. One move is still written as a single object, so no stored composition changes.
+
+**Why.** The consumer this ADR waited for arrived: a filmed flowchart (`docu-flowchart-filmed`) walks the camera from step to step and then pulls back, which one move cannot film. Scott chose this on 2026-10-14 after the flowchart look was re-directed to printed cut-out cards on a dark page, shot by the Stage camera.
+
+**Why a list of moves, not keyframed camera channels.** A move is the unit the camera already had: its own window, its own ease, a target pose. A list keeps that vocabulary, the inspector shows one block of fields per move, and the timeline's Camera row shows one clip per move. Per-field keyframes would let yaw and aim run on different clocks, which no composition has asked for.
+
+**What follows.** `resolveStageCameraPose` walks the moves in order. The checks that sample the camera across the clip (`stageBackdropCover`, `stageSurfaceFootprint` for rule WS7, `stageDepthEncoding`) also sample every move's start, quarters, and end, so a pose held only between two moves is checked. A travel of one move samples exactly as before, so every shipped Preset renders and verifies unchanged. Dragging a move's clip on the timeline keeps it between its neighbours. `gfx_appearance_set_stage_camera` takes either form.

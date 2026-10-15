@@ -45,7 +45,10 @@ import {
 	type Keyframe,
 	type KineticWordKeyframe
 } from './engine-schema';
-import { resolveStageCameraForOrientation } from './pipelines/depth-stage-camera';
+import {
+	resolveStageCameraForOrientation,
+	stageCameraTravelMoves
+} from './pipelines/depth-stage-camera';
 import { listSurfaceMarkInstances } from './surface-mark-instances';
 import { deriveSoundCues, isAudibleSoundCue, resolveCueSample } from './sound-cues';
 import { getStageModel } from './stage-models';
@@ -1359,8 +1362,8 @@ function appendVideoTrack(tracks: TimelineTrack[], state: EngineState): void {
 
 /**
  * The stage rows (ADR-0060), at the head of the outline while the stage is
- * on: the Camera row whose one clip is the travel of the camera the current
- * frame films through (the vertical travel under a vertical frame, when one
+ * on: the Camera row whose clips are the travel moves of the camera the
+ * current frame films through (the vertical travel under a vertical frame, when one
  * is authored — the same resolution the renderer makes), the Focus row whose
  * clip is the rack focus, and one row per body whose clip is its presence.
  * A row without its clip still stands, so the entity stays selectable.
@@ -1369,27 +1372,29 @@ function appendStageTracks(tracks: TimelineTrack[], state: EngineState): void {
 	const stage = state.stage;
 	if (!stage || stage.type !== 'depth') return;
 	const camera = resolveStageCameraForOrientation(stage.camera, state.transport.orientation);
-	const travel = camera.travel;
+	const moves = stageCameraTravelMoves(camera.travel);
 	tracks.push({
 		id: createTimelineTrackId({ kind: 'stage-camera' }),
 		label: 'Camera',
 		color: STAGE_COLOR,
-		transitions: travel
-			? [
-					{
-						id: 'travel',
-						label: 'travel',
-						start: travel.start,
-						duration: travel.duration,
-						ramp: 'in',
-						...STAGE_WINDOW_LIMITS,
-						onUpdate: ({ start, duration }) => {
-							travel.start = start;
-							travel.duration = Math.min(1, duration);
-						}
-					}
-				]
-			: []
+		// One clip per move. A dragged move stays between its neighbours, so the
+		// moves keep running in order and never overlap.
+		transitions: moves.map((move, index) => ({
+			id: moves.length === 1 ? 'travel' : `travel-${index + 1}`,
+			label: moves.length === 1 ? 'travel' : `move ${index + 1}`,
+			start: move.start,
+			duration: move.duration,
+			ramp: 'in' as const,
+			...STAGE_WINDOW_LIMITS,
+			onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+				const previous = moves[index - 1];
+				const next = moves[index + 1];
+				const earliest = previous ? previous.start + previous.duration : 0;
+				const latest = next ? next.start : 1;
+				move.start = Math.min(Math.max(start, earliest), latest);
+				move.duration = Math.min(duration, next ? latest - move.start : 1);
+			}
+		}))
 	});
 	const pull = stage.focus.pull;
 	tracks.push({

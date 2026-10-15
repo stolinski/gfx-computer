@@ -216,13 +216,20 @@ export const syntaxPack: PackManifest = {
 		// jank on the timeline axis, not charm (calibration verdict 2026-07-09).
 		'diagram.stroke': { kind: 'style', value: { color: 'ink', widthPx: 12, wobble: 0 } },
 		'diagram.arrowhead': { kind: 'style', value: 'solid-triangle' },
-		// Diagram DOM chrome voice — Space Mono (read by DiagramMount ahead of the
-		// engine typography voice; NOT a core font-treatment claim, which would
-		// override document substrates' own faces).
-		'diagram.font': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
-		// Node forms: white collage-card boxes (the zine cut-out), accent pins
-		// and dots; the box shadow rides the core hard-offset depth rig.
-		'node.fill': { kind: 'style', value: '#ffffff' },
+		// Diagram DOM voice — heavy Archivo, the printed-card look Scott chose on
+		// 2026-10-14 (read by DiagramMount ahead of the engine typography voice;
+		// NOT a core font-treatment claim, which would override document
+		// substrates' own faces). Headings share it; captions set in Source Serif
+		// italic beside the cards.
+		'diagram.font': { kind: 'style', value: "'Archivo', 'Space Grotesk', sans-serif" },
+		'label.font': { kind: 'style', value: "'Archivo', 'Space Grotesk', sans-serif" },
+		'label.captionFont': { kind: 'style', value: "'Source Serif 4', Georgia, serif" },
+		'label.captionStyle': { kind: 'style', value: 'italic' },
+		// Node forms: off-white cut-out cards lifted off the page by one soft
+		// cast shadow, accent pins and dots.
+		'node.fill': { kind: 'style', value: '#f7f6f2' },
+		'node.weight': { kind: 'style', value: '900' },
+		'node.tracking': { kind: 'style', value: '-0.03em' },
 		'node.accent': { kind: 'style', value: '#ffd54a' },
 		// The node's border/stroke/glyphs ride the inherited composition colour
 		// (render-is-truth: the CanvasSource paints `var(--ink, currentColor)`);
@@ -230,7 +237,7 @@ export const syntaxPack: PackManifest = {
 		'node.ink': { kind: 'style', value: 'currentColor' },
 		'node.depth': {
 			kind: 'style',
-			value: { hardOffset: { dx: 8, dy: 8, blur: 0, color: 'rgba(0, 0, 0, 0.85)' } }
+			value: { offset: { dx: 0, dy: 40, blur: 90, color: 'rgba(0, 0, 0, 0.7)' } }
 		},
 		// Caption + stat voices ride the composition ink / channel accent.
 		'label.ink': { kind: 'style', value: 'currentColor' },

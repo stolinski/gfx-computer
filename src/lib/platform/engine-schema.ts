@@ -614,6 +614,8 @@ const DiagramPositionGeometrySchema = z.strictObject({
 export const DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH = 0.03;
 export const DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH = 1;
 const DiagramLabelGeometrySchema = DiagramPositionGeometrySchema.extend({
+	// Text size in cqmin (ADR-0070); absent, the role's size (caption 2.75, headline 5.1).
+	fontSize: z.number().min(0.5).max(20).optional(),
 	maxWidth: z
 		.number()
 		.min(DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH)
@@ -642,6 +644,48 @@ function diagramOrientationOverridesSchema<T extends z.ZodType>(geometrySchema: 
 		.optional();
 }
 
+// A highlighter swipe across a node's text, the mark that says "this step,
+// now": it draws on left to right over its window and holds; an optional
+// `lift` wipes it off again when the story moves on. Its colour is the Pack's
+// `node.accent` Role.
+export const DiagramNodeHighlightSchema = z
+	.strictObject({
+		start: FractionSchema,
+		duration: FractionSchema,
+		ease: EaseSchema.default('smooth'),
+		sound: SoundOverrideSchema.optional(),
+		lift: z
+			.strictObject({
+				start: FractionSchema,
+				duration: FractionSchema,
+				ease: EaseSchema.default('smooth')
+			})
+			.optional()
+	})
+	.refine(
+		(highlight) =>
+			!highlight.lift || highlight.lift.start >= highlight.start + highlight.duration - 1e-9,
+		{
+			message: 'A node highlight lifts only after its swipe has drawn on.',
+			path: ['lift', 'start']
+		}
+	);
+
+// A box node's sizes (ADR-0070), each on its own and each per orientation:
+// text size, padding, and border width in `cqmin` (hundredths of the frame's
+// shorter side). Absent, the renderer's defaults apply; a border of 0 is a
+// borderless cut-out card. Pins and dots size their text with `fontSize` too.
+export const NODE_DEFAULT_FONT_SIZE = 2.9;
+export const NODE_DEFAULT_PADDING_X = 2.4;
+export const NODE_DEFAULT_PADDING_Y = 1.5;
+export const NODE_DEFAULT_BORDER_WIDTH = 0.32;
+const DiagramNodeGeometrySchema = DiagramPositionGeometrySchema.extend({
+	fontSize: z.number().min(0.5).max(20).optional(),
+	paddingX: z.number().min(0).max(20).optional(),
+	paddingY: z.number().min(0).max(20).optional(),
+	borderWidth: z.number().min(0).max(4).optional()
+});
+
 // A labeled point in the diagram. `form` is content (a map wants pins, a
 // flowchart wants boxes — the author picks); HOW a pin/box/dot looks is the
 // Pack's `node.form`-dimension Role, never schema.
@@ -652,7 +696,12 @@ const DiagramNodeSchema = z.strictObject({
 	form: z.enum(['pin', 'box', 'dot']),
 	text: z.string().optional(),
 	scale: z.number().min(0.25).max(4).optional(),
-	orientationOverrides: diagramOrientationOverridesSchema(DiagramPositionGeometrySchema),
+	highlight: DiagramNodeHighlightSchema.optional(),
+	fontSize: DiagramNodeGeometrySchema.shape.fontSize,
+	paddingX: DiagramNodeGeometrySchema.shape.paddingX,
+	paddingY: DiagramNodeGeometrySchema.shape.paddingY,
+	borderWidth: DiagramNodeGeometrySchema.shape.borderWidth,
+	orientationOverrides: diagramOrientationOverridesSchema(DiagramNodeGeometrySchema),
 	animation: DiagramAnimationSchema.optional()
 });
 
@@ -670,6 +719,9 @@ const DiagramEdgeArrowSchema = z.strictObject({
 	route: z.enum(['straight', 'elbow', 'arc']),
 	control: DiagramPointSchema.optional(),
 	direction: z.enum(['forward', 'both', 'none']).optional(),
+	// Stroke width in pixels of the native frame (ADR-0070); absent, the Pack's
+	// `diagram.stroke` width. The arrowhead and the gap at each node scale with it.
+	strokeWidth: z.number().min(1).max(80).optional(),
 	orientationOverrides: diagramOrientationOverridesSchema(DiagramEdgeGeometrySchema),
 	animation: DiagramStrokeAnimationSchema.optional()
 });
@@ -686,6 +738,7 @@ const DiagramLabelSchema = z.strictObject({
 	role: z.enum(['headline', 'caption']).optional(),
 	wrap: z.enum(['auto', 'explicit']).optional(),
 	scale: z.number().min(0.25).max(4).optional(),
+	fontSize: DiagramLabelGeometrySchema.shape.fontSize,
 	maxWidth: DiagramLabelGeometrySchema.shape.maxWidth,
 	orientationOverrides: diagramOrientationOverridesSchema(DiagramLabelGeometrySchema),
 	animation: DiagramAnimationSchema.optional()
@@ -943,6 +996,7 @@ const DiagramSchema = z.array(DiagramPrimitiveSchema).superRefine((primitives, c
 export type DiagramPoint = z.infer<typeof DiagramPointSchema>;
 export type DiagramEndpoint = z.infer<typeof DiagramEndpointSchema>;
 export type DiagramPositionGeometry = z.infer<typeof DiagramPositionGeometrySchema>;
+export type DiagramNodeGeometry = z.infer<typeof DiagramNodeGeometrySchema>;
 export type DiagramLabelGeometry = z.infer<typeof DiagramLabelGeometrySchema>;
 export type DiagramEdgeGeometry = z.infer<typeof DiagramEdgeGeometrySchema>;
 export type DiagramTimelineGeometry = z.infer<typeof DiagramTimelineGeometrySchema>;
@@ -956,6 +1010,7 @@ export const DIAGRAM_STROKE_KEYFRAME_CHANNELS: readonly (keyof DiagramStrokeChan
 export type DiagramAnimation = z.infer<typeof DiagramAnimationSchema>;
 export type DiagramStrokeAnimation = z.infer<typeof DiagramStrokeAnimationSchema>;
 export type DiagramNode = z.infer<typeof DiagramNodeSchema>;
+export type DiagramNodeHighlight = z.infer<typeof DiagramNodeHighlightSchema>;
 export type DiagramEdgeArrow = z.infer<typeof DiagramEdgeArrowSchema>;
 export type DiagramLabel = z.infer<typeof DiagramLabelSchema>;
 export type DiagramStatCallout = z.infer<typeof DiagramStatCalloutSchema>;
@@ -2488,10 +2543,10 @@ const StageCameraPoseSchema = z.object({
 });
 
 // One authored camera move: every field of `to` that is present eases from the
-// rest pose over [start, start + duration] (timeline fractions, the Transition
-// window shape); fields left out hold the rest value. A second move is not a
-// v1 mechanism — the depth vocabulary is one decisive camera per piece.
-const StageCameraTravelSchema = z.object({
+// pose the camera holds when the move starts (the rest pose, or where the
+// previous move landed) over [start, start + duration] (timeline fractions,
+// the Transition window shape); fields left out hold that value.
+const StageCameraTravelMoveSchema = z.object({
 	to: z.object({
 		yaw: z
 			.number()
@@ -2519,6 +2574,31 @@ const StageCameraTravelSchema = z.object({
 	duration: FractionSchema.default(1),
 	ease: EaseSchema.default('smooth')
 });
+
+/** Most moves one camera travel may chain (ADR-0057 amendment 2026-10-14). */
+export const STAGE_CAMERA_TRAVEL_MAX_MOVES = 8;
+
+// A travel is one move, or an ordered list of moves that visit one place after
+// another (a flowchart walked step by step). Moves run in timeline order and
+// never overlap, so each starts from where the previous one landed.
+const StageCameraTravelSchema = z
+	.union([
+		StageCameraTravelMoveSchema,
+		z.array(StageCameraTravelMoveSchema).min(1).max(STAGE_CAMERA_TRAVEL_MAX_MOVES)
+	])
+	.superRefine((travel, context) => {
+		if (!Array.isArray(travel)) return;
+		for (let index = 1; index < travel.length; index += 1) {
+			const previous = travel[index - 1];
+			if (travel[index].start < previous.start + previous.duration - 1e-9) {
+				context.addIssue({
+					code: 'custom',
+					path: [index, 'start'],
+					message: `Camera move ${index + 1} starts before move ${index} ends; moves run in order and never overlap.`
+				});
+			}
+		}
+	});
 
 // The camera under a VERTICAL frame (ADR-0059): how a filmed piece reflows to
 // the tall frame is designable, so a composition may film the same set from a
@@ -3026,6 +3106,7 @@ export type Effect = z.infer<typeof EffectSchema>;
 export type EffectChain = z.infer<typeof EffectChainSchema>;
 export type StageCamera = z.infer<typeof StageCameraSchema>;
 export type StageCameraPose = z.infer<typeof StageCameraPoseSchema>;
+export type StageCameraTravelMove = z.infer<typeof StageCameraTravelMoveSchema>;
 export type StageCameraTravel = z.infer<typeof StageCameraTravelSchema>;
 export type StageCameraVertical = z.infer<typeof StageCameraVerticalSchema>;
 export type StageFocus = z.infer<typeof StageFocusSchema>;

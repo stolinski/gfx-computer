@@ -1,12 +1,13 @@
 <script lang="ts">
 	import type { DiagramPrimitive } from './engine-schema';
 	import BlockCodeFields from './BlockCodeFields.svelte';
+	import BlockNodeHighlightFields from './BlockNodeHighlightFields.svelte';
 	import BlockStatCalloutFields from './BlockStatCalloutFields.svelte';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 
-	// The Block's content fields, per primitive type (ADR-0036 §7): node form +
-	// text, label text, the stat roll's numbers/format/caption/window, edge
+	// The Block's content fields, per primitive type (ADR-0036 §7): node form,
+	// text, and highlighter swipe, label text, the stat roll's numbers/format/caption/window, edge
 	// direction, and the shared Ink role. Stroke appearance never appears here
 	// (it is the Pack's, not the composition's).
 	interface Props {
@@ -40,6 +41,7 @@
 				}}
 			/>
 		</Field>
+		<BlockNodeHighlightFields primitive={el} />
 	{:else if el.type === 'label'}
 		<Field label="Text">
 			<input
@@ -49,6 +51,18 @@
 					el.text = (e.currentTarget as HTMLInputElement).value;
 				}}
 			/>
+		</Field>
+		<Field label="Voice">
+			<select
+				value={el.role ?? 'caption'}
+				onchange={(e) => {
+					el.role =
+						(e.currentTarget as HTMLSelectElement).value === 'headline' ? 'headline' : undefined;
+				}}
+			>
+				<option value="caption">caption</option>
+				<option value="headline">headline</option>
+			</select>
 		</Field>
 	{:else if el.type === 'stat-callout'}
 		<BlockStatCalloutFields primitive={el} />
@@ -80,20 +94,20 @@
 		</Field>
 	{/if}
 	{#if el.type !== 'code'}
-	<!-- Ink is a Role SELECTION (which pen), not appearance (what the pen looks
+		<!-- Ink is a Role SELECTION (which pen), not appearance (what the pen looks
 	     like — still the Pack's): 'accent' routes the primitive to the Pack's
 	     core accent-treatment for emphasis hierarchy. -->
-	<Field label="Ink">
-		<select
-			value={el.ink ?? 'ink'}
-			onchange={(e) => {
-				const v = (e.currentTarget as HTMLSelectElement).value;
-				el.ink = v === 'accent' ? 'accent' : undefined;
-			}}
-		>
-			<option value="ink">ink</option>
-			<option value="accent">accent</option>
-		</select>
-	</Field>
+		<Field label="Ink">
+			<select
+				value={el.ink ?? 'ink'}
+				onchange={(e) => {
+					const v = (e.currentTarget as HTMLSelectElement).value;
+					el.ink = v === 'accent' ? 'accent' : undefined;
+				}}
+			>
+				<option value="ink">ink</option>
+				<option value="accent">accent</option>
+			</select>
+		</Field>
 	{/if}
 </InspectorSection>

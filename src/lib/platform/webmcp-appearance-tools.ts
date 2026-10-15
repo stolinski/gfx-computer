@@ -62,7 +62,8 @@ import type { CompositionMarkAppearancePatch } from './composition-appearance-op
 import {
 	KINETIC_WORD_HIERARCHIES,
 	KINETIC_WORD_INK_ROLES,
-	STAGE_CAMERA_POSE_LIMITS
+	STAGE_CAMERA_POSE_LIMITS,
+	STAGE_CAMERA_TRAVEL_MAX_MOVES
 } from './engine-schema';
 import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
@@ -176,13 +177,15 @@ function stageCameraPoseProperty(description: string): WebmcpSchemaProperty {
 	};
 }
 
-function stageCameraTravelProperty(description: string): WebmcpSchemaProperty {
+function stageCameraTravelMoveProperty(description: string): WebmcpSchemaProperty {
 	return {
 		type: 'object',
 		description,
 		properties: {
-			to: stageCameraPoseProperty('The pose it eases toward; fields left out hold the rest pose.'),
-			start: webmcpFractionProperty('Where the travel opens, as a fraction of the clip.'),
+			to: stageCameraPoseProperty(
+				'The pose it eases toward; fields left out hold the pose the move starts from.'
+			),
+			start: webmcpFractionProperty('Where the move opens, as a fraction of the clip.'),
 			duration: webmcpFractionProperty('How much of the clip it takes.'),
 			ease: webmcpDerivedEnumProperty('motion-ease', 'The curve it travels on.')
 		},
@@ -191,9 +194,28 @@ function stageCameraTravelProperty(description: string): WebmcpSchemaProperty {
 	};
 }
 
+// One move, or up to STAGE_CAMERA_TRAVEL_MAX_MOVES moves that visit one place
+// after another (ADR-0057 amendment 2026-10-14).
+function stageCameraTravelProperty(description: string): WebmcpSchemaProperty {
+	return {
+		description,
+		oneOf: [
+			stageCameraTravelMoveProperty('One move from the rest pose.'),
+			{
+				type: 'array',
+				description:
+					'Moves in timeline order, each starting where the previous one landed; windows never overlap.',
+				items: stageCameraTravelMoveProperty('One move.'),
+				minItems: 1,
+				maxItems: STAGE_CAMERA_TRAVEL_MAX_MOVES
+			}
+		]
+	};
+}
+
 /**
  * The stage camera (ADR-0057, ADR-0059, ADR-0060): the legacy move, the rest
- * pose, its one travel, and the vertical pose and travel for the tall frame.
+ * pose, its travel moves, and the vertical pose and travel for the tall frame.
  * Written whole, like the stage.
  */
 function stageCameraProperty(): WebmcpSchemaProperty {
@@ -205,7 +227,9 @@ function stageCameraProperty(): WebmcpSchemaProperty {
 			amount: webmcpFractionProperty('How far the legacy move travels.'),
 			ease: webmcpDerivedEnumProperty('motion-ease', 'The curve the legacy move travels on.'),
 			pose: stageCameraPoseProperty('The rest pose; omit it for the shipped frontal camera.'),
-			travel: stageCameraTravelProperty('One authored move from the rest pose.'),
+			travel: stageCameraTravelProperty(
+				'How the camera moves: one move from the rest pose, or several in turn (a flowchart walked step by step).'
+			),
 			vertical: {
 				type: 'object',
 				description:
@@ -396,7 +420,8 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 						label: readWebmcpOptionalStringArgument(args, 'label'),
 						description: readWebmcpOptionalStringArgument(args, 'description'),
 						roles: readOptionalJsonArgument(args, 'roles') as
-							Readonly<Record<string, unknown>> | undefined,
+							| Readonly<Record<string, unknown>>
+							| undefined,
 						fonts: readOptionalJsonArgument(args, 'fonts')
 					})
 				)
@@ -493,11 +518,7 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 					runSetCompositionKineticWordAppearanceOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						wordId: readWebmcpStringArgument(args, 'wordId'),
-						hierarchy: readWebmcpLiteralArgument(
-							args,
-							'hierarchy',
-							KINETIC_WORD_HIERARCHIES
-						),
+						hierarchy: readWebmcpLiteralArgument(args, 'hierarchy', KINETIC_WORD_HIERARCHIES),
 						ink: readWebmcpLiteralArgument(args, 'ink', KINETIC_WORD_INK_ROLES)
 					})
 				)

@@ -105,7 +105,13 @@
 					const block = (engineState.surface.diagram ?? []).find(
 						(entry) => entry.id === target.blockId
 					);
-					return block ? { window: block[target.phase], source } : { source };
+					if (!block) return { source };
+					if (target.phase === 'highlight') {
+						return block.type === 'node' && block.highlight
+							? { window: block.highlight, source }
+							: { source };
+					}
+					return { window: block.enter, source };
 				}
 				case 'text-animation-transition': {
 					const textAnimation = engineState.textAnimations.find(

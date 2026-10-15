@@ -244,9 +244,11 @@ export const WEBMCP_CORE_REGISTERED_CEILING = 23;
  * the layer and motion families were full, and each gains one Figure row. It
  * returns to 35 if the ADR-0067 migration review retires the chart rows. Raised
  * again from 37 to 42 for the five Scene tools, which are core
- * (ADR-0054 2026-10-09 amendment).
+ * (ADR-0054 2026-10-09 amendment), and to 43 for diagram Block timing
+ * (ADR-0054 2026-10-14 amendment), the last raise before the per-field tools
+ * give way to one schema-checked element edit.
  */
-export const WEBMCP_DISCLOSED_REGISTERED_CEILING = 42;
+export const WEBMCP_DISCLOSED_REGISTERED_CEILING = 43;
 
 /**
  * Corrective failure codes. Every failure names one of these, the exact target
@@ -410,6 +412,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/diagram/*/paddingY', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/minWidth', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/minHeight', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/borderWidth', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/strokeWidth', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/orientationOverrides', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/position', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/scale', scope: 'value' },
@@ -458,6 +462,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/marks/timings/*', scope: 'value' },
 			{ pointer: '/state/textAnimations/*', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/animation', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/enter', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/exit', scope: 'value' },
 			{ pointer: '/state/effects/*/animation', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/animation', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/glyphStagger', scope: 'value' },
@@ -481,7 +487,9 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/exit/sound', scope: 'value' },
 			{ pointer: '/state/overlays/*/enter/sound', scope: 'value' },
 			{ pointer: '/state/overlays/*/exit/sound', scope: 'value' },
-			{ pointer: '/state/marks/timings/*/sound', scope: 'value' }
+			{ pointer: '/state/marks/timings/*/sound', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/enter/sound', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/highlight/sound', scope: 'value' }
 		]
 	},
 	{
@@ -1323,7 +1331,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'content',
 		toolName: 'gfx_content_set_diagram_primitive',
 		summary:
-			"Write one diagram primitive's authored body: its text, form, route, arrow direction, and label role.",
+			"Write one diagram primitive's authored body: its text, form, route, arrow direction, label role, and a node's highlighter swipe.",
 		effect: 'write',
 		writes: ['/state/surface/diagram/*'],
 		precondition: 'diagram-present',
@@ -1624,7 +1632,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'placement',
 		toolName: 'gfx_placement_set_diagram_geometry',
 		summary:
-			"Set one diagram primitive's composition-space position, endpoints, control point, scale, label width, and code panel text size, padding, and minimum box, per orientation.",
+			"Set one diagram primitive's composition-space position, endpoints, control point, scale, label width and text size, code panel and box node text size and padding, code panel minimum box, box node border, and edge stroke width, per orientation.",
 		effect: 'write',
 		writes: [
 			'/state/surface/diagram/*/position',
@@ -1638,6 +1646,8 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 			'/state/surface/diagram/*/paddingY',
 			'/state/surface/diagram/*/minWidth',
 			'/state/surface/diagram/*/minHeight',
+			'/state/surface/diagram/*/borderWidth',
+			'/state/surface/diagram/*/strokeWidth',
 			'/state/surface/diagram/*/orientationOverrides'
 		],
 		precondition: 'diagram-present',
@@ -1871,7 +1881,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'appearance',
 		toolName: 'gfx_appearance_set_stage_camera',
 		summary:
-			'Set the stage camera alone, leaving the rest of the stage as it is: the legacy move, the rest pose (yaw, pitch, roll, distance, aim), its one travel, and the vertical pose and travel for the tall frame. Refused when the composition has no stage.',
+			'Set the stage camera alone, leaving the rest of the stage as it is: the legacy move, the rest pose (yaw, pitch, roll, distance, aim), its travel (one move, or up to eight in turn), and the vertical pose and travel for the tall frame. Refused when the composition has no stage.',
 		effect: 'write',
 		writes: ['/state/stage/camera'],
 		precondition: 'composition-editable',
@@ -1944,6 +1954,21 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['overlay'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/TimelineClipBar.svelte'
+	},
+	{
+		id: 'motion.set-block-timing',
+		family: 'motion',
+		toolName: 'gfx_motion_set_block_timing',
+		summary: "Set one diagram Block's enter and exit windows: start, duration, and ease.",
+		effect: 'write',
+		writes: ['/state/surface/diagram/*/enter', '/state/surface/diagram/*/exit'],
+		precondition: 'diagram-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['block'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/BlockInspector.svelte'
 	},
 	{
 		id: 'motion.set-mark-timing',
@@ -2284,7 +2309,9 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 			'/state/surface/exit/sound',
 			'/state/overlays/*/enter/sound',
 			'/state/overlays/*/exit/sound',
-			'/state/marks/timings/*/sound'
+			'/state/marks/timings/*/sound',
+			'/state/surface/diagram/*/enter/sound',
+			'/state/surface/diagram/*/highlight/sound'
 		],
 		precondition: 'composition-editable',
 		requiresExpectedRevision: true,

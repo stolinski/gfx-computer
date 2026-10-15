@@ -7,6 +7,7 @@ import type {
 	DiagramLabel,
 	DiagramLabelGeometry,
 	DiagramNode,
+	DiagramNodeGeometry,
 	DiagramPositionGeometry,
 	DiagramPrimitive,
 	DiagramStatCallout,
@@ -20,22 +21,28 @@ type DiagramPositionedPrimitive = DiagramNode | DiagramLabel | DiagramStatCallou
 
 export type DiagramPrimitiveGeometry =
 	| DiagramPositionGeometry
+	| DiagramNodeGeometry
 	| DiagramLabelGeometry
 	| DiagramCodeGeometry
 	| DiagramEdgeGeometry
 	| DiagramTimelineGeometry;
 
-/** The code panel's own sizes, carried with its position (ADR-0070). */
-const CODE_GEOMETRY_SIZE_FIELDS = [
+/** The code panel's and box node's own sizes, carried with their position (ADR-0070). */
+const DIAGRAM_GEOMETRY_SIZE_FIELDS = [
 	'fontSize',
 	'paddingX',
 	'paddingY',
 	'minWidth',
-	'minHeight'
+	'minHeight',
+	'borderWidth'
 ] as const;
 
 export function resolveDiagramPrimitiveGeometry(
-	primitive: DiagramNode | DiagramStatCallout,
+	primitive: DiagramNode,
+	orientation: VideoOrientation
+): DiagramNodeGeometry;
+export function resolveDiagramPrimitiveGeometry(
+	primitive: DiagramStatCallout,
 	orientation: VideoOrientation
 ): DiagramPositionGeometry;
 export function resolveDiagramPrimitiveGeometry(
@@ -49,7 +56,7 @@ export function resolveDiagramPrimitiveGeometry(
 export function resolveDiagramPrimitiveGeometry(
 	primitive: DiagramPositionedPrimitive,
 	orientation: VideoOrientation
-): DiagramPositionGeometry | DiagramLabelGeometry | DiagramCodeGeometry;
+): DiagramPositionGeometry | DiagramNodeGeometry | DiagramLabelGeometry | DiagramCodeGeometry;
 export function resolveDiagramPrimitiveGeometry(
 	primitive: DiagramEdgeArrow,
 	orientation: VideoOrientation
@@ -71,12 +78,17 @@ function cloneDiagramEndpoint(endpoint: DiagramEndpoint): DiagramEndpoint {
 
 export function cloneDiagramPrimitiveGeometry(geometry: DiagramLabelGeometry): DiagramLabelGeometry;
 export function cloneDiagramPrimitiveGeometry(geometry: DiagramCodeGeometry): DiagramCodeGeometry;
+export function cloneDiagramPrimitiveGeometry(geometry: DiagramNodeGeometry): DiagramNodeGeometry;
 export function cloneDiagramPrimitiveGeometry(
 	geometry: DiagramPositionGeometry
 ): DiagramPositionGeometry;
 export function cloneDiagramPrimitiveGeometry(
-	geometry: DiagramPositionGeometry | DiagramLabelGeometry | DiagramCodeGeometry
-): DiagramPositionGeometry | DiagramLabelGeometry | DiagramCodeGeometry;
+	geometry:
+		| DiagramPositionGeometry
+		| DiagramNodeGeometry
+		| DiagramLabelGeometry
+		| DiagramCodeGeometry
+): DiagramPositionGeometry | DiagramNodeGeometry | DiagramLabelGeometry | DiagramCodeGeometry;
 export function cloneDiagramPrimitiveGeometry(geometry: DiagramEdgeGeometry): DiagramEdgeGeometry;
 export function cloneDiagramPrimitiveGeometry(
 	geometry: DiagramTimelineGeometry
@@ -89,13 +101,20 @@ export function cloneDiagramPrimitiveGeometry(
 			position: { ...geometry.position },
 			scale: geometry.scale
 		};
-		if ('maxWidth' in geometry) return { ...positionGeometry, maxWidth: geometry.maxWidth };
-		const sizes = CODE_GEOMETRY_SIZE_FIELDS.filter((field) => field in geometry);
+		if ('maxWidth' in geometry && !('paddingX' in geometry)) {
+			const labelGeometry: DiagramLabelGeometry = {
+				...positionGeometry,
+				maxWidth: geometry.maxWidth
+			};
+			if ('fontSize' in geometry) labelGeometry.fontSize = geometry.fontSize;
+			return labelGeometry;
+		}
+		const sizes = DIAGRAM_GEOMETRY_SIZE_FIELDS.filter((field) => field in geometry);
 		if (sizes.length === 0) return positionGeometry;
-		const codeGeometry = geometry as DiagramCodeGeometry;
+		const sizedGeometry = geometry as DiagramCodeGeometry & DiagramNodeGeometry;
 		return {
 			...positionGeometry,
-			...Object.fromEntries(sizes.map((field) => [field, codeGeometry[field]]))
+			...Object.fromEntries(sizes.map((field) => [field, sizedGeometry[field]]))
 		};
 	}
 	if ('route' in geometry) {
@@ -122,7 +141,11 @@ export function resolveDiagramPrimitiveForRender(
 			return {
 				...primitive,
 				position: { ...geometry.position },
-				scale: geometry.scale
+				scale: geometry.scale,
+				fontSize: geometry.fontSize,
+				paddingX: geometry.paddingX,
+				paddingY: geometry.paddingY,
+				borderWidth: geometry.borderWidth
 			};
 		}
 		case 'label': {
@@ -131,6 +154,7 @@ export function resolveDiagramPrimitiveForRender(
 				...primitive,
 				position: { ...geometry.position },
 				scale: geometry.scale,
+				fontSize: geometry.fontSize,
 				maxWidth: geometry.maxWidth
 			};
 		}

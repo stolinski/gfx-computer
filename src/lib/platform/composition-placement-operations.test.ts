@@ -508,7 +508,32 @@ describe('diagram geometry', () => {
 
 		expect(failure.code).toBe('invalid_argument');
 		expect(failure.rejected).toBe('control');
-		expect(failure.alternatives).toEqual(['position', 'scale']);
+		expect(failure.alternatives).toEqual([
+			'position',
+			'scale',
+			'fontSize',
+			'paddingX',
+			'paddingY',
+			'borderWidth'
+		]);
+	});
+
+	it("writes a box node's text size, padding, and border, per orientation", async () => {
+		expectApplied(
+			await runSetCompositionDiagramGeometryOperation({
+				expectedRevision: 1,
+				blockId: 'node-1',
+				target: 'vertical',
+				geometry: { fontSize: 8.5, paddingX: 5, paddingY: 3, borderWidth: 0 }
+			})
+		);
+		const node = engineState.surface.diagram?.[0];
+		expect(node?.orientationOverrides?.vertical).toMatchObject({
+			fontSize: 8.5,
+			paddingX: 5,
+			paddingY: 3,
+			borderWidth: 0
+		});
 	});
 
 	it("carries an edge's authored route into the snapshot it does not own", async () => {

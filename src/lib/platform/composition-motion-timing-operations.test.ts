@@ -9,8 +9,12 @@ import {
 	runAddCompositionOverlayOperation,
 	runAddCompositionTextAnimationOperation
 } from './composition-layer-operations';
-import { runAddCompositionChartBlockOperation } from './composition-block-layer-operations';
 import {
+	runAddCompositionChartBlockOperation,
+	runAddCompositionDiagramPrimitiveOperation
+} from './composition-block-layer-operations';
+import {
+	runSetCompositionBlockTimingOperation,
 	runSetCompositionChartMotionOperation,
 	runSetCompositionMarkTimingOperation,
 	runSetCompositionOverlayTimingOperation,
@@ -406,5 +410,55 @@ describe('chart Block motion', () => {
 
 		expect(failure.code).toBe('invalid_argument');
 		expect(failure.alternatives).toContain('reveal');
+	});
+});
+
+describe('diagram Block timing', () => {
+	it("retimes a Block's entrance, keeps its cue, and removes its exit with null", async () => {
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 0,
+				primitiveType: 'node'
+			})
+		);
+		const node = engineState.surface.diagram?.[0];
+		if (!node?.enter) throw new Error('a new node enters');
+		node.enter.sound = { mute: true };
+		node.exit = { start: 0.9, duration: 0.05, ease: 'smooth' };
+
+		const receipt = expectApplied(
+			await runSetCompositionBlockTimingOperation({
+				expectedRevision: 1,
+				blockId: 'node-1',
+				enter: { start: 0.3, duration: 0.1, ease: 'settled' },
+				exit: null
+			})
+		);
+		expect(receipt.focus).toEqual({ target: 'block', blockId: 'node-1' });
+		expect(engineState.surface.diagram?.[0].enter).toEqual({
+			start: 0.3,
+			duration: 0.1,
+			ease: 'settled',
+			sound: { mute: true }
+		});
+		expect(engineState.surface.diagram?.[0].exit).toBeUndefined();
+	});
+
+	it('names the Blocks there are when the id is wrong', async () => {
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 0,
+				primitiveType: 'node'
+			})
+		);
+		const failure = expectFailed(
+			await runSetCompositionBlockTimingOperation({
+				expectedRevision: 1,
+				blockId: 'nope',
+				enter: { start: 0, duration: 0.1, ease: 'smooth' }
+			})
+		);
+		expect(failure.code).toBe('unknown_target');
+		expect(failure.alternatives).toEqual(['node-1']);
 	});
 });

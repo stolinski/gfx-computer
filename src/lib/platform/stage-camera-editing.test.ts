@@ -3,12 +3,16 @@ import { describe, it } from 'vite-plus/test';
 
 import { STAGE_CAMERA_POSE_LIMITS } from './engine-schema';
 import {
+	appendStageCameraTravelMove,
+	canAppendStageCameraTravelMove,
 	parseUnitIntervalInput,
+	removeStageCameraTravelMove,
 	restStageCameraPose,
 	setStageCameraPoseAim,
 	setStageCameraPoseAngle,
 	setStageCameraPoseDistance,
 	STAGE_ORBIT_DEGREES_PER_FRAME_HEIGHT,
+	stageCameraPoseBeforeMove,
 	stageCameraTravelFrom,
 	stageDollyDistance,
 	stageOrbitDegreesForDrag
@@ -50,5 +54,47 @@ describe('stage camera editing', () => {
 		assert.ok(Math.abs(pushedIn * pulledBack - 1) < 1e-9, 'equal and opposite wheels cancel');
 		assert.equal(stageDollyDistance(1, -100000), STAGE_CAMERA_POSE_LIMITS.minDistance);
 		assert.equal(stageDollyDistance(1, 100000), STAGE_CAMERA_POSE_LIMITS.maxDistance);
+	});
+});
+
+describe('stage camera travel moves', () => {
+	const first = { to: { aim: { x: 0.5 } }, start: 0.1, duration: 0.2, ease: 'smooth' as const };
+
+	it('adds a move that starts where the last one ends and holds its pose', () => {
+		const travel = appendStageCameraTravelMove(first);
+		assert.ok(Array.isArray(travel));
+		assert.equal(travel.length, 2);
+		assert.deepEqual(travel[1], {
+			to: {},
+			start: 0.30000000000000004,
+			duration: 0.2,
+			ease: 'smooth'
+		});
+	});
+
+	it('writes one remaining move as a single move, and none as no travel', () => {
+		const two = appendStageCameraTravelMove(first);
+		assert.deepEqual(removeStageCameraTravelMove(two, 1), first);
+		assert.equal(removeStageCameraTravelMove(first, 0), undefined);
+	});
+
+	it('offers no move once the clip is used up or the list is full', () => {
+		assert.equal(canAppendStageCameraTravelMove({ ...first, start: 0.5, duration: 0.5 }), false);
+		const seven = Array.from({ length: 7 }, (_, index) => ({
+			...first,
+			start: index * 0.05,
+			duration: 0.05
+		}));
+		const eight = appendStageCameraTravelMove(seven);
+		assert.equal(Array.isArray(eight) ? eight.length : 1, 8);
+		assert.equal(canAppendStageCameraTravelMove(eight), false);
+	});
+
+	it('reads the pose a move starts from through every earlier move', () => {
+		const rest = { ...restStageCameraPose(), yaw: -10, aim: { x: 0.2, y: 0.4 } };
+		const travel = [first, { to: { yaw: 5 }, start: 0.4, duration: 0.1, ease: 'smooth' as const }];
+		assert.deepEqual(stageCameraPoseBeforeMove(rest, travel, 0).aim, { x: 0.2, y: 0.4 });
+		const second = stageCameraPoseBeforeMove(rest, travel, 1);
+		assert.deepEqual([second.yaw, second.aim.x], [-10, 0.5]);
 	});
 });
