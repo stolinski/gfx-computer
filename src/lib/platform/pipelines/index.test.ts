@@ -62,6 +62,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'cursor-trail',
 	'icon-orbit',
 	'multiplayer-session',
+	'duplicate-pileup',
 	'counter',
 	'dimensional-type',
 	'instance-stack',

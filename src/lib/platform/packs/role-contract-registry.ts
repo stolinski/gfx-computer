@@ -524,6 +524,9 @@ const colorRoleFallbacks: Readonly<Record<string, string>> = {
 	'icon-orbit.glow': 'accent-treatment',
 	'multiplayer-session.window': 'field-treatment',
 	'multiplayer-session.accent': 'accent-treatment',
+	'duplicate-pileup.window': 'field-treatment',
+	'duplicate-pileup.alert': 'accent-treatment',
+	'duplicate-pileup.good': 'accent-treatment',
 	'dimensional-type.ink': 'ink-treatment',
 	'highlight.fill': 'accent-treatment',
 	'instance-stack.ink': 'ink-treatment',
@@ -574,7 +577,10 @@ const resolverColorRoles = new Set([
 	'dimensional-type.accent',
 	'icon-orbit.glow',
 	'multiplayer-session.window',
-	'multiplayer-session.accent'
+	'multiplayer-session.accent',
+	'duplicate-pileup.window',
+	'duplicate-pileup.alert',
+	'duplicate-pileup.good'
 ]);
 
 const referenceIdentityRoles = new Set([
@@ -598,6 +604,9 @@ const referenceIdentityRoles = new Set([
 	'icon-orbit.glow',
 	'multiplayer-session.window',
 	'multiplayer-session.accent',
+	'duplicate-pileup.window',
+	'duplicate-pileup.alert',
+	'duplicate-pileup.good',
 	'dimensional-type.face',
 	'dimensional-type.ink',
 	'cursor-trail.pointer',

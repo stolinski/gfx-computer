@@ -84,6 +84,7 @@
 	style:inline-size={px(frame.width)}
 	style:block-size={px(frame.height)}
 	style:font-size={px(sizes.textSize * u)}
+	style:translate={`${scene.crash.shakeX}px 0`}
 >
 	<svg
 		class="multiplayer-session__links"
@@ -103,7 +104,40 @@
 				style:stroke-dasharray={`${Math.min(1, fork.pop)} 1`}
 			/>
 		{/each}
+		{#each scene.triggers as trigger (trigger.key)}
+			{#if trigger.fire > 0}
+				<path
+					d={trigger.bolt}
+					fill="none"
+					stroke={accentColor}
+					stroke-width={u * 0.45}
+					stroke-linecap="round"
+					pathLength="1"
+					style:stroke-dasharray={`${trigger.fire} 1`}
+				/>
+			{/if}
+		{/each}
 	</svg>
+
+	{#each scene.triggers as trigger (trigger.key)}
+		<div
+			class="multiplayer-session__fork multiplayer-session__trigger"
+			class:is-fired={trigger.fire > 0}
+			style:left={px(trigger.rect.x)}
+			style:top={px(trigger.rect.y)}
+			style:inline-size={px(trigger.rect.width)}
+			style:block-size={px(trigger.rect.height)}
+			style:border-radius={px(sizes.radius * u * 0.7)}
+			style:padding={`${px(sizes.gap * u)} ${px(sizes.paddingX * u * 0.7)}`}
+			style:opacity={Math.min(1, trigger.pop * 2)}
+			style:scale={0.6 + 0.4 * trigger.pop}
+		>
+			<span class="multiplayer-session__fork-label">⚡ {trigger.label}</span>
+			{#if trigger.detail}
+				<span class="multiplayer-session__fork-detail">{trigger.detail}</span>
+			{/if}
+		</div>
+	{/each}
 
 	{#each scene.forks as fork (fork.key)}
 		<div
@@ -129,7 +163,11 @@
 		style:inline-size={px(scene.window.width)}
 		style:block-size={px(scene.window.height)}
 		style:border-radius={px(sizes.radius * u)}
+		class:is-crashed={scene.status.isCrashed}
 	>
+		{#if scene.crash.flash > 0}
+			<span class="multiplayer-session__flash" style:opacity={scene.crash.flash * 0.4}></span>
+		{/if}
 		<div
 			class="multiplayer-session__header"
 			style:block-size={px(scene.window.headerHeight)}
@@ -143,6 +181,8 @@
 	<span
 		class="multiplayer-session__status"
 		class:is-waiting={scene.status.isWaiting}
+		class:is-crashed={scene.status.isCrashed}
+		class:is-idle={scene.status.isIdle}
 		style:left={px(scene.status.x)}
 		style:top={px(scene.status.centerY)}
 		style:font-size={px(sizes.titleSize * u * 0.72)}
@@ -188,12 +228,18 @@
 						<span class="multiplayer-session__tag" style:border-color={entry.color}>{entry.tag}</span>
 					{/if}
 				{:else if entry.kind === 'step'}
-					<span class="multiplayer-session__tick" class:is-done={entry.isDone}>{entry.isDone ? '✓' : '●'}</span>
+					<span class="multiplayer-session__tick" class:is-done={entry.isDone} class:is-failed={entry.isFailed}
+						>{entry.isFailed ? '✕' : entry.isDone ? '✓' : '●'}</span
+					>
 					<span class="multiplayer-session__tool">{entry.tool}</span>
 					<span class="multiplayer-session__said">{entry.text}</span>
 				{:else if entry.kind === 'fork'}
 					<span class="multiplayer-session__tick">⑂</span>
 					<span class="multiplayer-session__said">forked: {entry.text}</span>
+				{:else if entry.kind === 'trigger'}
+					<span class="multiplayer-session__trigger-text">⚡ {entry.text}</span>
+				{:else if entry.kind === 'crash'}
+					<span class="multiplayer-session__crash-text">✕ {entry.text}</span>
 				{:else}
 					<span class="multiplayer-session__wait-text">⏸ {entry.text}</span>
 					<span class="multiplayer-session__wait-actions">
@@ -208,6 +254,7 @@
 		{/each}
 	</div>
 
+	{#if scene.prompt.isVisible}
 	<div
 		class="multiplayer-session__prompt"
 		style:left={px(scene.prompt.x)}
@@ -238,6 +285,7 @@
 		style:block-size={px(scene.prompt.send.size)}
 		style:scale={1 - scene.prompt.send.press * 0.12}
 	>↑</span>
+	{/if}
 
 	{#each scene.cursors as cursor (cursor.userId)}
 		<div
@@ -333,6 +381,44 @@
 	.multiplayer-session__status.is-waiting {
 		background: color-mix(in srgb, var(--accent) 18%, transparent);
 		color: var(--accent);
+	}
+
+	.multiplayer-session__status.is-crashed,
+	.multiplayer-session__crash-text,
+	.multiplayer-session__tick.is-failed {
+		color: #ff5a5a;
+	}
+
+	.multiplayer-session__status.is-crashed {
+		background: color-mix(in srgb, #ff5a5a 16%, transparent);
+	}
+
+	.multiplayer-session__window.is-crashed {
+		border-color: color-mix(in srgb, #ff5a5a 60%, transparent);
+	}
+
+	.multiplayer-session__flash {
+		background: #ff3b3b;
+		border-radius: inherit;
+		inset: 0;
+		position: absolute;
+	}
+
+	.multiplayer-session__crash-text {
+		font-weight: 700;
+	}
+
+	.multiplayer-session__trigger-text {
+		color: var(--accent);
+	}
+
+	.multiplayer-session__trigger.is-fired {
+		border-color: var(--accent);
+	}
+
+	.multiplayer-session__status.is-idle {
+		background: color-mix(in srgb, var(--ink) 10%, transparent);
+		color: color-mix(in srgb, var(--ink) 60%, transparent);
 	}
 
 	.multiplayer-session__status-dot {

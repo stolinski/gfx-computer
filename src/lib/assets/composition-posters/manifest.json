@@ -286,6 +286,13 @@
 		"height": 360,
 		"contentFraction": 0.5276
 	},
+	"duplicate-pileup-double-send": {
+		"contentKey": "f1340ae8eddf9a16",
+		"timestampSeconds": 5.317,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.997
+	},
 	"effect-keyframes-demo": {
 		"contentKey": "b8dddfb8e232a097",
 		"timestampSeconds": 3,

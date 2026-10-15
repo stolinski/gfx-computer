@@ -150,7 +150,9 @@ const OVERLAY_EVENT_DEFAULTS: Record<
 	// Floating icons arrive quietly; the editor adds any sound around the speaker.
 	'icon-orbit': { enter: null, exit: null },
 	// The window settles in quietly; typing and clicks are the editor's to score.
-	'multiplayer-session': { enter: null, exit: null }
+	'multiplayer-session': { enter: null, exit: null },
+	// Duplicates land silently; the editor scores the pileup.
+	'duplicate-pileup': { enter: null, exit: null }
 };
 
 // The iMessage bubble arrivals — locked-specific signature sounds (ADR-0033

@@ -111,3 +111,53 @@ describe('formatMultiplayerSessionTimer', () => {
 		expect(formatMultiplayerSessionTimer(-3)).toBe('0:00');
 	});
 });
+
+describe('triggers and crashes', () => {
+	const run: MultiplayerSessionContent = {
+		...content,
+		users: [],
+		events: [
+			{ kind: 'trigger', label: 'cron', detail: '0 3 * * *', at: 0.05 },
+			{ kind: 'trigger', label: 'webhook', at: 0.1, fireAt: 0.3 },
+			{ kind: 'step', tool: 'read', text: 'issue', at: 0.4 },
+			{ kind: 'step', tool: 'edit', text: 'file', at: 0.5 },
+			{ kind: 'crash', text: 'process killed', at: 0.6 }
+		]
+	};
+	const at = (seconds: number) =>
+		resolveMultiplayerSessionScene(
+			run,
+			MULTIPLAYER_SESSION_DEFAULT_LAYOUT,
+			MULTIPLAYER_SESSION_DEFAULT_SIZES,
+			seconds,
+			DURATION,
+			3840,
+			2160
+		);
+
+	it('idles until a trigger fires, then runs, with no prompt when nobody is in the session', () => {
+		expect(at(3).status.label).toBe('idle');
+		expect(at(7).status.label).toBe('running');
+		expect(at(7).prompt.isVisible).toBe(false);
+		expect(at(7).log.some((entry) => entry.kind === 'trigger')).toBe(true);
+	});
+
+	it('puts trigger cards left of the window and draws the bolt once fired', () => {
+		const scene = at(7);
+		expect(scene.triggers).toHaveLength(2);
+		expect(scene.triggers.every((trigger) => trigger.rect.x + trigger.rect.width < scene.window.x)).toBe(true);
+		expect(scene.triggers[1].fire).toBe(1);
+		expect(scene.triggers[0].fire).toBe(0);
+	});
+
+	it('crashes: the step it was on fails, the window shakes and flashes, and the status reads crashed', () => {
+		const scene = at(12.1);
+		expect(scene.status.label).toBe('crashed');
+		expect(scene.crash.flash).toBeGreaterThan(0);
+		const edit = scene.log.find((entry) => entry.kind === 'step' && entry.text === 'file');
+		const read = scene.log.find((entry) => entry.kind === 'step' && entry.text === 'issue');
+		expect(edit?.kind === 'step' && edit.isFailed).toBe(true);
+		expect(read?.kind === 'step' && read.isDone).toBe(true);
+		expect(at(20).crash).toEqual({ shakeX: 0, flash: 0 });
+	});
+});

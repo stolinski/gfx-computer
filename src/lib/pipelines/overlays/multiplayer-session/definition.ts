@@ -25,7 +25,9 @@ export type MultiplayerSessionUser = z.infer<typeof MultiplayerSessionUserSchema
 // the shared prompt over `duration`; `send` posts that draft to the run log;
 // `step` is a line the agent writes as it works; `fork` peels a child run off
 // the window; `wait` parks the run on an approval or timer, and every name tag
-// shows the same paused state.
+// shows the same paused state. A `trigger` slides a card in beside the window
+// (a cron job, a webhook) and, at `fireAt`, fires it into the run; a `crash`
+// shakes the window, flashes it red, and fails the step it was on.
 const MultiplayerSessionEventSchema = z.discriminatedUnion('kind', [
 	z.strictObject({ kind: z.literal('join'), user: UserIdSchema, at: ClipFractionSchema }),
 	z.strictObject({
@@ -54,6 +56,14 @@ const MultiplayerSessionEventSchema = z.discriminatedUnion('kind', [
 		user: UserIdSchema.optional(),
 		at: ClipFractionSchema
 	}),
+	z.strictObject({
+		kind: z.literal('trigger'),
+		label: z.string().min(1).max(24),
+		detail: z.string().max(40).optional(),
+		at: ClipFractionSchema,
+		fireAt: ClipFractionSchema.optional()
+	}),
+	z.strictObject({ kind: z.literal('crash'), text: z.string().min(1).max(48), at: ClipFractionSchema }),
 	z.strictObject({
 		kind: z.literal('wait'),
 		text: z.string().min(1).max(48),
@@ -110,7 +120,7 @@ export const MULTIPLAYER_SESSION_USER_COLORS = ['#ff6b8b', '#4dabf7', '#3ddc84',
 // unless a colour is authored here.
 const MultiplayerSessionContentSchema = z.strictObject({
 	title: z.string().min(1).max(32).default('agent'),
-	users: z.array(MultiplayerSessionUserSchema).min(1).max(4),
+	users: z.array(MultiplayerSessionUserSchema).max(4),
 	events: z.array(MultiplayerSessionEventSchema).min(1).max(40),
 	x: ClipFractionSchema.default(MULTIPLAYER_SESSION_DEFAULT_LAYOUT.x),
 	y: ClipFractionSchema.default(MULTIPLAYER_SESSION_DEFAULT_LAYOUT.y),
@@ -175,7 +185,10 @@ export const multiplayerSessionOverlayDefinition = {
 	readableText: (content) => [
 		{ id: 'title', text: content.title, role: 'overlay-corner-secondary' as const },
 		...content.events.flatMap((event, index) =>
-			event.kind === 'type' || event.kind === 'step' || event.kind === 'wait'
+			event.kind === 'type' ||
+			event.kind === 'step' ||
+			event.kind === 'wait' ||
+			event.kind === 'crash'
 				? [{ id: `event-${index}`, text: event.text, role: 'overlay-corner-secondary' as const }]
 				: []
 		)

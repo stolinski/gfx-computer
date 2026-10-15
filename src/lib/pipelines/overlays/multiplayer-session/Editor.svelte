@@ -20,7 +20,16 @@
 
 	const MAX_USERS = 4;
 	const MAX_EVENTS = 40;
-	const EVENT_KINDS: MultiplayerSessionEvent['kind'][] = ['join', 'type', 'send', 'step', 'fork', 'wait'];
+	const EVENT_KINDS: MultiplayerSessionEvent['kind'][] = [
+		'join',
+		'type',
+		'send',
+		'step',
+		'fork',
+		'wait',
+		'trigger',
+		'crash'
+	];
 	const SIZE_FIELDS: { key: keyof typeof MULTIPLAYER_SESSION_DEFAULT_SIZES; label: string; max: number }[] = [
 		{ key: 'textSize', label: 'Text size', max: 10 },
 		{ key: 'titleSize', label: 'Title size', max: 10 },
@@ -36,6 +45,13 @@
 		{ key: 'inkColor', label: 'Ink', fallback: '#f7f6f2' },
 		{ key: 'accentColor', label: 'Accent', fallback: '#ffd54a' }
 	];
+
+	// Joining, typing, and sending need a person to do them.
+	const offeredKinds = $derived(
+		overlay.content.users.length > 0
+			? EVENT_KINDS
+			: EVENT_KINDS.filter((kind) => kind !== 'join' && kind !== 'type' && kind !== 'send')
+	);
 
 	const orientation = $derived(engineState.transport.orientation);
 	const customLayout = $derived(overlay.content.orientationOverrides?.[orientation]);
@@ -90,7 +106,8 @@
 	}
 
 	function newEvent(kind: MultiplayerSessionEvent['kind'], at: number): MultiplayerSessionEvent {
-		const user = overlay.content.users[0].id;
+		// Only offered while someone is in the session (see `offeredKinds`).
+		const user = overlay.content.users[0]?.id ?? '';
 		switch (kind) {
 			case 'join':
 				return { kind, user, at };
@@ -104,6 +121,10 @@
 				return { kind, label: 'a child run', at };
 			case 'wait':
 				return { kind, text: 'Approve this?', timerSeconds: 120, at };
+			case 'trigger':
+				return { kind, label: 'webhook', detail: 'POST /hooks', at, fireAt: Math.min(1, at + 0.1) };
+			case 'crash':
+				return { kind, text: 'process exited', at };
 		}
 	}
 
@@ -172,7 +193,7 @@
 			value={resolveMultiplayerSessionUserColor(overlay.content, user.id)}
 			oninput={(e) => (user.color = (e.currentTarget as HTMLInputElement).value)}
 		/>
-		{#if overlay.content.users.length > 1}
+		{#if overlay.content.users.length > 0}
 			<button type="button" onclick={() => removeUser(index)}>Remove</button>
 		{/if}
 	</Field>
@@ -184,7 +205,7 @@
 {#each overlay.content.events as event, index (index)}
 	<Field label={`At ${index + 1}`}>
 		<select value={event.kind} onchange={(e) => changeEventKind(index, (e.currentTarget as HTMLSelectElement).value as MultiplayerSessionEvent['kind'])}>
-			{#each EVENT_KINDS as kind (kind)}
+			{#each offeredKinds as kind (kind)}
 				<option value={kind}>{kind}</option>
 			{/each}
 		</select>
@@ -228,6 +249,18 @@
 		<Field label="Fork">
 			<input type="text" aria-label="Label" maxlength="32" bind:value={event.label} />
 			<input type="text" aria-label="Detail" maxlength="40" value={event.detail ?? ''} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; event.detail = v.length > 0 ? v : undefined; }} />
+		</Field>
+	{:else if event.kind === 'trigger'}
+		<Field label="Trigger">
+			<input type="text" aria-label="Label" maxlength="24" bind:value={event.label} />
+			<input type="text" aria-label="Detail" maxlength="40" value={event.detail ?? ''} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; event.detail = v.length > 0 ? v : undefined; }} />
+		</Field>
+		<Field label="Fires at">
+			<input type="number" min="0" max="1" step="0.005" value={event.fireAt ?? ''} oninput={(e) => { const raw = (e.currentTarget as HTMLInputElement).value; const n = Number(raw); event.fireAt = raw.length > 0 && Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : undefined; }} />
+		</Field>
+	{:else if event.kind === 'crash'}
+		<Field label="Crash">
+			<input type="text" maxlength="48" bind:value={event.text} />
 		</Field>
 	{:else if event.kind === 'wait'}
 		<Field label="Waits on">

@@ -79,6 +79,10 @@ export const crtTerminalPack: PackManifest = {
 		// Multiplayer Session: the agent window and its send / waiting accent.
 		'multiplayer-session.window': { kind: 'style', value: '#070b08' },
 		'multiplayer-session.accent': { kind: 'style', value: '#d9ffe0' },
+		// Duplicate Pileup: the panels, the duplicates' alert, and the clean state.
+		'duplicate-pileup.window': { kind: 'style', value: '#070b08' },
+		'duplicate-pileup.alert': { kind: 'style', value: '#ff6b4a' },
+		'duplicate-pileup.good': { kind: 'style', value: '#45ff6e' },
 		'icon-orbit.glow': { kind: 'style', value: '#45ff6e' },
 		// Hard pixel edges: a screen silhouette is exactly as rasterized — no
 		// torn fiber, no soft feather.

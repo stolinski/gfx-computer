@@ -91,6 +91,10 @@ export const sentryPack: PackManifest = {
 		// Multiplayer Session: the agent window and its send / waiting accent.
 		'multiplayer-session.window': { kind: 'style', value: '#1f1633' },
 		'multiplayer-session.accent': { kind: 'style', value: '#fd44b0' },
+		// Duplicate Pileup: the panels, the duplicates' alert, and the clean state.
+		'duplicate-pileup.window': { kind: 'style', value: '#1f1633' },
+		'duplicate-pileup.alert': { kind: 'style', value: '#ff5a6e' },
+		'duplicate-pileup.good': { kind: 'style', value: '#7ce8a5' },
 		'icon-orbit.glow': { kind: 'style', value: '#c6a6ff' },
 		// Die-cut clean silhouettes — a product console tears nothing.
 		'edge-treatment': { kind: 'style', value: 'clean' },

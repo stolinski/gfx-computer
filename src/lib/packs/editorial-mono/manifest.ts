@@ -61,6 +61,10 @@ export const editorialMonoPack: PackManifest = {
 		// Multiplayer Session: the agent window and its send / waiting accent.
 		'multiplayer-session.window': { kind: 'style', value: '#0d1117' },
 		'multiplayer-session.accent': { kind: 'style', value: '#22d3ee' },
+		// Duplicate Pileup: the panels, the duplicates' alert, and the clean state.
+		'duplicate-pileup.window': { kind: 'style', value: '#0d1117' },
+		'duplicate-pileup.alert': { kind: 'style', value: '#ff5a6e' },
+		'duplicate-pileup.good': { kind: 'style', value: '#3ddc84' },
 		'icon-orbit.glow': { kind: 'style', value: '#22d3ee' },
 		'edge-treatment': { kind: 'style', value: 'clean' },
 		'depth-treatment': { kind: 'style', value: 'none' },

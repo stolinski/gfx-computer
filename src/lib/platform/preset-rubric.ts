@@ -523,7 +523,8 @@ function checkOverlayPlacement(
 		const isFullFrameCoordinateOverlay =
 			overlay.type === 'cursor-trail' ||
 			overlay.type === 'icon-orbit' ||
-			overlay.type === 'multiplayer-session';
+			overlay.type === 'multiplayer-session' ||
+			overlay.type === 'duplicate-pileup';
 
 		if (anchor === 'normalized-rect' && rect && !isFullFrameCoordinateOverlay) {
 			if (

@@ -87,6 +87,7 @@ import { dimensionalTypeIdentity } from '$lib/pipelines/overlays/dimensional-typ
 import { cursorTrailIdentity } from '$lib/pipelines/overlays/cursor-trail/identity';
 import { iconOrbitIdentity } from '$lib/pipelines/overlays/icon-orbit/identity';
 import { multiplayerSessionIdentity } from '$lib/pipelines/overlays/multiplayer-session/identity';
+import { duplicatePileupIdentity } from '$lib/pipelines/overlays/duplicate-pileup/identity';
 import { instagramFollowIdentity } from '$lib/pipelines/overlays/instagram-follow/identity';
 import { instanceStackIdentity } from '$lib/pipelines/overlays/instance-stack/identity';
 import { lowerThirdIdentity } from '$lib/pipelines/overlays/lower-third/identity';
@@ -151,6 +152,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'overlay:cursor-trail': cursorTrailIdentity,
 	'overlay:icon-orbit': iconOrbitIdentity,
 	'overlay:multiplayer-session': multiplayerSessionIdentity,
+	'overlay:duplicate-pileup': duplicatePileupIdentity,
 	'overlay:instance-stack': instanceStackIdentity,
 	'overlay:lower-third': lowerThirdIdentity,
 	'overlay:text-3d': text3dIdentity,

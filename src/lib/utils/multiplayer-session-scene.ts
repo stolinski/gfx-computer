@@ -22,6 +22,9 @@ const CURSOR_JOIN_SECONDS = 1.1;
 const CLICK_SECONDS = 0.45;
 const FORK_POP_SECONDS = 0.5;
 const AVATAR_POP_SECONDS = 0.4;
+const TRIGGER_FIRE_SECONDS = 0.45;
+const CRASH_SHAKE_SECONDS = 0.7;
+const CRASH_FLASH_SECONDS = 1.2;
 
 export interface MultiplayerSessionSizes {
 	textSize: number;
@@ -60,7 +63,10 @@ export type MultiplayerSessionLogEntry =
 			tool: string;
 			text: string;
 			isDone: boolean;
+			isFailed: boolean;
 	  }
+	| { key: string; kind: 'trigger'; rect: MultiplayerSessionRect; opacity: number; text: string }
+	| { key: string; kind: 'crash'; rect: MultiplayerSessionRect; opacity: number; text: string }
 	| { key: string; kind: 'fork'; rect: MultiplayerSessionRect; opacity: number; text: string }
 	| {
 			key: string;
@@ -90,6 +96,18 @@ export interface MultiplayerSessionFork {
 	connector: string;
 }
 
+export interface MultiplayerSessionTrigger {
+	key: string;
+	label: string;
+	detail?: string;
+	rect: MultiplayerSessionRect;
+	pop: number;
+	/** 0 before it fires; then how far the bolt has travelled into the window, to 1. */
+	fire: number;
+	/** SVG path from the card to the window edge. */
+	bolt: string;
+}
+
 export interface MultiplayerSessionAvatar {
 	userId: string;
 	initial: string;
@@ -115,11 +133,22 @@ export interface MultiplayerSessionCursor {
 export interface MultiplayerSessionScene {
 	unit: number;
 	window: MultiplayerSessionRect & { headerHeight: number };
-	status: { isWaiting: boolean; label: string; x: number; centerY: number };
+	status: {
+		isIdle: boolean;
+		isWaiting: boolean;
+		isCrashed: boolean;
+		label: string;
+		x: number;
+		centerY: number;
+	};
+	/** The crash's sideways shake in pixels and its red flash, 0 to 1. */
+	crash: { shakeX: number; flash: number };
+	triggers: MultiplayerSessionTrigger[];
 	avatars: MultiplayerSessionAvatar[];
 	log: MultiplayerSessionLogEntry[];
 	logViewport: MultiplayerSessionRect;
 	prompt: MultiplayerSessionRect & {
+		isVisible: boolean;
 		rows: MultiplayerSessionPromptRow[];
 		send: { x: number; y: number; size: number; press: number };
 	};
@@ -239,8 +268,9 @@ export function resolveMultiplayerSessionScene(
 		users.find((user) => user.id === userId)?.name ?? userId;
 
 	// ---------------------------------------------------------------- prompt
-	const rowCount = users.length;
-	const promptHeight = rowCount * lineHeight + gap * 2;
+	// With nobody in the session there is no prompt, and the log runs to the window's foot.
+	const isPromptVisible = users.length > 0;
+	const promptHeight = isPromptVisible ? users.length * lineHeight + gap * 2 : 0;
 	const prompt = {
 		x: win.x + padX,
 		y: win.y + win.height - padY - promptHeight,
@@ -319,7 +349,7 @@ export function resolveMultiplayerSessionScene(
 		x: win.x + padX,
 		y: win.y + win.headerHeight,
 		width: win.width - padX * 2,
-		height: prompt.y - gap - (win.y + win.headerHeight)
+		height: prompt.y - (isPromptVisible ? gap : 0) - (win.y + win.headerHeight)
 	};
 	const waitHeight = lineHeight * 2.6 + gap;
 	const entryGap = gap * 0.7;
@@ -330,6 +360,7 @@ export function resolveMultiplayerSessionScene(
 	}
 	const pending: PendingEntry[] = [];
 	const steps = eventsOfKind(content.events, 'step', durationSeconds);
+	const crashes = eventsOfKind(content.events, 'crash', durationSeconds);
 	content.events.forEach((event, index) => {
 		const eventSeconds = at(event.at);
 		const key = `event-${index}`;
@@ -354,6 +385,9 @@ export function resolveMultiplayerSessionScene(
 			});
 		} else if (event.kind === 'step') {
 			const next = steps.find((item) => item.seconds > eventSeconds);
+			const crash = crashes.find(
+				(item) => item.seconds > eventSeconds && (next === undefined || item.seconds < next.seconds)
+			);
 			pending.push({
 				seconds: eventSeconds,
 				height: lineHeight,
@@ -364,7 +398,8 @@ export function resolveMultiplayerSessionScene(
 					opacity,
 					tool: event.tool,
 					text: event.text,
-					isDone: next !== undefined && seconds >= next.seconds
+					isDone: next !== undefined && seconds >= next.seconds && crash === undefined,
+					isFailed: crash !== undefined && seconds >= crash.seconds
 				})
 			});
 		} else if (event.kind === 'fork') {
@@ -372,6 +407,19 @@ export function resolveMultiplayerSessionScene(
 				seconds: eventSeconds,
 				height: lineHeight,
 				build: (rect, opacity) => ({ key, kind: 'fork', rect, opacity, text: event.label })
+			});
+		} else if (event.kind === 'trigger' && event.fireAt !== undefined) {
+			const label = event.detail ? `${event.label} · ${event.detail}` : event.label;
+			pending.push({
+				seconds: at(event.fireAt) + TRIGGER_FIRE_SECONDS,
+				height: lineHeight,
+				build: (rect, opacity) => ({ key, kind: 'trigger', rect, opacity, text: label })
+			});
+		} else if (event.kind === 'crash') {
+			pending.push({
+				seconds: eventSeconds,
+				height: lineHeight,
+				build: (rect, opacity) => ({ key, kind: 'crash', rect, opacity, text: event.text })
 			});
 		} else if (event.kind === 'wait') {
 			pending.push({
@@ -455,6 +503,52 @@ export function resolveMultiplayerSessionScene(
 			};
 		});
 
+	// ---------------------------------------------------------------- triggers
+	// Trigger cards stand in a column left of the window, centred on it; a
+	// fired card sends a bolt into the window's left edge at the log's foot.
+	const triggerEvents = eventsOfKind(content.events, 'trigger', durationSeconds);
+	const triggerWidth = Math.min(text * 15, Math.max(text * 6, win.x - unit * 9));
+	const triggerHeight = lineHeight * 2 + gap * 2;
+	const triggerSpacing = triggerHeight + unit * 3;
+	const triggerTop =
+		win.y + win.height / 2 - (triggerEvents.length * triggerSpacing - unit * 3) / 2;
+	const triggers: MultiplayerSessionTrigger[] = triggerEvents
+		.filter((item) => item.seconds <= seconds)
+		.map((item) => {
+			const order = triggerEvents.indexOf(item);
+			const rect = {
+				x: win.x - unit * 6 - triggerWidth,
+				y: triggerTop + order * triggerSpacing,
+				width: triggerWidth,
+				height: triggerHeight
+			};
+			const from = { x: rect.x + rect.width, y: rect.y + rect.height / 2 };
+			const to = { x: win.x, y: logViewport.y + logViewport.height - lineHeight / 2 };
+			const fireSeconds = item.event.fireAt === undefined ? undefined : at(item.event.fireAt);
+			return {
+				key: `trigger-${item.index}`,
+				label: item.event.label,
+				detail: item.event.detail,
+				rect,
+				pop: pop((seconds - item.seconds) / FORK_POP_SECONDS),
+				fire:
+					fireSeconds === undefined || seconds < fireSeconds
+						? 0
+						: smooth((seconds - fireSeconds) / TRIGGER_FIRE_SECONDS),
+				bolt: `M ${from.x} ${from.y} C ${from.x + (to.x - from.x) * 0.5} ${from.y}, ${to.x - (to.x - from.x) * 0.5} ${to.y}, ${to.x} ${to.y}`
+			};
+		});
+
+	const lastCrash = crashes.filter((item) => item.seconds <= seconds).at(-1);
+	const sinceCrash = lastCrash ? seconds - lastCrash.seconds : Number.POSITIVE_INFINITY;
+	const crash = {
+		shakeX:
+			sinceCrash < CRASH_SHAKE_SECONDS
+				? Math.sin(sinceCrash * 70) * unit * 1.4 * (1 - sinceCrash / CRASH_SHAKE_SECONDS)
+				: 0,
+		flash: sinceCrash < CRASH_FLASH_SECONDS ? 1 - smooth(sinceCrash / CRASH_FLASH_SECONDS) : 0
+	};
+
 	// ---------------------------------------------------------------- status
 	const waits = eventsOfKind(content.events, 'wait', durationSeconds);
 	const activeWait = waits.filter((item) => item.seconds <= seconds).at(-1);
@@ -479,13 +573,26 @@ export function resolveMultiplayerSessionScene(
 			pop: pop((seconds - item.seconds) / AVATAR_POP_SECONDS)
 		}))
 		.reverse();
+	// A session started by a trigger idles until the first trigger fires.
+	const firstFire = Math.min(
+		...triggerEvents.flatMap((item) =>
+			item.event.fireAt === undefined ? [] : [at(item.event.fireAt)]
+		)
+	);
+	const isIdle = Number.isFinite(firstFire) && seconds < firstFire;
 	const status = {
-		isWaiting: activeWait !== undefined,
-		label: activeWait
+		isIdle,
+		isWaiting: activeWait !== undefined && lastCrash === undefined,
+		isCrashed: lastCrash !== undefined,
+		label: lastCrash
+			? 'crashed'
+			: activeWait
 			? activeWait.event.timerSeconds === undefined
 				? 'waiting'
 				: `waiting · ${waitTimer(seconds)}`
-			: 'running',
+			: isIdle
+				? 'idle'
+				: 'running',
 		x: win.x + padX + sizes.titleSize * unit * (content.title.length * 0.62 + 1.6),
 		centerY: win.y + win.headerHeight / 2
 	};
@@ -613,7 +720,9 @@ export function resolveMultiplayerSessionScene(
 		avatars,
 		log,
 		logViewport,
-		prompt: { ...prompt, rows, send },
+		crash,
+		triggers,
+		prompt: { ...prompt, isVisible: isPromptVisible, rows, send },
 		forks,
 		cursors
 	};

@@ -66,6 +66,10 @@ export const syntaxPack: PackManifest = {
 		// Multiplayer Session: the agent window and its send / waiting accent.
 		'multiplayer-session.window': { kind: 'style', value: '#141413' },
 		'multiplayer-session.accent': { kind: 'style', value: '#ffd54a' },
+		// Duplicate Pileup: the panels, the duplicates' alert, and the clean state.
+		'duplicate-pileup.window': { kind: 'style', value: '#141413' },
+		'duplicate-pileup.alert': { kind: 'style', value: '#ff5a5a' },
+		'duplicate-pileup.good': { kind: 'style', value: '#3ddc84' },
 		// Brand yellow per the real overlay system (github.com/randyrektor/
 		// syntax-overlay, calibration 2026-07-09) — was #fabf47, which belongs to
 		// the physical-highlighter mark defaults, not the chrome accent.
