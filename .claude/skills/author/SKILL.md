@@ -88,8 +88,8 @@ Constraints, all binding:
 - Native resolution: 3840×2160 or 2160×3840. No upscaling.
 - No TODOs, placeholder content, or no-op stubs. Wire it now or the work
   isn't done.
-- Every text size and box size (width, height, padding) the Pipeline draws
-  is settable on its own in the Preset, the Inspector, and a WebMCP
+- Every text size, box size (width, height, padding, gap), icon size, and
+  part colour the Pipeline draws is settable on its own in the Preset, the Inspector, and a WebMCP
   operation — not only through a uniform `scale` (ADR-0070). A hard-coded
   number is the default, never the only value.
 - No new utility folders. Shared helpers go in `src/lib/utils/`.

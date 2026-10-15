@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { engineState } from '$lib/platform/engine-state.svelte';
+	import AuthoredColorInput from '$lib/platform/AuthoredColorInput.svelte';
+	import { engineState, packState } from '$lib/platform/engine-state.svelte';
+	import { getPack } from '$lib/platform/packs/registry';
+	import { requireCoreColor, resolveAppearanceVars } from '$lib/platform/packs/resolve';
 	import { findStringOption } from '$lib/utils/string';
 	import Field from '$lib/platform/Field.svelte';
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
@@ -17,7 +20,23 @@
 
 	let { overlay = $bindable() }: OverlayEditorProps<AchievementContent> = $props();
 
-	type AchievementSizeField = 'minHeight' | 'titleSize' | 'kickerSize' | 'paddingX' | 'paddingY';
+	type AchievementSizeField =
+		| 'minHeight'
+		| 'titleSize'
+		| 'kickerSize'
+		| 'paddingX'
+		| 'paddingY'
+		| 'iconSize'
+		| 'gap';
+
+	type AchievementColorField =
+		| 'backgroundColor'
+		| 'borderColor'
+		| 'iconColor'
+		| 'ringColor'
+		| 'kickerColor'
+		| 'chipColor'
+		| 'titleColor';
 
 	// Sizes are the author's (ADR-0070); an emptied field returns to the card's own size.
 	function setSize(field: AchievementSizeField, input: HTMLInputElement): void {
@@ -33,6 +52,35 @@
 	}
 
 	const style = $derived(resolveAchievementStyle(overlay.content));
+
+	// What each part shows without an authored colour: the active Pack's
+	// achievement Roles, falling back to its core colours.
+	const packColors = $derived.by((): Record<AchievementColorField, string> => {
+		const pack = getPack(packState.slug);
+		const vars = resolveAppearanceVars(pack, 'achievement');
+		const ink = vars['--ink'] ?? requireCoreColor(pack, 'ink-treatment');
+		const accent = vars['--accent'] ?? requireCoreColor(pack, 'accent-treatment');
+		const plate = vars['--plate'] ?? requireCoreColor(pack, 'fill-treatment');
+		return {
+			backgroundColor: plate,
+			borderColor: vars['--borderInk'] ?? ink,
+			iconColor: style.icon === 'star' ? accent : (vars['--success'] ?? accent),
+			ringColor: vars['--borderInk'] ?? ink,
+			kickerColor: style.kickerStyle === 'chip' ? (vars['--accentInk'] ?? plate) : accent,
+			chipColor: accent,
+			titleColor: ink
+		};
+	});
+
+	const COLOR_ROWS: readonly { field: AchievementColorField; label: string }[] = [
+		{ field: 'backgroundColor', label: 'Background' },
+		{ field: 'borderColor', label: 'Border' },
+		{ field: 'iconColor', label: 'Icon' },
+		{ field: 'ringColor', label: 'Empty ring' },
+		{ field: 'kickerColor', label: 'Kicker' },
+		{ field: 'chipColor', label: 'Chip' },
+		{ field: 'titleColor', label: 'Title' }
+	];
 </script>
 
 <Field label="Icon">
@@ -166,3 +214,43 @@
 		placeholder="auto"
 	/>
 </Field>
+
+<Field label="Icon size">
+	<input
+		value={overlay.content.iconSize ?? ''}
+		oninput={(event) => setSize('iconSize', event.currentTarget)}
+		type="number"
+		min="0.5"
+		max="40"
+		step="0.1"
+		placeholder="auto"
+	/>
+</Field>
+
+<Field label="Gap">
+	<input
+		value={overlay.content.gap ?? ''}
+		oninput={(event) => setSize('gap', event.currentTarget)}
+		type="number"
+		min="0"
+		max="20"
+		step="0.1"
+		placeholder="auto"
+	/>
+</Field>
+
+{#each COLOR_ROWS as row (row.field)}
+	{#if row.field !== 'chipColor' || style.kickerStyle === 'chip'}
+		<Field label={row.label}>
+			<AuthoredColorInput
+				label={`${row.label} colour`}
+				value={overlay.content[row.field]}
+				packColor={packColors[row.field]}
+				onchange={(value) => {
+					overlay.content[row.field] = value;
+				}}
+			/>
+		</Field>
+	{/if}
+{/each}
+

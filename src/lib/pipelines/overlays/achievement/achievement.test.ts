@@ -249,4 +249,28 @@ describe('achievement Overlay', () => {
 		});
 		assert.equal(tooSmall.success, false);
 	});
+
+	it('takes authored part colours, icon size, and gap, and refuses a non-hex colour', () => {
+		const coloured = achievementOverlayRenderer.schema.safeParse({
+			kicker: 'K',
+			title: 'T',
+			iconSize: 8,
+			gap: 2,
+			backgroundColor: '#101820',
+			borderColor: '#334455',
+			iconColor: '#ff3366',
+			ringColor: '#222222',
+			kickerColor: '#ffffff',
+			chipColor: '#00aaff',
+			titleColor: '#eeeeee'
+		});
+		assert.ok(coloured.success, coloured.success ? '' : coloured.error.message);
+
+		const named = achievementOverlayRenderer.schema.safeParse({
+			kicker: 'K',
+			title: 'T',
+			iconColor: 'red'
+		});
+		assert.equal(named.success, false);
+	});
 });

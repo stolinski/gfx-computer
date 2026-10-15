@@ -46,6 +46,15 @@
 	style:inline-size={`${layout.width}px`}
 	style:font-size={`${layout.width}px`}
 	style:padding
+	style:gap={cqminLength(content.gap)}
+	style:grid-template-columns={content.iconSize !== undefined && style.icon !== 'none'
+		? 'auto 1fr'
+		: undefined}
+	style:background-color={content.backgroundColor}
+	style:border-color={content.borderColor}
+	style:--achievement-icon-color={content.iconColor}
+	style:--achievement-ring-color={content.ringColor}
+	style:--achievement-title-color={content.titleColor}
 	style:min-block-size={content.minHeight === undefined
 		? undefined
 		: `${Math.round(content.minHeight * frame.height)}px`}
@@ -54,7 +63,12 @@
 		<!-- An empty ring in border ink; at the beat the glyph arrives and the ring
 		     takes its done colour. -->
 		<span class="achievement__icon" aria-hidden="true">
-			<svg viewBox="0 0 100 100" style:opacity={motion.iconOpacity} style:scale={motion.iconScale}>
+			<svg
+				viewBox="0 0 100 100"
+				style:inline-size={cqminLength(content.iconSize)}
+				style:opacity={motion.iconOpacity}
+				style:scale={motion.iconScale}
+			>
 				<circle class="achievement__ring" cx="50" cy="50" r="44" />
 				<circle
 					class="achievement__ring achievement__ring--done"
@@ -88,6 +102,8 @@
 			data-gfx-text-role="overlay-corner-secondary"
 			class={['achievement__kicker', { 'achievement__kicker--chip': style.kickerStyle === 'chip' }]}
 			style:font-size={cqminLength(content.kickerSize)}
+			style:color={content.kickerColor}
+			style:background-color={style.kickerStyle === 'chip' ? content.chipColor : undefined}
 			style:opacity={motion.kickerOpacity}
 			style:scale={motion.kickerScale}
 		>
@@ -98,7 +114,7 @@
 			data-gfx-readable-id="title"
 			data-gfx-text-role="overlay-corner-primary"
 			style:font-size={cqminLength(content.titleSize)}
-			style:color={`color-mix(in srgb, var(--ink) ${100 - motion.titleQuiet * 28}%, var(--mutedInk, var(--ink)) ${motion.titleQuiet * 28}%)`}
+			style:color={`color-mix(in srgb, var(--achievement-title-color, var(--ink)) ${100 - motion.titleQuiet * 28}%, var(--mutedInk, var(--achievement-title-color, var(--ink))) ${motion.titleQuiet * 28}%)`}
 		>
 			{content.title}
 		</strong>
@@ -137,31 +153,32 @@
 		transform-origin: center;
 	}
 
+	/* Authored colours (ADR-0070) win over the Pack's for each part. */
 	.achievement__ring {
 		fill: none;
-		stroke: var(--borderInk, var(--ink));
+		stroke: var(--achievement-ring-color, var(--borderInk, var(--ink)));
 		stroke-width: 7;
 	}
 
 	/* A check is success; a star is the Pack's accent. */
 	.achievement__ring--done {
-		stroke: var(--success, var(--accent));
+		stroke: var(--achievement-icon-color, var(--success, var(--accent)));
 	}
 
 	.achievement[data-icon='star'] .achievement__ring--done {
-		stroke: var(--accent);
+		stroke: var(--achievement-icon-color, var(--accent));
 	}
 
 	.achievement__check {
 		fill: none;
-		stroke: var(--success, var(--accent));
+		stroke: var(--achievement-icon-color, var(--success, var(--accent)));
 		stroke-linecap: round;
 		stroke-linejoin: round;
 		stroke-width: 9;
 	}
 
 	.achievement__star {
-		fill: var(--accent);
+		fill: var(--achievement-icon-color, var(--accent));
 	}
 
 	.achievement__copy {

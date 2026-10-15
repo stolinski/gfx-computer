@@ -21,3 +21,14 @@ On 2026-10-14 Scott found that the `achievement` Overlay's text size and box siz
 
 - Some Pipelines grow new optional fields, Inspector controls, and WebMCP arguments. Packs keep owning colour, type face, and material; sizes are the author's.
 - A Pack Role that sets a size remains the Pack's default under the authored value: authored field → Pack Role → renderer default.
+
+## Amendment 2026-10-14 — colours and icon sizes too
+
+Scott found the achievement card's icon colour and icon size could not be set. The rule covers every visible property an author would reach for, not only text and box sizes:
+
+- **Icon and mark sizes** and the **gap** between parts are sizes under §1.
+- **Every part's colour** is authored data. An authored colour (`#RRGGBB`) wins over the Pack for that one part; absent, the Pack's colour renders (authored value → Pack Role → Pack core). This narrows ADR-0023's "appearance is the Pack's" the way ADR-0038 did for typography ink: the Pack supplies the defaults, the author may depart part by part.
+- The Inspector shows each colour as a swatch of the colour that renders, with a reset that returns the part to its Pack (`AuthoredColorInput.svelte`).
+
+The achievement card is the first to carry colours: background, border, icon, empty ring, kicker, chip, and title, plus icon size and gap.
+

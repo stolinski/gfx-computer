@@ -10,8 +10,16 @@ import {
 // Every size the card draws is the author's (ADR-0070). Each is optional and
 // absent keeps the card's own proportions: box width per orientation as a
 // fraction of the frame width, a minimum height as a fraction of the frame
-// height, and text sizes and padding in `cqmin` (hundredths of the frame's
+// height, and icon size, gap, text sizes, and padding in `cqmin` (hundredths of the frame's
 // shorter side).
+// An authored colour (ADR-0070) wins over the Pack's for that one part of the
+// card; absent, the Pack's colour renders. Overlay content schemas stay free
+// of engine-schema imports, so the #RRGGBB rule is stated here.
+const AchievementColorSchema = z
+	.string()
+	.regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #RRGGBB hex color')
+	.optional();
+
 const AchievementWidthSchema = z.strictObject({
 	horizontal: z.number().min(0.1).max(1).optional(),
 	vertical: z.number().min(0.1).max(1).optional()
@@ -31,7 +39,16 @@ export const AchievementContentSchema = z.strictObject({
 	titleSize: z.number().min(0.5).max(20).optional(),
 	kickerSize: z.number().min(0.5).max(20).optional(),
 	paddingX: z.number().min(0).max(20).optional(),
-	paddingY: z.number().min(0).max(20).optional()
+	paddingY: z.number().min(0).max(20).optional(),
+	iconSize: z.number().min(0.5).max(40).optional(),
+	gap: z.number().min(0).max(20).optional(),
+	backgroundColor: AchievementColorSchema,
+	borderColor: AchievementColorSchema,
+	iconColor: AchievementColorSchema,
+	ringColor: AchievementColorSchema,
+	kickerColor: AchievementColorSchema,
+	chipColor: AchievementColorSchema,
+	titleColor: AchievementColorSchema
 });
 
 export type AchievementContent = z.infer<typeof AchievementContentSchema>;

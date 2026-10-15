@@ -119,7 +119,7 @@ during authoring" is not allowed.
 The concrete deliverables and the gate. For `kind: preset`:
 "`src/lib/presets/<slug>.json` passes the deterministic affected render matrix at native horizontal (3840×2160) and vertical (2160×3840), and its exact evidence bundle receives human aesthetic approval, with no orientation-specific sibling Preset."
 For `kind: pipeline` / `kind: domain`: list every artifact (pipeline files,
-ADR, preset) and name the verification Preset covered by deterministic Delivery and the exact-evidence human gate. List every text size and box size the Pipeline draws and the Preset field, Inspector control, and WebMCP operation that sets each one ([ADR-0070](../adr/0070-every-visible-size-is-authorable.md)); a size with no field is not done. Every Brief's acceptance section must explicitly require both native
+ADR, preset) and name the verification Preset covered by deterministic Delivery and the exact-evidence human gate. List every text size, box size, icon size, and part colour the Pipeline draws and the Preset field, Inspector control, and WebMCP operation that sets each one ([ADR-0070](../adr/0070-every-visible-size-is-authorable.md)); a size with no field is not done. Every Brief's acceptance section must explicitly require both native
 horizontal and vertical renders, even when orientation was otherwise irrelevant
 to the discussion.
 ```
