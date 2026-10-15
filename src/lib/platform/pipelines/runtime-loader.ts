@@ -193,6 +193,10 @@ const overlayRendererLoaders: Record<string, RuntimeRendererLoader<OverlayRender
 		import('$lib/pipelines/overlays/cursor-trail').then(
 			(module) => module.cursorTrailOverlayRenderer as unknown as OverlayRenderer
 		),
+	[PIPELINE_DEFINITION_REGISTRY.overlays.iconOrbit.type]: () =>
+		import('$lib/pipelines/overlays/icon-orbit').then(
+			(module) => module.iconOrbitOverlayRenderer as unknown as OverlayRenderer
+		),
 	[PIPELINE_DEFINITION_REGISTRY.overlays.dimensionalType.type]: () =>
 		import('$lib/pipelines/overlays/dimensional-type').then(
 			(module) => module.dimensionalTypeOverlayRenderer as unknown as OverlayRenderer

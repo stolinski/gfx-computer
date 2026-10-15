@@ -97,6 +97,7 @@ const RENDERER_FREE_PIPELINE_SUPPORT_MODULES = new Set([
 	'overlays/achievement/achievement-style.ts',
 	'overlays/counter/variants/variant-ids.ts',
 	'overlays/cursor-trail/schedule.ts',
+	'overlays/icon-orbit/icons.ts',
 	'overlays/instance-stack/variants/variant-ids.ts',
 	'overlays/lower-third/variants/variant-ids.ts',
 	'overlays/shader-fill/shader-fill-defaults.ts',

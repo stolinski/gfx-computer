@@ -22,3 +22,18 @@ export function hashStringToUnitInterval(input: string): number {
 export function seededRange(seed: number, min: number, max: number): number {
 	return min + seed * (max - min);
 }
+
+/**
+ * A deterministic random-number source (mulberry32): the same seed always
+ * yields the same sequence of values in `[0, 1)`, so seeded motion renders the
+ * same pixels in preview and export.
+ */
+export function createSeededRandom(seed: number): () => number {
+	let state = Math.floor(seed * 0xffffffff) >>> 0;
+	return () => {
+		state = (state + 0x6d2b79f5) >>> 0;
+		let value = Math.imul(state ^ (state >>> 15), 1 | state);
+		value = (value + Math.imul(value ^ (value >>> 7), 61 | value)) ^ value;
+		return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+	};
+}

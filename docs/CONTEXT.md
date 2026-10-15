@@ -153,6 +153,10 @@ _Avoid_: annotation (broader), stroke (which is the geometry, not the role).
 A renderable element layered over the composition that isn't bound to a Block — lower third, kicker chip, source URL plate, watermark.
 _Avoid_: chrome (broader; see Channel chrome).
 
+**Icon Orbit**:
+The `icon-orbit` Overlay: glowing line icons that launch from below, spring into place on a tilted ring around the speaker, and circle them in depth. Its **pass** (`all`, `behind`, `front`) keeps only the icons behind or in front of the speaker, so two exports stack around a matte of the speaker in the editor and the icons pass behind their head.
+_Avoid_: particle system (the particles are its sparks, not the subject), 3D icons (they are flat neon glyphs with depth styling), mask (GFX never mattes the footage; the editor does).
+
 **Orientation art direction**:
 Composing each delivery orientation as its own layout and motion inside the one **Preset**, rather than expecting a single set of values to reflow into both frames. The engine owes authors complete per-orientation placement and motion for every element that affects the frame; an orientation that cannot be made to look good with the existing tools is an engine gap ([ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) §4, amended 2026-09-23). Placement overrides and motion overrides are each a complete snapshot that replaces the shared value as one unit: an Overlay's, a Diagram primitive's, or a Kinetic Word's `animation.orientationOverrides` replaces its whole x/y/scale/rotation group, while opacity stays shared.
 _Avoid_: automatic reflow (as the quality bar), responsive duplicate, vertical Preset (the composition stays singular).

@@ -342,6 +342,13 @@
 		"height": 360,
 		"contentFraction": 0.9974
 	},
+	"icon-orbit-agent-needs": {
+		"contentKey": "fcee6da4ba24dde4",
+		"timestampSeconds": 6,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.079
+	},
 	"imessage-friday-deploy": {
 		"contentKey": "560ca0c1fa24036b",
 		"timestampSeconds": 3,

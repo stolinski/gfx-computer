@@ -521,6 +521,7 @@ const colorRoleFallbacks: Readonly<Record<string, string>> = {
 	'circle.fill': 'accent-treatment',
 	'counter.ink': 'ink-treatment',
 	'dimensional-type.accent': 'accent-treatment',
+	'icon-orbit.glow': 'accent-treatment',
 	'dimensional-type.ink': 'ink-treatment',
 	'highlight.fill': 'accent-treatment',
 	'instance-stack.ink': 'ink-treatment',
@@ -566,7 +567,11 @@ const intrinsicColorFallbackRoles = new Set([
 
 // Colour Roles a body consumes through the resolver, never a CSS variable:
 // dimensional type's face and extrusion are lit geometry (ADR-0062).
-const resolverColorRoles = new Set(['dimensional-type.ink', 'dimensional-type.accent']);
+const resolverColorRoles = new Set([
+	'dimensional-type.ink',
+	'dimensional-type.accent',
+	'icon-orbit.glow'
+]);
 
 const referenceIdentityRoles = new Set([
 	'achievement.accent',
@@ -586,6 +591,7 @@ const referenceIdentityRoles = new Set([
 	'circle.fill',
 	'counter.ink',
 	'dimensional-type.accent',
+	'icon-orbit.glow',
 	'dimensional-type.face',
 	'dimensional-type.ink',
 	'cursor-trail.pointer',

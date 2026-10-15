@@ -60,6 +60,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'watermark',
 	'shader-fill',
 	'cursor-trail',
+	'icon-orbit',
 	'counter',
 	'dimensional-type',
 	'instance-stack',

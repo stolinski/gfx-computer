@@ -243,6 +243,8 @@ export const syntaxPack: PackManifest = {
 		'label.ink': { kind: 'style', value: 'currentColor' },
 		'stat-callout.accent': { kind: 'style', value: '#ffd54a' },
 		'stat-callout.ink': { kind: 'style', value: 'currentColor' },
+		// Icon Orbit: icy neon that sits in Scott's blue-lit room (approved mock 2026-10-15).
+		'icon-orbit.glow': { kind: 'style', value: '#8fd0ff' },
 
 		// ---------------- Annotation tool inks ----------------
 		'highlight.fill': { kind: 'style', value: '#fabf47' },

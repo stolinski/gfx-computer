@@ -520,7 +520,8 @@ function checkOverlayPlacement(
 		// pointer to them. The rect is not safe-area content — the visible pointer
 		// only ever lands on slots, which carry their own safe placement — so the
 		// safe-zone bound doesn't apply to its coordinate frame.
-		const isFullFrameCoordinateOverlay = overlay.type === 'cursor-trail';
+		const isFullFrameCoordinateOverlay =
+			overlay.type === 'cursor-trail' || overlay.type === 'icon-orbit';
 
 		if (anchor === 'normalized-rect' && rect && !isFullFrameCoordinateOverlay) {
 			if (

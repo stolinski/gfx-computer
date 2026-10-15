@@ -146,7 +146,9 @@ const OVERLAY_EVENT_DEFAULTS: Record<
 	// A watermark fades — silent.
 	watermark: { enter: null, exit: null },
 	// The cursor glides; its dwells are the story, not air displacement.
-	'cursor-trail': { enter: null, exit: null }
+	'cursor-trail': { enter: null, exit: null },
+	// Floating icons arrive quietly; the editor adds any sound around the speaker.
+	'icon-orbit': { enter: null, exit: null }
 };
 
 // The iMessage bubble arrivals — locked-specific signature sounds (ADR-0033
