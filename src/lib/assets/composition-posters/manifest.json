@@ -1,17 +1,10 @@
 {
 	"achievement-complete": {
-		"contentKey": "2a922f88ba8d605a",
+		"contentKey": "fb6d844375872e1b",
 		"timestampSeconds": 2.05,
 		"width": 640,
 		"height": 360,
 		"contentFraction": 0.057
-	},
-	"achievement-unlocked": {
-		"contentKey": "9f32d55f2313e692",
-		"timestampSeconds": 2,
-		"width": 640,
-		"height": 360,
-		"contentFraction": 0.0754
 	},
 	"annotation-box-demo": {
 		"contentKey": "4740bcd3e6b7e616",
@@ -217,11 +210,11 @@
 		"contentFraction": 0.3939
 	},
 	"deterministic-readable-audit-fixture": {
-		"contentKey": "071f341597b06abc",
+		"contentKey": "0443f71a91764f71",
 		"timestampSeconds": 2.5,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.1075
+		"contentFraction": 0.1057
 	},
 	"diagram-orientation-motion-fixture": {
 		"contentKey": "67b2b7f7ea6e757c",

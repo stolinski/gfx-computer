@@ -1,17 +1,19 @@
 <script lang="ts">
 	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { findStringOption } from '$lib/utils/string';
 	import Field from '$lib/platform/Field.svelte';
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
 
 	import type { AchievementContent } from './achievement-content';
 	import { ACHIEVEMENT_DEFAULT_WIDTH } from './achievement-frame-layout';
+	import { ACHIEVEMENT_MOTION_DEFINITIONS, ACHIEVEMENT_MOTIONS } from './achievement-motion';
 	import {
-		isAchievementVariantId,
+		ACHIEVEMENT_ICONS,
+		ACHIEVEMENT_KICKER_STYLES,
+		resolveAchievementStyle,
 		setAchievementBeat,
-		setAchievementVariant,
-		VARIANT_IDS,
-		VARIANTS
-	} from './variants';
+		setAchievementStyle
+	} from './achievement-style';
 
 	let { overlay = $bindable() }: OverlayEditorProps<AchievementContent> = $props();
 
@@ -30,18 +32,47 @@
 			width.horizontal === undefined && width.vertical === undefined ? undefined : width;
 	}
 
-	function updateVariant(event: Event): void {
-		const value = (event.currentTarget as HTMLSelectElement).value;
-		if (isAchievementVariantId(value)) {
-			setAchievementVariant(overlay.content, value);
-		}
-	}
+	const style = $derived(resolveAchievementStyle(overlay.content));
 </script>
 
-<Field label="Variant">
-	<select value={overlay.content.variant} onchange={updateVariant}>
-		{#each VARIANT_IDS as variant (variant)}
-			<option value={variant}>{VARIANTS[variant].label}</option>
+<Field label="Icon">
+	<select
+		value={style.icon}
+		onchange={(event) => {
+			const icon = findStringOption(ACHIEVEMENT_ICONS, event.currentTarget.value);
+			if (icon) setAchievementStyle(overlay.content, { icon });
+		}}
+	>
+		{#each ACHIEVEMENT_ICONS as icon (icon)}
+			<option value={icon}>{icon}</option>
+		{/each}
+	</select>
+</Field>
+
+<Field label="Kicker style">
+	<select
+		value={style.kickerStyle}
+		onchange={(event) => {
+			const kickerStyle = findStringOption(ACHIEVEMENT_KICKER_STYLES, event.currentTarget.value);
+			if (kickerStyle) setAchievementStyle(overlay.content, { kickerStyle });
+		}}
+	>
+		{#each ACHIEVEMENT_KICKER_STYLES as kickerStyle (kickerStyle)}
+			<option value={kickerStyle}>{kickerStyle}</option>
+		{/each}
+	</select>
+</Field>
+
+<Field label="Motion">
+	<select
+		value={style.motion}
+		onchange={(event) => {
+			const motion = findStringOption(ACHIEVEMENT_MOTIONS, event.currentTarget.value);
+			if (motion) setAchievementStyle(overlay.content, { motion });
+		}}
+	>
+		{#each ACHIEVEMENT_MOTIONS as motion (motion)}
+			<option value={motion}>{ACHIEVEMENT_MOTION_DEFINITIONS[motion].label}</option>
 		{/each}
 	</select>
 </Field>

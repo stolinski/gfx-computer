@@ -20,8 +20,7 @@ A **Count** disposition means the Preset expresses a materially different regist
 
 | Preset                             | Picker family      | Creator job                                        | Disposition | Reason                                                                                |
 | ---------------------------------- | ------------------ | -------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------- |
-| `achievement-complete`             | Plain              | Celebrate completed work                           | Count       | Checklist-completion beat has its own authored form and timing.                       |
-| `achievement-unlocked`             | Plain              | Announce an unlocked milestone                     | Count       | Unlock beat is materially different from checklist completion.                        |
+| `achievement-complete`             | Plain              | Celebrate completed work                           | Count       | One card; icon, kicker style, and motion are settings (ADR-0041 amendment).           |
 | `apollo-lunar-travelers`           | Charts             | Explain a part-to-whole fact with dots             | Count       | Distinct dot-field chart language.                                                    |
 | `bar-chart-apollo-sample-return`   | Charts             | Compare categories horizontally                    | Count       | Distinct bar-chart creator job.                                                       |
 | `captions-karaoke`                 | Captions           | Caption speech with active-word context            | Count       | Full-line karaoke register.                                                           |

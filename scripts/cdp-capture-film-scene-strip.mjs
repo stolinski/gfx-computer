@@ -59,7 +59,7 @@ const HORIZONTAL_CANVAS_WIDTH = 3840;
 /** The Starters the three-Scene Film is cut from, in Scene order. */
 const THREE_SCENE_STARTERS = ['lower-third', 'chapter-card-descent', 'counter-milestone'];
 const THREE_SCENE_FILM = { slug: 'launch-film', name: 'Launch film' };
-const ONE_SCENE_FILM = { slug: 'teaser', name: 'Teaser', starter: 'achievement-unlocked' };
+const ONE_SCENE_FILM = { slug: 'teaser', name: 'Teaser', starter: 'achievement-complete' };
 /** The built-in Preset page the Add to Film menu is photographed on. */
 const BUILT_IN_PRESET_SLUG = 'lower-third';
 

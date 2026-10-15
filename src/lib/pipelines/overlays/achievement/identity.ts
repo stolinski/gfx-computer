@@ -68,12 +68,12 @@ export const achievementIdentity: IdentitySpec = {
 		{
 			name: 'accent-treatment',
 			viaPack: 'achievement.accent',
-			definition: 'The kicker, chip, layered medal, and central sparkle emphasis ink.',
+			definition: 'The kicker, chip, and star emphasis ink.',
 			probe: {
 				kind: 'named-observation',
-				region: 'the kicker or unlock medal',
+				region: 'the kicker, chip, or star icon',
 				expectation:
-					'one Pack accent carries the notification emphasis, including the unlock medal’s distinct central sparkle.'
+					'one Pack accent carries the notification emphasis, including the star icon and its ring.'
 			}
 		},
 		{
@@ -109,14 +109,14 @@ export const achievementIdentity: IdentitySpec = {
 		{
 			name: 'motion-form',
 			definition:
-				'The card crosses the right edge, settles once, performs one variant focal beat, holds, and accelerates back through the same edge.',
+				'The card crosses the right edge, settles once, performs one focal beat in its chosen motion, holds, and accelerates back through the same edge.',
 			implementation:
-				'src/lib/platform/OverlayMount.svelte edgeTransition right motion plus pure achievement variants/<id>.ts motionState functions driven from animState.globalProgress and content.beat.',
+				'src/lib/platform/OverlayMount.svelte edgeTransition right motion plus the pure achievement-motion.ts motionState functions (draw, pop) driven from animState.globalProgress and content.beat.',
 			probe: {
 				kind: 'named-observation',
 				region: 'entry, authored focal beat, and exit frames',
 				expectation:
-					'the card travels decisively from and to the right edge; checklist draws one check, unlocked reveals one layered hex-and-sparkle medal then its chip; repeated frames are pixel-identical.'
+					'the card travels decisively from and to the right edge; draw draws the ring’s glyph and quiets the title, pop pops the ringed icon and then the kicker; repeated frames are pixel-identical.'
 			}
 		},
 		{

@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
-	"name": "Achievement — Task complete",
-	"description": "Compact upper-right task-completion notification over transparent footage. The card deliberately enters and clears through the same right edge because this is notification behavior, then the authored focal beat draws the sole green check and quiets the title. Syntax channel chrome resolves entirely through achievement.* Pack Roles. Torn edge and registration jitter are intentionally omitted because this is clean printed chrome, not a quoted substrate or hand mark; grit is intentionally omitted because this is a transparent live Overlay. No zine treatment, gradient, glow, gaussian shadow, glossy sweep, or opaque composition background.",
+	"name": "Achievement",
+	"description": "Compact upper-right achievement notification over transparent footage. The card deliberately enters and clears through the same right edge because this is notification behavior; at the authored focal beat the ring's check draws on and the title quiets. Icon (check, star, none), kicker style (text, chip), and motion (draw, pop) are each the author's setting, as are the card's sizes. Syntax channel chrome resolves entirely through achievement.* Pack Roles. Torn edge and registration jitter are intentionally omitted because this is clean printed chrome, not a quoted substrate or hand mark; grit is intentionally omitted because this is a transparent live Overlay. No zine treatment, gradient, glow, gaussian shadow, glossy sweep, or opaque composition background.",
 	"pack": "syntax",
 	"kind": "deliverable",
 	"state": {
@@ -30,7 +30,9 @@
 				"type": "achievement",
 				"id": "task-complete",
 				"content": {
-					"variant": "checklist-complete",
+					"icon": "check",
+					"kickerStyle": "text",
+					"motion": "draw",
 					"kicker": "TASK COMPLETE",
 					"title": "Env vars set",
 					"beat": 0.3375

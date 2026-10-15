@@ -1,11 +1,14 @@
 import type { OverlayDefaults } from '$lib/platform/pipelines/types';
 import { AchievementContentSchema, type AchievementContent } from './achievement-content';
+import { resolveAchievementStyle } from './achievement-style';
 import type { OverlayPipelineDefinition } from '$lib/platform/pipelines/definition-types';
 
 function defaults(): OverlayDefaults<AchievementContent> {
 	return {
 		content: {
-			variant: 'checklist-complete',
+			icon: 'check',
+			kickerStyle: 'text',
+			motion: 'draw',
 			kicker: 'TASK COMPLETE',
 			title: 'Env vars set',
 			beat: 0.3375
@@ -32,8 +35,9 @@ export const achievementOverlayDefinition = {
 	schema: AchievementContentSchema,
 	defaults,
 	readableText: (content, context) => {
+		// A popping kicker reads only once it has landed.
 		const chipHeld =
-			content.variant !== 'unlocked' ||
+			resolveAchievementStyle(content).motion !== 'pop' ||
 			(context.progress - (content.beat ?? 0.3375)) * context.durationMilliseconds >= 450;
 		return [
 			...(chipHeld

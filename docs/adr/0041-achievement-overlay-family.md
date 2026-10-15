@@ -25,3 +25,18 @@ Register one graphic `achievement` Overlay family with `checklist-complete` and 
 ## Consequences
 
 The Registry gains one Overlay and one Identity Spec while future achievement semantics can land as additive variant data. The GUI and agent author the same four content fields; moving the focal clip updates pixels and derived sound together. Packs may restyle the family without owning motion. Both corpus Presets remain horizontal and transparent, and switching orientation exercises the same Pipeline instead of selecting another artifact.
+
+## Amendment 2026-10-14 — one card, three settings
+
+**Decision.** The two `variant`s are gone. They were the same card with three fixed differences, and Scott asked for each to be editable. The card now has three settings, each set on its own in the Preset, the Inspector, and WebMCP (`content.set-overlay-content`):
+
+- `icon`: `check` (default), `star`, or `none`. Every icon sits in a ring drawn in border ink that takes its done colour at the beat: success for a check, the Pack accent for a star. The hexagon medal is retired; Scott chose the ring on 2026-10-14.
+- `kickerStyle`: `text` (default) or `chip`.
+- `motion`: `draw` (default; the icon draws on and the title quiets) or `pop` (the icon pops in and the kicker follows with a late pop). Each motion keeps the sound it emitted as a variant.
+
+Sizes are also the author's, per [ADR-0070](0070-every-visible-size-is-authorable.md).
+
+**Saved work.** A card saved with `variant` and no settings still shows that variant's look: `checklist-complete` reads as check / text / draw, `unlocked` as star / chip / pop (`resolveAchievementStyle`). The first edit of any look setting writes all three and drops `variant`. `variant` stays in the schema, marked deprecated, for reading only.
+
+**Corpus.** `achievement-unlocked` is removed; `achievement-complete` is the one Preset, named "Achievement". A Scene that came from `achievement-unlocked` keeps its state; only its fallback name in the Scene strip changes.
+

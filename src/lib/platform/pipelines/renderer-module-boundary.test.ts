@@ -93,10 +93,8 @@ function collectRuntimeImportGraph(entries: string[]): Set<string> {
 
 const RENDERER_FREE_PIPELINE_SUPPORT_MODULES = new Set([
 	'overlays/achievement/achievement-content.ts',
-	'overlays/achievement/variants/checklist-complete.ts',
-	'overlays/achievement/variants/index.ts',
-	'overlays/achievement/variants/unlocked.ts',
-	'overlays/achievement/variants/variant-ids.ts',
+	'overlays/achievement/achievement-motion.ts',
+	'overlays/achievement/achievement-style.ts',
 	'overlays/counter/variants/variant-ids.ts',
 	'overlays/cursor-trail/schedule.ts',
 	'overlays/instance-stack/variants/variant-ids.ts',

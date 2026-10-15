@@ -6,11 +6,11 @@ import {
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 import type { AchievementContent } from '$lib/pipelines/overlays/achievement/achievement-content';
+import { ACHIEVEMENT_MOTION_DEFINITIONS } from '$lib/pipelines/overlays/achievement/achievement-motion';
 import {
-	isAchievementVariantId,
-	setAchievementBeat,
-	VARIANTS as ACHIEVEMENT_VARIANTS
-} from '$lib/pipelines/overlays/achievement/variants';
+	resolveAchievementStyle,
+	setAchievementBeat
+} from '$lib/pipelines/overlays/achievement/achievement-style';
 import type { CursorPath } from '$lib/pipelines/overlays/cursor-trail';
 import { buildCursorSchedule } from '$lib/pipelines/overlays/cursor-trail/schedule';
 import { messageEnter, messageTyping } from '$lib/pipelines/surfaces/imessage/schedule';
@@ -1066,11 +1066,11 @@ function appendOverlaySubtracks(tracks: TimelineTrack[], state: EngineState): vo
 	state.overlays.forEach((overlay) => {
 		if (overlay.type !== 'achievement') return;
 		const content = overlay.content as AchievementContent;
-		const variantId = content.variant ?? 'checklist-complete';
-		if (!isAchievementVariantId(variantId)) return;
+		const motion = resolveAchievementStyle(content).motion;
 		const focalWidth = Math.min(
 			0.2,
-			ACHIEVEMENT_VARIANTS[variantId].focalDurationMs / (state.transport.durationSeconds * 1000)
+			ACHIEVEMENT_MOTION_DEFINITIONS[motion].focalDurationMs /
+				(state.transport.durationSeconds * 1000)
 		);
 		tracks.push({
 			id: createTimelineTrackId({
@@ -1083,7 +1083,7 @@ function appendOverlaySubtracks(tracks: TimelineTrack[], state: EngineState): vo
 			transitions: [
 				{
 					id: 'beat',
-					label: variantId === 'unlocked' ? 'unlock' : 'complete',
+					label: motion === 'pop' ? 'pop' : 'draw',
 					start: content.beat ?? 0.3375,
 					duration: focalWidth,
 					ramp: 'in',

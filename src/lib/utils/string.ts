@@ -18,3 +18,11 @@ export function truncateMiddle(value: string, maxLength: number): string {
 export function formatFractionAsSeconds(fraction: number, durationSeconds: number): string {
 	return `${Math.round(fraction * durationSeconds * 100) / 100}s`;
 }
+
+/** The option a free string names, or `undefined` when it names none — a `<select>` value read back as its literal union. */
+export function findStringOption<T extends string>(
+	options: readonly T[],
+	value: string
+): T | undefined {
+	return options.find((option) => option === value);
+}

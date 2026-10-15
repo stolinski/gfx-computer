@@ -43,7 +43,7 @@ vi.mock('./user-composition-store', () => ({
 }));
 
 const SCENE_STARTERS = ['lower-third', 'chapter-card-descent', 'counter-milestone'] as const;
-const PICKED_STARTER = 'achievement-unlocked';
+const PICKED_STARTER = 'achievement-complete';
 
 function requireStarter(slug: string): Preset {
 	const starter = getPresetBySlug(slug);

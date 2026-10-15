@@ -57,7 +57,9 @@
 				"type": "achievement",
 				"id": "later-occluder",
 				"content": {
-					"variant": "unlocked",
+					"icon": "star",
+					"kickerStyle": "chip",
+					"motion": "pop",
 					"kicker": "LATER PAINT",
 					"title": "Occluder",
 					"beat": 0.4

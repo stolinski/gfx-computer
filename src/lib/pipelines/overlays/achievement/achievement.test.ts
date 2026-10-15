@@ -13,9 +13,12 @@ import { getVideoFrameSize } from '$lib/utils/video-frame';
 import { achievementFrameLayout } from './achievement-frame-layout';
 import type { AchievementContent } from './achievement-content';
 import { achievementOverlayRenderer } from './index';
-import { checklistCompleteMotion } from './variants/checklist-complete';
-import { setAchievementBeat, setAchievementVariant, VARIANTS } from './variants';
-import { unlockedMotion } from './variants/unlocked';
+import { achievementDrawMotion, achievementPopMotion } from './achievement-motion';
+import {
+	resolveAchievementStyle,
+	setAchievementBeat,
+	setAchievementStyle
+} from './achievement-style';
 
 function stateWithAchievement(content: AchievementContent): EngineState {
 	return {
@@ -41,9 +44,11 @@ function stateWithAchievement(content: AchievementContent): EngineState {
 }
 
 describe('achievement Overlay', () => {
-	it('parses the shared content contract and rejects unknown variants', () => {
+	it('parses the look settings and rejects an unknown icon', () => {
 		const valid = achievementOverlayRenderer.schema.safeParse({
-			variant: 'checklist-complete',
+			icon: 'star',
+			kickerStyle: 'chip',
+			motion: 'pop',
 			kicker: 'TASK COMPLETE',
 			title: 'Env vars set',
 			beat: 0.3375
@@ -51,7 +56,7 @@ describe('achievement Overlay', () => {
 		assert.ok(valid.success, valid.success ? '' : valid.error.message);
 
 		const unknown = achievementOverlayRenderer.schema.safeParse({
-			variant: 'score-burst',
+			icon: 'medal',
 			kicker: 'TASK COMPLETE',
 			title: 'Env vars set',
 			beat: 0.3375
@@ -59,20 +64,48 @@ describe('achievement Overlay', () => {
 		assert.equal(unknown.success, false);
 	});
 
-	it('computes deterministic focal states for both variants', () => {
-		assert.deepEqual(checklistCompleteMotion(-1), checklistCompleteMotion(-1));
-		assert.equal(checklistCompleteMotion(-1).checkDraw, 0);
-		assert.ok(checklistCompleteMotion(160).checkDraw > 0);
-		assert.equal(checklistCompleteMotion(320).checkDraw, 1);
+	it('computes deterministic focal states for both motions', () => {
+		assert.deepEqual(achievementDrawMotion(-1), achievementDrawMotion(-1));
+		assert.equal(achievementDrawMotion(-1).glyphDraw, 0);
+		assert.ok(achievementDrawMotion(160).glyphDraw > 0);
+		assert.equal(achievementDrawMotion(320).glyphDraw, 1);
 
-		assert.deepEqual(unlockedMotion(240), unlockedMotion(240));
-		assert.equal(unlockedMotion(-1).medalOpacity, 0);
-		assert.equal(unlockedMotion(-1).medalScale, 0.82);
-		assert.ok(unlockedMotion(160).medalOpacity > 0);
-		assert.ok(unlockedMotion(220).medalScale > 1);
-		assert.equal(unlockedMotion(450).medalScale, 1);
-		assert.equal(unlockedMotion(220).chipOpacity, 0);
-		assert.equal(unlockedMotion(450).chipOpacity, 1);
+		assert.deepEqual(achievementPopMotion(240), achievementPopMotion(240));
+		assert.equal(achievementPopMotion(-1).iconOpacity, 0);
+		assert.equal(achievementPopMotion(-1).iconScale, 0.82);
+		assert.ok(achievementPopMotion(160).iconOpacity > 0);
+		assert.ok(achievementPopMotion(220).iconScale > 1);
+		assert.equal(achievementPopMotion(450).iconScale, 1);
+		assert.equal(achievementPopMotion(450).glyphDraw, 1);
+		assert.equal(achievementPopMotion(220).kickerOpacity, 0);
+		assert.equal(achievementPopMotion(450).kickerOpacity, 1);
+	});
+
+	it('reads a saved variant as its look and writes the look on the next edit', () => {
+		const saved: AchievementContent = {
+			variant: 'unlocked',
+			kicker: 'ACHIEVEMENT UNLOCKED',
+			title: 'Was nice to Claude',
+			beat: 0.03
+		};
+		assert.deepEqual(resolveAchievementStyle(saved), {
+			icon: 'star',
+			kickerStyle: 'chip',
+			motion: 'pop'
+		});
+
+		setAchievementStyle(saved, { icon: 'check' });
+		assert.equal(saved.variant, undefined);
+		assert.deepEqual(resolveAchievementStyle(saved), {
+			icon: 'check',
+			kickerStyle: 'chip',
+			motion: 'pop'
+		});
+		assert.deepEqual(resolveAchievementStyle({}), {
+			icon: 'check',
+			kickerStyle: 'text',
+			motion: 'draw'
+		});
 	});
 
 	it('resolves deliberate achievement color and form roles for every Pack', () => {
@@ -135,7 +168,6 @@ describe('achievement Overlay', () => {
 	it('derives focal sound cues from the authored beat', () => {
 		const checklistCues = deriveSoundCues(
 			stateWithAchievement({
-				variant: 'checklist-complete',
 				kicker: 'TASK COMPLETE',
 				title: 'Env vars set',
 				beat: 0.3375
@@ -150,7 +182,7 @@ describe('achievement Overlay', () => {
 
 		const unlockedCues = deriveSoundCues(
 			stateWithAchievement({
-				variant: 'unlocked',
+				motion: 'pop',
 				kicker: 'ACHIEVEMENT UNLOCKED',
 				title: 'First commit',
 				beat: 0.3375
@@ -176,17 +208,15 @@ describe('achievement Overlay', () => {
 
 	it('applies editor and timeline state updates through the shared content object', () => {
 		const content: AchievementContent = {
-			variant: 'checklist-complete',
 			kicker: 'TASK COMPLETE',
 			title: 'Env vars set',
 			beat: 0.3375
 		};
 
-		setAchievementVariant(content, 'unlocked');
+		setAchievementStyle(content, { motion: 'pop' });
 		setAchievementBeat(content, 1.2);
-		assert.equal(content.variant, 'unlocked');
+		assert.equal(content.motion, 'pop');
 		assert.equal(content.beat, 1);
-		assert.equal(VARIANTS[content.variant].label, 'Unlocked');
 
 		setAchievementBeat(content, Number.NaN);
 		assert.equal(content.beat, 1, 'invalid numeric editor input does not corrupt state');
@@ -194,7 +224,6 @@ describe('achievement Overlay', () => {
 
 	it('takes authored sizes and keeps its own when none are set (ADR-0070)', () => {
 		const sized = achievementOverlayRenderer.schema.safeParse({
-			variant: 'checklist-complete',
 			kicker: 'TASK COMPLETE',
 			title: 'Env vars set',
 			width: { horizontal: 0.5, vertical: 0.9 },

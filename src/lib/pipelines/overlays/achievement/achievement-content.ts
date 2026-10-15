@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-import { VARIANT_IDS } from './variants/variant-ids';
+import { ACHIEVEMENT_MOTIONS } from './achievement-motion';
+import {
+	ACHIEVEMENT_ICONS,
+	ACHIEVEMENT_KICKER_STYLES,
+	ACHIEVEMENT_LEGACY_VARIANTS
+} from './achievement-style';
 
 // Every size the card draws is the author's (ADR-0070). Each is optional and
 // absent keeps the card's own proportions: box width per orientation as a
@@ -13,7 +18,11 @@ const AchievementWidthSchema = z.strictObject({
 });
 
 export const AchievementContentSchema = z.strictObject({
-	variant: z.enum(VARIANT_IDS).default('checklist-complete'),
+	/** @deprecated Read from saved cards only; see `resolveAchievementStyle`. */
+	variant: z.enum(ACHIEVEMENT_LEGACY_VARIANTS).optional(),
+	icon: z.enum(ACHIEVEMENT_ICONS).optional(),
+	kickerStyle: z.enum(ACHIEVEMENT_KICKER_STYLES).optional(),
+	motion: z.enum(ACHIEVEMENT_MOTIONS).optional(),
 	kicker: z.string().min(1),
 	title: z.string().min(1),
 	beat: z.number().min(0).max(1).default(0.3375),

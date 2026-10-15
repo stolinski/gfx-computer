@@ -6,7 +6,8 @@
 
 	import { achievementFrameLayout } from './achievement-frame-layout';
 	import type { AchievementContent } from './achievement-content';
-	import { VARIANTS } from './variants';
+	import { ACHIEVEMENT_MOTION_DEFINITIONS } from './achievement-motion';
+	import { resolveAchievementStyle } from './achievement-style';
 
 	interface Props {
 		content: AchievementContent;
@@ -14,8 +15,7 @@
 
 	let { content }: Props = $props();
 
-	const variantId = $derived(content.variant ?? 'checklist-complete');
-	const variant = $derived(VARIANTS[variantId]);
+	const style = $derived(resolveAchievementStyle(content));
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const layout = $derived(
 		achievementFrameLayout(
@@ -34,14 +34,14 @@
 	);
 	const durationMs = $derived(engineState.transport.durationSeconds * 1000);
 	const sinceBeatMs = $derived((animState.globalProgress - (content.beat ?? 0.3375)) * durationMs);
-	const motion = $derived(variant.motionState(sinceBeatMs));
-	const titleCompletion = $derived(variantId === 'checklist-complete' ? motion.completion : 0);
+	const motion = $derived(ACHIEVEMENT_MOTION_DEFINITIONS[style.motion].motionState(sinceBeatMs));
 </script>
 
 <aside
-	class="achievement achievement--{variantId}"
+	class="achievement"
 	data-overlay="achievement"
-	data-variant={variantId}
+	data-icon={style.icon}
+	data-motion={style.motion}
 	data-gfx-shadow-owner="plate"
 	style:inline-size={`${layout.width}px`}
 	style:font-size={`${layout.width}px`}
@@ -50,11 +50,11 @@
 		? undefined
 		: `${Math.round(content.minHeight * frame.height)}px`}
 >
-	<span class="achievement__icon" aria-hidden="true">
-		{#if variantId === 'checklist-complete'}
-			<!-- An empty ring in border ink; at the beat the check draws on and the
-			     ring takes the success colour. -->
-			<svg class="achievement__check" viewBox="0 0 100 100">
+	{#if style.icon !== 'none'}
+		<!-- An empty ring in border ink; at the beat the glyph arrives and the ring
+		     takes its done colour. -->
+		<span class="achievement__icon" aria-hidden="true">
+			<svg viewBox="0 0 100 100" style:opacity={motion.iconOpacity} style:scale={motion.iconScale}>
 				<circle class="achievement__ring" cx="50" cy="50" r="44" />
 				<circle
 					class="achievement__ring achievement__ring--done"
@@ -63,39 +63,33 @@
 					r="44"
 					style:opacity={motion.completion}
 				/>
-				<path
-					d="M30 52 L45 66 L71 37"
-					fill="none"
-					pathLength="1"
-					stroke-dasharray="1"
-					stroke-dashoffset={1 - motion.checkDraw}
-				/>
+				{#if style.icon === 'check'}
+					<path
+						class="achievement__check"
+						d="M30 52 L45 66 L71 37"
+						pathLength="1"
+						stroke-dasharray="1"
+						stroke-dashoffset={1 - motion.glyphDraw}
+					/>
+				{:else}
+					<path
+						class="achievement__star"
+						d="M50 26 56.5 42 73 43.5 60.5 54.5 64.5 71 50 62 35.5 71 39.5 54.5 27 43.5 43.5 42Z"
+						style:opacity={motion.glyphDraw}
+					/>
+				{/if}
 			</svg>
-		{:else}
-			<svg
-				class="achievement__medal"
-				viewBox="0 0 100 100"
-				style:opacity={motion.medalOpacity}
-				style:scale={motion.medalScale}
-			>
-				<path class="achievement__medal-rim" d="M50 3 91 26v48L50 97 9 74V26Z" />
-				<path class="achievement__medal-field" d="M50 14 81 32v36L50 86 19 68V32Z" />
-				<path
-					class="achievement__medal-spark"
-					d="M50 24 57 42 76 50 57 58 50 76 43 58 24 50 43 42Z"
-				/>
-			</svg>
-		{/if}
-	</span>
+		</span>
+	{/if}
 
 	<span class="achievement__copy">
 		<span
 			data-gfx-readable-id="kicker"
 			data-gfx-text-role="overlay-corner-secondary"
-			class={['achievement__kicker', { 'achievement__kicker--chip': variantId === 'unlocked' }]}
+			class={['achievement__kicker', { 'achievement__kicker--chip': style.kickerStyle === 'chip' }]}
 			style:font-size={cqminLength(content.kickerSize)}
-			style:opacity={variantId === 'unlocked' ? motion.chipOpacity : 1}
-			style:scale={variantId === 'unlocked' ? motion.chipScale : 1}
+			style:opacity={motion.kickerOpacity}
+			style:scale={motion.kickerScale}
 		>
 			{content.kicker}
 		</span>
@@ -104,7 +98,7 @@
 			data-gfx-readable-id="title"
 			data-gfx-text-role="overlay-corner-primary"
 			style:font-size={cqminLength(content.titleSize)}
-			style:color={`color-mix(in srgb, var(--ink) ${100 - titleCompletion * 28}%, var(--mutedInk, var(--ink)) ${titleCompletion * 28}%)`}
+			style:color={`color-mix(in srgb, var(--ink) ${100 - motion.titleQuiet * 28}%, var(--mutedInk, var(--ink)) ${motion.titleQuiet * 28}%)`}
 		>
 			{content.title}
 		</strong>
@@ -127,8 +121,8 @@
 		padding: var(--pad, 0.048em 0.058em);
 	}
 
-	.achievement--unlocked {
-		grid-template-columns: 0.28fr 0.72fr;
+	.achievement[data-icon='none'] {
+		grid-template-columns: 1fr;
 	}
 
 	.achievement__icon {
@@ -140,6 +134,7 @@
 		display: block;
 		inline-size: 72%;
 		overflow: visible;
+		transform-origin: center;
 	}
 
 	.achievement__ring {
@@ -148,32 +143,24 @@
 		stroke-width: 7;
 	}
 
+	/* A check is success; a star is the Pack's accent. */
 	.achievement__ring--done {
 		stroke: var(--success, var(--accent));
 	}
 
-	.achievement__check path {
+	.achievement[data-icon='star'] .achievement__ring--done {
+		stroke: var(--accent);
+	}
+
+	.achievement__check {
+		fill: none;
 		stroke: var(--success, var(--accent));
 		stroke-linecap: round;
 		stroke-linejoin: round;
 		stroke-width: 9;
 	}
 
-	.achievement__medal {
-		transform-origin: center;
-	}
-
-	.achievement__medal-rim {
-		fill: var(--accent);
-		stroke: var(--borderInk, var(--ink));
-		stroke-width: 4;
-	}
-
-	.achievement__medal-field {
-		fill: var(--accentInk, var(--plate, var(--fill)));
-	}
-
-	.achievement__medal-spark {
+	.achievement__star {
 		fill: var(--accent);
 	}
 
@@ -209,21 +196,5 @@
 		letter-spacing: -0.02em;
 		line-height: 1.05;
 		overflow-wrap: anywhere;
-	}
-
-	.achievement--unlocked .achievement__icon svg {
-		inline-size: 86%;
-	}
-
-	.achievement--unlocked .achievement__copy {
-		gap: 0.016em;
-	}
-
-	.achievement--unlocked .achievement__kicker {
-		font-size: 0.05em;
-	}
-
-	.achievement--unlocked .achievement__title {
-		font-size: 0.084em;
 	}
 </style>

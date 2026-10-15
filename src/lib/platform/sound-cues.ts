@@ -9,10 +9,9 @@
  */
 import { messageEnter, TAPBACK_DELAY } from '../pipelines/surfaces/imessage/schedule.ts';
 import { TEXT_EFFECT_CATALOG } from '../text-animations/catalog.ts';
-import {
-	isAchievementVariantId,
-	VARIANTS as ACHIEVEMENT_VARIANTS
-} from '../pipelines/overlays/achievement/variants/index.ts';
+import type { AchievementContent } from '../pipelines/overlays/achievement/achievement-content.ts';
+import { ACHIEVEMENT_MOTION_DEFINITIONS } from '../pipelines/overlays/achievement/achievement-motion.ts';
+import { resolveAchievementStyle } from '../pipelines/overlays/achievement/achievement-style.ts';
 
 import { resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
 import {
@@ -649,13 +648,10 @@ function deriveAchievementBeatCues(
 		if (overlay.type !== 'achievement') {
 			continue;
 		}
-		const content = overlay.content as { variant?: string; beat?: number } | null;
-		const variantId = content?.variant ?? 'checklist-complete';
-		if (!isAchievementVariantId(variantId)) {
-			continue;
-		}
-		const beat = content?.beat ?? 0.3375;
-		for (const sound of ACHIEVEMENT_VARIANTS[variantId].soundEvents) {
+		const content = overlay.content as AchievementContent;
+		const beat = content.beat ?? 0.3375;
+		const motion = resolveAchievementStyle(content).motion;
+		for (const sound of ACHIEVEMENT_MOTION_DEFINITIONS[motion].soundEvents) {
 			cues.push(
 				cueFrom(
 					`overlay:${overlay.id}:beat-${sound.event}`,
