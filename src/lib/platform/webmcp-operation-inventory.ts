@@ -413,6 +413,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/surface/diagram/*/minWidth', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/minHeight', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/borderWidth', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/logoSize', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/logoGap', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/strokeWidth', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/orientationOverrides', scope: 'value' },
 			{ pointer: '/state/surface/typeField/words/*/position', scope: 'value' },
@@ -1647,6 +1649,8 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 			'/state/surface/diagram/*/minWidth',
 			'/state/surface/diagram/*/minHeight',
 			'/state/surface/diagram/*/borderWidth',
+			'/state/surface/diagram/*/logoSize',
+			'/state/surface/diagram/*/logoGap',
 			'/state/surface/diagram/*/strokeWidth',
 			'/state/surface/diagram/*/orientationOverrides'
 		],

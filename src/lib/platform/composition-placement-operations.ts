@@ -154,6 +154,9 @@ export interface DiagramGeometryPatch {
 	minWidth?: number;
 	minHeight?: number;
 	borderWidth?: number;
+	/** A node logo's height and its gap above the node, in cqmin. */
+	logoSize?: number;
+	logoGap?: number;
 	strokeWidth?: number;
 }
 
@@ -169,7 +172,16 @@ type DiagramGeometryField = keyof DiagramGeometryPatch;
 
 /** The geometry fields each primitive type carries on itself. */
 const DIAGRAM_GEOMETRY_FIELDS: Record<DiagramPrimitive['type'], readonly DiagramGeometryField[]> = {
-	node: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'borderWidth'],
+	node: [
+		'position',
+		'scale',
+		'fontSize',
+		'paddingX',
+		'paddingY',
+		'borderWidth',
+		'logoSize',
+		'logoGap'
+	],
 	label: ['position', 'scale', 'fontSize', 'maxWidth'],
 	'stat-callout': ['position', 'scale', 'from', 'to'],
 	code: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'minWidth', 'minHeight'],
@@ -187,7 +199,16 @@ const DIAGRAM_ORIENTATION_GEOMETRY_FIELDS: Record<
 	DiagramPrimitive['type'],
 	readonly DiagramGeometryField[]
 > = {
-	node: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'borderWidth'],
+	node: [
+		'position',
+		'scale',
+		'fontSize',
+		'paddingX',
+		'paddingY',
+		'borderWidth',
+		'logoSize',
+		'logoGap'
+	],
 	label: ['position', 'scale', 'fontSize', 'maxWidth'],
 	'stat-callout': ['position', 'scale'],
 	code: ['position', 'scale', 'fontSize', 'paddingX', 'paddingY', 'minWidth', 'minHeight'],

@@ -27,14 +27,16 @@ export type DiagramPrimitiveGeometry =
 	| DiagramEdgeGeometry
 	| DiagramTimelineGeometry;
 
-/** The code panel's and box node's own sizes, carried with their position (ADR-0070). */
+/** The code panel's and node's own sizes, carried with their position (ADR-0070). */
 const DIAGRAM_GEOMETRY_SIZE_FIELDS = [
 	'fontSize',
 	'paddingX',
 	'paddingY',
 	'minWidth',
 	'minHeight',
-	'borderWidth'
+	'borderWidth',
+	'logoSize',
+	'logoGap'
 ] as const;
 
 export function resolveDiagramPrimitiveGeometry(
@@ -145,7 +147,9 @@ export function resolveDiagramPrimitiveForRender(
 				fontSize: geometry.fontSize,
 				paddingX: geometry.paddingX,
 				paddingY: geometry.paddingY,
-				borderWidth: geometry.borderWidth
+				borderWidth: geometry.borderWidth,
+				logoSize: geometry.logoSize,
+				logoGap: geometry.logoGap
 			};
 		}
 		case 'label': {

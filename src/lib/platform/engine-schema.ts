@@ -675,15 +675,22 @@ export const DiagramNodeHighlightSchema = z
 // text size, padding, and border width in `cqmin` (hundredths of the frame's
 // shorter side). Absent, the renderer's defaults apply; a border of 0 is a
 // borderless cut-out card. Pins and dots size their text with `fontSize` too.
+// A node's logo (any form) sits centred above it: `logoSize` is the logo's
+// height, its width follows the image; `logoGap` is the space between the
+// logo's bottom and the node's top.
 export const NODE_DEFAULT_FONT_SIZE = 2.9;
 export const NODE_DEFAULT_PADDING_X = 2.4;
 export const NODE_DEFAULT_PADDING_Y = 1.5;
 export const NODE_DEFAULT_BORDER_WIDTH = 0.32;
+export const NODE_DEFAULT_LOGO_SIZE = 6;
+export const NODE_DEFAULT_LOGO_GAP = 1.6;
 const DiagramNodeGeometrySchema = DiagramPositionGeometrySchema.extend({
 	fontSize: z.number().min(0.5).max(20).optional(),
 	paddingX: z.number().min(0).max(20).optional(),
 	paddingY: z.number().min(0).max(20).optional(),
-	borderWidth: z.number().min(0).max(4).optional()
+	borderWidth: z.number().min(0).max(4).optional(),
+	logoSize: z.number().min(0.5).max(40).optional(),
+	logoGap: z.number().min(0).max(20).optional()
 });
 
 // A labeled point in the diagram. `form` is content (a map wants pins, a
@@ -695,12 +702,16 @@ const DiagramNodeSchema = z.strictObject({
 	position: DiagramPointSchema,
 	form: z.enum(['pin', 'box', 'dot']),
 	text: z.string().optional(),
+	// An uploaded image drawn centred above the node; blank = no logo.
+	logoUrl: z.string().optional(),
 	scale: z.number().min(0.25).max(4).optional(),
 	highlight: DiagramNodeHighlightSchema.optional(),
 	fontSize: DiagramNodeGeometrySchema.shape.fontSize,
 	paddingX: DiagramNodeGeometrySchema.shape.paddingX,
 	paddingY: DiagramNodeGeometrySchema.shape.paddingY,
 	borderWidth: DiagramNodeGeometrySchema.shape.borderWidth,
+	logoSize: DiagramNodeGeometrySchema.shape.logoSize,
+	logoGap: DiagramNodeGeometrySchema.shape.logoGap,
 	orientationOverrides: diagramOrientationOverridesSchema(DiagramNodeGeometrySchema),
 	animation: DiagramAnimationSchema.optional()
 });

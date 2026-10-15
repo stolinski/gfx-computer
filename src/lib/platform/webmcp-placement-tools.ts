@@ -336,6 +336,20 @@ function diagramGeometryProperties(): Readonly<Record<string, WebmcpSchemaProper
 			minimum: 0,
 			maximum: 4
 		},
+		logoSize: {
+			type: 'number',
+			description:
+				"A node logo's height, in hundredths of the frame's shorter side; its width follows the image.",
+			minimum: 0.5,
+			maximum: 40
+		},
+		logoGap: {
+			type: 'number',
+			description:
+				"The space between a node logo and the node below it, in hundredths of the frame's shorter side.",
+			minimum: 0,
+			maximum: 20
+		},
 		strokeWidth: {
 			type: 'number',
 			description:
@@ -391,6 +405,8 @@ function readDiagramGeometry(args: unknown): DiagramGeometryPatch {
 		'minWidth',
 		'minHeight',
 		'borderWidth',
+		'logoSize',
+		'logoGap',
 		'strokeWidth'
 	] as const) {
 		if (field in geometry) patch[field] = readWebmcpNumberArgument(geometry, field);

@@ -1165,6 +1165,9 @@
                             "text": {
                               "type": "string"
                             },
+                            "logoUrl": {
+                              "type": "string"
+                            },
                             "scale": {
                               "type": "number",
                               "minimum": 0.25,
@@ -1279,6 +1282,16 @@
                               "minimum": 0,
                               "maximum": 4
                             },
+                            "logoSize": {
+                              "type": "number",
+                              "minimum": 0.5,
+                              "maximum": 40
+                            },
+                            "logoGap": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 20
+                            },
                             "orientationOverrides": {
                               "type": "object",
                               "properties": {
@@ -1329,6 +1342,16 @@
                                       "type": "number",
                                       "minimum": 0,
                                       "maximum": 4
+                                    },
+                                    "logoSize": {
+                                      "type": "number",
+                                      "minimum": 0.5,
+                                      "maximum": 40
+                                    },
+                                    "logoGap": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 20
                                     }
                                   },
                                   "required": [
@@ -1383,6 +1406,16 @@
                                       "type": "number",
                                       "minimum": 0,
                                       "maximum": 4
+                                    },
+                                    "logoSize": {
+                                      "type": "number",
+                                      "minimum": 0.5,
+                                      "maximum": 40
+                                    },
+                                    "logoGap": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 20
                                     }
                                   },
                                   "required": [

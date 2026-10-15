@@ -3,6 +3,8 @@
 	import {
 		NODE_DEFAULT_BORDER_WIDTH,
 		NODE_DEFAULT_FONT_SIZE,
+		NODE_DEFAULT_LOGO_GAP,
+		NODE_DEFAULT_LOGO_SIZE,
 		NODE_DEFAULT_PADDING_X,
 		NODE_DEFAULT_PADDING_Y,
 		type DiagramNode
@@ -22,7 +24,26 @@
 	const isHighlighted = $derived(
 		highlightSpan !== null && highlightSpan.to - highlightSpan.from > 0.5
 	);
+	const logoUrl = $derived((block.logoUrl ?? '').trim());
+	let failedLogoUrl = $state('');
 </script>
+
+<!-- The logo sits centred above the node, out of flow, so the node keeps its
+     own size and centre. Width follows the image; no CSS filter (it drops out
+     of the HTML-in-Canvas capture). -->
+{#snippet logo()}
+	{#if logoUrl && failedLogoUrl !== logoUrl}
+		<img
+			class="node__logo"
+			src={logoUrl}
+			alt=""
+			crossorigin="anonymous"
+			style:--node-logo-size={block.logoSize ?? NODE_DEFAULT_LOGO_SIZE}
+			style:--node-logo-gap={block.logoGap ?? NODE_DEFAULT_LOGO_GAP}
+			onerror={() => (failedLogoUrl = logoUrl)}
+		/>
+	{/if}
+{/snippet}
 
 {#snippet highlighter()}
 	{#if highlightSpan && highlightSpan.to > highlightSpan.from}
@@ -43,6 +64,7 @@
 		style:--node-padding-y={block.paddingY ?? NODE_DEFAULT_PADDING_Y}
 		style:--node-border-width={block.borderWidth ?? NODE_DEFAULT_BORDER_WIDTH}
 	>
+		{@render logo()}
 		<span class="node__box-depth" aria-hidden="true"></span>
 		<span
 			class="node__box-face"
@@ -56,6 +78,7 @@
 	</span>
 {:else if block.form === 'pin'}
 	<span class="node node--pin" style:--node-font-size={block.fontSize}>
+		{@render logo()}
 		<!-- Shadow is an offset SVG path, never a CSS filter — filters promote
 		     compositing layers, which drop out of the HTML-in-Canvas capture. -->
 		<svg class="node__pin-mark" viewBox="0 0 52 65" aria-hidden="true">
@@ -83,6 +106,7 @@
 	</span>
 {:else}
 	<span class="node node--dot" style:--node-font-size={block.fontSize}>
+		{@render logo()}
 		<span class="node__dot-mark"></span>
 		{#if block.text}
 			<span
@@ -103,7 +127,18 @@
 		align-items: center;
 		display: inline-flex;
 		line-height: 1;
+		position: relative;
 		white-space: nowrap;
+	}
+
+	.node__logo {
+		block-size: calc(var(--node-logo-size) * var(--cqmin));
+		bottom: calc(100% + var(--node-logo-gap) * var(--cqmin));
+		inline-size: auto;
+		left: 50%;
+		max-inline-size: none;
+		position: absolute;
+		translate: -50% 0;
 	}
 
 	/* Box — the flowchart card: Pack fill (mount-guaranteed, ADR-0024), a
@@ -117,7 +152,6 @@
 		font-size: calc(var(--node-font-size) * var(--cqmin));
 		font-weight: var(--weight, 700);
 		letter-spacing: var(--tracking, 0.01em);
-		position: relative;
 	}
 	.node__box-depth,
 	.node__box-face {

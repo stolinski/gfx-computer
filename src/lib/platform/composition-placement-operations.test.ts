@@ -514,17 +514,26 @@ describe('diagram geometry', () => {
 			'fontSize',
 			'paddingX',
 			'paddingY',
-			'borderWidth'
+			'borderWidth',
+			'logoSize',
+			'logoGap'
 		]);
 	});
 
-	it("writes a box node's text size, padding, and border, per orientation", async () => {
+	it("writes a box node's text size, padding, border, and logo size and gap, per orientation", async () => {
 		expectApplied(
 			await runSetCompositionDiagramGeometryOperation({
 				expectedRevision: 1,
 				blockId: 'node-1',
 				target: 'vertical',
-				geometry: { fontSize: 8.5, paddingX: 5, paddingY: 3, borderWidth: 0 }
+				geometry: {
+					fontSize: 8.5,
+					paddingX: 5,
+					paddingY: 3,
+					borderWidth: 0,
+					logoSize: 9,
+					logoGap: 2.5
+				}
 			})
 		);
 		const node = engineState.surface.diagram?.[0];
@@ -532,7 +541,9 @@ describe('diagram geometry', () => {
 			fontSize: 8.5,
 			paddingX: 5,
 			paddingY: 3,
-			borderWidth: 0
+			borderWidth: 0,
+			logoSize: 9,
+			logoGap: 2.5
 		});
 	});
 

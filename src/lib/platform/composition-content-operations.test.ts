@@ -509,3 +509,85 @@ describe('a node highlighter swipe and its words', () => {
 		expect(failure.message).toContain('gfx_motion_set_block_timing');
 	});
 });
+
+describe('a node logo', () => {
+	beforeEach(async () => {
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 0,
+				primitiveType: 'node'
+			})
+		);
+	});
+
+	it('sets a trimmed logo, clears it with null or blank, and points its sizes at placement', async () => {
+		expectApplied(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 1,
+				blockId: 'node-1',
+				content: { logoUrl: '  /api/user-images/logo.png ' }
+			})
+		);
+		const node = engineState.surface.diagram?.[0];
+		expect(node?.type === 'node' ? node.logoUrl : undefined).toBe('/api/user-images/logo.png');
+
+		expectApplied(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 2,
+				blockId: 'node-1',
+				content: { logoUrl: null }
+			})
+		);
+		const cleared = engineState.surface.diagram?.[0];
+		expect(cleared && 'logoUrl' in cleared).toBe(false);
+
+		expectApplied(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 3,
+				blockId: 'node-1',
+				content: { logoUrl: '/api/user-images/logo.png' }
+			})
+		);
+		expectApplied(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 4,
+				blockId: 'node-1',
+				content: { logoUrl: '   ' }
+			})
+		);
+		const blanked = engineState.surface.diagram?.[0];
+		expect(blanked && 'logoUrl' in blanked).toBe(false);
+
+		const failure = expectFailed(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 5,
+				blockId: 'node-1',
+				content: { logoSize: 9 } as never
+			})
+		);
+		expect(failure.rejected).toBe('logoSize');
+		expect(failure.message).toContain('gfx_placement_set_diagram_geometry');
+	});
+
+	it('refuses a logo on a primitive that is not a node', async () => {
+		expectApplied(
+			await runAddCompositionDiagramPrimitiveOperation({
+				expectedRevision: 1,
+				primitiveType: 'label'
+			})
+		);
+		const label = engineState.surface.diagram?.[1];
+		if (label?.type !== 'label') throw new Error('expected a label');
+
+		const failure = expectFailed(
+			await runSetCompositionDiagramPrimitiveOperation({
+				expectedRevision: 2,
+				blockId: label.id,
+				content: { logoUrl: '/api/user-images/logo.png' }
+			})
+		);
+		expect(failure.code).toBe('invalid_argument');
+		expect(failure.rejected).toBe('logoUrl');
+		expect(failure.alternatives).not.toContain('logoUrl');
+	});
+});

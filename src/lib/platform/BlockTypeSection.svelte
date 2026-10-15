@@ -2,12 +2,13 @@
 	import type { DiagramPrimitive } from './engine-schema';
 	import BlockCodeFields from './BlockCodeFields.svelte';
 	import BlockNodeHighlightFields from './BlockNodeHighlightFields.svelte';
+	import BlockNodeLogoField from './BlockNodeLogoField.svelte';
 	import BlockStatCalloutFields from './BlockStatCalloutFields.svelte';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 
 	// The Block's content fields, per primitive type (ADR-0036 §7): node form,
-	// text, and highlighter swipe, label text, the stat roll's numbers/format/caption/window, edge
+	// text, logo, and highlighter swipe, label text, the stat roll's numbers/format/caption/window, edge
 	// direction, and the shared Ink role. Stroke appearance never appears here
 	// (it is the Pack's, not the composition's).
 	interface Props {
@@ -41,6 +42,7 @@
 				}}
 			/>
 		</Field>
+		<BlockNodeLogoField primitive={el} />
 		<BlockNodeHighlightFields primitive={el} />
 	{:else if el.type === 'label'}
 		<Field label="Text">

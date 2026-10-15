@@ -526,7 +526,7 @@ describe('engine schema', () => {
 		expectIssue(invalid, 'Invalid option', 'invalid Diagram label role');
 	});
 
-	it('takes a node highlight and node sizes, and refuses a lift before the swipe', () => {
+	it('takes a node highlight, node sizes, and a logo, and refuses a lift before the swipe', () => {
 		const state = baseState();
 		state.surface.diagram = [
 			{
@@ -539,9 +539,18 @@ describe('engine schema', () => {
 				paddingX: 4,
 				paddingY: 2.5,
 				borderWidth: 0,
+				logoUrl: '/api/user-images/logo.png',
+				logoSize: 8,
+				logoGap: 2,
 				highlight: { start: 0.2, duration: 0.05, lift: { start: 0.5, duration: 0.05 } },
 				orientationOverrides: {
-					vertical: { position: { x: 0.5, y: 0.4 }, fontSize: 9, borderWidth: 0 }
+					vertical: {
+						position: { x: 0.5, y: 0.4 },
+						fontSize: 9,
+						borderWidth: 0,
+						logoSize: 12,
+						logoGap: 0
+					}
 				}
 			}
 		];
@@ -554,6 +563,10 @@ describe('engine schema', () => {
 		const earlyNode = (early.surface.diagram as Record<string, unknown>[])[0];
 		earlyNode.highlight = { start: 0.2, duration: 0.05, lift: { start: 0.21, duration: 0.05 } };
 		expectIssue(early, 'lifts only after', 'a lift that starts mid-swipe');
+
+		const oversizedLogo = structuredClone(state);
+		(oversizedLogo.surface.diagram as Record<string, unknown>[])[0].logoSize = 41;
+		expectIssue(oversizedLogo, 'Too big', 'a logo taller than 40 cqmin');
 	});
 
 	it('validates canonical Video media and full-frame bed eligibility', () => {

@@ -421,6 +421,14 @@ function diagramPrimitiveContentFields(): Readonly<Record<string, WebmcpSchemaPr
 				"The words a node or label carries. An empty string clears a node's words; a label always needs some."
 		},
 		form: webmcpDerivedEnumProperty('diagram-node-form', 'What shape a node takes.'),
+		logoUrl: {
+			description:
+				'An uploaded image URL a node shows centred above itself; null or an empty string removes it.',
+			oneOf: [
+				{ type: 'string', description: 'The image URL.' },
+				{ type: 'null', description: 'Remove the logo.' }
+			]
+		},
 		route: webmcpDerivedEnumProperty('diagram-edge-route', 'How an edge travels.'),
 		direction: webmcpDerivedEnumProperty(
 			'diagram-arrow-direction',
@@ -560,6 +568,7 @@ function readDiagramPrimitiveContent(args: unknown): DiagramPrimitiveContentPatc
 	if ('text' in content) patch.text = readWebmcpOptionalStringArgument(content, 'text');
 	if ('form' in content)
 		patch.form = readWebmcpLiteralArgument(content, 'form', DIAGRAM_NODE_FORMS);
+	if ('logoUrl' in content) patch.logoUrl = readWebmcpClearableStringArgument(content, 'logoUrl');
 	if ('route' in content) {
 		patch.route = readWebmcpLiteralArgument(content, 'route', DIAGRAM_EDGE_ROUTES);
 	}

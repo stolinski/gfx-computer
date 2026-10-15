@@ -7,6 +7,8 @@
 		DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH,
 		NODE_DEFAULT_BORDER_WIDTH,
 		NODE_DEFAULT_FONT_SIZE,
+		NODE_DEFAULT_LOGO_GAP,
+		NODE_DEFAULT_LOGO_SIZE,
 		NODE_DEFAULT_PADDING_X,
 		NODE_DEFAULT_PADDING_Y,
 		type DiagramCodeGeometry,
@@ -61,7 +63,14 @@
 	type SizedGeometry = Partial<
 		Pick<
 			DiagramCodeGeometry & DiagramNodeGeometry,
-			'fontSize' | 'paddingX' | 'paddingY' | 'minWidth' | 'minHeight' | 'borderWidth'
+			| 'fontSize'
+			| 'paddingX'
+			| 'paddingY'
+			| 'minWidth'
+			| 'minHeight'
+			| 'borderWidth'
+			| 'logoSize'
+			| 'logoGap'
 		>
 	>;
 	function setCodeSize(
@@ -556,6 +565,43 @@
 							(e.currentTarget as HTMLInputElement).value,
 							0,
 							1
+						)}
+				/>
+			</Field>
+		{/if}
+		{#if el.type === 'node' && el.logoUrl?.trim()}
+			{@const logoGeometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
+			<Field label="Logo size">
+				<input
+					type="number"
+					min="0.5"
+					max="40"
+					step="0.1"
+					value={logoGeometry.logoSize ?? NODE_DEFAULT_LOGO_SIZE}
+					oninput={(e) =>
+						setCodeSize(
+							logoGeometry,
+							'logoSize',
+							(e.currentTarget as HTMLInputElement).value,
+							0.5,
+							40
+						)}
+				/>
+			</Field>
+			<Field label="Logo gap">
+				<input
+					type="number"
+					min="0"
+					max="20"
+					step="0.1"
+					value={logoGeometry.logoGap ?? NODE_DEFAULT_LOGO_GAP}
+					oninput={(e) =>
+						setCodeSize(
+							logoGeometry,
+							'logoGap',
+							(e.currentTarget as HTMLInputElement).value,
+							0,
+							20
 						)}
 				/>
 			</Field>

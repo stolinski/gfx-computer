@@ -128,6 +128,8 @@ export interface SetCompositionOverlayContentRequest {
 export interface DiagramPrimitiveContentPatch {
 	text?: string;
 	form?: Extract<DiagramPrimitive, { type: 'node' }>['form'];
+	/** A node's logo image URL; `null` or blank removes it. */
+	logoUrl?: string | null;
 	route?: Extract<DiagramPrimitive, { type: 'edge-arrow' }>['route'];
 	direction?: Extract<DiagramPrimitive, { type: 'edge-arrow' }>['direction'];
 	role?: Extract<DiagramPrimitive, { type: 'label' }>['role'];
@@ -185,6 +187,7 @@ const DIAGRAM_CONTENT_FIELDS: Record<
 > = {
 	text: ['node', 'label'],
 	form: ['node'],
+	logoUrl: ['node'],
 	route: ['edge-arrow'],
 	direction: ['edge-arrow'],
 	role: ['label'],
@@ -217,6 +220,8 @@ const DIAGRAM_FIELDS_OWNED_ELSEWHERE: Record<string, string> = {
 	enter: 'gfx_motion_set_block_timing',
 	exit: 'gfx_motion_set_block_timing',
 	borderWidth: 'gfx_placement_set_diagram_geometry',
+	logoSize: 'gfx_placement_set_diagram_geometry',
+	logoGap: 'gfx_placement_set_diagram_geometry',
 	strokeWidth: 'gfx_placement_set_diagram_geometry',
 	orientationOverrides: 'gfx_placement_set_diagram_geometry',
 	animation: 'gfx_motion_set_keyframe_channel'
@@ -528,9 +533,14 @@ export async function runSetCompositionDiagramPrimitiveOperation(
 					{ rejected: request.blockId }
 				);
 			}
-			const { highlight, ...content } = request.content;
+			const { highlight, logoUrl, ...content } = request.content;
 			const next = { ...entries[index], ...content } as DiagramPrimitive;
 			if (next.type === 'node' && next.text === '') delete next.text;
+			if (next.type === 'node' && logoUrl !== undefined) {
+				const trimmedLogoUrl = logoUrl?.trim();
+				if (trimmedLogoUrl) next.logoUrl = trimmedLogoUrl;
+				else delete next.logoUrl;
+			}
 			if (next.type === 'node' && highlight !== undefined) {
 				const previous = next.highlight;
 				if (highlight === null) delete next.highlight;
