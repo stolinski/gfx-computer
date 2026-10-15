@@ -22,9 +22,15 @@ const WAIT_SELECTOR = process.env.CDP_WAIT_SELECTOR;
 // Decimal places in each frame's file name; a dense sweep (a whole clip) needs more than 2.
 const NAME_DIGITS = Number(process.env.CDP_NAME_DIGITS ?? 2);
 const BUILT_IN_PRESET_PATH = `src/lib/presets/${SLUG}.json`;
+// A stored Film shows its own name, never its slug, so read it from the store.
+async function readStoredFilmName() {
+	const response = await fetch(`${new URL(PAGE_URL).origin}/api/user-compositions/${SLUG}`);
+	const film = response.ok ? await response.json() : null;
+	return typeof film?.name === 'string' ? film.name : SLUG;
+}
 const EXPECTED_PRESET_LABEL = existsSync(BUILT_IN_PRESET_PATH)
 	? JSON.parse(readFileSync(BUILT_IN_PRESET_PATH, 'utf8')).name
-	: SLUG;
+	: await readStoredFilmName();
 
 mkdirSync(OUTDIR, { recursive: true });
 
