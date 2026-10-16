@@ -6,13 +6,6 @@
 		"height": 360,
 		"contentFraction": 0.057
 	},
-	"actions-run-overnight-crash": {
-		"contentKey": "1e9eff2f7e8b48c5",
-		"timestampSeconds": 18.417,
-		"width": 640,
-		"height": 360,
-		"contentFraction": 0.7202
-	},
 	"annotation-box-demo": {
 		"contentKey": "4740bcd3e6b7e616",
 		"timestampSeconds": 2.5,
@@ -607,6 +600,13 @@
 		"width": 640,
 		"height": 360,
 		"contentFraction": 0.9997
+	},
+	"terminal-run-overnight-crash": {
+		"contentKey": "0f7584bdcdd1170c",
+		"timestampSeconds": 18.417,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9993
 	},
 	"text-3d-cylinder": {
 		"contentKey": "df532236fef7574f",

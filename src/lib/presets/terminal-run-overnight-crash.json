@@ -1,0 +1,190 @@
+{
+	"schema": "supers@1",
+	"name": "Terminal run \u2014 overnight crash",
+	"description": "An agent process in a terminal: it is started by an automation, a cron job, or a webhook, prints its steps, is killed at 2:14 AM, and a resume picks up at step 3 with the earlier steps restored. Full-frame.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 36.833333,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "terminal-run",
+				"id": "agent-process",
+				"content": {
+					"title": "pi-agent \u2014 zsh \u2014 120\u00d740",
+					"prompt": "scott@mini ~/acme %",
+					"lines": [
+						{
+							"kind": "dim",
+							"text": "pi-agent v0.4 \u00b7 run 57 \u00b7 waiting for a trigger",
+							"at": 0.00543
+						},
+						{
+							"kind": "info",
+							"text": "\u25b6 started by Claude Code automation",
+							"at": 0.02715
+						},
+						{
+							"kind": "info",
+							"text": "\u25b6 started by cron \u00b7 0 3 * * *",
+							"at": 0.08507,
+							"replaces": true
+						},
+						{
+							"kind": "info",
+							"text": "\u25b6 started by webhook \u00b7 POST /hooks/issue",
+							"at": 0.13756,
+							"replaces": true
+						},
+						{
+							"kind": "step",
+							"text": "step 1  read issue #482",
+							"at": 0.2371
+						},
+						{
+							"kind": "step",
+							"text": "step 2  plan the fix",
+							"at": 0.25339
+						},
+						{
+							"kind": "step",
+							"text": "step 3  edit src/auth.ts",
+							"at": 0.26606
+						},
+						{
+							"kind": "error",
+							"text": "zsh: killed     pi-agent run 57          02:14:07",
+							"at": 0.27602
+						},
+						{
+							"kind": "prompt",
+							"text": "",
+							"at": 0.28778
+						},
+						{
+							"kind": "command",
+							"text": "pi status 57",
+							"at": 0.46335,
+							"duration": 0.01991,
+							"replaces": true
+						},
+						{
+							"kind": "output",
+							"text": "run 57  failed at step 3 \u00b7 02:14 AM \u00b7 steps 1\u20132 saved",
+							"at": 0.50679
+						},
+						{
+							"kind": "prompt",
+							"text": "",
+							"at": 0.51765
+						},
+						{
+							"kind": "command",
+							"text": "pi resume 57",
+							"at": 0.79638,
+							"duration": 0.02353,
+							"replaces": true
+						},
+						{
+							"kind": "info",
+							"text": "\u21bb resuming run 57 from step 3",
+							"at": 0.83348
+						},
+						{
+							"kind": "restored",
+							"text": "step 1  read issue #482        restored",
+							"at": 0.84615
+						},
+						{
+							"kind": "restored",
+							"text": "step 2  plan the fix           restored",
+							"at": 0.8552
+						},
+						{
+							"kind": "step",
+							"text": "step 3  edit src/auth.ts",
+							"at": 0.86878
+						},
+						{
+							"kind": "step",
+							"text": "step 4  send summary email",
+							"at": 0.90498
+						},
+						{
+							"kind": "step",
+							"text": "step 5  open pull request",
+							"at": 0.93665
+						},
+						{
+							"kind": "success",
+							"text": "\u2713 run 57 finished \u00b7 no step ran twice",
+							"at": 0.97285
+						},
+						{
+							"kind": "prompt",
+							"text": "",
+							"at": 0.981
+						}
+					],
+					"x": 0.15,
+					"y": 0.13,
+					"width": 0.7,
+					"height": 0.74,
+					"textSize": 2.4,
+					"titleSize": 1.7,
+					"paddingX": 2.6,
+					"paddingY": 2.2,
+					"radius": 1.4,
+					"orientationOverrides": {
+						"vertical": {
+							"x": 0.04,
+							"y": 0.2,
+							"width": 0.92,
+							"height": 0.6
+						}
+					}
+				},
+				"position": {
+					"anchor": "top-left",
+					"offset": {
+						"x": 0,
+						"y": 0
+					}
+				},
+				"enter": {
+					"start": 0,
+					"duration": 0.015,
+					"ease": "settled"
+				}
+			}
+		],
+		"effects": [],
+		"audioCues": [],
+		"media": {
+			"assets": [],
+			"videoTrack": {
+				"clips": []
+			}
+		},
+		"backgroundFill": "#1a1918"
+	}
+}

@@ -165,9 +165,9 @@ _Avoid_: chat mock (the subject is shared control of one run, not a conversation
 The `duplicate-pileup` Overlay: a Gmail inbox and a GitHub pull-request list where, after a restart, the same email and pull request keep arriving; duplicates stack on top, tinted and tagged, and the panels lean, until a **collapse** folds them back into one copy each. It shows what a non-durable agent does when it repeats a step that can't happen twice.
 _Avoid_: notification spam (the subject is a repeated side effect), inbox mock (the panels exist to be piled up).
 
-**Actions Run**:
-The `actions-run` Overlay: a GitHub Actions run page whose trigger line swaps, whose steps run and fail on a **crash**, and which **resumes** from the failed step with the earlier steps marked restored rather than run again. It shows what a durable agent run does after a crash.
-_Avoid_: CI mock (the page stands in for any long agent run), workflow diagram (it is the real page, not a chart of it).
+**Terminal Run**:
+The `terminal-run` Overlay: an agent process in a terminal window that prints its steps, is killed partway, and is **resumed** at the step it was on, the earlier steps printed as **restored** rather than run again. It shows what a durable agent does after a crash.
+_Avoid_: CI log (an agent run is a process, not a CI job), console (the subject is the process's life, not a REPL).
 
 **Orientation art direction**:
 Composing each delivery orientation as its own layout and motion inside the one **Preset**, rather than expecting a single set of values to reflow into both frames. The engine owes authors complete per-orientation placement and motion for every element that affects the frame; an orientation that cannot be made to look good with the existing tools is an engine gap ([ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) §4, amended 2026-09-23). Placement overrides and motion overrides are each a complete snapshot that replaces the shared value as one unit: an Overlay's, a Diagram primitive's, or a Kinetic Word's `animation.orientationOverrides` replaces its whole x/y/scale/rotation group, while opacity stays shared.

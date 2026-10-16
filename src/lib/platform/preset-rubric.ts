@@ -525,7 +525,7 @@ function checkOverlayPlacement(
 			overlay.type === 'icon-orbit' ||
 			overlay.type === 'multiplayer-session' ||
 			overlay.type === 'duplicate-pileup' ||
-			overlay.type === 'actions-run';
+			overlay.type === 'terminal-run';
 
 		if (anchor === 'normalized-rect' && rect && !isFullFrameCoordinateOverlay) {
 			if (
