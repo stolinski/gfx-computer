@@ -4,7 +4,6 @@ import type { OverlayDefaults } from '$lib/platform/pipelines/types';
 import type { OverlayPipelineDefinition } from '$lib/platform/pipelines/definition-types';
 
 const ClipFractionSchema = z.number().min(0).max(1);
-const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /** What a panel lists: an email inbox, or a repository's pull requests. */
 export const DUPLICATE_PILEUP_PANEL_KINDS = ['inbox', 'pull-requests'] as const;
@@ -12,13 +11,19 @@ export type DuplicatePileupPanelKind = (typeof DUPLICATE_PILEUP_PANEL_KINDS)[num
 
 // One panel and the one thing that keeps landing in it. `copies` are the clip
 // fractions each copy arrives at, the first being the real one; every later
-// copy is a duplicate. A pull request's number counts up from `number`.
+// copy is a duplicate. An inbox row reads `meta` (the sender), `item` (the
+// subject), `snippet`, and `time`; a pull request row reads `item` (its title),
+// `label`, and "#`number` opened … by `meta`", the number counting up per copy.
+// `title` is the inbox's tab or the repository.
 const DuplicatePileupPanelSchema = z.strictObject({
 	kind: z.enum(DUPLICATE_PILEUP_PANEL_KINDS),
 	title: z.string().min(1).max(24),
 	at: ClipFractionSchema,
 	item: z.string().min(1).max(48),
 	meta: z.string().max(40).optional(),
+	snippet: z.string().max(60).optional(),
+	label: z.string().max(20).optional(),
+	time: z.string().max(12).optional(),
 	number: z.number().int().min(1).max(99999).optional(),
 	copies: z.array(ClipFractionSchema).min(1).max(12)
 });
@@ -59,9 +64,8 @@ export const DUPLICATE_PILEUP_DEFAULT_SIZES = {
 	radius: 2.2
 } as const;
 
-// Sizes follow ADR-0070 and are in cqmin; each stands alone. The panel fill,
-// ink, and the alert and good colours are the Pack's `duplicate-pileup.*`
-// Roles and field ink unless a colour is authored.
+// Sizes follow ADR-0070 and are in cqmin; each stands alone. The panels are
+// found documents (Gmail, GitHub) and keep their own palettes under every Pack.
 const DuplicatePileupContentSchema = z.strictObject({
 	panels: z.array(DuplicatePileupPanelSchema).min(1).max(3),
 	restart: z
@@ -82,10 +86,6 @@ const DuplicatePileupContentSchema = z.strictObject({
 	paddingY: z.number().min(0).max(20).default(DUPLICATE_PILEUP_DEFAULT_SIZES.paddingY),
 	gap: z.number().min(0).max(20).default(DUPLICATE_PILEUP_DEFAULT_SIZES.gap),
 	radius: z.number().min(0).max(10).default(DUPLICATE_PILEUP_DEFAULT_SIZES.radius),
-	windowColor: HexColorSchema.optional(),
-	inkColor: HexColorSchema.optional(),
-	alertColor: HexColorSchema.optional(),
-	goodColor: HexColorSchema.optional(),
 	orientationOverrides: z
 		.strictObject({
 			horizontal: DuplicatePileupLayoutSchema.optional(),
@@ -102,18 +102,21 @@ function defaults(): OverlayDefaults<DuplicatePileupContent> {
 			panels: [
 				{
 					kind: 'inbox',
-					title: 'Inbox',
+					title: 'Primary',
 					at: 0.02,
 					item: 'Your weekly report',
-					meta: 'agent@acme.dev',
+					meta: 'Pi Agent',
+					snippet: 'Here is what shipped this week',
+					time: '3:02 AM',
 					copies: [0.1, 0.4, 0.5, 0.58]
 				},
 				{
 					kind: 'pull-requests',
-					title: 'Pull requests',
+					title: 'acme / web',
 					at: 0.3,
 					item: 'Fix login redirect',
-					meta: 'opened by agent',
+					meta: 'pi-agent[bot]',
+					label: 'bug',
 					number: 214,
 					copies: [0.36, 0.5, 0.62]
 				}

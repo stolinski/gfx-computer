@@ -152,7 +152,9 @@ const OVERLAY_EVENT_DEFAULTS: Record<
 	// The window settles in quietly; typing and clicks are the editor's to score.
 	'multiplayer-session': { enter: null, exit: null },
 	// Duplicates land silently; the editor scores the pileup.
-	'duplicate-pileup': { enter: null, exit: null }
+	'duplicate-pileup': { enter: null, exit: null },
+	// The run page changes state silently; the editor scores the crash.
+	'actions-run': { enter: null, exit: null }
 };
 
 // The iMessage bubble arrivals — locked-specific signature sounds (ADR-0033

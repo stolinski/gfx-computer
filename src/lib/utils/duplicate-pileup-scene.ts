@@ -11,6 +11,7 @@ import type {
 // Every value is a pure function of time, so preview and export agree.
 
 const ROW_DROP_SECONDS = 0.32;
+const FRESH_SECONDS = 1.4;
 const PANEL_POP_SECONDS = 0.45;
 const COLLAPSE_SECONDS = 0.5;
 const RESTART_HOLD_SECONDS = 1.6;
@@ -40,6 +41,11 @@ export interface DuplicatePileupRow {
 	key: string;
 	title: string;
 	meta?: string;
+	snippet?: string;
+	label?: string;
+	time?: string;
+	/** 1 as a duplicate lands, fading to 0: how strongly it is highlighted as new. */
+	fresh: number;
 	/** A pull request's number; absent in an inbox. */
 	number?: number;
 	isDuplicate: boolean;
@@ -116,8 +122,9 @@ export function resolveDuplicatePileupScene(
 ): DuplicatePileupScene {
 	const unit = Math.min(frameWidth, frameHeight) / 100;
 	const text = sizes.textSize * unit;
-	const rowHeight = text * 3.6;
-	const rowGap = unit * 0.8;
+	// A Gmail row is one line; a GitHub pull request row is two.
+	const rowHeightOf = (kind: DuplicatePileupPanelKind): number =>
+		kind === 'inbox' ? text * 2.9 : text * 4.2;
 	const gap = sizes.gap * unit;
 	const at = (fraction: number): number => fraction * durationSeconds;
 
@@ -143,6 +150,7 @@ export function resolveDuplicatePileupScene(
 				.sort((a, b) => a.seconds - b.seconds);
 
 			// Newest on top: walk from the newest copy down, each pushed by the ones above it.
+			const rowHeight = rowHeightOf(panel.kind);
 			const rows: DuplicatePileupRow[] = [];
 			let top = 0;
 			for (let order = arrived.length - 1; order >= 0; order -= 1) {
@@ -154,13 +162,17 @@ export function resolveDuplicatePileupScene(
 					key: `copy-${item.copy}`,
 					title: panel.item,
 					meta: panel.meta,
+					snippet: panel.snippet,
+					label: panel.label,
+					time: panel.time,
+					fresh: isDuplicate ? 1 - clamp01((seconds - item.seconds) / FRESH_SECONDS) : 0,
 					number: panel.number === undefined ? undefined : panel.number + order,
 					isDuplicate,
 					y,
 					height: rowHeight,
 					opacity: clamp01(drop * 1.5) * (isDuplicate ? 1 - fold : 1)
 				});
-				top += (rowHeight + rowGap) * drop;
+				top += rowHeight * drop;
 			}
 
 			const duplicates = Math.max(0, arrived.length - 1);

@@ -6,6 +6,13 @@
 		"height": 360,
 		"contentFraction": 0.057
 	},
+	"actions-run-overnight-crash": {
+		"contentKey": "1e9eff2f7e8b48c5",
+		"timestampSeconds": 18.417,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.7202
+	},
 	"annotation-box-demo": {
 		"contentKey": "4740bcd3e6b7e616",
 		"timestampSeconds": 2.5,
@@ -287,11 +294,11 @@
 		"contentFraction": 0.5276
 	},
 	"duplicate-pileup-double-send": {
-		"contentKey": "f1340ae8eddf9a16",
-		"timestampSeconds": 5.317,
+		"contentKey": "3f2725606619ec4d",
+		"timestampSeconds": 6.38,
 		"width": 640,
 		"height": 360,
-		"contentFraction": 0.997
+		"contentFraction": 0.999
 	},
 	"effect-keyframes-demo": {
 		"contentKey": "b8dddfb8e232a097",

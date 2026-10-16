@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Duplicate pileup \u2014 double send",
-	"description": "After a restart the same email and pull request keep arriving as duplicates, the panels leaning as they pile up, until a durable run folds them back into one of each. Full-frame.",
+	"description": "After a restart the same email lands in Gmail and the same pull request opens on GitHub again and again, the panels leaning as they pile up, until a durable run folds them back into one of each. Full-frame.",
 	"pack": "syntax",
 	"kind": "deliverable",
 	"state": {
@@ -33,10 +33,12 @@
 					"panels": [
 						{
 							"kind": "inbox",
-							"title": "Inbox",
+							"title": "Primary",
 							"at": 0.09404,
 							"item": "Deploy report for #482",
-							"meta": "agent@acme.dev \u00b7 3:02 AM",
+							"meta": "Pi Agent",
+							"snippet": "Fixed the login redirect and opened a PR",
+							"time": "3:02 AM",
 							"copies": [
 								0.24765,
 								0.52351,
@@ -46,10 +48,11 @@
 						},
 						{
 							"kind": "pull-requests",
-							"title": "Pull requests",
+							"title": "acme / web",
 							"at": 0.57053,
 							"item": "Fix login redirect",
-							"meta": "opened by agent",
+							"meta": "pi-agent[bot]",
+							"label": "bug",
 							"number": 214,
 							"copies": [
 								0.62069,
@@ -67,23 +70,23 @@
 						"label": "durable: every step runs once",
 						"at": 0.91536
 					},
-					"x": 0.11,
-					"y": 0.22,
-					"width": 0.38,
-					"height": 0.46,
+					"x": 0.06,
+					"y": 0.2,
+					"width": 0.425,
+					"height": 0.5,
 					"arrangement": "row",
-					"textSize": 2.4,
-					"titleSize": 2.6,
+					"textSize": 2.2,
+					"titleSize": 3,
 					"labelSize": 3.4,
 					"paddingX": 2.6,
-					"paddingY": 2.2,
+					"paddingY": 2,
 					"gap": 3,
-					"radius": 2.2,
+					"radius": 1.6,
 					"orientationOverrides": {
 						"vertical": {
-							"x": 0.08,
+							"x": 0.06,
 							"y": 0.14,
-							"width": 0.84,
+							"width": 0.88,
 							"height": 0.34,
 							"arrangement": "column"
 						}
@@ -98,35 +101,12 @@
 				},
 				"enter": {
 					"start": 0,
-					"duration": 0.02,
+					"duration": 0.015,
 					"ease": "settled"
 				}
 			}
 		],
-		"effects": [
-			{
-				"type": "paper-grain",
-				"id": "grain",
-				"params": {
-					"warmth": 0.2,
-					"density": 0.35
-				}
-			},
-			{
-				"type": "optical-vignette",
-				"id": "lens",
-				"params": {
-					"exposureLoss": 2.2,
-					"onset": 0.15,
-					"feather": 0.8,
-					"roundness": 0.6,
-					"center": {
-						"x": 0.5,
-						"y": 0.5
-					}
-				}
-			}
-		],
+		"effects": [],
 		"audioCues": [],
 		"media": {
 			"assets": [],

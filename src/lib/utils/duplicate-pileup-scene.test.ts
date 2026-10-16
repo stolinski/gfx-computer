@@ -12,7 +12,7 @@ const DURATION = 10;
 
 const content: DuplicatePileupContent = {
 	panels: [
-		{ kind: 'inbox', title: 'Inbox', at: 0, item: 'Report', copies: [0.1, 0.3, 0.4] },
+		{ kind: 'inbox', title: 'Primary', at: 0, item: 'Report', copies: [0.1, 0.3, 0.4] },
 		{ kind: 'pull-requests', title: 'Pull requests', at: 0.2, item: 'Fix', number: 214, copies: [0.25, 0.45] }
 	],
 	restart: { label: 'process restarted', at: 0.2 },
@@ -52,6 +52,12 @@ describe('resolveDuplicatePileupScene', () => {
 		);
 		assert.ok(inbox.rows[0].y < inbox.rows[2].y);
 		assert.notEqual(inbox.lean, 0);
+	});
+
+	it('highlights a duplicate as new when it lands, then lets the highlight fade', () => {
+		assert.ok(sceneAt(3.05).panels[0].rows[0].fresh > 0.9);
+		assert.equal(sceneAt(8).panels[0].rows[0].fresh, 0);
+		assert.equal(sceneAt(5).panels[0].rows[2].fresh, 0);
 	});
 
 	it('counts pull request numbers up from the first', () => {

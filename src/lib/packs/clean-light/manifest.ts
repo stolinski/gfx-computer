@@ -78,10 +78,6 @@ export const cleanLightPack: PackManifest = {
 		// Multiplayer Session: the agent window and its send / waiting accent.
 		'multiplayer-session.window': { kind: 'style', value: '#ffffff' },
 		'multiplayer-session.accent': { kind: 'style', value: '#0075de' },
-		// Duplicate Pileup: the panels, the duplicates' alert, and the clean state.
-		'duplicate-pileup.window': { kind: 'style', value: '#ffffff' },
-		'duplicate-pileup.alert': { kind: 'style', value: '#e5484d' },
-		'duplicate-pileup.good': { kind: 'style', value: '#1f9d55' },
 		'icon-orbit.glow': { kind: 'style', value: '#5cb3ff' },
 		// Die-cut clean silhouettes — nothing in this register tears or feathers.
 		'edge-treatment': { kind: 'style', value: 'clean' },

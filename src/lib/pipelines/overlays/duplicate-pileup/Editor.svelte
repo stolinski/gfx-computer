@@ -26,16 +26,6 @@
 		{ key: 'gap', label: 'Gap', max: 20 },
 		{ key: 'radius', label: 'Corner', max: 10 }
 	];
-	const COLOR_FIELDS: {
-		key: 'windowColor' | 'inkColor' | 'alertColor' | 'goodColor';
-		label: string;
-		fallback: string;
-	}[] = [
-		{ key: 'windowColor', label: 'Panel', fallback: '#141413' },
-		{ key: 'inkColor', label: 'Ink', fallback: '#f7f6f2' },
-		{ key: 'alertColor', label: 'Alert', fallback: '#ff5a5a' },
-		{ key: 'goodColor', label: 'Good', fallback: '#3ddc84' }
-	];
 
 	const orientation = $derived(engineState.transport.orientation);
 	const customLayout = $derived(overlay.content.orientationOverrides?.[orientation]);
@@ -76,7 +66,7 @@
 	function addPanel(): void {
 		const last = overlay.content.panels.at(-1);
 		const at = Math.min(1, (last?.at ?? 0) + 0.1);
-		overlay.content.panels.push({ kind: 'inbox', title: 'Inbox', at, item: 'Your report', copies: [at] });
+		overlay.content.panels.push({ kind: 'inbox', title: 'Primary', at, item: 'Your report', copies: [at] });
 	}
 </script>
 
@@ -108,18 +98,6 @@
 			value={overlay.content[field.key] ?? DUPLICATE_PILEUP_DEFAULT_SIZES[field.key]}
 			oninput={(e) => { const n = numberFrom(e, 0, field.max); if (n !== undefined) overlay.content[field.key] = n; }}
 		/>
-	</Field>
-{/each}
-{#each COLOR_FIELDS as field (field.key)}
-	<Field label={field.label}>
-		<input
-			type="color"
-			value={overlay.content[field.key] ?? field.fallback}
-			oninput={(e) => (overlay.content[field.key] = (e.currentTarget as HTMLInputElement).value)}
-		/>
-		{#if overlay.content[field.key]}
-			<button type="button" onclick={() => (overlay.content[field.key] = undefined)}>Pack</button>
-		{/if}
 	</Field>
 {/each}
 
@@ -168,7 +146,11 @@
 	<Field label="Item">
 		<input type="text" aria-label="Item" maxlength="48" bind:value={panel.item} />
 		<input type="text" aria-label="Meta" maxlength="40" value={panel.meta ?? ''} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; panel.meta = v.length > 0 ? v : undefined; }} />
-		{#if panel.kind === 'pull-requests'}
+		{#if panel.kind === 'inbox'}
+			<input type="text" aria-label="Snippet" maxlength="60" value={panel.snippet ?? ''} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; panel.snippet = v.length > 0 ? v : undefined; }} />
+			<input type="text" aria-label="Time" maxlength="12" value={panel.time ?? ''} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; panel.time = v.length > 0 ? v : undefined; }} />
+		{:else}
+			<input type="text" aria-label="Label" maxlength="20" value={panel.label ?? ''} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; panel.label = v.length > 0 ? v : undefined; }} />
 			<input type="number" aria-label="First number" min="1" max="99999" step="1" value={panel.number ?? ''} oninput={(e) => { const n = Number((e.currentTarget as HTMLInputElement).value); panel.number = Number.isInteger(n) && n >= 1 ? Math.min(99999, n) : undefined; }} />
 		{/if}
 	</Field>

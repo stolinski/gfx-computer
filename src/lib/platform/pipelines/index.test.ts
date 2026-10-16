@@ -63,6 +63,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'icon-orbit',
 	'multiplayer-session',
 	'duplicate-pileup',
+	'actions-run',
 	'counter',
 	'dimensional-type',
 	'instance-stack',
@@ -198,6 +199,8 @@ describe('Pipeline Definition Registry', () => {
 
 	it('derives the complete FULL Pack-immunity set from Identity Specs', () => {
 		const expectedImmuneKeys = [
+			'overlay:actions-run',
+			'overlay:duplicate-pileup',
 			'overlay:instagram-follow',
 			'overlay:shader-fill',
 			'overlay:tweet-stack',

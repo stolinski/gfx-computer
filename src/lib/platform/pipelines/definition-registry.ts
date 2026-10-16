@@ -37,6 +37,7 @@ import { cursorTrailOverlayDefinition } from '$lib/pipelines/overlays/cursor-tra
 import { iconOrbitOverlayDefinition } from '$lib/pipelines/overlays/icon-orbit/definition';
 import { multiplayerSessionOverlayDefinition } from '$lib/pipelines/overlays/multiplayer-session/definition';
 import { duplicatePileupOverlayDefinition } from '$lib/pipelines/overlays/duplicate-pileup/definition';
+import { actionsRunOverlayDefinition } from '$lib/pipelines/overlays/actions-run/definition';
 import { instagramFollowOverlayDefinition } from '$lib/pipelines/overlays/instagram-follow/definition';
 import { instanceStackOverlayDefinition } from '$lib/pipelines/overlays/instance-stack/definition';
 import { lowerThirdOverlayDefinition } from '$lib/pipelines/overlays/lower-third/definition';
@@ -135,6 +136,7 @@ export const PIPELINE_DEFINITION_REGISTRY = {
 		iconOrbit: iconOrbitOverlayDefinition,
 		multiplayerSession: multiplayerSessionOverlayDefinition,
 		duplicatePileup: duplicatePileupOverlayDefinition,
+		actionsRun: actionsRunOverlayDefinition,
 		counter: counterOverlayDefinition,
 		dimensionalType: dimensionalTypeOverlayDefinition,
 		instanceStack: instanceStackOverlayDefinition,

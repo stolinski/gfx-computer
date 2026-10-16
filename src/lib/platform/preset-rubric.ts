@@ -524,7 +524,8 @@ function checkOverlayPlacement(
 			overlay.type === 'cursor-trail' ||
 			overlay.type === 'icon-orbit' ||
 			overlay.type === 'multiplayer-session' ||
-			overlay.type === 'duplicate-pileup';
+			overlay.type === 'duplicate-pileup' ||
+			overlay.type === 'actions-run';
 
 		if (anchor === 'normalized-rect' && rect && !isFullFrameCoordinateOverlay) {
 			if (

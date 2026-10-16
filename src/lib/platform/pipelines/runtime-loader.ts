@@ -205,6 +205,10 @@ const overlayRendererLoaders: Record<string, RuntimeRendererLoader<OverlayRender
 		import('$lib/pipelines/overlays/duplicate-pileup').then(
 			(module) => module.duplicatePileupOverlayRenderer as unknown as OverlayRenderer
 		),
+	[PIPELINE_DEFINITION_REGISTRY.overlays.actionsRun.type]: () =>
+		import('$lib/pipelines/overlays/actions-run').then(
+			(module) => module.actionsRunOverlayRenderer as unknown as OverlayRenderer
+		),
 	[PIPELINE_DEFINITION_REGISTRY.overlays.dimensionalType.type]: () =>
 		import('$lib/pipelines/overlays/dimensional-type').then(
 			(module) => module.dimensionalTypeOverlayRenderer as unknown as OverlayRenderer
