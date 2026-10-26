@@ -9,6 +9,8 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@drop-in/graffiti@4.28.0'
   - '@foleyjs/core@2.7.0'
+  - miniflare@5.20261023.0-beta
+  - wrangler@4.153.0
 onlyBuiltDependencies:
   - workerd
   - sharp
@@ -16,8 +18,8 @@ onlyBuiltDependencies:
 patchedDependencies:
   '@sveltejs/kit@2.69.2': patches/@sveltejs__kit@2.69.2.patch
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
-  vite-plus: 1.1.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vite-plus: 1.4.0
 overrides:
   vite@*: 'catalog:'
 peerDependencyRules:

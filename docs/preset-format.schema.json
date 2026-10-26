@@ -4728,7 +4728,10 @@
                                         "minimum": 1,
                                         "maximum": 9007199254740991
                                       }
-                                    ]
+                                    ],
+                                    "items": false,
+                                    "minItems": 2,
+                                    "maxItems": 2
                                   },
                                   "columns": {
                                     "type": "array",
@@ -4743,7 +4746,10 @@
                                         "minimum": 1,
                                         "maximum": 9007199254740991
                                       }
-                                    ]
+                                    ],
+                                    "items": false,
+                                    "minItems": 2,
+                                    "maxItems": 2
                                   }
                                 },
                                 "required": [
